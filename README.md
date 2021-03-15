@@ -18,7 +18,6 @@
 ### 📖 About me
 
 * 🌱 I’m currently learning JavaScript🤔
-* 🎓 I'm a Computer Science student💻
 * 🥅 2021 Goals: JavaScript Basic & React⚡
 * 😄 I want to learn everything 🤣
 * 🌐 You can see some of my projects on [my portfolio](https://github.com/SohelIslamImran)
