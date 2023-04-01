@@ -8,7 +8,7 @@
 
 ### 📖 About me
 
-I am a MERN-Stack WEB Developer. I am working with React, Node.js and MongoDB. I also have experience in developing static websites using HTML5, CSS3 and JavaScript (ES6). I am a quick learner. I believe in hard work and efficiency. That's why I am always ready to accomplish any task by working hard. I always focus on learning new technology. My goal is to become A World-Class Professional Web Developer. 
+I am a Web and Mobile Application Developer. I am working with JavaScript, React, NEXT.js, React-Native and Expo. I have experience in developing web apps using HTML5, CSS3, JavaScript (ES6), React and mobile apps using React Native, Expo. I also have some experience in Node, Express, MongoDB. I am dedicated, hardworking and passionate, and eager to continue learning and growing in my career. My goal is to join a team where I can use my expertise to create high-quality, user-friendly applications. 
 
 [![LinkedIn Connect](https://img.shields.io/badge/%20-Connect-black?color=14171A&labelColor=212121&logo=linkedin&logoColor=ffffff)](https://www.linkedin.com/in/sohelislamimran/)
 [![Facebook Follow](https://img.shields.io/badge/%20-Follow-black?color=14171A&labelColor=1976d2&logo=facebook&logoColor=ffffff)](https://www.facebook.com/SohelIslamImran/)
