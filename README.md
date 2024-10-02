@@ -1,5 +1,3 @@
-<a href="#"><img width="100%" src="https://sohelislamimran.netlify.app/static/media/Developer.e0ed7fbf.svg" height="400px"/></a>
-
 <h3 align="center">Hey there, I'm Sohel Islam Imran <img src="https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif" width="28"><img src="https://emojis.slackmojis.com/emojis/images/1531849430/4246/blob-sunglasses.gif?1531849430" width="28"/></h3>
 
 <p align="center">
@@ -37,7 +35,3 @@ I am a Web and Mobile Application Developer. I am working with JavaScript, React
 ![NPM](https://img.shields.io/badge/-npm-000000?style=flat&logo=npm&labelColor=ffffff)
 ![ESlint](https://img.shields.io/badge/-ESlint-000000?style=flat&logo=ESlint&labelColor=4B32C3)
 ![Windows](https://img.shields.io/badge/-Windows-000000?style=flat&logo=windows&logoColor=ffffff&labelColor=0078D6)
-
-<img src="https://github-readme-stats.vercel.app/api?username=SohelIslamImran&&show_icons=true&title_color=ffffff&icon_color=bb2acf&text_color=daf7dc&bg_color=151515">
-
-<img src="https://github-readme-stats.vercel.app/api/top-langs/?username=SohelIslamImran&card_width=500&&show_icons=true&title_color=ffffff&icon_color=bb2acf&text_color=daf7dc&bg_color=151515">
