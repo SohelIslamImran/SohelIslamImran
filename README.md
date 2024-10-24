@@ -6,7 +6,7 @@
 
 ### 📖 About me
 
-Full-stack developer specializing in React and React Native ecosystems. Experienced in TypeScript, ES6, web technologies (Next.js), and mobile development (Expo). Proficient in frontend development with backend knowledge in Node.js. Dedicated and passionate developer committed to continuous learning and professional growth.
+Web and Mobile Application Developer specializing in React and React Native ecosystems. Experienced in TypeScript, ES6, web technologies (Next.js), and mobile development (Expo). Proficient in frontend development with backend knowledge in Node.js. Dedicated and passionate developer committed to continuous learning and professional growth.
 
 [![X Follow](https://img.shields.io/badge/-Follow-black?logo=x)](https://x.com/SohelIslamImran)
 [![LinkedIn Connect](https://img.shields.io/badge/-Connect-black?logo=linkedin)](https://www.linkedin.com/in/sohelislamimran)
