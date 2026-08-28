@@ -251,7 +251,7 @@ function KunoOrbit() {
 								role="tab"
 								type="button"
 								aria-selected={activeIndex === index}
-								aria-controls={`system-panel-${domain.id}`}
+								aria-controls="system-panel"
 								tabIndex={activeIndex === index ? 0 : -1}
 								onClick={() => selectDomain(index)}
 								onKeyDown={(event) => handleTabKeyDown(event, index)}
@@ -265,7 +265,7 @@ function KunoOrbit() {
 					<div
 						key={activeDomain.id}
 						className="worldline-lens__panel"
-						id={`system-panel-${activeDomain.id}`}
+						id="system-panel"
 						role="tabpanel"
 						aria-labelledby={`system-tab-${activeDomain.id}`}
 						tabIndex={0}
