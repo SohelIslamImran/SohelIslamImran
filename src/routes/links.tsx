@@ -1,8 +1,10 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { linksSearchSchema } from "../lib/search";
 import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { ColorPlayground, LinkIcon, prismAccentStyle } from "../components";
 export const Route = createFileRoute("/links")({
 	validateSearch: linksSearchSchema,
 	loader: getPublishedContent,
@@ -23,13 +25,15 @@ function Links() {
 	const { kind: requestedKind } = Route.useSearch();
 	const kind = requestedKind ?? "all";
 	const links = c.profileLinks.filter((l) => kind === "all" || l.kind === kind);
+	const [accent, setAccent] = useState("#2f5cff");
 	return (
-		<main className="prism-page">
+		<main className="prism-page links-page" style={prismAccentStyle(accent)}>
 			<header className="page-intro">
 				<p className="eyebrow">Link desk</p>
 				<h1>Everything in one place.</h1>
 				<p className="lede">Choose a signal and follow it to the source.</p>
 			</header>
+			<ColorPlayground accent={accent} onAccentChange={setAccent} />
 			<nav className="segmented" aria-label="Link categories">
 				{(["all", "social", "contact", "work", "story", "other"] as const).map((value) => (
 					<Link
@@ -44,11 +48,22 @@ function Links() {
 			</nav>
 			<section className="link-list">
 				{links.map((l) => (
-					<Link key={l.id} to="/links/$linkId" params={{ linkId: l.id }} search={{ kind }}>
-						<span>{l.platform}</span>
-						<strong>{l.label}</strong>
-						<small>{l.description}</small>
-						<i aria-hidden="true">↗</i>
+					<Link
+						key={l.id}
+						className="link-list__item"
+						to="/links/$linkId"
+						params={{ linkId: l.id }}
+						search={{ kind }}
+					>
+						<LinkIcon platform={l.platform} />
+						<span className="link-list__copy">
+							<span>{l.platform}</span>
+							<strong>{l.label}</strong>
+							<small>{l.description ?? l.handle ?? "Open profile"}</small>
+						</span>
+						<i className="link-list__arrow" aria-hidden="true">
+							↗
+						</i>
 					</Link>
 				))}
 			</section>
