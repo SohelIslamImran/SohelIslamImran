@@ -64,7 +64,7 @@ export function GlassCursor() {
       />
       <motion.div
         aria-hidden="true"
-        className="glass-cursor pointer-events-none fixed top-0 left-0 z-[91] size-2.5 rounded-full mix-blend-multiply"
+        className="glass-cursor pointer-events-none fixed top-0 left-0 z-[91] size-2.5 rounded-full"
         style={{
           transform: dot,
           background: "color-mix(in oklab, var(--color-primary) 72%, white)",

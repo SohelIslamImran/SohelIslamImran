@@ -8,5 +8,6 @@ export const Route = createFileRoute("/work")({
       { name: "description", content: "Kuno product systems, earlier roles, and open-source tools." },
     ],
   }),
+  staleTime: 60_000,
   component: WorkPage,
 });

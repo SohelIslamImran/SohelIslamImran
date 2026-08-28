@@ -4,10 +4,19 @@ export function useDhakaClock() {
   const [now, setNow] = useState<{ date: string; time: string } | null>(null);
 
   useEffect(() => {
+    let timeout = 0;
+    let interval = 0;
     const tick = () => setNow(formatDhaka(new Date()));
     tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    const untilMinute = 60_000 - (Date.now() % 60_000) + 40;
+    timeout = window.setTimeout(() => {
+      tick();
+      interval = window.setInterval(tick, 60_000);
+    }, untilMinute);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
   }, []);
 
   return now;

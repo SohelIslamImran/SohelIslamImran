@@ -2,11 +2,11 @@ import { Link } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { profile, profileLinks, type ProfileLink } from "@/data/folio";
-import { PageEnter } from "@/components/site/page-enter";
 import { Tilt } from "@/components/site/tilt";
 import { LinkMark } from "./marks";
 
-function Card({ link, index }: { link: ProfileLink; index: number }) {
+
+function Card({ link }: { link: ProfileLink }) {
   const [copied, setCopied] = useState(false);
   function copy() {
     const url = new URL(`/links/${link.id}`, window.location.origin).toString();
@@ -14,13 +14,9 @@ function Card({ link, index }: { link: ProfileLink; index: number }) {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1400);
   }
-  const tilt = index % 2 === 0 ? -1.15 : 1.05;
   return (
     <Tilt className={link.featured ? "md:col-span-2" : undefined}>
-      <article
-        className="glass glass-spec filter-gel relative overflow-hidden rounded-[28px] p-5"
-        style={{ transform: `rotate(${tilt}deg)` }}
-      >
+      <article className="glass glass-spec relative overflow-hidden rounded-[28px] p-5">
         <div className="flex items-start justify-between gap-4">
           <p className="kicker">{link.platform}</p>
           <span className="link-mark" aria-hidden="true">
@@ -62,14 +58,16 @@ function Card({ link, index }: { link: ProfileLink; index: number }) {
 export function LinksPage({ links = profileLinks }: { links?: ProfileLink[] }) {
   const ordered = [...links.filter((l) => l.featured), ...links.filter((l) => !l.featured)];
   return (
-    <PageEnter>
-      <main className="page pt-28 pb-24 md:pt-36">
-        <div className="mx-auto max-w-2xl text-center">
-          <img
-            src={profile.portrait}
-            alt=""
-            className="mx-auto size-24 rounded-full object-cover ring-4 ring-white/70"
-          />
+    <main className="page pt-28 pb-24 md:pt-36">
+      <div className="mx-auto max-w-2xl text-center">
+        <img
+          src={profile.portrait}
+          alt={profile.name}
+          width={96}
+          height={96}
+          className="lens-mini mx-auto size-24 object-cover"
+        />
+
           <p className="kicker mt-6">Filter gels on the light table</p>
           <h1 className="mt-3 text-5xl md:text-6xl">Find me where the work is.</h1>
           <p className="mt-4 text-muted">
@@ -77,11 +75,10 @@ export function LinksPage({ links = profileLinks }: { links?: ProfileLink[] }) {
           </p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2">
-          {ordered.map((link, i) => (
-            <Card key={link.id} link={link} index={i} />
+          {ordered.map((link) => (
+            <Card key={link.id} link={link} />
           ))}
         </div>
       </main>
-    </PageEnter>
   );
 }

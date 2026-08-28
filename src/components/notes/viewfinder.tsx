@@ -78,7 +78,7 @@ export function Viewfinder({ notes }: { notes: FieldNote[] }) {
           {ticks.map((t) => (
             <span
               key={t}
-              className="absolute top-1/2 left-1/2 h-[46%] w-px origin-top bg-fg/25"
+              className="absolute top-1/2 left-1/2 h-[46%] w-px origin-top bg-fg/10"
               style={{ transform: `rotate(${(t / ticks.length) * 360}deg)` }}
             />
           ))}

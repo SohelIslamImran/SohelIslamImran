@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getStudioAccess, getStudioDocument, saveStudioDocument, type StudioPayload } from "@/lib/cms";
-import { PageEnter } from "@/components/site/page-enter";
 
 export function StudioPage() {
   const { user, isPending } = useCurrentUserState();
@@ -58,8 +57,7 @@ export function StudioPage() {
   };
 
   return (
-    <PageEnter>
-      <main className="page pt-28 pb-24 md:pt-36">
+    <main className="page pt-28 pb-24 md:pt-36">
         <p className="kicker">Enlarger · Owner studio</p>
         <h1 className="mt-3 text-5xl">Edit the plates.</h1>
         <p className="mt-3 max-w-xl text-muted">
@@ -72,8 +70,9 @@ export function StudioPage() {
             <label className="block text-sm">
               Lede
               <textarea
-                className="mt-2 w-full rounded-2xl border border-line bg-white/70 p-4"
+                className="field mt-2"
                 rows={2}
+
                 value={doc.lede}
                 onChange={(e) => setDoc({ ...doc, lede: e.target.value })}
               />
@@ -81,18 +80,20 @@ export function StudioPage() {
             <label className="mt-6 block text-sm">
               Intro
               <textarea
-                className="mt-2 w-full rounded-2xl border border-line bg-white/70 p-4"
+                className="field mt-2"
                 rows={3}
                 value={doc.intro}
+
                 onChange={(e) => setDoc({ ...doc, intro: e.target.value })}
               />
             </label>
             <label className="mt-6 block text-sm">
               Quote
               <textarea
-                className="mt-2 w-full rounded-2xl border border-line bg-white/70 p-4"
+                className="field mt-2"
                 rows={3}
                 value={doc.quote}
+
                 onChange={(e) => setDoc({ ...doc, quote: e.target.value })}
               />
             </label>
@@ -110,7 +111,8 @@ export function StudioPage() {
           {doc.links.map((link, i) => (
             <div key={link.id} className="glass grid gap-3 rounded-2xl p-4 md:grid-cols-2">
               <input
-                className="rounded-xl border border-line bg-white/70 px-3 py-2"
+                className="field"
+
                 value={link.label}
                 onChange={(e) => {
                   const links = doc.links.slice();
@@ -119,7 +121,8 @@ export function StudioPage() {
                 }}
               />
               <input
-                className="rounded-xl border border-line bg-white/70 px-3 py-2"
+                className="field"
+
                 value={link.href}
                 onChange={(e) => {
                   const links = doc.links.slice();
@@ -128,7 +131,8 @@ export function StudioPage() {
                 }}
               />
               <input
-                className="md:col-span-2 rounded-xl border border-line bg-white/70 px-3 py-2"
+                className="field md:col-span-2"
+
                 value={link.description}
                 onChange={(e) => {
                   const links = doc.links.slice();
@@ -146,7 +150,8 @@ export function StudioPage() {
             <div key={note.id} className="glass space-y-3 rounded-2xl p-4">
               <div className="grid gap-3 md:grid-cols-2">
                 <input
-                  className="rounded-xl border border-line bg-white/70 px-3 py-2"
+                  className="field"
+
                   value={note.place}
                   onChange={(e) => {
                     const notes = doc.notes.slice();
@@ -155,7 +160,8 @@ export function StudioPage() {
                   }}
                 />
                 <input
-                  className="rounded-xl border border-line bg-white/70 px-3 py-2"
+                  className="field"
+
                   value={note.title}
                   onChange={(e) => {
                     const notes = doc.notes.slice();
@@ -165,7 +171,8 @@ export function StudioPage() {
                 />
               </div>
               <textarea
-                className="w-full rounded-xl border border-line bg-white/70 p-3"
+                className="field"
+
                 rows={3}
                 value={note.reflection}
                 onChange={(e) => {
@@ -182,6 +189,6 @@ export function StudioPage() {
           {status === "saving" ? "Saving…" : status === "saved" ? "Saved" : status === "error" ? "Retry save" : "Save live document"}
         </button>
       </main>
-    </PageEnter>
   );
 }
+

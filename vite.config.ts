@@ -166,7 +166,26 @@ export default defineConfig(({ command, isPreview }) => ({
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),
-    tanstackStart(),
+    tanstackStart({
+      prerender: {
+        enabled: true,
+        crawlLinks: false,
+        autoStaticPathsDiscovery: false,
+        failOnError: false,
+        concurrency: 4,
+        filter: (page) =>
+          ["/", "/work", "/story", "/field-notes", "/resume", "/links"].includes(page.path),
+      },
+      pages: [
+        { path: "/" },
+        { path: "/work" },
+        { path: "/story" },
+        { path: "/field-notes" },
+        { path: "/resume" },
+        { path: "/links" },
+      ],
+    }),
+
     ...(command === "build" || isPreview
       ? [
           nitro({

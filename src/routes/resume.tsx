@@ -8,5 +8,6 @@ export const Route = createFileRoute("/resume")({
       { name: "description", content: "Five years across enterprise B2B products, mobile, open source, and developer tooling." },
     ],
   }),
+  staleTime: 60_000,
   component: ResumePage,
 });

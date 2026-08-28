@@ -145,7 +145,8 @@ export function OpticalBench({ roles }: { roles: Role[] }) {
   const role = roles[index];
 
   return (
-    <section className="mt-24" id="kuno-work">
+    <section className="mt-24 scroll-mt-28" id="kuno-work">
+
       <p className="kicker">Optical bench · {n} career plates</p>
       <h2 className="mt-3 max-w-2xl text-4xl md:text-5xl">Rack the work into focus.</h2>
       <p className="mt-4 max-w-xl text-muted">

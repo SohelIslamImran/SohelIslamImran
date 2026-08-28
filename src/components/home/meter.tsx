@@ -23,7 +23,8 @@ export function LightMeter() {
               {i === active ? (
                 <motion.span
                   layoutId="meter-pill"
-                  className="absolute inset-1 rounded-[18px] bg-white/70"
+                  className="absolute inset-1 rounded-[18px] bg-(--seg-pill)"
+
                   transition={springUi}
                 />
               ) : null}

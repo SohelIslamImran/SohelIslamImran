@@ -14,8 +14,7 @@ function Login() {
         <h1 className="mt-3 text-4xl">Enter the instrument.</h1>
         <p className="mt-3 text-sm text-muted">
           Sign in with Google or X. The studio opens only for the owner account
-          ({`sohelislamimran@gmail.com`}). GitHub login is not available on this
-          host — Google or X with that email is the door.
+          (sohelislamimran@gmail.com).
         </p>
         <div className="mt-6 space-y-3">
           {authEnabled ? (

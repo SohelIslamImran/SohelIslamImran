@@ -6,7 +6,7 @@ import { springTilt } from "./motion";
 export function Tilt({
   children,
   className,
-  max = 8,
+  max = 5,
 }: {
   children: ReactNode;
   className?: string;

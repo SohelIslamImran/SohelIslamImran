@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LinksPage } from "@/components/links/links-page";
-import { getStudioDocument } from "@/lib/cms";
+import { getStudioDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/links")({
   head: () => ({
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/links")({
     ],
   }),
   loader: () => getStudioDocument(),
+  staleTime: STUDIO_STALE_MS,
   component: function Links() {
     const data = Route.useLoaderData();
     return <LinksPage links={data.payload.links} />;

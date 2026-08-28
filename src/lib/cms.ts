@@ -11,6 +11,8 @@ export type StudioPayload = {
   links: typeof profileLinks;
 };
 
+export const STUDIO_STALE_MS = 60_000;
+
 const DOC_ID = "folio";
 
 function seedPayload(): StudioPayload {
@@ -24,24 +26,29 @@ function seedPayload(): StudioPayload {
 }
 
 export const getStudioDocument = createServerFn({ method: "GET" }).handler(async () => {
-  const { getSql } = await import("@/lib/db");
-  const sql = await getSql();
-  const rows = await sql<{ payload: string; updated_at: string | Date | null }>`
-    select payload, updated_at from folio_document where id = ${DOC_ID}
-  `;
-  if (!rows[0]) {
-    return { payload: seedPayload(), updatedAt: null, source: "seed" as const };
-  }
   try {
-    return {
-      payload: JSON.parse(rows[0].payload) as StudioPayload,
-      updatedAt: rows[0].updated_at ? String(rows[0].updated_at) : null,
-      source: "db" as const,
-    };
+    const { getSql } = await import("@/lib/db");
+    const sql = await getSql();
+    const rows = await sql<{ payload: string; updated_at: string | Date | null }>`
+      select payload, updated_at from folio_document where id = ${DOC_ID}
+    `;
+    if (!rows[0]) {
+      return { payload: seedPayload(), updatedAt: null, source: "seed" as const };
+    }
+    try {
+      return {
+        payload: JSON.parse(rows[0].payload) as StudioPayload,
+        updatedAt: rows[0].updated_at ? String(rows[0].updated_at) : null,
+        source: "db" as const,
+      };
+    } catch {
+      return { payload: seedPayload(), updatedAt: null, source: "seed" as const };
+    }
   } catch {
     return { payload: seedPayload(), updatedAt: null, source: "seed" as const };
   }
 });
+
 
 export const saveStudioDocument = createServerFn({ method: "POST" })
   .middleware([authMiddleware])

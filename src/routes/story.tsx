@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { StoryPage } from "@/components/story/story-page";
-import { getStudioDocument } from "@/lib/cms";
+import { getStudioDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/story")({
   head: () => ({
@@ -10,6 +10,7 @@ export const Route = createFileRoute("/story")({
     ],
   }),
   loader: () => getStudioDocument(),
+  staleTime: STUDIO_STALE_MS,
   component: function Story() {
     const data = Route.useLoaderData();
     return <StoryPage quote={data.payload.quote} />;

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { profile } from "@/data/folio";
 import { useReducedMotion } from "@/hooks/use-reduced";
+import { Tilt } from "@/components/site/tilt";
 import type { LensPointer } from "./lens-scene";
 
 const LensScene = lazy(() => import("./lens-scene"));
@@ -18,7 +19,7 @@ function hasWebGL() {
   }
 }
 
-export function OpticalLens() {
+export function OpticalLens({ compact = false }: { compact?: boolean }) {
   const wrap = useRef<HTMLDivElement>(null);
   const pointer = useRef<LensPointer>({ x: 0, y: 0 });
   const reduced = useReducedMotion();
@@ -43,54 +44,67 @@ export function OpticalLens() {
     const el = wrap.current;
     if (!el) return;
     const b = el.getBoundingClientRect();
-    pointer.current = {
-      x: ((e.clientX - b.left) / b.width - 0.5) * 2,
-      y: ((e.clientY - b.top) / b.height - 0.5) * 2,
-    };
+    const px = (e.clientX - b.left) / b.width - 0.5;
+    const py = (e.clientY - b.top) / b.height - 0.5;
+    pointer.current = { x: px * 2, y: py * 2 };
+    el.style.setProperty("--gx", `${px * 10}px`);
+    el.style.setProperty("--gy", `${py * 8}px`);
+    el.style.setProperty("--lx", `${(px + 0.5) * 100}%`);
+    el.style.setProperty("--ly", `${(py + 0.5) * 100}%`);
+  };
+
+  const onLeave = () => {
+    pointer.current = { x: 0, y: 0 };
+    const el = wrap.current;
+    if (!el) return;
+    el.style.setProperty("--gx", "0px");
+    el.style.setProperty("--gy", "0px");
+    el.style.setProperty("--lx", "32%");
+    el.style.setProperty("--ly", "22%");
   };
 
   return (
     <div>
-      <div
-        ref={wrap}
-        onPointerMove={onMove}
-        onPointerLeave={() => {
-          pointer.current = { x: 0, y: 0 };
-        }}
-        className="relative mx-auto aspect-square w-full max-w-[min(100%,28rem)]"
-        data-cursor="press"
-        role="img"
-        aria-label={`${profile.name}, photographed through a crown-glass objective`}
-      >
-        {webgl ? (
-          <>
-            <div className="lens-standin">
-              <img
-                src={profile.portrait}
-                alt=""
-                className="size-full object-cover"
-                width={640}
-                height={640}
-              />
-            </div>
-            <div className="lens-object absolute inset-0">
-              <Suspense fallback={null}>
-                <LensScene
-                  pointer={pointer as MutableRefObject<LensPointer>}
-                  reduced={reduced}
-                  playing={visible && !reduced}
-                />
-              </Suspense>
-            </div>
-          </>
-        ) : (
-          <div className="lens-rim glass absolute inset-[4%] overflow-hidden rounded-full">
-            <img src={profile.portrait} alt="" className="size-full object-cover" width={640} height={640} />
+      <Tilt max={compact ? 5 : 6}>
+        <div
+          ref={wrap}
+          onPointerMove={onMove}
+          onPointerLeave={onLeave}
+          className={`lens-stand relative mx-auto aspect-square w-full ${
+            compact ? "max-w-72" : "max-w-[min(100%,26rem)]"
+          }`}
+          data-cursor="press"
+          role="img"
+          aria-label={`${profile.name}, photographed on a crown-glass plate`}
+        >
+          <div className="lens-plate">
+            <img
+              src={profile.portrait}
+              alt=""
+              className="lens-plate-photo"
+              width={640}
+              height={640}
+              fetchPriority={compact ? "low" : "high"}
+              loading={compact ? "lazy" : "eager"}
+              decoding="async"
+            />
+            <div className="lens-plate-glass" />
+            {webgl ? (
+              <div className="lens-object">
+                <Suspense fallback={null}>
+                  <LensScene
+                    pointer={pointer as MutableRefObject<LensPointer>}
+                    reduced={reduced}
+                    playing={visible && !reduced}
+                  />
+                </Suspense>
+              </div>
+            ) : null}
           </div>
-        )}
-      </div>
-      <p className="mt-3 text-center font-mono text-[10px] tracking-[0.18em] text-faint">
-        OBJECTIVE · CROWN GLASS · MgF₂ COAT
+        </div>
+      </Tilt>
+      <p className="mt-4 text-center font-mono text-[10px] tracking-[0.18em] text-faint">
+        {compact ? `${profile.city} · UTC+6` : "CONTACT PRINT · CROWN GLASS · MgF₂ COAT"}
       </p>
     </div>
   );

@@ -12,7 +12,7 @@ export const gels: Gel[] = [
   { id: "mint", name: "Mint", hex: "#34d399" },
   { id: "violet", name: "Violet", hex: "#818cf8" },
   { id: "amber", name: "Amber", hex: "#f5a524" },
-  { id: "graphite", name: "Graphite", hex: "#3f3c39" },
+  { id: "graphite", name: "Graphite", hex: "#8e8a85" },
 ];
 
 export const DEFAULT_GEL = "lacquer";
