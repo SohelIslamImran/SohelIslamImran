@@ -7,6 +7,7 @@ import {
 	createRootRoute,
 	useRouterState,
 } from "@tanstack/react-router";
+import { AccentSwitcher, accentBootScript } from "../components";
 import "../styles/prism-route.css";
 
 export const Route = createRootRoute({
@@ -37,10 +38,12 @@ export const Route = createRootRoute({
 function RootComponent() {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
 	const [menuOpen, setMenuOpen] = useState(false);
+	const [accentOpen, setAccentOpen] = useState(false);
 	const menuButtonRef = useRef<HTMLButtonElement>(null);
 
 	useEffect(() => {
 		setMenuOpen(false);
+		setAccentOpen(false);
 	}, [pathname]);
 
 	useEffect(() => {
@@ -66,17 +69,6 @@ function RootComponent() {
 					</span>
 					<span>Sohel Islam Imran</span>
 				</Link>
-				<button
-					ref={menuButtonRef}
-					className="site-shell__menu"
-					type="button"
-					aria-controls="primary-navigation"
-					aria-expanded={menuOpen}
-					onClick={() => setMenuOpen((open) => !open)}
-				>
-					<span>{menuOpen ? "Close" : "Menu"}</span>
-					<span aria-hidden="true">{menuOpen ? "×" : "＋"}</span>
-				</button>
 				<nav
 					id="primary-navigation"
 					className="site-shell__nav"
@@ -104,6 +96,29 @@ function RootComponent() {
 						Links <span aria-hidden="true">↗</span>
 					</Link>
 				</nav>
+				<div className="site-shell__actions">
+					<AccentSwitcher
+						open={accentOpen}
+						onOpenChange={(open) => {
+							setAccentOpen(open);
+							if (open) setMenuOpen(false);
+						}}
+					/>
+					<button
+						ref={menuButtonRef}
+						className="site-shell__menu"
+						type="button"
+						aria-controls="primary-navigation"
+						aria-expanded={menuOpen}
+						onClick={() => {
+							setMenuOpen((open) => !open);
+							setAccentOpen(false);
+						}}
+					>
+						<span>{menuOpen ? "Close" : "Menu"}</span>
+						<span aria-hidden="true">{menuOpen ? "×" : "＋"}</span>
+					</button>
+				</div>
 			</header>
 			<div id="main-content">
 				<Outlet />
@@ -121,9 +136,10 @@ function RootComponent() {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 	return (
-		<html lang="en">
+		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
+				<script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
 			</head>
 			<body>
 				{children}

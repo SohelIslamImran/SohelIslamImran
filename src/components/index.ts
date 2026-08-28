@@ -1,5 +1,6 @@
+export { AccentSwitcher, accentBootScript, prismAccents } from "./AccentSwitcher";
+export type { PrismAccentId } from "./AccentSwitcher";
 export { CareerTimeline } from "./CareerTimeline";
-export { ColorPlayground, prismAccentStyle, prismPalettes } from "./ColorPlayground";
 export { GlassRouteHero } from "./GlassRouteHero";
 export { LinkIcon } from "./LinkIcon";
 export { PrismImage } from "./PrismImage";
