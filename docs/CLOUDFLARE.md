@@ -34,9 +34,9 @@ The CMS is protected in two layers:
    before allowing draft, publish, or media mutations.
 
 The self-hosted Access application, owner policy, custom domain, Access audience,
-and team-domain secrets are configured. It currently uses Cloudflare's account
-identity provider. GitHub remains the preferred identity provider and requires a
-GitHub OAuth app client ID and secret before it can be attached to Access.
+and team-domain secrets are configured. It uses Cloudflare's account identity
+provider by owner choice, so no separate GitHub OAuth app or persistent client
+secret is created.
 
 The old `/resume/edit` path remains an application compatibility path and should
 redirect to the CMS hostname. The public apex never serves draft content.

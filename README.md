@@ -85,7 +85,7 @@ The portfolio is deployed at `https://sohelislamimran.com`. The `www` hostname r
 
 Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md).
 
-The production Worker, D1 binding, three custom domains, Access application, and security settings are now configured. The CMS currently uses Cloudflare's account identity provider. Switching it to GitHub requires a GitHub OAuth app client ID and secret. R2 remains off because the current release uses static media and does not need usage-based object storage.
+The production Worker, D1 binding, three custom domains, Access application, and security settings are now configured. The CMS uses Cloudflare's account identity provider behind an owner-only email policy; no separate GitHub OAuth credential is required. R2 remains off because the current release uses static media and does not need usage-based object storage.
 
 The zone is on Cloudflare's Free Website plan, and this release did not enable Workers Paid, R2, or paid security add-ons. Free quotas may throttle traffic instead of providing unlimited capacity. Domain renewal is separate, remains enabled, and was not changed by this deployment.
 
