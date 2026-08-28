@@ -10,8 +10,8 @@ hostnames:
 ## Production status
 
 The TanStack Start build is deployed to the `portfolio` Worker. The former
-duplicate `sohel-portfolio` Worker was removed after its domains and settings
-were migrated. The apex,
+duplicate Worker was removed after its domains and settings were migrated. The
+apex,
 `www`, and CMS custom domains are active. The
 `portfolio-content-production` D1 database exists, both migrations are applied,
 and the public site reads the published revision.
