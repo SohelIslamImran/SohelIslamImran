@@ -47,7 +47,7 @@
 
 .worldline-page a:focus-visible,
 .worldline-page button:focus-visible {
-  outline: 3px solid var(--worldline-coral);
+  outline: 3px solid #a8463d;
   outline-offset: 4px;
 }
 
@@ -668,7 +668,9 @@
     radial-gradient(circle at center, rgba(52, 104, 215, 0.17), transparent 44%),
     linear-gradient(150deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.01));
   cursor: grab;
-  touch-action: none;
+  /* Let a vertical finger gesture remain a normal page scroll. We only
+     capture a pointer after a clear horizontal drag intent is detected. */
+  touch-action: pan-y;
   user-select: none;
 }
 
@@ -847,6 +849,35 @@
 
 .worldline-lens__copy {
   min-width: 0;
+}
+
+.worldline-lens__evidence {
+  display: grid;
+  gap: 0.75rem;
+  margin: 1.7rem 0 0;
+}
+
+.worldline-lens__evidence > div {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--worldline-line);
+}
+
+.worldline-lens__evidence dt {
+  color: var(--worldline-dark-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.worldline-lens__evidence dd {
+  margin: 0;
+  color: var(--worldline-dark-muted);
+  font-size: 0.92rem;
+  line-height: 1.45;
 }
 
 .worldline-lens__tabs {

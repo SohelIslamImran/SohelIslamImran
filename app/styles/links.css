@@ -251,7 +251,8 @@
 }
 
 .links-card__copy {
-  align-self: center;
+	align-self: center;
+	min-height: 2.75rem;
   margin-right: 0.75rem;
   padding: 0.4rem 0.65rem;
   border: 1px solid var(--links-line);

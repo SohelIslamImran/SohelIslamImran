@@ -169,6 +169,9 @@
 }
 
 .resume-worldline__contact > a {
+	display: inline-flex;
+	min-height: 2.75rem;
+	align-items: center;
 	color: var(--worldline-ink);
 	font-weight: 650;
 }
@@ -203,6 +206,10 @@
 	background: var(--worldline-ink);
 	color: var(--worldline-paper);
 	transform: translateY(-2px);
+}
+
+.resume-worldline__print-note {
+	display: none;
 }
 
 .resume-worldline__print span:last-child {
@@ -946,13 +953,13 @@
 	.resume-worldline__company,
 	.resume-worldline__entry-summary,
 	.resume-worldline__entry-content li {
-		font-size: 8.5pt;
+		font-size: 9pt;
 	}
 
 	.resume-worldline__entry-meta,
 	.resume-worldline__proof-year,
 	.resume-worldline__section-label {
-		font-size: 6.5pt;
+		font-size: 7.5pt;
 	}
 
 	.resume-worldline__tags {
@@ -962,7 +969,7 @@
 
 	.resume-worldline__tags li {
 		padding: 1mm 1.7mm;
-		font-size: 6.5pt;
+		font-size: 7pt;
 	}
 
 	.resume-worldline__side {
@@ -992,6 +999,14 @@
 		display: none;
 	}
 
+	.resume-worldline__print-note {
+		display: block;
+		margin: 3mm 0 0;
+		color: #53656b;
+		font-size: 8pt;
+		line-height: 1.35;
+	}
+
 	.resume-worldline__proof h3,
 	.resume-worldline__capability h3 {
 		font-size: 8.5pt;
@@ -1000,7 +1015,7 @@
 	.resume-worldline__proof > p:not(.resume-worldline__proof-year):not(.resume-worldline__proof-signal),
 	.resume-worldline__capability p,
 	.resume-worldline__horizon-note {
-		font-size: 7.5pt;
+		font-size: 8.5pt;
 	}
 
 	.resume-worldline__horizon-card {

@@ -21,8 +21,8 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
   },
   hero: {
     eyebrow: "Lead Full Stack Engineer · Kuno",
-    title: "I build systems that make complexity feel clear.",
-    intro: "Product architecture, dependable delivery, and small tools with long reach—built from Dhaka for teams working everywhere.",
+    title: "I lead full-stack engineering for ambitious products.",
+    intro: "I build secure TypeScript products across React interfaces, backend services, data systems, and delivery—from Dhaka for teams working everywhere.",
     actions: [
       { label: "Explore selected work", href: "/work" },
       { label: "Start a conversation", href: "mailto:sohelislamimran@gmail.com", external: true },
@@ -283,7 +283,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
   },
   story: {
     eyebrow: "Personal field note / Long-form",
-    title: "From first principles.",
+    title: "From a phone in Bangladesh to full-stack engineering.",
     intro: "A story about starting without a computer, learning in public, and following small evidence until it became a career.",
     quote: "The useful part of this story is not that the beginning was difficult. It is that consistency kept changing what was possible.",
     chapters: [

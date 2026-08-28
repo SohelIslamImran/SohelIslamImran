@@ -99,6 +99,9 @@ export function createSeoMeta(options: SeoPageOptions): MetaDescriptor[] {
 	const canonical = canonicalUrl(options.pathname, origin);
 	const image = imageUrl(options.image, origin);
 	const imageAlt = options.imageAlt ?? DEFAULT_SOCIAL_IMAGE_ALT;
+	const isSocialCard = options.image?.startsWith('/images/social-') ?? false;
+	const imageWidth = isSocialCard ? '1200' : '800';
+	const imageHeight = isSocialCard ? '630' : '800';
 	const type = options.type ?? 'website';
 	const descriptors: MetaDescriptor[] = [
 		{ title: options.title },
@@ -115,13 +118,11 @@ export function createSeoMeta(options: SeoPageOptions): MetaDescriptor[] {
 		{ property: 'og:url', content: canonical },
 		{ property: 'og:image', content: image },
 		{ property: 'og:image:alt', content: imageAlt },
-		{ property: 'og:image:width', content: '800' },
-		{ property: 'og:image:height', content: '800' },
+		{ property: 'og:image:width', content: imageWidth },
+		{ property: 'og:image:height', content: imageHeight },
 		{
 			property: 'og:locale',
-			content: options.content?.site.locale === 'en'
-				? 'en_US'
-				: (options.content?.site.locale || 'en_US').replace('-', '_'),
+			content: options.content?.site.locale === 'en' ? 'en_US' : (options.content?.site.locale || 'en_US').replace('-', '_'),
 		},
 		{ name: 'twitter:card', content: 'summary_large_image' },
 		{ name: 'twitter:title', content: options.title },
@@ -157,18 +158,22 @@ export function createSeoMeta(options: SeoPageOptions): MetaDescriptor[] {
 }
 
 function sameAsLinks(content?: SeoContent, origin = contentOrigin(content)): string[] {
-	return [...new Set([...(content?.social ?? []), ...(content?.profileLinks ?? [])]
-		.map((link) => {
-			try {
-				const url = new URL(link.href, origin);
-				// sameAs is for distinct public profiles, not this site's internal
-				// routes or contact schemes.
-				return url.protocol === 'https:' && url.origin !== origin ? url.href : null;
-			} catch {
-				return null;
-			}
-		})
-		.filter((href): href is string => href !== null))];
+	return [
+		...new Set(
+			[...(content?.social ?? []), ...(content?.profileLinks ?? [])]
+				.map((link) => {
+					try {
+						const url = new URL(link.href, origin);
+						// sameAs is for distinct public profiles, not this site's internal
+						// routes or contact schemes.
+						return url.protocol === 'https:' && url.origin !== origin ? url.href : null;
+					} catch {
+						return null;
+					}
+				})
+				.filter((href): href is string => href !== null),
+		),
+	];
 }
 
 function currentEmployer(content?: SeoContent): JsonLdObject | undefined {

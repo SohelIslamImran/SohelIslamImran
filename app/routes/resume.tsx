@@ -1,7 +1,9 @@
 import { env } from 'cloudflare:workers';
 import type { Route } from './+types/resume';
 import { SiteShell } from '../components/SiteShell';
+import { ResponsiveImage } from '../components/ResponsiveImage';
 import { getPublicContent } from '../lib/cms.server';
+import { dateTimeFromPeriod } from '../lib/content-dates';
 import '../styles/resume-worldline.css';
 import { breadcrumbJsonLd, createSeoMeta, personJsonLd, profilePageJsonLd } from '../lib/seo';
 
@@ -17,6 +19,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
 		description,
 		pathname: '/resume',
 		content,
+		image: '/images/social-resume.png',
+		imageAlt: 'Sohel Islam Imran résumé',
 		jsonLd: [
 			personJsonLd(content),
 			profilePageJsonLd(content, '/resume', title, description),
@@ -48,20 +52,22 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 	const summary = content.resume.summary?.trim();
 	const siteUrl = content.site.url?.trim();
 	const hasTravel = Boolean(content.travel.title || content.travel.intro);
+	const avatarSrc = content.identity.avatar ? `/media/${encodeURIComponent(content.identity.avatar.id)}` : '/images/sohel-linkedin.png';
 
 	return (
-		<SiteShell>
+		<SiteShell contactEmail={content.contact.email || content.identity.email} profileLinks={content.profileLinks}>
 			<article className="resume-worldline">
 				<header className="resume-worldline__masthead">
 					<div className="resume-worldline__identity">
 						<figure className="resume-worldline__portrait">
-							<img
-								src="/images/sohel-linkedin.png"
+							<ResponsiveImage
+								src={avatarSrc}
 								width="800"
 								height="800"
 								alt={`${content.identity.name} — profile portrait`}
 								loading="eager"
 								decoding="async"
+								sizes="96px"
 							/>
 							<figcaption aria-hidden="true">SI</figcaption>
 						</figure>
@@ -132,7 +138,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 											</div>
 											<div className="resume-worldline__entry-content">
 												<div className="resume-worldline__entry-meta">
-													<time>{item.period}</time>
+													<time dateTime={dateTimeFromPeriod(item.period)}>{item.period}</time>
 													{item.location ? <span>{item.location}</span> : null}
 													{item.current ? <span className="resume-worldline__current">Now</span> : null}
 												</div>
@@ -204,6 +210,9 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 							) : (
 								<p className="resume-worldline__empty">Public projects will appear here as they are published.</p>
 							)}
+							<p className="resume-worldline__print-note">
+								Additional public work: {siteUrl ? `${siteUrl.replace(/\/$/, '')}/work` : '/work'}
+							</p>
 						</section>
 
 						{content.capabilities.length > 0 ? (
