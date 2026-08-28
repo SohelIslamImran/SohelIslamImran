@@ -3007,10 +3007,17 @@ body {
   height: 2px;
   background: var(--world-blue);
   content: "";
+  transform-origin: left;
+  animation: career-tab-line 200ms var(--ease-world);
+}
+
+@keyframes career-tab-line {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .career-worldline__panel {
-  animation: world-panel 280ms var(--ease-world);
+  animation: world-panel 240ms var(--ease-world);
 }
 
 .career-worldline__period {
@@ -3055,7 +3062,6 @@ body {
 }
 
 .career-card {
-  --offset: calc(var(--card-index) - var(--selected-index));
   position: absolute;
   top: 50%;
   left: 50%;
@@ -3071,22 +3077,26 @@ body {
   border-radius: 1.4rem;
   background: rgba(255, 255, 255, 0.72);
   box-shadow: 0 2.2rem 5rem rgba(39, 49, 72, 0.1);
-  opacity: 0.42;
-  transform:
-    translate(-50%, calc(-50% + var(--offset) * 13rem))
-    translateZ(-220px)
-    rotateX(calc(var(--offset) * -5deg))
-    rotateY(-5deg);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -48%) scale(0.965) rotateY(-3deg);
   transform-style: preserve-3d;
-  transition: transform 700ms var(--ease-world), opacity 450ms ease, border-color 300ms ease;
+  transition:
+    transform 320ms var(--ease-world),
+    opacity 180ms ease,
+    border-color 180ms ease;
   backdrop-filter: blur(24px);
+}
+
+.career-card[data-before] {
+  transform: translate(-50%, -52%) scale(0.965) rotateY(-3deg);
 }
 
 .career-card[data-active] {
   z-index: 3;
   border-color: var(--world-blue);
   opacity: 1;
-  transform: translate(-50%, -50%) translateZ(0) rotateY(-5deg);
+  transform: translate(-50%, -50%) scale(1) rotateY(-3deg);
 }
 
 .career-card > div:first-child {
@@ -3479,12 +3489,31 @@ body {
   from { opacity: 0; transform: translateY(8px); }
 }
 
+/* Progressive enhancement: SSR content stays visible until the client has
+   measured the viewport, then below-fold sections reveal once as they enter. */
+.site-shell[data-reveal-ready] [data-reveal]:not([data-reveal-visible]) {
+  opacity: 0;
+  transform: translateY(1rem);
+}
+
+.site-shell[data-reveal-ready] [data-reveal][data-reveal-visible] {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 320ms var(--ease-world), transform 420ms var(--ease-world);
+}
+
 @media (hover: hover) and (pointer: fine) {
   .worldline-button:hover { transform: translateY(-2px); box-shadow: 0 1.1rem 2.5rem rgba(49,91,255,.26); }
   .worldline-text-link:hover { color: var(--world-blue); }
   .company-proof a:hover { transform: translateY(-4px); border-color: rgba(49,91,255,.45); box-shadow: 0 1.3rem 3rem rgba(39,49,72,.08); }
   .open-source-proof__list a:hover { padding-inline: 1rem; color: var(--world-blue); }
   .worldline-path:hover img { opacity: .62; transform: scale(1.035); }
+}
+
+.worldline-button:active,
+.company-proof a:active,
+.worldline-path:active {
+  transform: scale(0.985);
 }
 
 @media (max-width: 900px) {
@@ -3530,8 +3559,9 @@ body {
   .career-worldline h2, .company-proof h2, .open-source-proof h2 { font-size: 3.2rem; }
   .career-worldline__tabs { gap: 1rem; }
   .career-worldline__stage { min-height: 29rem; margin-inline: -1rem; }
-  .career-card { width: 95%; min-height: 14rem; grid-template-columns: .8fr 1.2fr; padding: 1.2rem; transform: translate(-50%, calc(-50% + var(--offset) * 10rem)) translateZ(-170px) rotateX(calc(var(--offset) * -5deg)) rotateY(-4deg); }
-  .career-card[data-active] { transform: translate(-50%, -50%) translateZ(0) rotateY(-4deg); }
+  .career-card { width: 95%; min-height: 14rem; grid-template-columns: .8fr 1.2fr; padding: 1.2rem; transform: translate(-50%, -48%) scale(.965) rotateY(-2deg); }
+  .career-card[data-before] { transform: translate(-50%, -52%) scale(.965) rotateY(-2deg); }
+  .career-card[data-active] { transform: translate(-50%, -50%) scale(1) rotateY(-2deg); }
   .career-card strong { font-size: 2rem; }
   .career-card img { max-height: 11rem; }
   .company-proof__feature { min-height: 24rem; padding: 2rem; }
@@ -3549,6 +3579,13 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .site-shell[data-reveal-ready] [data-reveal],
+  .site-shell[data-reveal-ready] [data-reveal][data-reveal-visible] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
   .worldline-hero__copy,
   .worldline-portrait,
   .career-worldline__panel {

@@ -15,10 +15,9 @@ import "../styles/work-worldline.css";
 export function meta({ loaderData }: Route.MetaArgs) {
   const content = loaderData?.content;
   const name = content?.identity.name || "Sohel Islam Imran";
-  const title = `Selected work — ${name}`;
+  const title = `Full-Stack Engineering Work at Kuno | ${name}`;
   const description =
-    content?.site.description ||
-    "Selected product systems, open-source infrastructure, and developer tooling by Sohel Islam Imran.";
+    `Case studies from ${name}, Lead Full Stack Engineer at Kuno: TypeScript and React product architecture, secure services, data systems, CI/CD, and open-source tooling.`;
 
   return createSeoMeta({
     title,
@@ -76,8 +75,10 @@ function normalizeIndex(index: number) {
 
 function KunoOrbit() {
   const [activeIndex, setActiveIndex] = useState(0);
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
-  const dragRef = useRef<{ pointerId: number; x: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ pointerId: number; x: number; moved: boolean } | null>(null);
+  const tiltFrameRef = useRef<number | null>(null);
+  const pendingTiltRef = useRef<{ element: HTMLDivElement; x: number; y: number } | null>(null);
   const activeDomain: SystemDomain = systemDomains[activeIndex];
 
   const moveBy = (delta: number) => {
@@ -91,21 +92,36 @@ function KunoOrbit() {
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { pointerId: event.pointerId, x: event.clientX };
+    dragRef.current = { pointerId: event.pointerId, x: event.clientX, moved: false };
+    setIsDragging(true);
   };
 
   const handlePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
     const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
-    setTilt({ x: Math.max(-4, Math.min(4, y * -3)), y: Math.max(-5, Math.min(5, x * 4)) });
+    pendingTiltRef.current = {
+      element: event.currentTarget,
+      x: Math.max(-4, Math.min(4, y * -3)),
+      y: Math.max(-5, Math.min(5, x * 4)),
+    };
+    if (tiltFrameRef.current === null) {
+      tiltFrameRef.current = window.requestAnimationFrame(() => {
+        const pending = pendingTiltRef.current;
+        if (pending) {
+          pending.element.style.setProperty("--orbit-tilt-x", `${pending.x}deg`);
+          pending.element.style.setProperty("--orbit-tilt-y", `${pending.y}deg`);
+        }
+        tiltFrameRef.current = null;
+      });
+    }
 
     const drag = dragRef.current;
-    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId || drag.moved) return;
     const distance = event.clientX - drag.x;
-    if (Math.abs(distance) < 34) return;
+    if (Math.abs(distance) < 52) return;
     moveBy(distance < 0 ? 1 : -1);
-    dragRef.current = { ...drag, x: event.clientX };
+    dragRef.current = { ...drag, moved: true };
   };
 
   const stopPointer = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -113,7 +129,14 @@ function KunoOrbit() {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    setTilt({ x: 0, y: 0 });
+    setIsDragging(false);
+    pendingTiltRef.current = null;
+    if (tiltFrameRef.current !== null) {
+      window.cancelAnimationFrame(tiltFrameRef.current);
+      tiltFrameRef.current = null;
+    }
+    event.currentTarget.style.setProperty("--orbit-tilt-x", "0deg");
+    event.currentTarget.style.setProperty("--orbit-tilt-y", "0deg");
   };
 
   const handleTabKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -131,7 +154,7 @@ function KunoOrbit() {
   };
 
   return (
-    <section className="worldline-lens" id="system-lens" aria-labelledby="system-lens-title">
+    <section className="worldline-lens" id="system-lens" aria-labelledby="system-lens-title" data-reveal>
       <div className="worldline-lens__heading">
         <p className="worldline-kicker">One product, three pressures</p>
         <h2 id="system-lens-title">The part of the work I keep coming back to.</h2>
@@ -144,18 +167,17 @@ function KunoOrbit() {
       <div className="worldline-lens__body">
         <div
           className="worldline-orbit-stage"
-          style={
-            {
-              "--orbit-tilt-x": `${tilt.x}deg`,
-              "--orbit-tilt-y": `${tilt.y}deg`,
-            } as CSSProperties
-          }
+          data-dragging={isDragging || undefined}
+          style={{ "--orbit-tilt-x": "0deg", "--orbit-tilt-y": "0deg" } as CSSProperties}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={stopPointer}
           onPointerCancel={stopPointer}
           onPointerLeave={(event) => {
-            if (!dragRef.current) setTilt({ x: 0, y: 0 });
+            if (!dragRef.current) {
+              event.currentTarget.style.setProperty("--orbit-tilt-x", "0deg");
+              event.currentTarget.style.setProperty("--orbit-tilt-y", "0deg");
+            }
             if (dragRef.current?.pointerId === event.pointerId) stopPointer(event);
           }}
         >
@@ -217,6 +239,7 @@ function KunoOrbit() {
           </div>
 
           <div
+            key={activeDomain.id}
             className="worldline-lens__panel"
             id={`system-panel-${activeDomain.id}`}
             role="tabpanel"
@@ -237,17 +260,19 @@ function KunoOrbit() {
   );
 }
 
-function KunoRole({ role, index }: { role: ExperienceContent; index: number }) {
+function KunoRole({ role }: { role: ExperienceContent }) {
   return (
-    <article className="worldline-role" style={{ "--role-index": index } as CSSProperties}>
+    <article className="worldline-role" data-reveal>
       <div className="worldline-role__rail" aria-hidden="true">
         <span />
       </div>
-      <time>{role.period}</time>
       <div className="worldline-role__content">
+        <div className="worldline-role__meta">
+          <time>{role.period}</time>
+          {role.current && <span className="worldline-live">Current</span>}
+        </div>
         <div className="worldline-role__topline">
           <p className="worldline-kicker">{role.company}</p>
-          {role.current && <span className="worldline-live">Current</span>}
         </div>
         <h3>{role.role}</h3>
         <p>{role.summary}</p>
@@ -328,7 +353,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
           </a>
         </section>
 
-        <section className="worldline-kuno" id="kuno-work" aria-labelledby="kuno-title">
+        <section className="worldline-kuno" id="kuno-work" aria-labelledby="kuno-title" data-reveal>
           <div className="worldline-section-intro">
             <div>
               <p className="worldline-kicker">01 / Kuno</p>
@@ -343,14 +368,14 @@ export default function Work({ loaderData }: Route.ComponentProps) {
 
           {kunoRoles.length > 0 ? (
             <div className="worldline-role-list">
-              {kunoRoles.map((role, index) => <KunoRole key={role.id} role={role} index={index} />)}
+              {kunoRoles.map((role) => <KunoRole key={role.id} role={role} />)}
             </div>
           ) : (
             <p className="worldline-empty">Kuno experience will appear here when the public profile is updated.</p>
           )}
 
           {kunoProject && (
-            <article className="worldline-project-note">
+            <article className="worldline-project-note" data-reveal>
               <div>
                 <p className="worldline-kicker">A public account</p>
                 <h3>{kunoProject.title}</h3>
@@ -365,7 +390,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
 
         <KunoOrbit />
 
-        <section className="worldline-earlier" aria-labelledby="earlier-title">
+        <section className="worldline-earlier" aria-labelledby="earlier-title" data-reveal>
           <div className="worldline-section-intro worldline-section-intro--compact">
             <div>
               <p className="worldline-kicker">02 / Earlier company work</p>
@@ -375,7 +400,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
           </div>
           <div className="worldline-earlier__list">
             {earlierRoles.map((role) => (
-              <article key={role.id} id={role.company.toLowerCase()}>
+              <article key={role.id} id={role.company.toLowerCase()} data-reveal>
                 <time>{role.period}</time>
                 <div>
                   <p className="worldline-kicker">{role.company}</p>
@@ -390,7 +415,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
 
-        <section className="worldline-open-source" id="open-source" aria-labelledby="open-source-title">
+        <section className="worldline-open-source" id="open-source" aria-labelledby="open-source-title" data-reveal>
           <div className="worldline-section-intro worldline-section-intro--compact">
             <div>
               <p className="worldline-kicker">03 / Open source</p>
@@ -403,7 +428,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
           </div>
           <div className="worldline-open-source__grid">
             {openSourceProjects.map((project) => (
-              <article className="worldline-open-source-card" key={project.id}>
+              <article className="worldline-open-source-card" key={project.id} data-reveal>
                 <div className="worldline-open-source-card__topline">
                   <span>{project.year}</span>
                   <span>{project.status}</span>
@@ -423,7 +448,7 @@ export default function Work({ loaderData }: Route.ComponentProps) {
           </div>
         </section>
 
-        <section className="worldline-close" aria-labelledby="worldline-close-title">
+        <section className="worldline-close" aria-labelledby="worldline-close-title" data-reveal>
           <p className="worldline-kicker">04 / The through-line</p>
           <h2 id="worldline-close-title">Follow the whole problem.</h2>
           <p>

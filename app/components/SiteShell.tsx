@@ -12,6 +12,7 @@ export function SiteShell({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setMenuOpen(false), [location.pathname]);
 
@@ -26,8 +27,44 @@ export function SiteShell({ children }: { children: ReactNode }) {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [menuOpen]);
 
+  useEffect(() => {
+    const root = shellRef.current;
+    if (!root) return;
+
+    const elements = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
+    if (elements.length === 0) return;
+
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reducedMotion || !("IntersectionObserver" in window)) {
+      elements.forEach((element) => { element.dataset.revealVisible = ""; });
+      root.dataset.revealReady = "";
+      return;
+    }
+
+    elements.forEach((element) => {
+      if (element.getBoundingClientRect().top <= window.innerHeight * 0.94) {
+        element.dataset.revealVisible = "";
+      }
+    });
+    root.dataset.revealReady = "";
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        (entry.target as HTMLElement).dataset.revealVisible = "";
+        observer.unobserve(entry.target);
+      });
+    }, { rootMargin: "0px 0px -8%", threshold: 0.08 });
+
+    elements.forEach((element) => {
+      if (!element.hasAttribute("data-reveal-visible")) observer.observe(element);
+    });
+
+    return () => observer.disconnect();
+  }, [location.pathname]);
+
   return (
-    <div className="site-shell">
+    <div className="site-shell" ref={shellRef}>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>

@@ -60,7 +60,7 @@ function LinkCard({ link, index }: { link: ProfileLinkContent; index: number }) 
   }
 
   return (
-    <article className="links-card" style={{ "--links-card-index": index } as React.CSSProperties}>
+    <article className="links-card" style={{ "--links-card-index": index } as React.CSSProperties} data-reveal>
       <Link className="links-card__target" to={`/links/${link.id}`}>
         <span className="links-card__platform">{link.platform}</span>
         <span className="links-card__label">{link.label}</span>
@@ -76,7 +76,7 @@ function LinkCard({ link, index }: { link: ProfileLinkContent; index: number }) 
         onClick={copyShareLink}
         aria-label={`Copy share link for ${link.label}`}
       >
-        {copied ? "Copied" : "Copy"}
+        <span aria-live="polite">{copied ? "Copied" : "Copy"}</span>
       </button>
     </article>
   );
@@ -126,7 +126,7 @@ export default function Links({ loaderData }: Route.ComponentProps) {
           )}
         </div>
 
-        <footer className="links-footer">
+        <footer className="links-footer" data-reveal>
           <Link to="/">Back to the portfolio</Link>
           <span aria-hidden="true">·</span>
           <a href={`mailto:${content.identity.email}`}>Email directly</a>

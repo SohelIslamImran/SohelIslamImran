@@ -420,35 +420,43 @@
 .worldline-role {
   position: relative;
   display: grid;
-  grid-template-columns: 8.75rem minmax(0, 1fr);
-  gap: 1.25rem;
+  grid-template-columns: 1.5rem minmax(0, 1fr);
+  gap: clamp(1rem, 3vw, 2.5rem);
   padding: 2rem 0 2.9rem;
   border-bottom: 1px solid var(--worldline-line);
-  animation: worldline-rise 560ms var(--worldline-ease-out) both;
-  animation-delay: calc(var(--role-index) * 80ms);
 }
 
-.worldline-role > time {
-  padding-top: 0.1rem;
+.worldline-role__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.worldline-role__meta time {
   color: var(--worldline-muted);
   font-size: 0.78rem;
   font-weight: 700;
+  letter-spacing: 0.02em;
   line-height: 1.4;
 }
 
+.worldline-role__meta .worldline-live {
+  margin-bottom: 0;
+}
+
 .worldline-role__rail {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 3.7rem;
+  position: relative;
+  align-self: stretch;
+  justify-self: center;
   width: 1px;
   background: linear-gradient(var(--worldline-cobalt), var(--worldline-line));
-  transform: translateX(-50%);
 }
 
 .worldline-role__rail span {
   position: absolute;
-  top: 2.3rem;
+  top: 0.28rem;
   left: 50%;
   width: 0.7rem;
   height: 0.7rem;
@@ -461,7 +469,7 @@
 
 .worldline-role__content {
   max-width: 56rem;
-  padding-left: clamp(0rem, 4vw, 4rem);
+  min-width: 0;
 }
 
 .worldline-role__topline {
@@ -685,7 +693,7 @@
   aspect-ratio: 1;
   transform: perspective(950px) rotateX(57deg) rotateZ(-8deg) rotateX(var(--orbit-tilt-x)) rotateY(var(--orbit-tilt-y));
   transform-style: preserve-3d;
-  transition: transform 500ms var(--worldline-ease-out);
+  transition: transform 240ms var(--worldline-ease-out);
   will-change: transform;
 }
 
@@ -764,7 +772,11 @@
   text-align: center;
   transform: translate(-50%, -50%) rotate(var(--orbit-angle)) translateY(-10.2rem) rotate(var(--orbit-counter-angle)) rotateX(-57deg) rotateZ(8deg);
   transform-style: preserve-3d;
-  transition: transform 500ms var(--worldline-ease-out), background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+  transition: transform 320ms var(--worldline-ease-out), background-color 180ms ease, color 180ms ease, box-shadow 180ms ease;
+}
+
+.worldline-orbit-stage[data-dragging] .worldline-orbit {
+  transition-duration: 70ms;
 }
 
 .worldline-orbit__node::before {
@@ -1137,16 +1149,8 @@
   }
 
   .worldline-role {
-    grid-template-columns: 6rem minmax(0, 1fr);
-    gap: 0.75rem;
-  }
-
-  .worldline-role__rail {
-    left: 2.6rem;
-  }
-
-  .worldline-role__content {
-    padding-left: 0.5rem;
+    grid-template-columns: 1.25rem minmax(0, 1fr);
+    gap: 1rem;
   }
 
   .worldline-project-note {
@@ -1204,25 +1208,12 @@
   }
 
   .worldline-role {
-    grid-template-columns: 1fr;
-    gap: 0.55rem;
-    padding-left: 1.7rem;
-  }
-
-  .worldline-role > time {
-    padding-top: 0;
-  }
-
-  .worldline-role__rail {
-    left: 0.45rem;
+    grid-template-columns: 1rem minmax(0, 1fr);
+    gap: 0.8rem;
   }
 
   .worldline-role__rail span {
-    top: 2.05rem;
-  }
-
-  .worldline-role__content {
-    padding-left: 0;
+    top: 0.26rem;
   }
 
   .worldline-orbit {

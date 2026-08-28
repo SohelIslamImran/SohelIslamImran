@@ -49,7 +49,7 @@ export default function FieldNotes({ loaderData }: Route.ComponentProps) {
           <p>{travel.intro}</p>
         </header>
 
-        <figure className="worldline-travel__hero">
+        <figure className="worldline-travel__hero" data-reveal>
           <img src="/images/travel-placeholder.png" alt="A route through a mountain landscape, representing future travel" width="1122" height="1402" />
           <figcaption><strong>Origin</strong><span>Dhaka, Bangladesh</span></figcaption>
           <svg viewBox="0 0 800 360" aria-hidden="true">
@@ -60,17 +60,17 @@ export default function FieldNotes({ loaderData }: Route.ComponentProps) {
           </svg>
         </figure>
 
-        <div className="worldline-travel__promise">
+        <div className="worldline-travel__promise" data-reveal>
           <p>This will become a living memory shelf.</p>
           <h2>One place, one photograph, one detail worth remembering.</h2>
           <p>I will add trips as they happen. No invented pins, no country counter, and no live location tracking.</p>
         </div>
 
         {publicEntries.length > 0 ? (
-          <section className="worldline-travel__entries" aria-labelledby="travel-entry-title">
+          <section className="worldline-travel__entries" aria-labelledby="travel-entry-title" data-reveal>
             <h2 id="travel-entry-title">Published memories</h2>
             {publicEntries.map((entry) => (
-              <article key={entry.id}>
+              <article key={entry.id} data-reveal>
                 <span>{entry.season} · {entry.region}</span>
                 <h3>{entry.place}</h3>
                 <p>{entry.summary}</p>
@@ -79,7 +79,7 @@ export default function FieldNotes({ loaderData }: Route.ComponentProps) {
             ))}
           </section>
         ) : (
-          <section className="worldline-travel__empty" aria-label="Journal status">
+          <section className="worldline-travel__empty" aria-label="Journal status" data-reveal>
             <span>001</span>
             <p>The first memory has not been published yet.</p>
             <a href="mailto:sohelislamimran@gmail.com">Suggest a place <span aria-hidden="true">↗</span></a>

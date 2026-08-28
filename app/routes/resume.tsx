@@ -9,8 +9,8 @@ export function meta({ loaderData }: Route.MetaArgs) {
 	const content = loaderData?.content;
 	const name = content?.identity.name || 'Sohel Islam Imran';
 	const role = content?.identity.role || 'Lead Full Stack Engineer';
-	const title = `Résumé — ${name}`;
-	const description = content?.resume.summary || `Experience, selected work, and capabilities of ${role} ${name}.`;
+	const title = `${name} Resume | ${role}`;
+	const description = `Resume of ${name}, ${role} at Kuno in Dhaka: TypeScript, React, React Native, backend services, PostgreSQL, CI/CD, and product engineering experience.`;
 
 	return createSeoMeta({
 		title,
@@ -98,7 +98,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 					<span />
 				</div>
 
-				<section className="resume-worldline__intro" aria-labelledby="resume-summary-title">
+				<section className="resume-worldline__intro" aria-labelledby="resume-summary-title" data-reveal>
 					<div className="resume-worldline__section-label">
 						<span>00</span>
 						<span>Through line</span>
@@ -111,7 +111,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 
 				<div className="resume-worldline__body">
 					<div className="resume-worldline__main">
-						<section aria-labelledby="resume-experience-title">
+						<section aria-labelledby="resume-experience-title" data-reveal>
 							<header className="resume-worldline__section-heading">
 								<div className="resume-worldline__section-label">
 									<span>01</span>
@@ -126,7 +126,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 							{experience.length > 0 ? (
 								<div className="resume-worldline__timeline">
 									{experience.map((item, index) => (
-										<article className={`resume-worldline__entry${item.current ? ' is-current' : ''}`} key={item.id}>
+										<article className={`resume-worldline__entry${item.current ? ' is-current' : ''}`} key={item.id} data-reveal>
 											<div className="resume-worldline__entry-marker" aria-hidden="true">
 												<span>{String(index + 1).padStart(2, '0')}</span>
 											</div>
@@ -172,7 +172,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 					</div>
 
 					<aside className="resume-worldline__side">
-						<section aria-labelledby="resume-proof-title">
+						<section aria-labelledby="resume-proof-title" data-reveal>
 							<header className="resume-worldline__side-heading">
 								<div className="resume-worldline__section-label">
 									<span>02</span>
@@ -207,7 +207,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 						</section>
 
 						{content.capabilities.length > 0 ? (
-							<section aria-labelledby="resume-capabilities-title">
+							<section aria-labelledby="resume-capabilities-title" data-reveal>
 								<header className="resume-worldline__side-heading">
 									<div className="resume-worldline__section-label">
 										<span>03</span>
@@ -228,7 +228,7 @@ export default function Resume({ loaderData }: Route.ComponentProps) {
 						) : null}
 
 						{hasTravel ? (
-							<section className="resume-worldline__horizon" aria-labelledby="resume-horizon-title">
+							<section className="resume-worldline__horizon" aria-labelledby="resume-horizon-title" data-reveal>
 								<header className="resume-worldline__side-heading">
 									<div className="resume-worldline__section-label">
 										<span>04</span>

@@ -76,7 +76,7 @@ export default function Story({ loaderData }: Route.ComponentProps) {
           </figure>
         </header>
 
-        <blockquote className="worldline-story__quote">“{story.quote}”</blockquote>
+        <blockquote className="worldline-story__quote" data-reveal>“{story.quote}”</blockquote>
 
         <div className="worldline-story__body" id="story-start">
           <aside aria-label="Chapter index">
@@ -87,7 +87,7 @@ export default function Story({ loaderData }: Route.ComponentProps) {
           </aside>
           <div className="worldline-story__chapters">
             {story.chapters.map((chapter, index) => (
-              <section id={`chapter-${chapter.id}`} key={chapter.id}>
+              <section id={`chapter-${chapter.id}`} key={chapter.id} data-reveal>
                 <span>{String(index + 1).padStart(2, "0")}</span>
                 <p className="worldline-story__label">{chapter.eyebrow}</p>
                 <h2>{chapter.title}</h2>
@@ -98,7 +98,7 @@ export default function Story({ loaderData }: Route.ComponentProps) {
           </div>
         </div>
 
-        <footer className="worldline-story__end">
+        <footer className="worldline-story__end" data-reveal>
           <div>
             <p>The original version was published on LinkedIn in June 2025.</p>
             <a href={story.sourceHref} target="_blank" rel="noreferrer">{story.sourceLabel} <span aria-hidden="true">↗</span></a>

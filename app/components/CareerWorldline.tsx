@@ -33,7 +33,7 @@ export function CareerWorldline({ experience }: { experience: ExperienceContent[
   return (
     <section className="career-worldline" aria-labelledby="career-title">
       <div className="career-worldline__copy">
-        <h2 id="career-title">Experience, in motion.</h2>
+        <h2 id="career-title">Experience, in motion</h2>
         <div className="career-worldline__tabs" role="tablist" aria-label="Choose a company">
           {chapters.map((item, index) => (
             <button
@@ -66,6 +66,7 @@ export function CareerWorldline({ experience }: { experience: ExperienceContent[
           ))}
         </div>
         <div
+          key={chapter.company}
           id="career-panel"
           className="career-worldline__panel"
           role="tabpanel"
@@ -91,7 +92,7 @@ export function CareerWorldline({ experience }: { experience: ExperienceContent[
             key={item.company}
             className="career-card"
             data-active={index === selected || undefined}
-            style={{ "--card-index": index, "--selected-index": selected } as React.CSSProperties}
+            data-before={index < selected || undefined}
           >
             <div>
               <span>{item.period}</span>

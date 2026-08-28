@@ -4,7 +4,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
   schemaVersion: 2,
   site: {
     title: "Sohel Islam Imran — Lead Full Stack Engineer",
-    description: "Systems, product architecture, mobile infrastructure, and developer tools—clearly built.",
+    description: "Sohel Islam Imran is a Lead Full Stack Engineer at Kuno in Dhaka, building secure TypeScript products with React, backend services, data systems, and Cloudflare.",
     url: "https://sohelislamimran.com",
     locale: "en",
     theme: "systems-atlas",

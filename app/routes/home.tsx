@@ -17,10 +17,9 @@ export function meta({ loaderData }: Route.MetaArgs) {
   const content = loaderData?.content;
   const name = content?.identity.name || "Sohel Islam Imran";
   const role = content?.identity.role || "Lead Full Stack Engineer";
-  const title = `${name} — ${role} at Kuno`;
+  const title = `${name} | ${role} at Kuno`;
   const description =
-    content?.site.description ||
-    "Lead Full Stack Engineer at Kuno building secure B2B products across architecture, interfaces, services, and delivery.";
+    "Sohel Islam Imran is a Lead Full Stack Engineer at Kuno in Dhaka, building secure TypeScript products with React, backend services, data systems, and Cloudflare.";
 
   return createSeoMeta({
     title,
@@ -48,10 +47,10 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <SiteShell>
       <section className="worldline-hero">
         <div className="worldline-hero__copy">
-          <h1>I build the systems behind ambitious products.</h1>
+          <h1>I lead full-stack engineering for ambitious products.</h1>
           <p>
-            I&apos;m Sohel, Lead Full Stack Engineer at Kuno. I work across product
-            architecture, interfaces, services, and the path to production.
+            I&apos;m Sohel Islam Imran, a Dhaka-based Lead Full Stack Engineer at Kuno. I build
+            secure TypeScript products across React interfaces, backend services, data, and delivery.
           </p>
           <div className="worldline-hero__actions">
             <Link className="worldline-button" to="/work">See my work <span aria-hidden="true">↗</span></Link>
@@ -62,9 +61,9 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <WorldlineHero />
       </section>
 
-      <CareerWorldline experience={content.experience} />
+      <div data-reveal><CareerWorldline experience={content.experience} /></div>
 
-      <section className="company-proof" aria-labelledby="company-proof-title">
+      <section className="company-proof" aria-labelledby="company-proof-title" data-reveal>
         <header>
           <h2 id="company-proof-title">Company work comes first.</h2>
           <p>Roles where I owned real product constraints, release pressure, and outcomes shared with a team.</p>
@@ -89,7 +88,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </div>
       </section>
 
-      <section className="open-source-proof" aria-labelledby="open-source-title">
+      <section className="open-source-proof" aria-labelledby="open-source-title" data-reveal>
         <header>
           <p>Side projects, after the day job</p>
           <h2 id="open-source-title">Small tools with a public life.</h2>
@@ -106,7 +105,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         <Link className="worldline-text-link" to="/work#open-source">Browse the open-source archive <span aria-hidden="true">↗</span></Link>
       </section>
 
-      <section className="worldline-paths">
+      <section className="worldline-paths" data-reveal>
         <Link className="worldline-path worldline-path--story" to="/story">
           <img src="/images/sohel-linkedin.png" alt="Portrait of Sohel Islam Imran" width="800" height="800" loading="lazy" />
           <div><span>My story</span><h2>From a phone in Bangladesh to full-stack engineering.</h2><b>Read the story ↗</b></div>
@@ -117,7 +116,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
         </Link>
       </section>
 
-      <section className="worldline-contact">
+      <section className="worldline-contact" data-reveal>
         <p>Have a complicated product problem?</p>
         <a href={`mailto:${content.identity.email}`}>Let&apos;s make it clearer. <span aria-hidden="true">↗</span></a>
       </section>
