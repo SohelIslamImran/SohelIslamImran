@@ -1,0 +1,55 @@
+{
+  "name": "folio",
+  "private": true,
+  "sideEffects": false,
+  "type": "module",
+  "packageManager": "bun@1.4.0",
+  "overrides": {
+    "nf3": "0.3.17"
+  },
+  "scripts": {
+    "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
+    "build": "node scripts/with-app-env.mjs vite build && node scripts/migrate.mjs",
+    "db:migrate": "node scripts/migrate.mjs",
+    "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
+    "preview": "node scripts/with-app-env.mjs vite preview",
+    "preview:restart": "node scripts/preview.mjs restart",
+    "preview:stop": "node scripts/preview.mjs stop",
+    "typecheck": "tsc --noEmit",
+    "check:auth": "node scripts/check-auth-invariant.mjs",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts",
+    "lint": "oxlint .",
+    "format": "oxfmt"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@radix-ui/react-popover": "^1.1.23",
+    "@tailwindcss/vite": "^4.3.3",
+    "@tanstack/react-router": "^1.170.32",
+    "@tanstack/react-start": "^1.168.49",
+    "@tanstack/router-plugin": "^1.168.35",
+    "better-auth": "~1.6.30",
+    "jose": "6.2.9",
+    "kysely": "^0.28.17",
+    "lucide-react": "^0.510.0",
+    "motion": "^13.1.1",
+    "pg": "^8.23.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tailwindcss": "^4.3.3",
+    "zod": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.5",
+    "@vitejs/plugin-react": "^5.2.0",
+    "nitro": "3.0.260610-beta",
+    "oxfmt": "^0.65.0",
+    "oxlint": "^1.80.0",
+    "playwright": "^1.62.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2"
+  }
+}
