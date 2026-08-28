@@ -1,9 +1,11 @@
-import { motion } from "motion/react";
-import type { ReactNode } from "react";
-import { useReducedMotion } from "@/hooks/use-reduced";
-import { enterMotionEnabled } from "@/lib/enter";
-import { easeOut } from "./motion";
+import type { CSSProperties, ReactNode } from "react";
 
+/**
+ * Enter motion must never hide SSR HTML. Opacity 0 + a slow JS bundle was
+ * the blank-canvas-on-reload bug: the page was in the document, invisible
+ * until hydration. These wrappers only nudge transform, and only when the
+ * user has not asked for reduced motion.
+ */
 export function Reveal({
   children,
   delay = 0,
@@ -13,17 +15,13 @@ export function Reveal({
   delay?: number;
   className?: string;
 }) {
-  const reduced = useReducedMotion();
-  const play = !reduced && enterMotionEnabled();
   return (
-    <motion.div
-      className={className}
-      initial={play ? { opacity: 0, y: 8, filter: "blur(4px)" } : false}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.48, delay, ease: easeOut }}
+    <div
+      className={className ? `folio-enter ${className}` : "folio-enter"}
+      style={delay ? ({ animationDelay: `${delay}s` } as CSSProperties) : undefined}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -36,17 +34,12 @@ export function RevealIn({
   delay?: number;
   className?: string;
 }) {
-  const reduced = useReducedMotion();
-  const play = !reduced && enterMotionEnabled();
   return (
-    <motion.div
-      className={className}
-      initial={play ? { opacity: 0, y: 14 } : false}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-10% 0px" }}
-      transition={{ duration: 0.5, delay, ease: easeOut }}
+    <div
+      className={className ? `folio-in ${className}` : "folio-in"}
+      style={delay ? ({ animationDelay: `${delay}s` } as CSSProperties) : undefined}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

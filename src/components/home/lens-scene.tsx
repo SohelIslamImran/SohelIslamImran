@@ -1,21 +1,19 @@
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
-import { ShaderMaterial, Vector2, Color } from "three";
-import { currentGelHex } from "@/lib/gel";
+import { currentGelHex, hexToRgb } from "@/lib/gel";
 
 export type LensPointer = { x: number; y: number };
 
-const vert = /* glsl */ `
-varying vec2 vUv;
+const VERT = `
+attribute vec2 aPos;
 void main() {
-  vUv = uv;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = vec4(aPos, 0.0, 1.0);
 }
 `;
 
-const frag = /* glsl */ `
-varying vec2 vUv;
+const FRAG = `
+precision highp float;
+uniform vec2 uRes;
 uniform vec2 uPointer;
 uniform vec3 uPrimary;
 uniform float uTime;
@@ -37,7 +35,8 @@ vec3 thinFilm(float ndv, float t) {
 }
 
 void main() {
-  vec2 p = vUv * 2.0 - 1.0;
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = uv * 2.0 - 1.0;
   float d = sdRoundedBox(p, vec2(1.0), 0.32);
   float inside = 1.0 - smoothstep(-0.012, 0.012, d);
   if (inside < 0.001) discard;
@@ -65,71 +64,19 @@ void main() {
 }
 `;
 
-function Boot() {
-  const invalidate = useThree((s) => s.invalidate);
-  useEffect(() => {
-    invalidate();
-  }, [invalidate]);
-  return null;
+function compile(gl: WebGLRenderingContext, type: number, src: string) {
+  const shader = gl.createShader(type);
+  if (!shader) return null;
+  gl.shaderSource(shader, src);
+  gl.compileShader(shader);
+  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+    gl.deleteShader(shader);
+    return null;
+  }
+  return shader;
 }
 
-function GlassSheet({
-  pointer,
-  reduced,
-}: {
-  pointer: MutableRefObject<LensPointer>;
-  reduced: boolean;
-}) {
-  const mat = useRef<ShaderMaterial>(null);
-  const { viewport } = useThree();
-  const primary = useMemo(() => new Color(currentGelHex()), []);
-
-  useEffect(() => {
-    const sync = () => primary.set(currentGelHex());
-    sync();
-    window.addEventListener("folio-gel", sync);
-    return () => window.removeEventListener("folio-gel", sync);
-  }, [primary]);
-
-  const uniforms = useMemo(
-    () => ({
-      uPointer: { value: new Vector2(0, 0) },
-      uPrimary: { value: primary },
-      uTime: { value: 0 },
-    }),
-    [primary],
-  );
-
-  useFrame((_, dt) => {
-    const d = Math.min(dt, 0.05);
-    const prev = mat.current?.uniforms.uTime.value;
-    const t = (typeof prev === "number" ? prev : 0) + d;
-    if (!mat.current) return;
-    mat.current.uniforms.uTime.value = t;
-    const px = reduced ? 0 : pointer.current.x;
-    const py = reduced ? 0 : pointer.current.y;
-    const cur = mat.current.uniforms.uPointer.value as Vector2;
-    cur.x += (px - cur.x) * 0.12;
-    cur.y += (py - cur.y) * 0.12;
-  });
-
-  return (
-    <mesh scale={[viewport.width, viewport.height, 1]}>
-      <planeGeometry args={[1, 1]} />
-      <shaderMaterial
-        ref={mat}
-        vertexShader={vert}
-        fragmentShader={frag}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        toneMapped={false}
-      />
-    </mesh>
-  );
-}
-
-export default function LensScene({
+export function LensGlass({
   pointer,
   reduced,
   playing,
@@ -138,20 +85,107 @@ export default function LensScene({
   reduced: boolean;
   playing: boolean;
 }) {
-  return (
-    <Canvas
-      orthographic
-      dpr={[1, 1.5]}
-      camera={{ position: [0, 0, 1], zoom: 1 }}
-      gl={{ alpha: true, antialias: true, stencil: false, powerPreference: "high-performance" }}
-      frameloop={playing ? "always" : "demand"}
-      flat
-      onCreated={({ gl }) => {
-        gl.setClearColor(0x000000, 0);
-      }}
-    >
-      <Boot />
-      <GlassSheet pointer={pointer} reduced={reduced} />
-    </Canvas>
-  );
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const gl = canvas.getContext("webgl", {
+      alpha: true,
+      antialias: false,
+      depth: false,
+      stencil: false,
+      premultipliedAlpha: true,
+      powerPreference: "low-power",
+    });
+    if (!gl) return;
+
+    const vs = compile(gl, gl.VERTEX_SHADER, VERT);
+    const fs = compile(gl, gl.FRAGMENT_SHADER, FRAG);
+    if (!vs || !fs) return;
+    const program = gl.createProgram();
+    if (!program) return;
+    gl.attachShader(program, vs);
+    gl.attachShader(program, fs);
+    gl.linkProgram(program);
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS)) return;
+    gl.useProgram(program);
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(program, "aPos");
+    gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+    const uRes = gl.getUniformLocation(program, "uRes");
+    const uPointer = gl.getUniformLocation(program, "uPointer");
+    const uPrimary = gl.getUniformLocation(program, "uPrimary");
+    const uTime = gl.getUniformLocation(program, "uTime");
+
+    const primary = { r: 0.76, g: 0.278, b: 0.227 };
+    const smooth = { x: 0, y: 0 };
+    const applyGel = () => {
+      const [r, g, b] = hexToRgb(currentGelHex());
+      primary.r = r;
+      primary.g = g;
+      primary.b = b;
+    };
+    applyGel();
+    window.addEventListener("folio-gel", applyGel);
+
+    const resize = () => {
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w;
+        canvas.height = h;
+        gl.viewport(0, 0, w, h);
+      }
+    };
+    resize();
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.clearColor(0, 0, 0, 0);
+
+    let raf = 0;
+    let elapsed = 0;
+    let last = performance.now();
+
+    const draw = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (playing && !reduced && !document.hidden) elapsed += dt;
+      const target = reduced ? { x: 0, y: 0 } : pointer.current;
+      smooth.x += (target.x - smooth.x) * 0.12;
+      smooth.y += (target.y - smooth.y) * 0.12;
+      resize();
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.uniform2f(uRes, canvas.width, canvas.height);
+      gl.uniform2f(uPointer, smooth.x, smooth.y);
+      gl.uniform3f(uPrimary, primary.r, primary.g, primary.b);
+      gl.uniform1f(uTime, elapsed);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+
+    const loop = (now: number) => {
+      draw(now);
+      raf = playing && !reduced ? requestAnimationFrame(loop) : 0;
+    };
+    draw(performance.now());
+    if (playing && !reduced) raf = requestAnimationFrame(loop);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      window.removeEventListener("folio-gel", applyGel);
+      gl.getExtension("WEBGL_lose_context")?.loseContext();
+    };
+  }, [pointer, playing, reduced]);
+
+  return <canvas className="lens-glass-gl" aria-hidden="true" ref={canvasRef} />;
 }

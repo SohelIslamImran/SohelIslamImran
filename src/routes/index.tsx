@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { HomePage } from "@/components/home/home-page";
 import { site } from "@/data/folio";
-import { getStudioDocument, STUDIO_STALE_MS } from "@/lib/cms";
+import { getPublicDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -10,11 +10,10 @@ export const Route = createFileRoute("/")({
       { name: "description", content: site.description },
     ],
   }),
-  loader: () => getStudioDocument(),
+  loader: () => getPublicDocument(),
   staleTime: STUDIO_STALE_MS,
   component: Home,
 });
-
 
 function Home() {
   const data = Route.useLoaderData();

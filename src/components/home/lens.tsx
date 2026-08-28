@@ -1,34 +1,17 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MutableRefObject } from "react";
 import { profile } from "@/data/folio";
+import { useIdleMount } from "@/hooks/use-idle-mount";
 import { useReducedMotion } from "@/hooks/use-reduced";
 import { Tilt } from "@/components/site/tilt";
-import type { LensPointer } from "./lens-scene";
-
-const LensScene = lazy(() => import("./lens-scene"));
-
-function hasWebGL() {
-  try {
-    const canvas = document.createElement("canvas");
-    const gl = canvas.getContext("webgl2") || canvas.getContext("webgl");
-    const ok = Boolean(gl);
-    gl?.getExtension("WEBGL_lose_context")?.loseContext();
-    return ok;
-  } catch {
-    return false;
-  }
-}
+import { LensGlass, type LensPointer } from "./lens-scene";
 
 export function OpticalLens({ compact = false }: { compact?: boolean }) {
   const wrap = useRef<HTMLDivElement>(null);
   const pointer = useRef<LensPointer>({ x: 0, y: 0 });
   const reduced = useReducedMotion();
-  const [webgl, setWebgl] = useState(false);
+  const idle = useIdleMount(320);
   const [visible, setVisible] = useState(true);
-
-  useEffect(() => {
-    setWebgl(hasWebGL());
-  }, []);
 
   useEffect(() => {
     const el = wrap.current;
@@ -89,15 +72,13 @@ export function OpticalLens({ compact = false }: { compact?: boolean }) {
               decoding="async"
             />
             <div className="lens-plate-glass" />
-            {webgl ? (
+            {idle && !reduced ? (
               <div className="lens-object">
-                <Suspense fallback={null}>
-                  <LensScene
-                    pointer={pointer as MutableRefObject<LensPointer>}
-                    reduced={reduced}
-                    playing={visible && !reduced}
-                  />
-                </Suspense>
+                <LensGlass
+                  pointer={pointer as MutableRefObject<LensPointer>}
+                  reduced={reduced}
+                  playing={visible && !reduced}
+                />
               </div>
             ) : null}
           </div>

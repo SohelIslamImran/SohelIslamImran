@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LinksPage } from "@/components/links/links-page";
-import { getStudioDocument, STUDIO_STALE_MS } from "@/lib/cms";
+import { getPublicDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/links")({
   head: () => ({
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/links")({
       { name: "description", content: "GitHub, LinkedIn, X, Instagram, and a short trail of the public internet." },
     ],
   }),
-  loader: () => getStudioDocument(),
+  loader: () => getPublicDocument(),
   staleTime: STUDIO_STALE_MS,
   component: function Links() {
     const data = Route.useLoaderData();

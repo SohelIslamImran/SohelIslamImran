@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { StoryPage } from "@/components/story/story-page";
-import { getStudioDocument, STUDIO_STALE_MS } from "@/lib/cms";
+import { getPublicDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/story")({
   head: () => ({
@@ -9,7 +9,7 @@ export const Route = createFileRoute("/story")({
       { name: "description", content: "From learning on a phone in Bangladesh to leading full-stack engineering." },
     ],
   }),
-  loader: () => getStudioDocument(),
+  loader: () => getPublicDocument(),
   staleTime: STUDIO_STALE_MS,
   component: function Story() {
     const data = Route.useLoaderData();

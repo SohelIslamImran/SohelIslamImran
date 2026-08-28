@@ -1,13 +1,17 @@
 import { createFileRoute, notFound, redirect } from "@tanstack/react-router";
-import { getStudioDocument } from "@/lib/cms";
+import { getPublicDocument, getStudioDocument } from "@/lib/cms";
 
 const LINK_ID = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 export const Route = createFileRoute("/links/$linkId")({
   loader: async ({ params }) => {
     if (!LINK_ID.test(params.linkId)) throw notFound();
-    const doc = await getStudioDocument();
-    const link = doc.payload.links.find((item) => item.id === params.linkId);
+    const publicDoc = await getPublicDocument();
+    let link = publicDoc.payload.links.find((item) => item.id === params.linkId);
+    if (!link) {
+      const doc = await getStudioDocument();
+      link = doc.payload.links.find((item) => item.id === params.linkId);
+    }
     if (!link) throw notFound();
     const href = link.href;
     const isRootRelative = href.startsWith("/") && !href.startsWith("//");

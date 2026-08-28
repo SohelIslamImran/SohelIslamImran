@@ -1,10 +1,12 @@
 import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
 import { useEffect, useState } from "react";
+import { useIdleMount } from "@/hooks/use-idle-mount";
 import { useReducedMotion } from "@/hooks/use-reduced";
 import { LightField } from "./light-field";
 
 export function CausticField() {
   const reduced = useReducedMotion();
+  const idle = useIdleMount(280);
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const sx = useSpring(x, { stiffness: 70, damping: 22, mass: 0.9 });
@@ -35,7 +37,7 @@ export function CausticField() {
 
   return (
     <div className="atmosphere" aria-hidden="true">
-      <LightField />
+      {idle && !reduced ? <LightField /> : null}
       <div className="atmosphere-orb atmosphere-orb-a" />
       <div className="atmosphere-orb atmosphere-orb-b" />
       <div className="atmosphere-orb atmosphere-orb-c" />

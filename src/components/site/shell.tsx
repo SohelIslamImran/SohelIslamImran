@@ -1,11 +1,10 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Menu, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { SignedIn, UserButton } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { isOwnerEmail } from "@/lib/owner";
-import { lockEnterMotion } from "@/lib/enter";
 import { nav, profile, site } from "@/data/folio";
 import { useDhakaClock } from "@/hooks/use-dhaka-clock";
 import { useScrollProgress } from "@/hooks/use-scroll-progress";
@@ -55,17 +54,11 @@ function WarmPublicRoutes() {
 export function Shell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
-  const firstPath = useRef(true);
   const { user, isPending } = useCurrentUserState();
   const owner = isOwnerEmail(user?.primaryEmail);
 
   useEffect(() => {
     setOpen(false);
-    if (firstPath.current) {
-      firstPath.current = false;
-      return;
-    }
-    lockEnterMotion();
   }, [pathname]);
 
   return (
