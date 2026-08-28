@@ -1,40 +1,96 @@
-<img align="right" width="176" src="./public/images/sohel-linkedin.png" alt="Sohel Islam Imran" />
+<div align="center">
+  <img src="./public/images/sohel-linkedin-400.webp" width="128" height="128" alt="Sohel Islam Imran" />
+  <h1>Sohel Islam Imran</h1>
+  <p><strong>Lead Full Stack Engineer at Kuno</strong><br />Product systems, mobile infrastructure, and delivery from Dhaka for teams everywhere.</p>
+  <p>
+    <a href="https://sohelislamimran.com">Portfolio</a> ·
+    <a href="https://www.linkedin.com/in/sohelislamimran/">LinkedIn</a> ·
+    <a href="https://github.com/SohelIslamImran">GitHub</a> ·
+    <a href="https://x.com/SohelIslamImran">X</a> ·
+    <a href="mailto:sohelislamimran@gmail.com">Email</a>
+  </p>
+</div>
 
-# Sohel Islam Imran
+## What I build
 
-Lead Full Stack Engineer at [Kuno](https://www.linkedin.com/company/kuno/), based in Dhaka and working with teams across borders.
+I follow product problems through the whole stack: interface behavior, services, data, authorization, release systems, and the feedback loops that keep software dependable.
 
-I follow product problems through the whole stack: interface behavior, services, data, authorization, delivery, and the production systems that keep the result dependable.
+At Kuno, I lead full-stack engineering across secure enterprise learning flows, role-aware product behavior, localized interfaces, internal tooling, CI/CD, observability, and platform operations. Public descriptions stay intentionally general where the product itself is private.
 
-[Portfolio](https://sohelislamimran.com) · [LinkedIn](https://www.linkedin.com/in/sohelislamimran/) · [X](https://x.com/SohelIslamImran) · [Email](mailto:sohelislamimran@gmail.com)
-
-## Experience
+### Experience
 
 | Period | Company | Role |
 | --- | --- | --- |
-| Mar 2026 to present | Kuno | Lead Full Stack Engineer |
-| Jan 2025 to Mar 2026 | Kuno | Full Stack Engineer |
-| Dec 2023 to Jan 2025 | Kuno | Mobile Application Developer |
-| Jun 2021 to Jan 2024 | Tilleli | React Native Developer |
-| Jul 2021 to Sep 2021 | Bugfixers | Frontend Developer |
+| Mar 2026 — present | Kuno | Lead Full Stack Engineer |
+| Jan 2025 — Mar 2026 | Kuno | Full Stack Engineer |
+| Dec 2023 — Jan 2025 | Kuno | Mobile Application Developer |
+| Jun 2021 — Jan 2024 | Tilleli | React Native Developer |
+| Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer |
 
-At Kuno, I work across secure enterprise product flows, role-aware behavior, service boundaries, localized interfaces, internal tooling, CI/CD, observability, and release operations. Public descriptions stay intentionally general because much of the useful work lives in private product systems.
+### Selected public work
 
-## Selected public work
+- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates) — native Android and iOS update flows behind one compact Expo API.
+- [`ghosttime`](https://github.com/SohelIslamImran/ghosttime) — a customizable Ghostty-style animation for any terminal.
+- [`TailSync`](https://github.com/SohelIslamImran/TailSync) — private iOS transfers to personal Tailscale Taildrop devices.
+- [`AndroidMacDisplay`](https://github.com/SohelIslamImran/AndroidMacDisplay) — a local USB path for using an Android phone as a secondary Mac display.
 
-- [expo-in-app-updates](https://github.com/SohelIslamImran/expo-in-app-updates) brings native in-app update flows to Expo applications through one compact API.
-- [ghosttime](https://github.com/SohelIslamImran/ghosttime) brings a customizable Ghostty-style animation to any terminal.
-- [TailSync](https://github.com/SohelIslamImran/TailSync) syncs iOS photos, videos, and files to personal Tailscale Taildrop devices.
-- [Android Mac Display](https://github.com/SohelIslamImran/AndroidMacDisplay) turns an Android phone into a wired secondary display for macOS.
-
-My day-to-day work is mostly TypeScript, React, React Native, Expo, TanStack, ElysiaJS, Bun, PostgreSQL, Redis, containers, and cloud infrastructure. The tools change. Clear product behavior and safe delivery do not.
+The current toolkit includes TypeScript, React, React Native, Expo, TanStack, ElysiaJS, Bun, PostgreSQL, Redis, Swift, Kotlin, containers, and Cloudflare. The tools change; clear product behavior and safe delivery do not.
 
 ## Beyond the code
 
 I started learning on a phone in Bangladesh before I owned a computer. That path now runs through full-stack engineering, open source, mentoring, and a growing wish to work remotely while seeing more of the world.
 
-[Read the full story](https://sohelislamimran.com/story) · [Follow the travel journal](https://sohelislamimran.com/field-notes) · [Find every public link](https://sohelislamimran.com/links)
+- [Read the full story](https://sohelislamimran.com/story)
+- [Follow the travel journal](https://sohelislamimran.com/field-notes)
+- [Find every public link](https://sohelislamimran.com/links)
 
----
+## This repository
 
-This profile repository also contains the source for `sohelislamimran.com`. It uses React Router SSR on Cloudflare Workers with D1-backed publishing. See [the development guide](./docs/DEVELOPMENT.md) for local setup and architecture.
+This profile repository contains the source for `sohelislamimran.com`, a Kuno-first portfolio called **Prism Route**. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
+
+### Stack
+
+- **TanStack Start + TanStack Router** — file-based routes, typed loaders/search params, server functions, full-document SSR, and streaming-ready boundaries.
+- **React 19 + TypeScript 7** — the UI and shared content contracts.
+- **Vite 8 + Bun** — local development and the canonical lockfile.
+- **Cloudflare Workers + D1 + R2** — edge runtime, published content, and optional media storage.
+- **Cloudflare Access** — owner-only CMS authentication with GitHub as the Access identity provider.
+- **Tailwind CSS 4, Oxlint, Oxfmt, Vitest** — styling tokens, checks, formatting, and focused tests.
+
+The former React Router app remains under `app/` as a rollback/reference path while the TanStack build is validated. Public routes are SSR-first and read published content only; drafts remain behind the CMS boundary.
+
+### Local development
+
+```sh
+bun install
+bun dev
+```
+
+Useful commands:
+
+```sh
+bun run build       # production client + SSR/Worker build
+bun run typecheck   # Wrangler bindings + strict TypeScript
+bun run check       # Oxlint + Oxfmt
+bun run test        # focused Vitest tests
+bun run preview     # preview the Vite build
+bun run deploy      # build, then wrangler deploy
+```
+
+Copy `.dev.vars.example` to `.dev.vars` for local values. Never commit Access tokens, CSRF material, database credentials, R2 keys, or contract information.
+
+## CMS and Cloudflare
+
+The target CMS hostname is `https://cms.sohelislamimran.com`. Cloudflare Access should protect it with a default-deny policy that allows only `sohelislamimran@gmail.com` through GitHub OAuth. The Worker still verifies the Access JWT and owner allowlist, checks origin and CSRF on mutations, and keeps draft/publish revisions safe.
+
+Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md). Deployment is intentionally not claimed by this repository: the owner must authenticate Wrangler, create/attach the production resources, configure Access and DNS, and validate a preview before switching the apex domain.
+
+The configuration stays within Cloudflare’s free-compatible product shapes, but the repository cannot guarantee an account will never be billed. Verify the account plan, usage alerts, Workers/D1/R2 quotas, and add-ons in the Cloudflare dashboard before deploying. Domain renewal is separate and is not changed here.
+
+## Privacy and publishing
+
+The public story is generalized and does not publish salary, addresses, signatures, IDs, contract terms, private customer details, or private repositories. The CMS publishes only the validated document revision; public loaders never read drafts. Redirect utilities under `/links/:linkId` are allowlisted and marked `noindex`.
+
+## License
+
+The portfolio content and visual identity are personal. Source code is shared for reference; contact me before reusing personal copy, photographs, or brand assets.

@@ -2,6 +2,7 @@
   "extends": "./tsconfig.json",
   "include": [
     ".react-router/types/**/*",
+    "src/**/*",
     "app/**/*",
     "app/**/.server/**/*",
     "app/**/.client/**/*",

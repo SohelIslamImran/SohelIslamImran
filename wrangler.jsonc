@@ -6,14 +6,15 @@
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "sohel-portfolio",
 	"compatibility_date": "2026-08-25",
-	"main": "./workers/app.ts",
+	"main": "./src/server-entry.ts",
 	"vars": {
 		"APP_ORIGIN": "https://sohelislamimran.com",
+		"CMS_ORIGIN": "https://cms.sohelislamimran.com",
 		"OWNER_EMAIL": "sohelislamimran@gmail.com",
-		"ENVIRONMENT": "production"
+		"ENVIRONMENT": "production",
 	},
 	"observability": {
-		"enabled": true
+		"enabled": true,
 	},
 	"upload_source_maps": true,
 	"d1_databases": [
@@ -21,15 +22,19 @@
 			"binding": "DB",
 			"database_name": "portfolio-content-production",
 			"database_id": "999eab4e-2274-49f5-9bdb-a9acc5075b40",
-			"migrations_dir": "migrations"
-		}
+			"migrations_dir": "migrations",
+		},
 	],
+	// Enable only after the production bucket has been created and verified in
+	// the Cloudflare dashboard. Keeping this commented avoids a failed deploy
+	// when the optional media bucket is not present yet.
 	// "r2_buckets": [
 	//   { "binding": "MEDIA", "bucket_name": "portfolio-media-production" }
 	// ],
 	"routes": [
 		{ "pattern": "sohelislamimran.com", "custom_domain": true },
-		{ "pattern": "www.sohelislamimran.com", "custom_domain": true }
+		{ "pattern": "www.sohelislamimran.com", "custom_domain": true },
+		{ "pattern": "cms.sohelislamimran.com", "custom_domain": true },
 	],
 	/**
 	 * Smart Placement

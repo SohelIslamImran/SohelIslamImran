@@ -1,5 +1,6 @@
 ACCESS_TEAM_DOMAIN="https://your-team.cloudflareaccess.com"
 ACCESS_AUD="your-access-application-audience"
 APP_ORIGIN="http://127.0.0.1:5173"
+CMS_ORIGIN="http://cms.localhost:5173"
 OWNER_EMAIL="sohelislamimran@gmail.com"
 ENVIRONMENT="development"
