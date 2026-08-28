@@ -6,32 +6,37 @@ The portfolio runs as one Cloudflare Worker with three custom hostnames:
 - `https://www.sohelislamimran.com` — redirects to the apex hostname
 - `https://cms.sohelislamimran.com` — private unified CMS
 
-The Worker is configured for a D1 database named `portfolio-content-production`.
-Verify that the database exists in the intended Cloudflare account before the
-first production deploy; the TanStack migration preserves the existing binding
-shape and versioned migration history, but it does not create Cloudflare
-resources on your behalf.
+## Production status
+
+The TanStack Start build was deployed to the `sohel-portfolio` Worker on
+August 29, 2026. The apex, `www`, and CMS custom domains are active. The
+`portfolio-content-production` D1 database exists, both migrations are applied,
+and the public site reads the published revision.
+
+The production zone currently has:
+
+- the Free Website plan
+- Full (strict) SSL mode
+- Always Use HTTPS, TLS 1.2 minimum, TLS 1.3, HTTP/3, Brotli, and Browser
+  Integrity Check enabled
+- 0-RTT disabled to avoid replaying state-changing CMS requests
+- DNSSEC enabled and awaiting automatic DS publication by Cloudflare Registrar
+- no public `workers.dev` or preview hostname for the production Worker
 
 ## CMS access
 
 The CMS is protected in two layers:
 
-1. Cloudflare Access protects the `cms.sohelislamimran.com` hostname with a
-   default-deny policy that allows only `sohelislamimran@gmail.com`.
+1. Cloudflare Access protects the `cms.sohelislamimran.com` hostname with an
+   owner-only policy that allows `sohelislamimran@gmail.com`. Requests without
+   a valid Access session never reach the Worker.
 2. The Worker verifies the Access JWT, audience, team domain, and owner email
    before allowing draft, publish, or media mutations.
 
-To configure production Access (dashboard action required):
-
-1. In Zero Trust, add GitHub as an identity provider. The GitHub OAuth callback
-   is the Access team callback shown by Cloudflare (`/cdn-cgi/access/callback`).
-2. Create a self-hosted Access application for `cms.sohelislamimran.com`.
-3. Add an Allow policy for `sohelislamimran@gmail.com`; leave the default policy
-   deny-by-default and enable MFA if desired.
-4. Add the CMS hostname as a custom domain for this Worker. Cloudflare manages
-   the DNS record and certificate for a custom domain.
-5. Configure the Worker variables and secrets below. Access values are secrets
-   or dashboard configuration and must not be committed.
+The self-hosted Access application, owner policy, custom domain, Access audience,
+and team-domain secrets are configured. It currently uses Cloudflare's account
+identity provider. GitHub remains the preferred identity provider and requires a
+GitHub OAuth app client ID and secret before it can be attached to Access.
 
 The old `/resume/edit` path remains an application compatibility path and should
 redirect to the CMS hostname. The public apex never serves draft content.
@@ -47,7 +52,7 @@ Non-secret production variables are in `wrangler.jsonc`:
 | `OWNER_EMAIL` | `sohelislamimran@gmail.com`       |
 | `ENVIRONMENT` | `production`                      |
 
-Set these as Worker secrets or protected dashboard values:
+These are configured as Worker secrets and must not be committed:
 
 ```sh
 wrangler secret put ACCESS_TEAM_DOMAIN
@@ -59,10 +64,14 @@ commits, or issue reports.
 
 ## Media storage
 
-R2 is optional. The binding is intentionally commented in `wrangler.jsonc` so a
-deployment cannot fail because the bucket has not been created. After creating
-and verifying the `portfolio-media-production` bucket in the dashboard, enable
-the `MEDIA` binding and run:
+R2 is optional and remains disabled. Static profile and placeholder media ship
+with the Worker assets, so the public site and CMS content editor do not need R2
+for the current release. The binding is intentionally commented in
+`wrangler.jsonc`; this also avoids activating usage-based R2 billing merely for
+unused storage.
+
+If editable media uploads become necessary, enable R2 deliberately, create the
+`portfolio-media-production` bucket, enable the `MEDIA` binding, and run:
 
 ```sh
 bun run cf-typegen
@@ -73,16 +82,16 @@ owner-only uploads and publishes only media referenced by published content.
 
 ## Free-tier guardrails
 
-This configuration does not enable Workers Paid, paid WAF features, or other
-billable add-ons. Workers, D1, R2, and Access should remain within their free
-plan limits for a personal portfolio. Free plans have usage quotas and may
-throttle or reject requests when a quota is exceeded; they do not make the
-application immune to limits.
+The zone was verified on the Free Website plan before this deployment. This
+release did not enable Workers Paid, R2, paid WAF rules, or another paid add-on.
+Workers, D1, and Access remain within their free-compatible product shapes for
+this personal portfolio. Free quotas can still throttle or reject requests when
+exceeded; application configuration cannot guarantee account-wide billing.
 
-Before deployment, verify in the Cloudflare dashboard that the account and
-Worker are on the intended plan and that no paid add-on is enabled. Configure
-usage notifications where available. Domain registrar auto-renewal is separate
-from Worker billing and is not changed by this project.
+Cloudflare Registrar renewal is separate from Worker usage. Domain auto-renewal
+remains enabled and was not changed; it is currently scheduled against the
+domain's 2028 expiration date. Change that only as an explicit registrar
+decision, not as part of an application deployment.
 
 ## Local development
 

@@ -53,8 +53,8 @@ This profile repository contains the source for `sohelislamimran.com`, a Kuno-fi
 - **TanStack Start + TanStack Router** — file-based routes, typed loaders/search params, server functions, full-document SSR, and streaming-ready boundaries.
 - **React 19 + TypeScript 7** — the UI and shared content contracts.
 - **Vite 8 + Bun** — local development and the canonical lockfile.
-- **Cloudflare Workers + D1 + R2** — edge runtime, published content, and optional media storage.
-- **Cloudflare Access** — owner-only CMS authentication with GitHub as the Access identity provider.
+- **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
+- **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
 - **Tailwind CSS 4, Oxlint, Oxfmt, Vitest** — styling tokens, checks, formatting, and focused tests.
 
 The former React Router app remains under `app/` as a rollback/reference path while the TanStack build is validated. Public routes are SSR-first and read published content only; drafts remain behind the CMS boundary.
@@ -81,11 +81,13 @@ Copy `.dev.vars.example` to `.dev.vars` for local values. Never commit Access to
 
 ## CMS and Cloudflare
 
-The target CMS hostname is `https://cms.sohelislamimran.com`. Cloudflare Access should protect it with a default-deny policy that allows only `sohelislamimran@gmail.com` through GitHub OAuth. The Worker still verifies the Access JWT and owner allowlist, checks origin and CSRF on mutations, and keeps draft/publish revisions safe.
+The portfolio is deployed at `https://sohelislamimran.com`. The `www` hostname redirects to the apex, and `https://cms.sohelislamimran.com` is protected by an owner-only Cloudflare Access policy. The Worker also verifies the Access JWT and owner allowlist, checks origin and CSRF on mutations, and keeps draft/publish revisions safe.
 
-Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md). Deployment is intentionally not claimed by this repository: the owner must authenticate Wrangler, create/attach the production resources, configure Access and DNS, and validate a preview before switching the apex domain.
+Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md).
 
-The configuration stays within Cloudflare’s free-compatible product shapes, but the repository cannot guarantee an account will never be billed. Verify the account plan, usage alerts, Workers/D1/R2 quotas, and add-ons in the Cloudflare dashboard before deploying. Domain renewal is separate and is not changed here.
+The production Worker, D1 binding, three custom domains, Access application, and security settings are now configured. The CMS currently uses Cloudflare's account identity provider. Switching it to GitHub requires a GitHub OAuth app client ID and secret. R2 remains off because the current release uses static media and does not need usage-based object storage.
+
+The zone is on Cloudflare's Free Website plan, and this release did not enable Workers Paid, R2, or paid security add-ons. Free quotas may throttle traffic instead of providing unlimited capacity. Domain renewal is separate, remains enabled, and was not changed by this deployment.
 
 ## Privacy and publishing
 
