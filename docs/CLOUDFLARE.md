@@ -1,6 +1,7 @@
 # Cloudflare deployment
 
-The portfolio runs as one Cloudflare Worker with three custom hostnames:
+The portfolio runs as one Cloudflare Worker named `portfolio` with three custom
+hostnames:
 
 - `https://sohelislamimran.com` — canonical public site
 - `https://www.sohelislamimran.com` — redirects to the apex hostname
@@ -8,8 +9,10 @@ The portfolio runs as one Cloudflare Worker with three custom hostnames:
 
 ## Production status
 
-The TanStack Start build was deployed to the `sohel-portfolio` Worker on
-August 29, 2026. The apex, `www`, and CMS custom domains are active. The
+The TanStack Start build is deployed to the `portfolio` Worker. The former
+duplicate `sohel-portfolio` Worker was removed after its domains and settings
+were migrated. The apex,
+`www`, and CMS custom domains are active. The
 `portfolio-content-production` D1 database exists, both migrations are applied,
 and the public site reads the published revision.
 

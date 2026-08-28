@@ -4,9 +4,11 @@
  */
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "sohel-portfolio",
+	"name": "portfolio",
 	"compatibility_date": "2026-08-25",
 	"main": "./src/server-entry.ts",
+	"workers_dev": false,
+	"preview_urls": false,
 	"vars": {
 		"APP_ORIGIN": "https://sohelislamimran.com",
 		"CMS_ORIGIN": "https://cms.sohelislamimran.com",
@@ -15,6 +17,7 @@
 	},
 	"observability": {
 		"enabled": true,
+		"head_sampling_rate": 1,
 	},
 	"upload_source_maps": true,
 	"d1_databases": [

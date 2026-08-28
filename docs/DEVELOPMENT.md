@@ -1,6 +1,6 @@
 # Portfolio development
 
-`sohelislamimran.com` is a React Router v8 Framework Mode application rendered on Cloudflare Workers. Public content comes from one versioned D1 document. The owner editor saves drafts, publishes explicit revisions, rejects stale-tab writes, and validates every public link before storage.
+`sohelislamimran.com` is a TanStack Start application rendered on the `portfolio` Cloudflare Worker. Public content comes from one versioned D1 document. The owner editor saves drafts, publishes explicit revisions, rejects stale-tab writes, and validates every public link before storage.
 
 ## Routes
 
@@ -21,16 +21,16 @@ The app also serves `robots.txt`, `sitemap.xml`, and `rss.xml`. Public routes in
 ## Local development
 
 ```sh
-npm install
-npx wrangler d1 migrations apply DB --local
-npm run dev
+bun install
+bunx wrangler d1 migrations apply DB --local
+bun dev
 ```
 
 Run the release checks before pushing:
 
 ```sh
-npm run typecheck
-npm run build
+bun run typecheck
+bun run build
 git diff --check
 ```
 
@@ -38,7 +38,7 @@ The editor intentionally returns `401` without a valid Cloudflare Access asserti
 
 ## Cloudflare resources
 
-- Worker: `sohel-portfolio`
+- Worker: `portfolio`
 - Production D1: `portfolio-content-production`
 - Canonical domain: `sohelislamimran.com`
 - `www.sohelislamimran.com` redirects permanently to the apex domain
@@ -47,8 +47,8 @@ The editor intentionally returns `401` without a valid Cloudflare Access asserti
 Apply production migrations and deploy with:
 
 ```sh
-npx wrangler d1 migrations apply portfolio-content-production --remote
-npm run deploy
+bunx wrangler d1 migrations apply portfolio-content-production --remote
+bun run deploy
 ```
 
 Cloudflare Access should protect both `/resume/edit` and `/resume/edit/*`, allowing only the owner email. Set `ACCESS_TEAM_DOMAIN` and `ACCESS_AUD` after the Access application exists. The Worker verifies the Access JWT again before any editor action.
