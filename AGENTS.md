@@ -1,4 +1,4 @@
-# Prism Route portfolio
+# Portfolio
 
 This is a TanStack Start application with file-based TanStack Router routes,
 full-document SSR, streaming, and a Cloudflare Workers runtime.

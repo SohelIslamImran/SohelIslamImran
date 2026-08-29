@@ -1,10 +1,11 @@
-export { AccentSwitcher, accentBootScript, prismAccents } from "./AccentSwitcher";
-export type { PrismAccentId } from "./AccentSwitcher";
+export { AccentSwitcher, accentBootScript, accentOptions } from "./AccentSwitcher";
+export type { AccentId } from "./AccentSwitcher";
 export { CareerTimeline } from "./CareerTimeline";
 export { GlassRouteHero } from "./GlassRouteHero";
 export { LinkIcon } from "./LinkIcon";
 export { LinksFilter, linkKinds } from "./LinksFilter";
 export type { LinkKind } from "./LinksFilter";
-export { PrismImage } from "./PrismImage";
+export { PortfolioImage } from "./PortfolioImage";
 export { WorkFocusTabs } from "./WorkFocusTabs";
-export type { PrismRouteStop } from "./GlassRouteHero";
+export type { RouteStop } from "./GlassRouteHero";
+export { Button, buttonVariants } from "./ui/button";

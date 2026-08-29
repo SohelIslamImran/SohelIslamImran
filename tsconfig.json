@@ -11,6 +11,9 @@
 		"skipLibCheck": true,
 		"strict": true,
 		"target": "ES2022",
+		"paths": {
+			"@/*": ["./src/*"]
+		},
 		"types": ["node", "vite/client"],
 		"verbatimModuleSyntax": true
 	},

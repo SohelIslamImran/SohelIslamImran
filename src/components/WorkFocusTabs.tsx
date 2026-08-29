@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ProjectContent } from "../types/content";
-import { PrismImage } from "./PrismImage";
+import { PortfolioImage } from "./PortfolioImage";
+import { cn } from "../lib/utils";
 
 type Focus = "identity" | "matching" | "delivery";
 const labels: Record<Focus, string> = {
@@ -69,19 +70,31 @@ export function WorkFocusTabs({
 		document.getElementById(`${baseId}-${keys[next]}`)?.focus();
 	};
 	return (
-		<section className="work" id="work-focus" aria-labelledby={`${baseId}-title`}>
-			<div className="section-intro">
+		<section
+			className="work mx-auto w-[min(1180px,calc(100%-40px))] py-[88px] max-[800px]:py-[68px]"
+			id="work-focus"
+			aria-labelledby={`${baseId}-title`}
+		>
+			<div className="section-intro mb-16 grid grid-cols-[1fr_1.3fr] gap-x-[60px] gap-y-5 max-[800px]:mb-12 max-[800px]:block">
 				<p className="kicker section-intro-kicker">{sectionNumber} · Selected work</p>
-				<h2 className="section-intro-title" id={`${baseId}-title`}>
+				<h2
+					className="section-intro-title m-0 text-[clamp(2.5rem,4.4vw,4.35rem)] font-[760] leading-none tracking-[-.055em] [text-wrap:balance] max-[800px]:my-[15px]"
+					id={`${baseId}-title`}
+				>
 					What the work needs.
 				</h2>
-				<p className="section-intro-copy">
+				<p className="section-intro-copy max-w-[490px] self-end text-lg leading-[1.55] text-muted max-[800px]:text-base">
 					Start with Kuno’s product systems, then move through matching and delivery work.
 				</p>
 			</div>
-			<div className="work-tabs" role="tablist" aria-label="Work focus" data-focus={focus}>
+			<div
+				className="work-tabs relative mb-6 inline-flex w-[min(100%,360px)] gap-1 rounded-full border border-line bg-surface-solid p-1"
+				role="tablist"
+				aria-label="Work focus"
+				data-focus={focus}
+			>
 				<motion.span
-					className="work-tabs-indicator"
+					className="work-tabs-indicator pointer-events-none absolute bottom-1 left-1 top-1 z-0 w-[calc((100%-16px)/3)] rounded-full bg-primary shadow-[0_5px_15px_var(--theme-accent-glow)]"
 					aria-hidden="true"
 					initial={false}
 					animate={{
@@ -94,7 +107,10 @@ export function WorkFocusTabs({
 				{(Object.keys(labels) as Focus[]).map((key) => (
 					<button
 						key={key}
-						className="work-tab"
+						className={cn(
+							"work-tab relative z-[1] flex-1 rounded-full border-0 bg-transparent px-[17px] py-2.5 text-[13px] text-muted transition-[color,transform] duration-180 ease-route hover:-translate-y-px focus-visible:outline-2 focus-visible:outline-primary",
+							focus === key && "text-[var(--theme-picker-ink)]",
+						)}
 						id={`${baseId}-${key}`}
 						type="button"
 						role="tab"
@@ -140,15 +156,22 @@ export function WorkFocusTabs({
 					}
 					transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
 				>
-					<div className="work-panel-head">
+					<div className="work-panel-head mb-[15px] flex justify-between text-xs uppercase tracking-[.1em] text-muted">
 						<span>{labels[focus]} systems</span>
 						<span>{String(items.length).padStart(2, "0")} proofs</span>
 					</div>
-					<div className="work-cards">
+					<div className="work-cards grid grid-cols-12 gap-3.5 max-[800px]:grid-cols-1">
 						{items.length > 0 ? (
 							items.map((project, index) => (
 								<motion.article
-									className="work-card glass"
+									className={cn(
+										"work-card glass col-span-12 min-h-[250px] rounded-[22px] p-6 max-[800px]:col-span-1 max-[800px]:min-h-0",
+										index === 0
+											? "md:col-span-6"
+											: items.length === 2 && index === 1
+												? "md:col-span-5"
+												: "md:col-span-3",
+									)}
 									key={project.id}
 									whileHover={reducedMotion ? undefined : { y: -5, rotateX: 2 }}
 									whileTap={reducedMotion ? undefined : { scale: 0.992 }}
@@ -169,7 +192,7 @@ export function WorkFocusTabs({
 										ease: [0.22, 1, 0.36, 1],
 									}}
 								>
-									<PrismImage
+									<PortfolioImage
 										src={
 											project.cover?.id
 												? `/media/${project.cover.id}`
@@ -184,21 +207,31 @@ export function WorkFocusTabs({
 												? undefined
 												: "/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
 										}
-										className="work-card-image"
+										className={cn(
+											"work-card-image mb-[22px] mt-[-3px] block h-[112px] w-full rounded-[14px] object-cover transition-transform duration-220 ease-route",
+											index === 0 && "md:h-[170px]",
+										)}
 									/>
-									<span>{project.year}</span>
-									<h3 className="work-card-title">{project.title}</h3>
-									<p className="work-card-copy">{project.summary}</p>
+									<span className="text-xs text-signal">{project.year}</span>
+									<h3 className="work-card-title mb-[9px] mt-[22px] text-2xl font-[760] tracking-[-.04em]">
+										{project.title}
+									</h3>
+									<p className="work-card-copy mb-5 mt-0 leading-[1.5] text-muted">
+										{project.summary}
+									</p>
 									<div className="tags">
 										{project.tags.slice(0, 3).map((tag) => (
-											<span className="tag" key={tag}>
+											<span
+												className="tag rounded-full border border-line px-[9px] py-[5px] text-xs text-muted"
+												key={tag}
+											>
 												{tag}
 											</span>
 										))}
 									</div>
 									{(project.repository ?? project.href) && (
 										<a
-											className="work-card-link"
+											className="work-card-link mt-5 inline-flex items-center gap-2 text-[13px] font-[750] text-primary no-underline transition-transform duration-180 ease-route hover:translate-x-0.5"
 											href={project.repository ?? project.href}
 											target="_blank"
 											rel="noreferrer"
@@ -210,7 +243,7 @@ export function WorkFocusTabs({
 							))
 						) : (
 							<motion.article
-								className="work-card glass work-card--empty"
+								className="work-card work-card--empty glass col-span-full rounded-[22px] p-6"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 							>

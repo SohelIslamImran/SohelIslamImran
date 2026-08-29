@@ -46,7 +46,7 @@ I started learning on a phone in Bangladesh before I owned a computer. That path
 
 ## This repository
 
-This profile repository contains the source for `sohelislamimran.com`, a Kuno-first portfolio called **Prism Route**. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
+This profile repository contains the source for `sohelislamimran.com`, a Kuno-first portfolio called **Portfolio**. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
 
 ### Stack
 
@@ -62,7 +62,7 @@ Public routes are SSR-first and read published content only. Drafts and private 
 
 ### Styling migration
 
-The former `prism-route.css` stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities and named `@utility` primitives backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to SVG route art, responsive state, accessibility fallbacks, and print layout; no separate Prism stylesheet or utility layer is required.
+The former route stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities and named `@utility` primitives backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to SVG route art, responsive state, accessibility fallbacks, and print layout; no separate named stylesheet or utility layer is required.
 
 ### Local development
 

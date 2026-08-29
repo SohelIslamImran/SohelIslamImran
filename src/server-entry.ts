@@ -52,7 +52,7 @@ export default {
 				const cmsUrl = new URL(incoming);
 				cmsUrl.pathname = "/cms";
 				routedRequest = new Request(cmsUrl, request);
-			} else if (!incoming.pathname.startsWith("/cms") && !incoming.pathname.startsWith("/__tsr")) {
+			} else if (!isCmsRuntimePath(incoming.pathname)) {
 				return withSecurityHeaders(
 					Response.redirect(`${appOrigin}${incoming.pathname}${incoming.search}`, 308),
 				);
@@ -75,6 +75,25 @@ function hostnameFromOrigin(origin: string, fallback: string) {
 	} catch {
 		return fallback;
 	}
+}
+
+/**
+ * The CMS document is served from a different hostname, but its browser
+ * runtime still requests the generated assets and server-function endpoints
+ * from that same origin. Redirecting those requests to the public hostname
+ * breaks CSP and drops the Access assertion from CMS mutations.
+ */
+function isCmsRuntimePath(pathname: string): boolean {
+	return (
+		pathname.startsWith("/cms") ||
+		pathname.startsWith("/__tsr") ||
+		pathname.startsWith("/_serverFn/") ||
+		pathname.startsWith("/assets/") ||
+		pathname.startsWith("/images/") ||
+		pathname.startsWith("/media/") ||
+		pathname === "/favicon.svg" ||
+		pathname === "/favicon.ico"
+	);
 }
 
 function withSecurityHeaders(

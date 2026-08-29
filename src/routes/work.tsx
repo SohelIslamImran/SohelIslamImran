@@ -43,17 +43,19 @@ function Work() {
 	const focus = requestedFocus ?? "identity";
 	const navigate = useNavigate({ from: "/work" });
 	return (
-		<main className="page">
-			<header className="page-intro">
+		<main className="page mx-auto min-h-[calc(100svh-150px)] w-[min(1080px,calc(100%-40px))] py-[clamp(58px,9vw,120px)]">
+			<header className="page-intro mb-16 max-w-[960px] max-[800px]:mb-12">
 				<p className="eyebrow">Selected work</p>
-				<h1 className="page-title">Full-stack product engineering at Kuno.</h1>
-				<p className="lede">
+				<h1 className="page-title mb-[22px] mt-0 max-w-[960px] text-[clamp(3rem,5vw,4.8rem)] font-[760] leading-[.98] tracking-[-.06em] [text-wrap:balance]">
+					Full-stack product engineering at Kuno.
+				</h1>
+				<p className="lede m-0 max-w-[650px] text-[clamp(17px,2vw,21px)] leading-[1.55] text-muted">
 					I lead product work across interfaces, backend services, data, infrastructure, and
 					releases. Open-source projects are the parts I can show in full.
 				</p>
 			</header>
 			<motion.section
-				className="work-thesis glass"
+				className="work-thesis glass mb-20 grid grid-cols-2 gap-[30px] rounded-[26px] p-[30px] max-[800px]:mb-[58px] max-[800px]:grid-cols-1"
 				aria-labelledby="work-thesis-title"
 				whileHover={reducedMotion ? undefined : { y: -3 }}
 				whileTap={reducedMotion ? undefined : { scale: 0.997 }}
@@ -61,11 +63,14 @@ function Work() {
 			>
 				<div>
 					<p className="eyebrow">Kuno · current practice</p>
-					<h2 className="work-thesis-title" id="work-thesis-title">
+					<h2
+						className="work-thesis-title m-0 mt-[5px] max-w-[440px] text-[clamp(26px,4vw,46px)] font-[760] leading-[.98] tracking-[-.06em]"
+						id="work-thesis-title"
+					>
 						Follow the outcome through the whole stack.
 					</h2>
 				</div>
-				<p className="work-thesis-copy">
+				<p className="work-thesis-copy m-0 max-w-[520px] self-end text-[17px] leading-[1.6] text-muted">
 					I connect product behavior, authorization, services, data, release systems, and the
 					feedback that helps teams keep improving. The public proof below stays specific where it
 					can and generalized where the product is private.

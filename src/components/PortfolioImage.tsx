@@ -1,4 +1,6 @@
-interface PrismImageProps {
+import { cn } from "../lib/utils";
+
+interface PortfolioImageProps {
 	src?: string | null;
 	alt: string;
 	width: number;
@@ -9,7 +11,7 @@ interface PrismImageProps {
 	sizes?: string;
 	srcSet?: string;
 }
-export function PrismImage({
+export function PortfolioImage({
 	src,
 	alt,
 	width,
@@ -19,11 +21,11 @@ export function PrismImage({
 	fetchPriority,
 	sizes,
 	srcSet,
-}: PrismImageProps) {
+}: PortfolioImageProps) {
 	if (!src)
 		return (
 			<div
-				className={`image-placeholder ${className ?? ""}`}
+				className={cn("image-placeholder", className)}
 				role="img"
 				aria-label={alt}
 				style={{ aspectRatio: `${width} / ${height}` }}

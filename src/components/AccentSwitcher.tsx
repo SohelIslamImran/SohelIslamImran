@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { cn } from "../lib/utils";
 
-export const prismAccents = [
+export const accentOptions = [
 	{ id: "cobalt", name: "Cobalt", color: "#2f5cff" },
 	{ id: "sky", name: "Sky", color: "#42b7ff" },
 	{ id: "azure", name: "Azure", color: "#1294d8" },
@@ -12,24 +13,24 @@ export const prismAccents = [
 ] as const;
 
 const themeModes = ["light", "dark", "auto"] as const;
-export type PrismAccentId = (typeof prismAccents)[number]["id"];
-export type PrismThemeMode = (typeof themeModes)[number];
+export type AccentId = (typeof accentOptions)[number]["id"];
+export type ThemeMode = (typeof themeModes)[number];
 
-const accentIds = prismAccents.map(({ id }) => id);
-const accentStorageKey = "prism-route-accent";
-const themeStorageKey = "prism-route-theme";
+const accentIds = accentOptions.map(({ id }) => id);
+const accentStorageKey = "portfolio-accent";
+const themeStorageKey = "portfolio-theme";
 
 export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto",d=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;if(${JSON.stringify(accentIds)}.includes(a))r.dataset.accent=a;r.dataset.theme=t;r.dataset.themeResolved=d;r.classList.toggle("dark",d==="dark")}catch{}})()`;
 
-function isPrismAccent(value: string | undefined): value is PrismAccentId {
+function isAccent(value: string | undefined): value is AccentId {
 	return accentIds.some((accent) => accent === value);
 }
 
-function isThemeMode(value: string | undefined): value is PrismThemeMode {
+function isThemeMode(value: string | undefined): value is ThemeMode {
 	return themeModes.some((mode) => mode === value);
 }
 
-function resolvedTheme(mode: PrismThemeMode): "light" | "dark" {
+function resolvedTheme(mode: ThemeMode): "light" | "dark" {
 	return mode === "auto"
 		? window.matchMedia("(prefers-color-scheme: dark)").matches
 			? "dark"
@@ -37,7 +38,7 @@ function resolvedTheme(mode: PrismThemeMode): "light" | "dark" {
 		: mode;
 }
 
-function updateTheme(mode: PrismThemeMode) {
+function updateTheme(mode: ThemeMode) {
 	const nextResolvedTheme = resolvedTheme(mode);
 	document.documentElement.dataset.theme = mode;
 	document.documentElement.dataset.themeResolved = nextResolvedTheme;
@@ -49,7 +50,7 @@ function updateTheme(mode: PrismThemeMode) {
 	}
 }
 
-function applyAccent(accent: PrismAccentId) {
+function applyAccent(accent: AccentId) {
 	document.documentElement.dataset.accent = accent;
 	try {
 		localStorage.setItem(accentStorageKey, accent);
@@ -58,7 +59,7 @@ function applyAccent(accent: PrismAccentId) {
 	}
 }
 
-function ModeIcon({ mode }: { mode: PrismThemeMode }) {
+function ModeIcon({ mode }: { mode: ThemeMode }) {
 	if (mode === "light") {
 		return (
 			<svg className="relative z-[1] size-[15px]" viewBox="0 0 20 20" aria-hidden="true">
@@ -88,8 +89,8 @@ interface AccentSwitcherProps {
 }
 
 export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
-	const [accent, setAccent] = useState<PrismAccentId>("cobalt");
-	const [theme, setTheme] = useState<PrismThemeMode>("auto");
+	const [accent, setAccent] = useState<AccentId>("cobalt");
+	const [theme, setTheme] = useState<ThemeMode>("auto");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
@@ -113,7 +114,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	useEffect(() => {
 		const savedAccent = document.documentElement.dataset.accent;
 		const savedTheme = document.documentElement.dataset.theme;
-		if (isPrismAccent(savedAccent)) setAccent(savedAccent);
+		if (isAccent(savedAccent)) setAccent(savedAccent);
 		if (isThemeMode(savedTheme)) setTheme(savedTheme);
 	}, []);
 
@@ -145,7 +146,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 		};
 	}, [onOpenChange, open]);
 
-	const selectTheme = (mode: PrismThemeMode, source: HTMLButtonElement) => {
+	const selectTheme = (mode: ThemeMode, source: HTMLButtonElement) => {
 		if (mode === theme) {
 			return;
 		}
@@ -168,14 +169,14 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 		});
 	};
 
-	const currentAccent = prismAccents.find(({ id }) => id === accent) ?? prismAccents[0];
+	const currentAccent = accentOptions.find(({ id }) => id === accent) ?? accentOptions[0];
 
 	return (
 		<div className="accent-switcher relative" ref={containerRef}>
 			<button
 				ref={triggerRef}
 				type="button"
-				className="appearance-trigger"
+				className="appearance-trigger relative grid size-[38px] place-items-center rounded-[13px] border border-line bg-surface p-0 text-ink shadow-[inset_0_1px_color-mix(in_srgb,var(--theme-surface-solid)_82%,transparent)] transition-[transform,border-color,box-shadow] duration-180 ease-route hover:-translate-y-px active:scale-[.94]"
 				aria-label={`Appearance. ${theme} mode, ${currentAccent.name} accent`}
 				aria-haspopup="dialog"
 				aria-expanded={open}
@@ -189,81 +190,92 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 				<span style={{ "--accent-dot": currentAccent.color } as CSSProperties} aria-hidden="true" />
 			</button>
 
-			<motion.div
-				ref={panelRef}
-				id="accent-switcher-panel"
-				className="appearance-panel absolute right-0 top-[calc(100%+11px)] z-40 w-[220px] rounded-[18px] p-2.5"
-				role="dialog"
-				aria-label="Appearance"
-				aria-hidden={!open}
-				tabIndex={-1}
-				inert={!open}
-				data-open={open || undefined}
-				data-glass="true"
-				initial={false}
-				animate={open ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -7, scale: 0.96 }}
-				transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-			>
-				<div
-					className="appearance-modes relative grid grid-cols-3 gap-0.5 rounded-[12px] border border-line bg-ink/5 p-[3px]"
-					data-theme={theme}
-				>
-					{themeModes.map((mode) => (
-						<button
-							key={mode}
-							type="button"
-							data-theme-mode={mode}
-							aria-label={`${mode[0].toUpperCase()}${mode.slice(1)} appearance`}
-							aria-pressed={theme === mode}
-							className="appearance-mode relative z-[1] grid min-h-[40px] place-items-center gap-0.5 rounded-[9px] border-0 bg-transparent px-1 py-1 text-muted transition-[color,transform] duration-150 ease-route hover:text-ink focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 active:scale-[.94]"
-							onClick={(event) => selectTheme(mode, event.currentTarget)}
+			<AnimatePresence initial={false}>
+				{open && (
+					<motion.div
+						ref={panelRef}
+						id="accent-switcher-panel"
+						className="appearance-panel absolute right-0 top-[calc(100%+11px)] z-40 w-[220px] origin-[86%_0] rounded-[18px] border border-[color-mix(in_srgb,var(--theme-surface-solid)_72%,transparent)] bg-[linear-gradient(135deg,color-mix(in_srgb,var(--theme-surface-solid)_98%,transparent),color-mix(in_srgb,var(--theme-surface-solid)_90%,var(--theme-blue-soft)))] p-2.5 shadow-[0_26px_70px_#1e385f24,inset_0_1px_color-mix(in_srgb,var(--theme-surface-solid)_78%,transparent)] backdrop-blur-[28px] backdrop-saturate-[170%]"
+						role="dialog"
+						aria-label="Appearance"
+						tabIndex={-1}
+						data-open="true"
+						data-glass="true"
+						initial={{ opacity: 0, y: -7, scale: 0.96 }}
+						animate={{ opacity: 1, y: 0, scale: 1 }}
+						exit={{ opacity: 0, y: -7, scale: 0.96 }}
+						transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+					>
+						<div
+							className="appearance-modes relative grid grid-cols-3 gap-0.5 rounded-[12px] border border-line bg-ink/5 p-[3px]"
+							data-theme={theme}
 						>
-							{theme === mode && (
-								<motion.span
-									className="appearance-indicator absolute inset-[3px] rounded-[9px] border border-surface-solid/85 bg-surface-solid shadow-[0_3px_10px_var(--theme-shadow)]"
-									aria-hidden="true"
-									layoutId="appearance-mode-indicator"
-									transition={{ type: "spring", duration: 0.28, bounce: 0.08 }}
-								/>
-							)}
-							<ModeIcon mode={mode} />
-							<span className="appearance-mode-label">{mode}</span>
-						</button>
-					))}
-				</div>
-				<div
-					className="appearance-palette mt-2 flex justify-between gap-1 p-1"
-					role="group"
-					aria-label="Accent color"
-				>
-					{prismAccents.map((option) => (
-						<button
-							key={option.id}
-							type="button"
-							aria-label={`${option.name} accent`}
-							aria-pressed={accent === option.id}
-							className="appearance-color-button"
-							style={{ "--accent-option": option.color } as CSSProperties}
-							onClick={() => {
-								setAccent(option.id);
-								applyAccent(option.id);
-							}}
+							{themeModes.map((mode) => (
+								<button
+									key={mode}
+									type="button"
+									data-theme-mode={mode}
+									aria-label={`${mode[0].toUpperCase()}${mode.slice(1)} appearance`}
+									aria-pressed={theme === mode}
+									className={cn(
+										"appearance-mode relative z-[1] grid min-h-[40px] place-items-center gap-0.5 rounded-[9px] border-0 bg-transparent px-1 py-1 text-muted transition-[color,transform] duration-150 ease-route hover:text-ink focus-visible:outline-2 focus-visible:outline-primary focus-visible:outline-offset-1 active:scale-[.94]",
+										theme === mode && "text-ink",
+									)}
+									onClick={(event) => selectTheme(mode, event.currentTarget)}
+								>
+									{theme === mode && (
+										<motion.span
+											className="appearance-indicator absolute inset-[3px] rounded-[9px] border border-surface-solid/85 bg-surface-solid shadow-[0_3px_10px_var(--theme-shadow)]"
+											aria-hidden="true"
+											layoutId="appearance-mode-indicator"
+											transition={{ type: "spring", duration: 0.28, bounce: 0.08 }}
+										/>
+									)}
+									<ModeIcon mode={mode} />
+									<span className="appearance-mode-label relative z-[1] text-[9px] font-bold capitalize leading-none">
+										{mode}
+									</span>
+								</button>
+							))}
+						</div>
+						<div
+							className="appearance-palette mt-2 flex justify-between gap-1 p-1"
+							role="group"
+							aria-label="Accent color"
 						>
-							<span
-								className="appearance-color-dot"
-								style={{ background: "var(--accent-option)" }}
-								aria-hidden="true"
-							/>
-						</button>
-					))}
-				</div>
-			</motion.div>
+							{accentOptions.map((option) => (
+								<button
+									key={option.id}
+									type="button"
+									aria-label={`${option.name} accent`}
+									aria-pressed={accent === option.id}
+									className={cn(
+										"appearance-color-button grid size-[26px] place-items-center rounded-full border border-transparent bg-transparent p-0 transition-transform duration-150 ease-route hover:scale-110 active:scale-[.94]",
+										accent === option.id && "border-[var(--accent-option)]",
+									)}
+									style={{ "--accent-option": option.color } as CSSProperties}
+									onClick={() => {
+										setAccent(option.id);
+										applyAccent(option.id);
+									}}
+								>
+									<span
+										className="appearance-color-dot size-4 rounded-full border-2 border-[color-mix(in_srgb,var(--theme-surface-solid)_90%,transparent)] shadow-[0_1px_4px_#0002]"
+										style={{ background: "var(--accent-option)" }}
+										aria-hidden="true"
+									/>
+								</button>
+							))}
+						</div>
+					</motion.div>
+				)}
+			</AnimatePresence>
 			{typeof document !== "undefined" && themeReveal
 				? createPortal(
 						<AnimatePresence initial={false}>
 							<motion.div
 								key={themeReveal.id}
-								className="theme-reveal fixed inset-0 z-[90] pointer-events-none"
+								className="theme-reveal pointer-events-none fixed inset-0 z-[90]"
 								aria-hidden="true"
 								style={
 									{

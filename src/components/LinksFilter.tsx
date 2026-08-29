@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
+import { cn } from "../lib/utils";
 
 export const linkKinds = ["all", "social", "contact", "work", "story", "other"] as const;
 export type LinkKind = (typeof linkKinds)[number];
@@ -89,14 +90,17 @@ export function LinksFilter({ value, onChange }: LinksFilterProps) {
 
 	return (
 		<div
-			className="links-filter relative w-full overflow-hidden rounded-[20px] border border-line bg-surface-solid p-1 shadow-[0_18px_40px_var(--theme-shadow)] backdrop-blur-xl"
+			className="links-filter relative mb-6 w-full overflow-hidden rounded-[20px] border border-line bg-surface-solid p-1 shadow-[0_18px_40px_var(--theme-shadow)] backdrop-blur-xl"
 			role="group"
 			aria-label="Link categories"
 		>
-			<div className="links-filter-track" ref={trackRef}>
+			<div
+				className="links-filter-track relative grid min-w-0 grid-cols-6 max-[560px]:grid-cols-3 max-[560px]:grid-rows-2"
+				ref={trackRef}
+			>
 				{indicator && (
 					<motion.span
-						className="links-filter-indicator"
+						className="links-filter-indicator pointer-events-none absolute left-0 top-0 z-0 rounded-[15px] bg-primary shadow-[0_8px_18px_var(--theme-accent-glow)]"
 						aria-hidden="true"
 						initial={false}
 						style={{ x: indicatorX, y: indicatorY, width: indicatorWidth, height: indicatorHeight }}
@@ -107,18 +111,17 @@ export function LinksFilter({ value, onChange }: LinksFilterProps) {
 						key={kind}
 						id={`link-filter-${kind}`}
 						type="button"
-						className="relative z-10 min-w-0 rounded-[15px] px-3 py-3 text-sm font-semibold capitalize text-muted transition-colors duration-200 ease-route hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:scale-[0.98]"
+						className={cn(
+							"relative z-10 min-w-0 rounded-[15px] px-3 py-3 text-sm font-semibold capitalize text-muted transition-[color,transform] duration-200 ease-route hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:scale-[0.98] max-[560px]:px-2",
+							value === kind && "text-[var(--theme-picker-ink)]",
+						)}
 						aria-pressed={value === kind}
 						aria-controls="link-results"
 						data-kind={kind}
 						onKeyDown={onKeyDown}
 						onClick={() => onChange(kind)}
 					>
-						<span
-							className={`relative z-[1]${value === kind ? " text-[var(--theme-picker-ink)]" : ""}`}
-						>
-							{kind}
-						</span>
+						<span className="relative z-[1]">{kind}</span>
 					</button>
 				))}
 			</div>

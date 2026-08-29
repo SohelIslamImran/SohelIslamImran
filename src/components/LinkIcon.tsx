@@ -82,7 +82,10 @@ export function LinkIcon({ platform }: LinkIconProps) {
 	);
 
 	return (
-		<span className="link-icon" aria-hidden="true">
+		<span
+			className="link-icon grid size-12 shrink-0 place-items-center rounded-2xl border border-line bg-[var(--theme-picker-soft)] text-primary transition-[transform,border-color,box-shadow] duration-220 ease-route"
+			aria-hidden="true"
+		>
 			<svg viewBox="0 0 24 24" focusable="false">
 				{icon}
 			</svg>
