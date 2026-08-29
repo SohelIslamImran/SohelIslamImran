@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { StudioPage } from "@/components/studio/studio-page";
+import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/studio")({
   head: () => ({
@@ -8,5 +7,5 @@ export const Route = createFileRoute("/studio")({
       { name: "robots", content: "noindex, nofollow" },
     ],
   }),
-  component: StudioPage,
+  component: lazyRouteComponent(() => import("@/components/studio/studio-page"), "StudioPage"),
 });

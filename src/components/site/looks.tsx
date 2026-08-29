@@ -1,6 +1,3 @@
-import * as Popover from "@radix-ui/react-popover";
-import { Moon, Sun, SunMoon } from "lucide-react";
-import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { applyGel, gels, readGelId, type Gel } from "@/lib/gel";
 import {
@@ -10,7 +7,6 @@ import {
   readAppearance,
   type Appearance,
 } from "@/lib/theme";
-import { springUi } from "./motion";
 
 export function ThemeHydrate() {
   useEffect(() => {
@@ -47,13 +43,7 @@ function useLooks() {
   return { gelId, appearance };
 }
 
-const appearanceIcon = {
-  light: Sun,
-  dark: Moon,
-  system: SunMoon,
-} as const;
-
-export function LooksPanel({ layoutId }: { layoutId: string }) {
+export function LooksPanel() {
   const { gelId, appearance } = useLooks();
   const gel = gels.find((g) => g.id === gelId) ?? gels[0]!;
 
@@ -63,7 +53,6 @@ export function LooksPanel({ layoutId }: { layoutId: string }) {
       <div className="looks-seg mt-2" role="radiogroup" aria-label="Appearance">
         {appearances.map((item) => {
           const on = item.id === appearance;
-          const Icon = appearanceIcon[item.id];
           return (
             <button
               key={item.id}
@@ -71,15 +60,10 @@ export function LooksPanel({ layoutId }: { layoutId: string }) {
               role="radio"
               aria-checked={on}
               aria-label={item.name}
+              data-appearance={item.id}
               className={on ? "is-on" : undefined}
-              onClick={(e) =>
-                applyAppearance(item.id, { origin: { x: e.clientX, y: e.clientY } })
-              }
             >
-              {on ? (
-                <motion.span layoutId={layoutId} className="looks-seg-pill" transition={springUi} />
-              ) : null}
-              <Icon className="relative z-10 size-4" strokeWidth={1.75} />
+              <span className="looks-seg-pill" hidden={!on} />
               <span className="relative z-10">{item.name}</span>
             </button>
           );
@@ -98,8 +82,8 @@ export function LooksPanel({ layoutId }: { layoutId: string }) {
               aria-checked={on}
               aria-label={item.name}
               title={item.name}
+              data-gel={item.id}
               className={`looks-swatch${on ? " is-on" : ""}`}
-              onClick={() => applyGel(item.id)}
             >
               <span className="looks-swatch-dot" style={{ background: item.hex }} />
             </button>
@@ -116,27 +100,19 @@ export function LooksMenu() {
   const gel = gels.find((g) => g.id === gelId) ?? gels[0]!;
 
   return (
-    <Popover.Root>
-      <Popover.Trigger asChild>
-        <button
-          type="button"
-          className="looks-trigger"
-          aria-label="Appearance and accent"
-          title={`${gel.name} · Appearance`}
-        >
-          <span className="looks-trigger-dot" style={{ background: gel.hex }} />
-        </button>
-      </Popover.Trigger>
-      <Popover.Portal>
-        <Popover.Content
-          sideOffset={10}
-          align="end"
-          collisionPadding={12}
-          className="looks-pop glass glass-heavy glass-spec z-50 w-72 rounded-[28px] p-4 outline-none"
-        >
-          <LooksPanel layoutId="looks-seg-menu" />
-        </Popover.Content>
-      </Popover.Portal>
-    </Popover.Root>
+    <>
+      <button
+        type="button"
+        className="looks-trigger"
+        popoverTarget="looks-pop"
+        aria-label="Appearance and accent"
+        title={`${gel.name} · Appearance`}
+      >
+        <span className="looks-trigger-dot" style={{ background: gel.hex }} />
+      </button>
+      <div id="looks-pop" popover="auto" className="looks-pop glass glass-heavy glass-spec z-50 w-72 rounded-[28px] p-4">
+        <LooksPanel />
+      </div>
+    </>
   );
 }

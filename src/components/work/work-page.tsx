@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
 import { projects, roles } from "@/data/folio";
 import { Tilt } from "@/components/site/tilt";
 import { OpticalLens } from "@/components/home/lens";
@@ -51,7 +50,7 @@ export function WorkPage() {
                   <p className="mt-3 flex-1 text-sm text-muted">{project.summary}</p>
                   {project.repository ? (
                     <a href={project.repository} className="mt-5 inline-flex items-center gap-1 text-sm hover:text-primary">
-                      View the public project <ArrowUpRight className="size-4" />
+                      View the public project <span aria-hidden="true">↗</span>
                     </a>
                   ) : null}
                 </article>

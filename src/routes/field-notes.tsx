@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { NotesPage } from "@/components/notes/notes-page";
+import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
 import { getPublicDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/field-notes")({
@@ -11,8 +10,5 @@ export const Route = createFileRoute("/field-notes")({
   }),
   loader: () => getPublicDocument(),
   staleTime: STUDIO_STALE_MS,
-  component: function Notes() {
-    const data = Route.useLoaderData();
-    return <NotesPage notes={data.payload.notes} />;
-  },
+  component: lazyRouteComponent(() => import("@/components/notes/notes-page"), "NotesPage"),
 });

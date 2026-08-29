@@ -1,68 +1,34 @@
 import { useEffect, useRef } from "react";
 import { currentGelHex, hexToRgb } from "@/lib/gel";
 import { currentTheme } from "@/lib/theme";
-import { useReducedMotion } from "@/hooks/use-reduced";
 
 const VERT = `
 attribute vec2 aPos;
-void main() {
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}
+void main(){ gl_Position = vec4(aPos,0.0,1.0); }
 `;
 
+// 1 octave, no exp/noise, mediump — shader compile + fill was freezing clicks.
 const FRAG = `
-precision highp float;
+precision mediump float;
 uniform vec2 uRes;
 uniform float uTime;
 uniform vec2 uPointer;
 uniform vec3 uPrimary;
 uniform float uDark;
 
-float hash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
-}
-
-float noise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  float a = hash(i);
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
-}
-
-float caustic(vec2 p, float t) {
-  vec2 q = p;
-  float v = 0.0;
-  float amp = 0.55;
-  for (int i = 0; i < 4; i++) {
-    float fi = float(i);
-    vec2 w = q + vec2(sin(t * (0.31 + fi * 0.07) + q.y * 1.3), cos(t * (0.24 + fi * 0.05) - q.x * 1.1));
-    v += amp * exp(-abs(sin(w.x) * cos(w.y)) * (3.4 + fi));
-    q = mat2(0.78, -0.62, 0.62, 0.78) * q * 1.35;
-    amp *= 0.62;
-  }
-  return v;
-}
-
 void main() {
-  vec2 uv = gl_FragCoord.xy / uRes;
   vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / min(uRes.x, uRes.y);
-  float t = uTime * 0.22;
-  vec2 par = (uPointer - 0.5) * vec2(0.22, 0.16);
-  float c1 = caustic(p * 2.15 + par, t);
-  float c2 = caustic(p * 3.1 - par * 1.4 + 2.7, t * 0.85 + 1.7);
-  float c = mix(c1, c2, 0.45);
-  float n = noise(p * 18.0 + t * 0.15);
+  vec2 par = (uPointer - 0.5) * vec2(0.14, 0.10);
+  float t = uTime * 0.16;
+  vec2 q = p * 1.85 + par;
+  float s = sin(q.x * 2.8 + t) * cos(q.y * 2.4 - t * 0.85);
+  float c = s * s;
   vec3 paper = mix(vec3(0.965, 0.965, 0.972), vec3(0.07, 0.07, 0.08), uDark);
-  vec3 col = mix(paper, uPrimary, c * mix(0.42, 0.55, uDark));
-  col = mix(col, vec3(1.0), c * mix(0.22, 0.08, uDark));
-  col += (n - 0.5) * 0.025;
-  float vign = smoothstep(1.2, 0.12, length(p));
-  float alpha = (mix(0.2, 0.14, uDark) + c * mix(0.4, 0.32, uDark)) * vign;
-  gl_FragColor = vec4(col, clamp(alpha, 0.0, mix(0.62, 0.48, uDark)));
+  vec3 col = mix(paper, uPrimary, c * mix(0.36, 0.48, uDark));
+  col = mix(col, vec3(1.0), c * mix(0.14, 0.05, uDark));
+  float vign = clamp(1.15 - length(p), 0.0, 1.0);
+  float alpha = (mix(0.14, 0.10, uDark) + c * mix(0.28, 0.22, uDark)) * vign;
+  gl_FragColor = vec4(col, clamp(alpha, 0.0, mix(0.42, 0.34, uDark)));
 }
 `;
 
@@ -80,10 +46,8 @@ function compile(gl: WebGLRenderingContext, type: number, src: string) {
 
 export function LightField() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const reduced = useReducedMotion();
 
   useEffect(() => {
-    if (reduced) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const gl = canvas.getContext("webgl", {
@@ -93,6 +57,8 @@ export function LightField() {
       stencil: false,
       premultipliedAlpha: true,
       powerPreference: "low-power",
+      desynchronized: true,
+      failIfMajorPerformanceCaveat: true,
     });
     if (!gl) return;
 
@@ -144,9 +110,9 @@ export function LightField() {
     window.addEventListener("folio-theme", applyTheme);
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
-      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.28;
+      const w = Math.max(1, Math.floor(canvas.clientWidth * scale));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * scale));
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
@@ -163,12 +129,12 @@ export function LightField() {
 
     let raf = 0;
     const t0 = performance.now();
+    let last = 0;
+    const frameMs = 1000 / 12;
     const loop = (now: number) => {
-      if (document.hidden) {
-        raf = requestAnimationFrame(loop);
-        return;
-      }
-      resize();
+      raf = requestAnimationFrame(loop);
+      if (document.hidden || now - last < frameMs) return;
+      last = now;
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform1f(uTime, (now - t0) / 1000);
@@ -176,7 +142,6 @@ export function LightField() {
       gl.uniform3f(uPrimary, primary.r, primary.g, primary.b);
       gl.uniform1f(uDark, theme.dark);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
 
@@ -188,8 +153,7 @@ export function LightField() {
       window.removeEventListener("folio-theme", applyTheme);
       gl.getExtension("WEBGL_lose_context")?.loseContext();
     };
-  }, [reduced]);
+  }, []);
 
-  if (reduced) return null;
   return <canvas ref={canvasRef} className="atmosphere-field" aria-hidden="true" />;
 }

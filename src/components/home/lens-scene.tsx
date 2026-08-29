@@ -6,61 +6,31 @@ export type LensPointer = { x: number; y: number };
 
 const VERT = `
 attribute vec2 aPos;
-void main() {
-  gl_Position = vec4(aPos, 0.0, 1.0);
-}
+void main(){ gl_Position = vec4(aPos,0.0,1.0); }
 `;
 
 const FRAG = `
-precision highp float;
+precision mediump float;
 uniform vec2 uRes;
 uniform vec2 uPointer;
 uniform vec3 uPrimary;
-uniform float uTime;
-
-float sdRoundedBox(vec2 p, vec2 b, float r) {
-  vec2 q = abs(p) - b + r;
-  return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
-}
-
-float schlick(float f0, float ndv) {
-  float u = 1.0 - clamp(ndv, 0.0, 1.0);
-  return f0 + (1.0 - f0) * u * u * u * u * u;
-}
-
-vec3 thinFilm(float ndv, float t) {
-  vec3 lambda = vec3(0.61, 0.55, 0.47);
-  vec3 phase = 12.56637 * 1.38 * 0.55 / lambda * ndv + t * 0.18;
-  return 0.5 + 0.5 * cos(phase);
-}
 
 void main() {
-  vec2 uv = gl_FragCoord.xy / uRes;
-  vec2 p = uv * 2.0 - 1.0;
-  float d = sdRoundedBox(p, vec2(1.0), 0.32);
-  float inside = 1.0 - smoothstep(-0.012, 0.012, d);
+  vec2 p = gl_FragCoord.xy / uRes * 2.0 - 1.0;
+  vec2 b = abs(p) - 0.72;
+  float d = length(max(b, 0.0)) - 0.28;
+  float inside = 1.0 - smoothstep(-0.02, 0.02, d);
   if (inside < 0.001) discard;
-
   float edge = smoothstep(-0.28, 0.0, d);
-  float ndv = 1.0 - edge;
-  float F = schlick(0.035, ndv);
-
-  vec2 L = vec2(uPointer.x, -uPointer.y) * 0.42 + vec2(0.18, 0.42);
-  float spec = pow(max(1.0 - length(p - L), 0.0), 14.0);
-  float specWide = pow(max(1.0 - length(p - L), 0.0), 4.5);
-  float streak = specWide * exp(-abs(p.y - L.y) * 7.0) * (0.35 + edge);
-
-  vec3 irid = thinFilm(ndv, uTime);
-  float newton = 0.5 + 0.5 * cos(length(p) * length(p) * 42.0 - uTime * 0.22);
-
-  vec3 col = mix(vec3(1.0), irid, F * 0.55);
-  col = mix(col, uPrimary, newton * F * 0.12);
-  col += spec * vec3(1.0);
-  col += streak * vec3(1.0, 0.97, 0.94) * 0.65;
-  col += irid * edge * 0.12;
-
-  float alpha = (F * 0.28 + spec * 0.36 + streak * 0.16 + edge * 0.06) * inside;
-  gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.42));
+  vec2 L = vec2(uPointer.x, -uPointer.y) * 0.4 + vec2(0.18, 0.42);
+  float fall = max(1.0 - length(p - L), 0.0);
+  float spec = fall * fall * fall * fall;
+  spec *= spec;
+  float streak = max(fall * fall * (1.0 - abs(p.y - L.y) * 4.2), 0.0);
+  vec3 col = mix(vec3(1.0), uPrimary, edge * 0.12);
+  col += spec + streak * 0.45;
+  float alpha = (edge * 0.08 + spec * 0.32 + streak * 0.14) * inside;
+  gl_FragColor = vec4(col, clamp(alpha, 0.0, 0.38));
 }
 `;
 
@@ -97,6 +67,7 @@ export function LensGlass({
       stencil: false,
       premultipliedAlpha: true,
       powerPreference: "low-power",
+      failIfMajorPerformanceCaveat: true,
     });
     if (!gl) return;
 
@@ -121,7 +92,6 @@ export function LensGlass({
     const uRes = gl.getUniformLocation(program, "uRes");
     const uPointer = gl.getUniformLocation(program, "uPointer");
     const uPrimary = gl.getUniformLocation(program, "uPrimary");
-    const uTime = gl.getUniformLocation(program, "uTime");
 
     const primary = { r: 0.76, g: 0.278, b: 0.227 };
     const smooth = { x: 0, y: 0 };
@@ -135,9 +105,9 @@ export function LensGlass({
     window.addEventListener("folio-gel", applyGel);
 
     const resize = () => {
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
-      const w = Math.max(1, Math.floor(canvas.clientWidth * dpr));
-      const h = Math.max(1, Math.floor(canvas.clientHeight * dpr));
+      const scale = Math.min(window.devicePixelRatio || 1, 1) * 0.4;
+      const w = Math.max(1, Math.floor(canvas.clientWidth * scale));
+      const h = Math.max(1, Math.floor(canvas.clientHeight * scale));
       if (canvas.width !== w || canvas.height !== h) {
         canvas.width = w;
         canvas.height = h;
@@ -153,30 +123,31 @@ export function LensGlass({
     gl.clearColor(0, 0, 0, 0);
 
     let raf = 0;
-    let elapsed = 0;
-    let last = performance.now();
+    let last = 0;
+    const frameMs = 1000 / 12;
 
-    const draw = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
-      last = now;
-      if (playing && !reduced && !document.hidden) elapsed += dt;
+    const draw = () => {
       const target = reduced ? { x: 0, y: 0 } : pointer.current;
-      smooth.x += (target.x - smooth.x) * 0.12;
-      smooth.y += (target.y - smooth.y) * 0.12;
-      resize();
+      smooth.x += (target.x - smooth.x) * 0.16;
+      smooth.y += (target.y - smooth.y) * 0.16;
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform2f(uRes, canvas.width, canvas.height);
       gl.uniform2f(uPointer, smooth.x, smooth.y);
       gl.uniform3f(uPrimary, primary.r, primary.g, primary.b);
-      gl.uniform1f(uTime, elapsed);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     };
 
     const loop = (now: number) => {
-      draw(now);
-      raf = playing && !reduced ? requestAnimationFrame(loop) : 0;
+      raf = requestAnimationFrame(loop);
+      if (document.hidden || now - last < frameMs) return;
+      last = now;
+      draw();
+      if (!playing || reduced) {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      }
     };
-    draw(performance.now());
+    draw();
     if (playing && !reduced) raf = requestAnimationFrame(loop);
 
     return () => {

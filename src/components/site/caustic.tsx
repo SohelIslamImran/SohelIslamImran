@@ -1,49 +1,31 @@
-import { motion, useMotionTemplate, useMotionValue, useSpring } from "motion/react";
-import { useEffect, useState } from "react";
-import { useIdleMount } from "@/hooks/use-idle-mount";
+import { useEffect, useState, type ComponentType } from "react";
+import { canAffordFx, useIdleMount } from "@/hooks/use-idle-mount";
 import { useReducedMotion } from "@/hooks/use-reduced";
-import { LightField } from "./light-field";
 
 export function CausticField() {
   const reduced = useReducedMotion();
-  const idle = useIdleMount(280);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const sx = useSpring(x, { stiffness: 70, damping: 22, mass: 0.9 });
-  const sy = useSpring(y, { stiffness: 70, damping: 22, mass: 0.9 });
-  const halo = useMotionTemplate`translate3d(${sx}px, ${sy}px, 0) translate(-50%, -50%)`;
-  const [fine, setFine] = useState(false);
+  const idle = useIdleMount(2200);
+  const [Field, setField] = useState<ComponentType | null>(null);
 
   useEffect(() => {
-    const mq = window.matchMedia("(pointer: fine)");
-    const sync = () => setFine(mq.matches);
-    sync();
-    mq.addEventListener("change", sync);
-    if (!mq.matches || reduced) {
-      return () => mq.removeEventListener("change", sync);
-    }
-    x.set(window.innerWidth * 0.62);
-    y.set(window.innerHeight * 0.28);
-    const onMove = (e: PointerEvent) => {
-      x.set(e.clientX);
-      y.set(e.clientY);
-    };
-    window.addEventListener("pointermove", onMove, { passive: true });
+    if (!idle || reduced || !canAffordFx()) return;
+    if (window.matchMedia("(pointer: coarse)").matches && window.innerWidth < 720) return;
+    let alive = true;
+    void import("./light-field").then((m) => {
+      if (alive) setField(() => m.LightField);
+    });
     return () => {
-      mq.removeEventListener("change", sync);
-      window.removeEventListener("pointermove", onMove);
+      alive = false;
     };
-  }, [reduced, x, y]);
+  }, [idle, reduced]);
 
   return (
     <div className="atmosphere" aria-hidden="true">
-      {idle && !reduced ? <LightField /> : null}
+      {Field ? <Field /> : null}
+      <div className="atmosphere-caustic" />
       <div className="atmosphere-orb atmosphere-orb-a" />
       <div className="atmosphere-orb atmosphere-orb-b" />
       <div className="atmosphere-orb atmosphere-orb-c" />
-      {fine && !reduced ? (
-        <motion.div className="atmosphere-halo" style={{ transform: halo }} />
-      ) : null}
       <div className="atmosphere-frost" />
     </div>
   );

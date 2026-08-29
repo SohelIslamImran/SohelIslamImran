@@ -1,7 +1,12 @@
+import { getRouteApi } from "@tanstack/react-router";
 import { fieldNotes } from "@/data/folio";
 import { Viewfinder } from "./viewfinder";
 
-export function NotesPage({ notes = fieldNotes }: { notes?: typeof fieldNotes }) {
+const notesRoute = getRouteApi("/field-notes");
+
+export function NotesPage() {
+  const data = notesRoute.useLoaderData();
+  const notes = data.payload.notes ?? fieldNotes;
   return (
     <main className="page pt-28 pb-24 md:pt-36">
       <p className="kicker">Travel journal · Camera lucida</p>

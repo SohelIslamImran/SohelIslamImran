@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { StoryPage } from "@/components/story/story-page";
+import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
 import { getPublicDocument, STUDIO_STALE_MS } from "@/lib/cms";
 
 export const Route = createFileRoute("/story")({
@@ -11,8 +10,5 @@ export const Route = createFileRoute("/story")({
   }),
   loader: () => getPublicDocument(),
   staleTime: STUDIO_STALE_MS,
-  component: function Story() {
-    const data = Route.useLoaderData();
-    return <StoryPage quote={data.payload.quote} />;
-  },
+  component: lazyRouteComponent(() => import("@/components/story/story-page"), "StoryPage"),
 });

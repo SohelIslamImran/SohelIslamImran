@@ -1,5 +1,4 @@
 import { Link } from "@tanstack/react-router";
-import { ArrowUpRight } from "lucide-react";
 import { profile, projects, site } from "@/data/folio";
 import { Reveal, RevealIn } from "@/components/site/reveal";
 import { Tilt } from "@/components/site/tilt";
@@ -87,7 +86,7 @@ export function HomePage({
                 to="/work"
                 className="hidden items-center gap-1 text-sm text-muted hover:text-fg md:inline-flex"
               >
-                All work <ArrowUpRight className="size-4" />
+                All work <span aria-hidden="true">↗</span>
               </Link>
             </div>
           </RevealIn>

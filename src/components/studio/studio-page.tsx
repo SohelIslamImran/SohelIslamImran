@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { getStudioAccess, getStudioDocument, saveStudioDocument, type StudioPayload } from "@/lib/cms";
+import { getStudioAccess, saveStudioDocument } from "@/lib/cms-owner";
+import { getStudioDocument, type StudioPayload } from "@/lib/cms";
 
 export function StudioPage() {
   const { user, isPending } = useCurrentUserState();

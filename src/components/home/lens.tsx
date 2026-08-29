@@ -1,17 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentType } from "react";
 import type { MutableRefObject } from "react";
 import { profile } from "@/data/folio";
-import { useIdleMount } from "@/hooks/use-idle-mount";
+import { canAffordFx } from "@/hooks/use-idle-mount";
 import { useReducedMotion } from "@/hooks/use-reduced";
 import { Tilt } from "@/components/site/tilt";
-import { LensGlass, type LensPointer } from "./lens-scene";
+import type { LensPointer } from "./lens-scene";
+
+type GlassProps = {
+  pointer: MutableRefObject<LensPointer>;
+  reduced: boolean;
+  playing: boolean;
+};
 
 export function OpticalLens({ compact = false }: { compact?: boolean }) {
   const wrap = useRef<HTMLDivElement>(null);
   const pointer = useRef<LensPointer>({ x: 0, y: 0 });
   const reduced = useReducedMotion();
-  const idle = useIdleMount(320);
   const [visible, setVisible] = useState(true);
+  const [Glass, setGlass] = useState<ComponentType<GlassProps> | null>(null);
+  const loading = useRef(false);
 
   useEffect(() => {
     const el = wrap.current;
@@ -23,7 +30,15 @@ export function OpticalLens({ compact = false }: { compact?: boolean }) {
     return () => io.disconnect();
   }, []);
 
+  const ensureGlass = () => {
+    if (loading.current || Glass || reduced || !canAffordFx()) return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    loading.current = true;
+    void import("./lens-scene").then((m) => setGlass(() => m.LensGlass));
+  };
+
   const onMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    ensureGlass();
     const el = wrap.current;
     if (!el) return;
     const b = el.getBoundingClientRect();
@@ -51,6 +66,7 @@ export function OpticalLens({ compact = false }: { compact?: boolean }) {
       <Tilt max={compact ? 5 : 6}>
         <div
           ref={wrap}
+          onPointerEnter={ensureGlass}
           onPointerMove={onMove}
           onPointerLeave={onLeave}
           className={`lens-stand relative mx-auto aspect-square w-full ${
@@ -72,9 +88,9 @@ export function OpticalLens({ compact = false }: { compact?: boolean }) {
               decoding="async"
             />
             <div className="lens-plate-glass" />
-            {idle && !reduced ? (
+            {Glass ? (
               <div className="lens-object">
-                <LensGlass
+                <Glass
                   pointer={pointer as MutableRefObject<LensPointer>}
                   reduced={reduced}
                   playing={visible && !reduced}

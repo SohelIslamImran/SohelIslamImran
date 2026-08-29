@@ -81,10 +81,6 @@ function supportsViewTransition(): boolean {
   return typeof document.startViewTransition === "function";
 }
 
-function supportsTransitionTypes(): boolean {
-  return Boolean(window.CSS?.supports?.("selector(:active-view-transition-type(a))"));
-}
-
 export function applyAppearance(
   appearance: Appearance,
   opts?: { transition?: boolean; origin?: ThemeOrigin },
@@ -94,10 +90,12 @@ export function applyAppearance(
   const root = document.documentElement;
   const prev = root.dataset.theme;
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const busy = root.classList.contains("vt-theme");
   const shouldTransition =
     (opts?.transition ?? true) &&
     supportsViewTransition() &&
     !reduced &&
+    !busy &&
     Boolean(prev) &&
     prev !== theme;
 
@@ -113,17 +111,19 @@ export function applyAppearance(
     root.style.setProperty("--vt-y", `${Math.round(opts.origin.y)}px`);
   }
 
+  const clear = () => root.classList.remove("vt-theme");
   root.classList.add("vt-theme");
-  const types = ["folio-theme", theme === "dark" ? "folio-theme-dark" : "folio-theme-light"];
-  const start = document.startViewTransition.bind(document) as (input: unknown) => {
-    finished: Promise<void>;
-  };
+  const failSafe = window.setTimeout(clear, 700);
 
   try {
-    const vt = supportsTransitionTypes() ? start({ update: run, types }) : start(run);
-    void vt.finished.finally(() => root.classList.remove("vt-theme"));
+    const vt = document.startViewTransition(run);
+    void vt.finished.finally(() => {
+      window.clearTimeout(failSafe);
+      clear();
+    });
   } catch {
-    root.classList.remove("vt-theme");
+    window.clearTimeout(failSafe);
+    clear();
     run();
   }
 }

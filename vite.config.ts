@@ -158,7 +158,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   resolve: { tsconfigPaths: true },
   optimizeDeps: {
-    include: ["motion", "motion/react", "lucide-react", "@radix-ui/react-popover"],
+    include: ["motion", "motion/react"],
   },
   plugins: [
     pgliteBootstrapPlugin(),

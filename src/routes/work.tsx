@@ -1,5 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { WorkPage } from "@/components/work/work-page";
+import { createFileRoute, lazyRouteComponent } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/work")({
   head: () => ({
@@ -9,5 +8,5 @@ export const Route = createFileRoute("/work")({
     ],
   }),
   staleTime: 60_000,
-  component: WorkPage,
+  component: lazyRouteComponent(() => import("@/components/work/work-page"), "WorkPage"),
 });

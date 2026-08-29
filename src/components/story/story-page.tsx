@@ -1,7 +1,12 @@
+import { getRouteApi } from "@tanstack/react-router";
 import { chapters, profile } from "@/data/folio";
 import { FocusStack } from "./focus-stack";
 
-export function StoryPage({ quote = profile.quote }: { quote?: string }) {
+const storyRoute = getRouteApi("/story");
+
+export function StoryPage() {
+  const data = storyRoute.useLoaderData();
+  const quote = data.payload.quote ?? profile.quote;
   return (
     <main className="page pt-28 pb-16 md:pt-36">
       <p className="kicker">Focus stack · five planes</p>

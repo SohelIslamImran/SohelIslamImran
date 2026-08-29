@@ -1,14 +1,9 @@
 import { Link, Outlet, useRouter, useRouterState } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
-import { Menu, X } from "lucide-react";
-import { useEffect, useState } from "react";
-import { SignedIn, UserButton } from "@/lib/auth/gates";
-import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { isOwnerEmail } from "@/lib/owner";
+import { useEffect, useRef } from "react";
 import { nav, profile, site } from "@/data/folio";
 import { useDhakaClock } from "@/hooks/use-dhaka-clock";
+import { useIdleMount } from "@/hooks/use-idle-mount";
 import { useScrollProgress } from "@/hooks/use-scroll-progress";
-import { springUi } from "./motion";
 import { CausticField } from "./caustic";
 import { LooksMenu, LooksPanel, ThemeHydrate } from "./looks";
 import { GlassCursor } from "./cursor";
@@ -33,32 +28,48 @@ function DhakaClock() {
   );
 }
 
+function DeferredCursor() {
+  const ready = useIdleMount(1600);
+  if (!ready) return null;
+  return <GlassCursor />;
+}
+
 function WarmPublicRoutes() {
   const router = useRouter();
   useEffect(() => {
-    const warm = () => {
+    let idle = 0;
+    let timer = 0;
+    const run = () => {
       for (const item of nav) {
+        if (item.to === "/") continue;
         void router.preloadRoute({ to: item.to }).catch(() => {});
       }
     };
-    if (typeof window.requestIdleCallback === "function") {
-      const id = window.requestIdleCallback(warm);
-      return () => window.cancelIdleCallback(id);
-    }
-    const id = window.setTimeout(warm, 180);
-    return () => window.clearTimeout(id);
+    const start = () => {
+      if (typeof requestIdleCallback === "function") {
+        idle = requestIdleCallback(run, { timeout: 2500 });
+      } else {
+        run();
+      }
+    };
+    timer = window.setTimeout(start, 2200);
+    return () => {
+      window.clearTimeout(timer);
+      if (idle && typeof cancelIdleCallback === "function") cancelIdleCallback(idle);
+    };
   }, [router]);
   return null;
 }
 
 export function Shell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const [open, setOpen] = useState(false);
-  const { user, isPending } = useCurrentUserState();
-  const owner = isOwnerEmail(user?.primaryEmail);
+  const menu = useRef<HTMLDetailsElement>(null);
+  const pathRef = useRef(pathname);
 
   useEffect(() => {
-    setOpen(false);
+    if (pathRef.current === pathname) return;
+    pathRef.current = pathname;
+    if (menu.current) menu.current.open = false;
   }, [pathname]);
 
   return (
@@ -70,7 +81,7 @@ export function Shell() {
         Skip to content
       </a>
       <CausticField />
-      <GlassCursor />
+      <DeferredCursor />
       <ThemeHydrate />
       <WarmPublicRoutes />
       <SiteProgress />
@@ -89,17 +100,8 @@ export function Shell() {
                   key={item.to}
                   to={item.to}
                   preload="intent"
-                  className={`relative rounded-full px-3.5 py-2 text-sm transition-colors duration-150 ${
-                    active ? "text-bg" : "text-muted hover:text-fg"
-                  }`}
+                  className={`nav-link${active ? " is-on" : ""}`}
                 >
-                  {active ? (
-                    <motion.span
-                      layoutId="nav-pill"
-                      className="absolute inset-0 rounded-full bg-fg"
-                      transition={springUi}
-                    />
-                  ) : null}
                   <span className="relative z-10">{item.label}</span>
                 </Link>
               );
@@ -107,73 +109,47 @@ export function Shell() {
           </nav>
           <div className="ml-auto flex items-center gap-1 md:ml-2">
             <DhakaClock />
-            {isPending ? (
-              <span className="size-8 rounded-full bg-fg/10" />
-            ) : owner ? (
-              <SignedIn>
-                <Link to="/studio" className="btn-ghost btn min-h-9 px-3 text-xs">
-                  Studio
-                </Link>
-              </SignedIn>
-            ) : null}
-            <SignedIn>
-              <div className="user-chip">
-                <UserButton />
-              </div>
-            </SignedIn>
+            <Link to="/studio" preload={false} className="btn-ghost btn min-h-9 px-3 text-xs">
+              Studio
+            </Link>
             <div className="hidden md:block">
               <LooksMenu />
             </div>
-            <button
-              type="button"
-              className="grid size-11 place-items-center rounded-full md:hidden"
-              aria-label={open ? "Close menu" : "Open menu"}
-              aria-expanded={open}
-              onClick={() => setOpen((v) => !v)}
-            >
-              {open ? <X className="size-5" /> : <Menu className="size-5" />}
-            </button>
+            <details ref={menu} className="menu-details md:hidden">
+              <summary className="grid size-11 place-items-center rounded-full" aria-label="Open menu">
+                <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <path d="M4 7h16M4 12h16M4 17h16" />
+                </svg>
+              </summary>
+              <div className="sheet-in glass glass-heavy fixed inset-x-3 top-20 z-40 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-[28px] p-3">
+                <nav className="flex flex-col" aria-label="Mobile">
+                  {nav.map((item) => {
+                    const active = isActivePath(pathname, item.to);
+                    return (
+                      <Link
+                        key={item.to}
+                        to={item.to}
+                        preload="intent"
+                        className={`flex min-h-12 items-center rounded-2xl px-4 text-base font-medium ${
+                          active ? "bg-fg text-bg" : ""
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    );
+                  })}
+                  <Link to="/studio" preload={false} className="flex min-h-12 items-center rounded-2xl px-4 text-muted">
+                    Studio
+                  </Link>
+                </nav>
+                <div className="looks-sheet mt-1 px-2 pt-4 pb-2">
+                  <LooksPanel />
+                </div>
+              </div>
+            </details>
           </div>
         </div>
       </header>
-
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            key="sheet"
-            initial={{ opacity: 0, y: -10, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.97 }}
-            transition={springUi}
-            style={{ transformOrigin: "top right" }}
-            className="glass glass-heavy fixed inset-x-3 top-20 z-40 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-[28px] p-3 md:hidden"
-          >
-            <nav className="flex flex-col" aria-label="Mobile">
-              {nav.map((item) => {
-                const active = isActivePath(pathname, item.to);
-                return (
-                  <Link
-                    key={item.to}
-                    to={item.to}
-                    preload="intent"
-                    className={`flex min-h-12 items-center rounded-2xl px-4 text-base font-medium ${
-                      active ? "bg-fg text-bg" : ""
-                    }`}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-              <Link to="/studio" className="flex min-h-12 items-center rounded-2xl px-4 text-muted">
-                Studio
-              </Link>
-            </nav>
-            <div className="looks-sheet mt-1 px-2 pt-4 pb-2">
-              <LooksPanel layoutId="looks-seg-sheet" />
-            </div>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
 
       <div id="content" className="relative z-10">
         <Outlet />
@@ -198,7 +174,7 @@ export function Shell() {
             <Link to="/links" className="hover:text-fg">
               Links
             </Link>
-            <Link to="/studio" className="hover:text-fg">
+            <Link to="/studio" preload={false} className="hover:text-fg">
               Studio
             </Link>
             <a href={`mailto:${site.email}`} className="hover:text-fg">

@@ -1,7 +1,5 @@
-import { motion, useMotionValue, useSpring } from "motion/react";
 import type { PointerEvent as RE, ReactNode } from "react";
 import { useRef } from "react";
-import { springTilt } from "./motion";
 
 export function Tilt({
   children,
@@ -13,10 +11,6 @@ export function Tilt({
   max?: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const rx = useMotionValue(0);
-  const ry = useMotionValue(0);
-  const srx = useSpring(rx, springTilt);
-  const sry = useSpring(ry, springTilt);
 
   const onMove = (e: RE<HTMLDivElement>) => {
     const el = ref.current;
@@ -24,26 +18,22 @@ export function Tilt({
     const b = el.getBoundingClientRect();
     const px = (e.clientX - b.left) / b.width - 0.5;
     const py = (e.clientY - b.top) / b.height - 0.5;
-    rx.set(-py * max);
-    ry.set(px * max);
+    el.style.setProperty("--rx", `${(-py * max).toFixed(2)}deg`);
+    el.style.setProperty("--ry", `${(px * max).toFixed(2)}deg`);
   };
 
   const reset = () => {
-    rx.set(0);
-    ry.set(0);
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--rx", "0deg");
+    el.style.setProperty("--ry", "0deg");
   };
 
   return (
-    <div style={{ perspective: 900 }} className={className}>
-      <motion.div
-        ref={ref}
-        onPointerMove={onMove}
-        onPointerLeave={reset}
-        style={{ rotateX: srx, rotateY: sry, transformStyle: "preserve-3d" }}
-        className="will-change-transform"
-      >
+    <div className={className ? `tilt-stage ${className}` : "tilt-stage"}>
+      <div ref={ref} className="tilt-plate" onPointerMove={onMove} onPointerLeave={reset}>
         {children}
-      </motion.div>
+      </div>
     </div>
   );
 }
