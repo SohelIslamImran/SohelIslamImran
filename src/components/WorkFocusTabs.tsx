@@ -69,15 +69,19 @@ export function WorkFocusTabs({
 		document.getElementById(`${baseId}-${keys[next]}`)?.focus();
 	};
 	return (
-		<section className="prism-work" id="work-focus" aria-labelledby={`${baseId}-title`}>
-			<div className="prism-section-intro">
-				<p className="prism-kicker">{sectionNumber} · Selected work</p>
-				<h2 id={`${baseId}-title`}>What the work needs.</h2>
-				<p>Start with Kuno’s product systems, then move through matching and delivery work.</p>
+		<section className="work" id="work-focus" aria-labelledby={`${baseId}-title`}>
+			<div className="section-intro">
+				<p className="kicker section-intro-kicker">{sectionNumber} · Selected work</p>
+				<h2 className="section-intro-title" id={`${baseId}-title`}>
+					What the work needs.
+				</h2>
+				<p className="section-intro-copy">
+					Start with Kuno’s product systems, then move through matching and delivery work.
+				</p>
 			</div>
-			<div className="prism-tabs" role="tablist" aria-label="Work focus" data-focus={focus}>
+			<div className="work-tabs" role="tablist" aria-label="Work focus" data-focus={focus}>
 				<motion.span
-					className="prism-tabs__indicator"
+					className="work-tabs-indicator"
 					aria-hidden="true"
 					initial={false}
 					animate={{
@@ -90,6 +94,7 @@ export function WorkFocusTabs({
 				{(Object.keys(labels) as Focus[]).map((key) => (
 					<button
 						key={key}
+						className="work-tab"
 						id={`${baseId}-${key}`}
 						type="button"
 						role="tab"
@@ -105,7 +110,7 @@ export function WorkFocusTabs({
 			</div>
 			<AnimatePresence initial={false} mode="wait">
 				<motion.div
-					className="prism-work__panel"
+					className="work-panel"
 					id={panelId}
 					role="tabpanel"
 					aria-labelledby={`${baseId}-${focus}`}
@@ -135,15 +140,15 @@ export function WorkFocusTabs({
 					}
 					transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
 				>
-					<div className="prism-work__panel-head">
+					<div className="work-panel-head">
 						<span>{labels[focus]} systems</span>
 						<span>{String(items.length).padStart(2, "0")} proofs</span>
 					</div>
-					<div className="prism-work__cards">
+					<div className="work-cards">
 						{items.length > 0 ? (
 							items.map((project, index) => (
 								<motion.article
-									className="prism-work-card prism-glass-card"
+									className="work-card glass"
 									key={project.id}
 									whileHover={reducedMotion ? undefined : { y: -5, rotateX: 2 }}
 									whileTap={reducedMotion ? undefined : { scale: 0.992 }}
@@ -179,19 +184,21 @@ export function WorkFocusTabs({
 												? undefined
 												: "/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
 										}
-										className="prism-work-card__image"
+										className="work-card-image"
 									/>
 									<span>{project.year}</span>
-									<h3>{project.title}</h3>
-									<p>{project.summary}</p>
-									<div className="prism-tags">
+									<h3 className="work-card-title">{project.title}</h3>
+									<p className="work-card-copy">{project.summary}</p>
+									<div className="tags">
 										{project.tags.slice(0, 3).map((tag) => (
-											<span key={tag}>{tag}</span>
+											<span className="tag" key={tag}>
+												{tag}
+											</span>
 										))}
 									</div>
 									{(project.repository ?? project.href) && (
 										<a
-											className="prism-work-card__link"
+											className="work-card-link"
 											href={project.repository ?? project.href}
 											target="_blank"
 											rel="noreferrer"
@@ -203,7 +210,7 @@ export function WorkFocusTabs({
 							))
 						) : (
 							<motion.article
-								className="prism-work-card prism-glass-card prism-work-card--empty"
+								className="work-card glass work-card--empty"
 								initial={{ opacity: 0 }}
 								animate={{ opacity: 1 }}
 							>

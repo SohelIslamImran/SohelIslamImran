@@ -11,49 +11,53 @@ export function CareerTimeline({ experience, sectionNumber = "01" }: CareerTimel
 	const titleId = useId();
 	const reducedMotion = useReducedMotion();
 	return (
-		<section className="prism-timeline" id="experience" aria-labelledby={titleId}>
-			<div className="prism-section-intro">
-				<p className="prism-kicker">{sectionNumber} · Experience</p>
-				<h2 id={titleId}>Experience, with Kuno first.</h2>
-				<p>
+		<section className="timeline" id="experience" aria-labelledby={titleId}>
+			<div className="section-intro">
+				<p className="kicker section-intro-kicker">{sectionNumber} · Experience</p>
+				<h2 className="section-intro-title" id={titleId}>
+					Experience, with Kuno first.
+				</h2>
+				<p className="section-intro-copy">
 					I grew from mobile engineering into leading product architecture, delivery, and the full
 					stack around them.
 				</p>
 			</div>
-			<div className="prism-timeline__list">
+			<div className="timeline-list">
 				{experience.map((item, index) => (
 					<motion.article
-						className="prism-timeline__item"
+						className="timeline-item"
 						key={item.id}
 						layout
 						whileHover={reducedMotion ? undefined : { x: 3 }}
 						whileTap={reducedMotion ? undefined : { scale: 0.997 }}
 						transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 					>
-						<div className="prism-timeline__date">
-							<time>{item.period}</time>
+						<div className="timeline-date">
+							<time className="timeline-date-text">{item.period}</time>
 							<i aria-hidden="true" />
 						</div>
-						<div className="prism-timeline__body">
-							<div className="prism-timeline__heading">
-								<p>{item.company}</p>
-								{item.current && <span className="prism-current">Current</span>}
+						<div className="timeline-body">
+							<div className="timeline-heading">
+								<p className="timeline-company">{item.company}</p>
+								{item.current && <span className="current">Current</span>}
 							</div>
-							<h3>{item.role}</h3>
-							<p>{item.summary}</p>
-							<ul>
+							<h3 className="timeline-title">{item.role}</h3>
+							<p className="timeline-summary">{item.summary}</p>
+							<ul className="timeline-list-copy">
 								{item.highlights.slice(0, 2).map((highlight) => (
 									<li key={highlight}>{highlight}</li>
 								))}
 							</ul>
-							<div className="prism-tags">
+							<div className="tags">
 								{item.technologies.slice(0, 5).map((technology) => (
-									<span key={technology}>{technology}</span>
+									<span className="tag" key={technology}>
+										{technology}
+									</span>
 								))}
 							</div>
 						</div>
 						{index < experience.length - 1 && (
-							<div className="prism-timeline__connector" aria-hidden="true" />
+							<div className="timeline-connector" aria-hidden="true" />
 						)}
 					</motion.article>
 				))}

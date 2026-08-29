@@ -23,10 +23,10 @@ function Story() {
 	const c = Route.useLoaderData();
 	const reducedMotion = useReducedMotion();
 	return (
-		<main className="prism-page article">
+		<main className="page article">
 			<header className="page-intro">
 				<p className="eyebrow">{c.story.eyebrow}</p>
-				<h1>{c.story.title}</h1>
+				<h1 className="page-title">{c.story.title}</h1>
 				<p className="lede">{c.story.intro}</p>
 			</header>
 			<motion.div
@@ -43,10 +43,11 @@ function Story() {
 					fetchPriority="high"
 					sizes="(max-width: 800px) calc(100vw - 40px), 620px"
 					srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
-					className="article__hero-image"
+					className="article-image"
 				/>
 			</motion.div>
 			<motion.blockquote
+				className="article-quote"
 				whileHover={reducedMotion ? undefined : { y: -3 }}
 				transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 			>
@@ -55,13 +56,16 @@ function Story() {
 			{c.story.chapters.map((chapter) => (
 				<motion.section
 					key={chapter.id}
+					className="article-section"
 					whileHover={reducedMotion ? undefined : { x: 2 }}
 					transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 				>
 					<p className="eyebrow">{chapter.eyebrow}</p>
-					<h2>{chapter.title}</h2>
+					<h2 className="article-section-title">{chapter.title}</h2>
 					{chapter.paragraphs.map((p) => (
-						<p key={p}>{p}</p>
+						<p className="article-copy" key={p}>
+							{p}
+						</p>
 					))}
 				</motion.section>
 			))}

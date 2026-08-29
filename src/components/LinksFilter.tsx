@@ -89,14 +89,14 @@ export function LinksFilter({ value, onChange }: LinksFilterProps) {
 
 	return (
 		<div
-			className="links-filter relative w-full overflow-hidden rounded-[20px] border border-prism-line bg-prism-surface-solid p-1 shadow-[0_18px_40px_var(--prism-shadow)] backdrop-blur-xl"
+			className="links-filter relative w-full overflow-hidden rounded-[20px] border border-line bg-surface-solid p-1 shadow-[0_18px_40px_var(--theme-shadow)] backdrop-blur-xl"
 			role="group"
 			aria-label="Link categories"
 		>
 			<div className="links-filter-track" ref={trackRef}>
 				{indicator && (
 					<motion.span
-						className="links-filter__indicator"
+						className="links-filter-indicator"
 						aria-hidden="true"
 						initial={false}
 						style={{ x: indicatorX, y: indicatorY, width: indicatorWidth, height: indicatorHeight }}
@@ -107,7 +107,7 @@ export function LinksFilter({ value, onChange }: LinksFilterProps) {
 						key={kind}
 						id={`link-filter-${kind}`}
 						type="button"
-						className="relative z-10 min-w-0 rounded-[15px] px-3 py-3 text-sm font-semibold capitalize text-prism-muted transition-colors duration-200 ease-prism hover:text-prism-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prism-blue focus-visible:ring-offset-2 focus-visible:ring-offset-prism-paper active:scale-[0.98]"
+						className="relative z-10 min-w-0 rounded-[15px] px-3 py-3 text-sm font-semibold capitalize text-muted transition-colors duration-200 ease-route hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:scale-[0.98]"
 						aria-pressed={value === kind}
 						aria-controls="link-results"
 						data-kind={kind}
@@ -115,7 +115,7 @@ export function LinksFilter({ value, onChange }: LinksFilterProps) {
 						onClick={() => onChange(kind)}
 					>
 						<span
-							className={`relative z-[1]${value === kind ? " text-[var(--prism-picker-ink)]" : ""}`}
+							className={`relative z-[1]${value === kind ? " text-[var(--theme-picker-ink)]" : ""}`}
 						>
 							{kind}
 						</span>

@@ -23,7 +23,7 @@ export function PrismImage({
 	if (!src)
 		return (
 			<div
-				className={`prism-image-placeholder ${className ?? ""}`}
+				className={`image-placeholder ${className ?? ""}`}
 				role="img"
 				aria-label={alt}
 				style={{ aspectRatio: `${width} / ${height}` }}

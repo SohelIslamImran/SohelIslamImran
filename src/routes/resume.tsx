@@ -43,32 +43,36 @@ function Resume() {
 		.slice(0, 4);
 
 	return (
-		<main className="resume-page">
+		<main className="resume">
 			<motion.header
-				className="resume-header"
+				className="resume-header glass"
 				whileHover={reducedMotion ? undefined : { y: -3 }}
 				transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
 			>
-				<div className="resume-header__copy">
+				<div className="resume-header-copy">
 					<p className="eyebrow">{content.identity.role} · Kuno</p>
-					<h1>{content.identity.name}</h1>
-					<p className="resume-header__summary">
-						{content.resume.summary ?? content.about.paragraphs[0]}
-					</p>
-					<div className="resume-header__meta">
+					<h1 className="resume-title">{content.identity.name}</h1>
+					<p className="resume-summary">{content.resume.summary ?? content.about.paragraphs[0]}</p>
+					<div className="resume-meta">
 						<span>{content.identity.location}</span>
 						<span>{content.identity.timezone}</span>
-						<a href={`mailto:${content.identity.email}`}>{content.identity.email}</a>
+						<a className="resume-meta-link" href={`mailto:${content.identity.email}`}>
+							{content.identity.email}
+						</a>
 					</div>
-					<div className="resume-header__actions">
+					<div className="resume-actions">
 						<button
-							className="prism-button prism-button--primary"
+							className="button button-primary resume-action"
 							type="button"
 							onClick={() => window.print()}
 						>
 							Print / save PDF <span aria-hidden="true">↗</span>
 						</button>
-						<Link className="prism-button prism-button--quiet" to="/links" search={{ kind: "all" }}>
+						<Link
+							className="button button-quiet resume-action"
+							to="/links"
+							search={{ kind: "all" }}
+						>
 							All links <span aria-hidden="true">↗</span>
 						</Link>
 					</div>
@@ -82,7 +86,7 @@ function Resume() {
 					fetchPriority="high"
 					sizes="(max-width: 800px) 128px, 180px"
 					srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
-					className="resume-header__portrait"
+					className="resume-portrait"
 				/>
 			</motion.header>
 
@@ -90,7 +94,9 @@ function Resume() {
 				<section className="resume-main" aria-labelledby="resume-experience-title">
 					<div className="resume-section-heading">
 						<p className="eyebrow">Experience</p>
-						<h2 id="resume-experience-title">Product work across teams and platforms.</h2>
+						<h2 className="resume-section-title" id="resume-experience-title">
+							Product work across teams and platforms.
+						</h2>
 					</div>
 					{publicExperience.map((item) => (
 						<motion.article
@@ -100,22 +106,26 @@ function Resume() {
 							whileTap={reducedMotion ? undefined : { scale: 0.998 }}
 							transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 						>
-							<time dateTime={dateTimeFromPeriod(item.period)}>{item.period}</time>
-							<div className="resume-entry__body">
-								<div className="resume-entry__company">
+							<time className="resume-entry-date" dateTime={dateTimeFromPeriod(item.period)}>
+								{item.period}
+							</time>
+							<div className="resume-entry-body">
+								<div className="resume-entry-company">
 									<strong>{item.company}</strong>
-									{item.current && <span className="prism-current">Current</span>}
+									{item.current && <span className="current">Current</span>}
 								</div>
-								<h3>{item.role}</h3>
-								<p>{item.summary}</p>
-								<ul>
+								<h3 className="resume-entry-title">{item.role}</h3>
+								<p className="resume-entry-copy">{item.summary}</p>
+								<ul className="resume-entry-list">
 									{item.highlights.map((highlight) => (
 										<li key={highlight}>{highlight}</li>
 									))}
 								</ul>
-								<div className="prism-tags">
+								<div className="tags">
 									{item.technologies.slice(0, 6).map((technology) => (
-										<span key={technology}>{technology}</span>
+										<span className="tag" key={technology}>
+											{technology}
+										</span>
 									))}
 								</div>
 							</div>
@@ -126,7 +136,9 @@ function Resume() {
 				<aside className="resume-side">
 					<section aria-labelledby="resume-capabilities-title">
 						<p className="eyebrow">Core systems</p>
-						<h2 id="resume-capabilities-title">How I contribute.</h2>
+						<h2 className="resume-section-title" id="resume-capabilities-title">
+							How I contribute.
+						</h2>
 						<div className="resume-capability-list">
 							{content.capabilities.map((capability) => (
 								<motion.article
@@ -135,11 +147,13 @@ function Resume() {
 									whileHover={reducedMotion ? undefined : { x: 3 }}
 									transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 								>
-									<h3>{capability.title}</h3>
-									<p>{capability.description}</p>
-									<div className="prism-tags">
+									<h3 className="resume-capability-title">{capability.title}</h3>
+									<p className="resume-capability-copy">{capability.description}</p>
+									<div className="tags">
 										{capability.tools.map((tool) => (
-											<span key={tool}>{tool}</span>
+											<span className="tag" key={tool}>
+												{tool}
+											</span>
 										))}
 									</div>
 								</motion.article>
@@ -148,24 +162,27 @@ function Resume() {
 					</section>
 					<section aria-labelledby="resume-proof-title">
 						<p className="eyebrow">Public proof</p>
-						<h2 id="resume-proof-title">Selected builds.</h2>
-						<div className="resume-proof-list">
+						<h2 className="resume-section-title" id="resume-proof-title">
+							Selected builds.
+						</h2>
+						<div className="resume-proof">
 							{proof.map((project) => (
 								<a
+									className="resume-proof-link"
 									key={project.id}
 									href={project.repository ?? project.href}
 									target="_blank"
 									rel="noreferrer"
 								>
-									<strong>{project.title}</strong>
-									<span>{project.role}</span>
+									<strong className="resume-proof-title">{project.title}</strong>
+									<span className="resume-proof-meta">{project.role}</span>
 								</a>
 							))}
 						</div>
 					</section>
-					<section className="resume-side__note" aria-label="Availability">
+					<section className="resume-note" aria-label="Availability">
 						<p className="eyebrow">Next route</p>
-						<p>
+						<p className="resume-note-copy">
 							{content.identity.availability}. I am building toward a remote life with room for
 							meaningful travel.
 						</p>

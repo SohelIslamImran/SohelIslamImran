@@ -29,15 +29,15 @@ function CmsError({ error }: { error: unknown }) {
 	const message =
 		error instanceof Error ? error.message : "Sign in through Cloudflare Access to open the CMS.";
 	return (
-		<main className="cms-page prism-page status-page">
+		<main className="page cms status-page">
 			<p className="eyebrow">Private workspace</p>
-			<h1>Access is required.</h1>
+			<h1 className="page-title">Access is required.</h1>
 			<p className="lede">{message}</p>
-			<div className="status-page__actions">
-				<a className="prism-button prism-button--primary" href="https://cms.sohelislamimran.com/">
+			<div className="status-actions">
+				<a className="button button-primary" href="https://cms.sohelislamimran.com/">
 					Open CMS sign-in <span aria-hidden="true">↗</span>
 				</a>
-				<a className="prism-button prism-button--quiet" href="/">
+				<a className="button button-quiet" href="/">
 					Return to the public site <span aria-hidden="true">↗</span>
 				</a>
 			</div>
@@ -61,15 +61,17 @@ function CmsAccessState({
 	const actionLabel = code === "unauthenticated" ? "Open CMS sign-in" : "Try CMS again";
 	const actionHref = code === "unauthenticated" ? "https://cms.sohelislamimran.com/" : "/cms";
 	return (
-		<main className="cms-page prism-page status-page">
+		<main className="page cms status-page">
 			<p className="eyebrow">Private workspace</p>
-			<h1>{code === "forbidden" ? "This route is owner-only." : "Access is required."}</h1>
+			<h1 className="page-title">
+				{code === "forbidden" ? "This route is owner-only." : "Access is required."}
+			</h1>
 			<p className="lede">{message}</p>
-			<div className="status-page__actions">
-				<a className="prism-button prism-button--primary" href={actionHref}>
+			<div className="status-actions">
+				<a className="button button-primary" href={actionHref}>
 					{actionLabel} <span aria-hidden="true">↗</span>
 				</a>
-				<a className="prism-button prism-button--quiet" href="/">
+				<a className="button button-quiet" href="/">
 					Return to the public site <span aria-hidden="true">↗</span>
 				</a>
 			</div>
@@ -196,18 +198,18 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 	const linkCount = arrayLength(parsed?.profileLinks);
 
 	return (
-		<main className="cms-page prism-page">
-			<header className="cms-page__header">
+		<main className="page cms">
+			<header className="cms-header">
 				<div>
 					<p className="eyebrow">Private workspace · {initial.owner}</p>
-					<h1>Keep the route current.</h1>
+					<h1 className="cms-title">Keep the route current.</h1>
 					<p className="lede">
 						Edit the published story, proof, links, travel notes, media, and search metadata from
 						one owner-only dashboard.
 					</p>
 				</div>
-				<div className="cms-page__status" role="status" aria-live="polite">
-					<span className="prism-status-dot" aria-hidden="true" />
+				<div className="cms-status" role="status" aria-live="polite">
+					<span className="status-dot" aria-hidden="true" />
 					{status}
 				</div>
 			</header>
@@ -238,10 +240,12 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 			</section>
 
 			<section className="cms-editor" aria-labelledby="cms-editor-title">
-				<div className="cms-editor__intro">
+				<div className="cms-editor-intro">
 					<p className="eyebrow">Structured fields</p>
-					<h2 id="cms-editor-title">Identity and search surface</h2>
-					<p>
+					<h2 className="cms-editor-intro-title" id="cms-editor-title">
+						Identity and search surface
+					</h2>
+					<p className="cms-editor-intro-copy">
 						These high-value fields stay visible. Use the advanced editor below for collections and
 						rich content.
 					</p>
@@ -292,11 +296,13 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 				</div>
 			</section>
 
-			<section className="cms-editor cms-editor--advanced" aria-labelledby="cms-json-title">
-				<div className="cms-editor__intro">
+			<section className="cms-editor" aria-labelledby="cms-json-title">
+				<div className="cms-editor-intro">
 					<p className="eyebrow">Advanced fallback</p>
-					<h2 id="cms-json-title">The complete content document</h2>
-					<p>
+					<h2 className="cms-editor-intro-title" id="cms-json-title">
+						The complete content document
+					</h2>
+					<p className="cms-editor-intro-copy">
 						Collections keep their existing schema and revision history. Invalid or stale drafts
 						never reach public pages.
 					</p>
@@ -312,7 +318,7 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 				/>
 				<div className="cms-actions">
 					<button
-						className="prism-button prism-button--primary"
+						className="button button-primary"
 						type="button"
 						disabled={busy || !parsed || !dirty}
 						onClick={() => void handleSave()}
@@ -320,7 +326,7 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 						{pendingAction === "save" ? "Saving…" : "Save draft"} <span aria-hidden="true">↗</span>
 					</button>
 					<button
-						className="prism-button prism-button--quiet"
+						className="button button-quiet"
 						type="button"
 						disabled={busy || dirty}
 						onClick={() => void handlePublish()}
@@ -332,10 +338,12 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 			</section>
 
 			<section className="cms-editor" aria-labelledby="cms-media-title">
-				<div className="cms-editor__intro">
+				<div className="cms-editor-intro">
 					<p className="eyebrow">Media shelf</p>
-					<h2 id="cms-media-title">Upload a future memory.</h2>
-					<p>
+					<h2 className="cms-editor-intro-title" id="cms-media-title">
+						Upload a future memory.
+					</h2>
+					<p className="cms-editor-intro-copy">
 						R2 is optional until its production bucket is enabled. Images need alt text before they
 						can enter the document.
 					</p>
@@ -360,7 +368,7 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 							placeholder="Describe the image…"
 						/>
 					</label>
-					<button className="prism-button prism-button--quiet" type="submit" disabled={busy}>
+					<button className="button button-quiet" type="submit" disabled={busy}>
 						{pendingAction === "upload" ? "Uploading…" : "Upload media"}
 					</button>
 				</form>
@@ -371,10 +379,10 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 
 function StatusCard({ label, value, detail }: { label: string; value: string; detail: string }) {
 	return (
-		<article className="cms-status-card prism-glass-card">
-			<span>{label}</span>
-			<strong>{value}</strong>
-			<small>{detail}</small>
+		<article className="cms-status-card glass">
+			<span className="cms-status-label">{label}</span>
+			<strong className="cms-status-value">{value}</strong>
+			<small className="cms-status-label">{detail}</small>
 		</article>
 	);
 }
@@ -406,6 +414,7 @@ function Field({
 					value={value}
 					onChange={(event) => onChange(event.target.value)}
 					rows={3}
+					className="cms-input"
 				/>
 			) : (
 				<input
@@ -414,6 +423,7 @@ function Field({
 					autoComplete={autoComplete}
 					value={value}
 					onChange={(event) => onChange(event.target.value)}
+					className="cms-input"
 				/>
 			)}
 		</label>

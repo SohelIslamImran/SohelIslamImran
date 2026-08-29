@@ -55,10 +55,14 @@ This profile repository contains the source for `sohelislamimran.com`, a Kuno-fi
 - **Vite 8 + Bun** — local development and the canonical lockfile.
 - **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
 - **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
-- **Tailwind CSS 4 + Prism Route tokens** — shared color, type, radius, and motion tokens with authored geometry for the signature route surfaces.
+- **Tailwind CSS 4** — the source of truth for theme tokens, responsive utilities, glass surfaces, and motion-friendly component primitives in `src/styles/tailwind.css`.
 - **Oxlint, Oxfmt, Vitest** — fast static checks, formatting, and focused tests.
 
 Public routes are SSR-first and read published content only. Drafts and private travel entries remain behind the CMS boundary, and public responses never expose R2 object keys.
+
+### Styling migration
+
+The former `prism-route.css` stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities and named `@utility` primitives backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to SVG route art, responsive state, accessibility fallbacks, and print layout; no separate Prism stylesheet or utility layer is required.
 
 ### Local development
 

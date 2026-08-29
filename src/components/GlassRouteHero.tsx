@@ -102,30 +102,30 @@ export function GlassRouteHero({
 		identity.role;
 
 	return (
-		<section className="prism-hero" aria-labelledby="prism-hero-title">
-			<div className="prism-hero__copy">
-				<p className="prism-kicker">
-					<span className="prism-status-dot" aria-hidden="true" /> {currentKunoRole} · Kuno
+		<section className="hero" aria-labelledby="hero-title">
+			<div className="hero-copy">
+				<p className="kicker">
+					<span className="status-dot" aria-hidden="true" /> {currentKunoRole} · Kuno
 				</p>
-				<h1 id="prism-hero-title">
-					I lead <span className="prism-nowrap">full-stack</span> product engineering at Kuno.
+				<h1 className="hero-title" id="hero-title">
+					I lead <span className="hero-nowrap">full-stack</span> product engineering at Kuno.
 				</h1>
-				<p className="prism-hero__intro">
+				<p className="hero-intro">
 					I’m {identity.name}, a software engineer in {identity.location}. I work across product
 					interfaces, backend services, data, infrastructure, and releases.
 				</p>
-				<div className="prism-actions">
-					<a className="prism-button prism-button--primary" href="#experience">
+				<div className="action-row">
+					<a className="button button-primary" href="#experience">
 						See the route <span aria-hidden="true">↘</span>
 					</a>
-					<a className="prism-button prism-button--quiet" href={`mailto:${identity.email}`}>
+					<a className="button button-quiet" href={`mailto:${identity.email}`}>
 						Start a conversation <span aria-hidden="true">↗</span>
 					</a>
 				</div>
 			</div>
 			<motion.div
 				ref={sceneRef}
-				className="prism-hero__scene"
+				className="hero-scene"
 				data-stop={selected}
 				style={{ touchAction: "pan-y", transform: sceneTransform }}
 				onPointerDown={onPointerDown}
@@ -138,43 +138,38 @@ export function GlassRouteHero({
 				onLostPointerCapture={resetTilt}
 				onPointerLeave={resetTilt}
 			>
-				<div className="prism-hero__orb" aria-hidden="true" />
-				<div className="prism-hero__portrait prism-glass-card">
+				<div className="hero-orb" aria-hidden="true" />
+				<div className="hero-portrait glass">
 					{portraitSrc ? (
 						<img
 							src={portraitSrc}
 							srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
 							sizes="(max-width: 800px) min(86vw, 330px), 360px"
 							alt={portraitAlt}
+							className="portrait-image"
 							width={800}
 							height={800}
 							fetchPriority="high"
 							decoding="async"
 						/>
 					) : (
-						<div className="prism-portrait-placeholder" aria-label={portraitAlt}>
+						<div className="portrait-placeholder" aria-label={portraitAlt}>
 							{identity.name.slice(0, 1)}
 						</div>
 					)}
-					<div className="prism-hero__portrait-caption">
+					<div className="hero-caption">
 						<span>{identity.location}</span>
-						<strong>Available for thoughtful work</strong>
+						<strong className="hero-caption-strong">Available for thoughtful work</strong>
 					</div>
 				</div>
 				<svg
-					className="prism-route"
+					className="route-orbit"
 					viewBox="0 0 620 470"
 					role="img"
 					aria-label="Interactive route from Dhaka to Kuno to the world"
 				>
-					<path
-						className="prism-route__ghost"
-						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
-					/>
-					<path
-						className="prism-route__line"
-						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
-					/>
+					<path className="route-ghost" d="M72 380 C180 250 250 350 320 228 S465 102 558 72" />
+					<path className="route-line" d="M72 380 C180 250 250 350 320 228 S465 102 558 72" />
 					{stops.map((stop, index) => {
 						const positions = [
 							[72, 380],
@@ -184,11 +179,11 @@ export function GlassRouteHero({
 						return (
 							<g
 								key={stop.label}
-								className={`prism-node ${index === selected ? "is-selected" : ""}`}
+								className={`route-node ${index === selected ? "is-selected" : ""}`}
 							>
-								<circle className="prism-node__halo" cx={positions[0]} cy={positions[1]} r="22" />
+								<circle className="route-halo" cx={positions[0]} cy={positions[1]} r="22" />
 								<circle
-									className={`prism-node__dot prism-node__dot--${stop.accent ?? "blue"}`}
+									className={`route-dot route-dot-${stop.accent ?? "blue"}`}
 									cx={positions[0]}
 									cy={positions[1]}
 									r="8"
@@ -198,18 +193,15 @@ export function GlassRouteHero({
 					})}
 				</svg>
 				<motion.div
-					className="prism-route-dock prism-glass-card"
+					className="route-dock glass"
 					role="group"
 					aria-label="Choose a route stop"
 					onPointerDown={(event) => event.stopPropagation()}
 				>
-					<div
-						className="prism-route-dock__current"
-						id="prism-route-stop-detail"
-						aria-live="polite"
-					>
+					<div className="route-dock-current" id="prism-route-stop-detail" aria-live="polite">
 						<AnimatePresence initial={false} mode="wait">
 							<motion.span
+								className="route-dock-label"
 								key={current?.label}
 								initial={{ opacity: 0, filter: "blur(4px)", transform: "translateY(4px)" }}
 								animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)" }}
@@ -219,6 +211,7 @@ export function GlassRouteHero({
 								{current?.label}
 							</motion.span>
 							<motion.strong
+								className="route-dock-detail"
 								key={`${current?.label}-detail`}
 								initial={{ opacity: 0, filter: "blur(4px)", transform: "translateY(4px)" }}
 								animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)" }}
@@ -229,10 +222,11 @@ export function GlassRouteHero({
 							</motion.strong>
 						</AnimatePresence>
 					</div>
-					<div className="prism-route-dock__stops">
+					<div className="route-dock-stops">
 						{stops.map((stop, index) => (
 							<button
 								key={stop.label}
+								className="route-stop"
 								id={`prism-route-stop-${index}`}
 								type="button"
 								aria-pressed={selected === index}
@@ -251,8 +245,10 @@ export function GlassRouteHero({
 									document.getElementById(`prism-route-stop-${next}`)?.focus();
 								}}
 							>
-								<span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-								<strong>{stop.label}</strong>
+								<span className="route-stop-index" aria-hidden="true">
+									{String(index + 1).padStart(2, "0")}
+								</span>
+								<strong className="route-stop-label">{stop.label}</strong>
 							</button>
 						))}
 					</div>

@@ -43,17 +43,17 @@ function Work() {
 	const focus = requestedFocus ?? "identity";
 	const navigate = useNavigate({ from: "/work" });
 	return (
-		<main className="prism-page">
+		<main className="page">
 			<header className="page-intro">
 				<p className="eyebrow">Selected work</p>
-				<h1>Full-stack product engineering at Kuno.</h1>
+				<h1 className="page-title">Full-stack product engineering at Kuno.</h1>
 				<p className="lede">
 					I lead product work across interfaces, backend services, data, infrastructure, and
 					releases. Open-source projects are the parts I can show in full.
 				</p>
 			</header>
 			<motion.section
-				className="work-thesis prism-glass-card"
+				className="work-thesis glass"
 				aria-labelledby="work-thesis-title"
 				whileHover={reducedMotion ? undefined : { y: -3 }}
 				whileTap={reducedMotion ? undefined : { scale: 0.997 }}
@@ -61,9 +61,11 @@ function Work() {
 			>
 				<div>
 					<p className="eyebrow">Kuno · current practice</p>
-					<h2 id="work-thesis-title">Follow the outcome through the whole stack.</h2>
+					<h2 className="work-thesis-title" id="work-thesis-title">
+						Follow the outcome through the whole stack.
+					</h2>
 				</div>
-				<p>
+				<p className="work-thesis-copy">
 					I connect product behavior, authorization, services, data, release systems, and the
 					feedback that helps teams keep improving. The public proof below stays specific where it
 					can and generalized where the product is private.

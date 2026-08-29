@@ -8,7 +8,7 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { AccentSwitcher, accentBootScript } from "../components";
-import "../styles/prism-route.css";
+import "../styles/tailwind.css";
 
 export const Route = createRootRoute({
 	head: () => ({
@@ -65,9 +65,9 @@ function RootComponent() {
 			<a className="skip-link" href="#main-content">
 				Skip to content
 			</a>
-			<header className="site-shell">
-				<Link className="site-shell__brand" to="/" aria-label="Sohel Islam Imran home">
-					<span className="site-shell__mark" aria-hidden="true">
+			<header className="shell">
+				<Link className="shell-brand" to="/" aria-label="Sohel Islam Imran home">
+					<span className="shell-mark" aria-hidden="true">
 						SI
 					</span>
 					<span>Sohel Islam Imran</span>
@@ -75,24 +75,29 @@ function RootComponent() {
 				<nav
 					ref={navigationRef}
 					id="primary-navigation"
-					className="site-shell__nav"
+					className="shell-nav"
 					data-open={menuOpen || undefined}
 					aria-label="Primary navigation"
 				>
-					<Link to="/work" search={{ focus: "identity" }} activeProps={{ className: "is-active" }}>
+					<Link
+						className="shell-link"
+						to="/work"
+						search={{ focus: "identity" }}
+						activeProps={{ className: "is-active" }}
+					>
 						Work
 					</Link>
-					<Link to="/story" activeProps={{ className: "is-active" }}>
+					<Link className="shell-link" to="/story" activeProps={{ className: "is-active" }}>
 						Story
 					</Link>
-					<Link to="/field-notes" activeProps={{ className: "is-active" }}>
+					<Link className="shell-link" to="/field-notes" activeProps={{ className: "is-active" }}>
 						Field notes
 					</Link>
-					<Link to="/resume" activeProps={{ className: "is-active" }}>
+					<Link className="shell-link" to="/resume" activeProps={{ className: "is-active" }}>
 						Résumé
 					</Link>
 					<Link
-						className="site-shell__links"
+						className="shell-link shell-links"
 						to="/links"
 						search={{ kind: "all" }}
 						activeProps={{ className: "is-active" }}
@@ -100,7 +105,7 @@ function RootComponent() {
 						Links <span aria-hidden="true">↗</span>
 					</Link>
 				</nav>
-				<div className="site-shell__actions">
+				<div className="shell-actions">
 					<AccentSwitcher
 						open={accentOpen}
 						onOpenChange={(open) => {
@@ -110,7 +115,7 @@ function RootComponent() {
 					/>
 					<button
 						ref={menuButtonRef}
-						className="site-shell__menu"
+						className="shell-menu"
 						type="button"
 						aria-controls="primary-navigation"
 						aria-expanded={menuOpen}
@@ -120,17 +125,19 @@ function RootComponent() {
 						}}
 					>
 						<span>{menuOpen ? "Close" : "Menu"}</span>
-						<span aria-hidden="true">{menuOpen ? "×" : "＋"}</span>
+						<span className="shell-menu-symbol" aria-hidden="true">
+							{menuOpen ? "×" : "＋"}
+						</span>
 					</button>
 				</div>
 			</header>
 			<div id="main-content" tabIndex={-1}>
 				<Outlet />
 			</div>
-			<footer className="site-footer">
+			<footer className="footer">
 				<p>© {new Date().getUTCFullYear()} Sohel Islam Imran</p>
 				<p>Full-stack product engineering from Dhaka, for teams everywhere.</p>
-				<Link to="/links" search={{ kind: "all" }}>
+				<Link className="footer-link" to="/links" search={{ kind: "all" }}>
 					Find every link <span aria-hidden="true">↗</span>
 				</Link>
 			</footer>
@@ -145,7 +152,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 				<HeadContent />
 				<script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
 			</head>
-			<body>
+			<body className="font-sans">
 				{children}
 				<Scripts />
 			</body>
@@ -155,13 +162,13 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 
 function NotFoundPage() {
 	return (
-		<main className="prism-page status-page">
+		<main className="page status-page">
 			<title>Page not found — Sohel Islam Imran</title>
 			<meta name="robots" content="noindex, nofollow" />
 			<p className="eyebrow">404 · Route not found</p>
 			<h1>That route drifted off the map.</h1>
 			<p className="lede">The page may have moved, or the link may be incomplete.</p>
-			<Link className="prism-button prism-button--primary" to="/">
+			<Link className="button button-primary" to="/">
 				Return home <span aria-hidden="true">↗</span>
 			</Link>
 		</main>
@@ -170,7 +177,7 @@ function NotFoundPage() {
 
 function RootErrorPage() {
 	return (
-		<main className="prism-page status-page">
+		<main className="page status-page">
 			<title>Page interrupted — Sohel Islam Imran</title>
 			<meta name="robots" content="noindex, nofollow" />
 			<p className="eyebrow">A small interruption</p>
@@ -179,15 +186,15 @@ function RootErrorPage() {
 				The page could not finish loading. Try it once more; if it keeps happening, return to the
 				public site.
 			</p>
-			<div className="status-page__actions">
+			<div className="status-actions">
 				<button
 					type="button"
-					className="prism-button prism-button--primary"
+					className="button button-primary"
 					onClick={() => window.location.reload()}
 				>
 					Try again <span aria-hidden="true">↻</span>
 				</button>
-				<Link className="prism-button prism-button--quiet" to="/">
+				<Link className="button button-quiet" to="/">
 					Return home <span aria-hidden="true">↗</span>
 				</Link>
 			</div>

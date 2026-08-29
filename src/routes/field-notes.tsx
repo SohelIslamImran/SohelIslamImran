@@ -41,14 +41,14 @@ function FieldNotes() {
 	const reducedMotion = useReducedMotion();
 	const publicEntries = c.travel.entries.filter((entry) => entry.visibility === "public");
 	return (
-		<main className="prism-page">
+		<main className="page">
 			<header className="page-intro">
 				<p className="eyebrow">{c.travel.eyebrow}</p>
-				<h1>{c.travel.title}</h1>
+				<h1 className="page-title">{c.travel.title}</h1>
 				<p className="lede">{c.travel.intro}</p>
 			</header>
 			<motion.section
-				className="travel-feature prism-glass-card"
+				className="travel-feature glass"
 				aria-labelledby="travel-feature-title"
 				whileHover={reducedMotion ? undefined : { y: -3 }}
 				whileTap={reducedMotion ? undefined : { scale: 0.997 }}
@@ -61,12 +61,14 @@ function FieldNotes() {
 					height={1402}
 					sizes="(max-width: 800px) calc(100vw - 60px), 450px"
 					srcSet="/images/travel-placeholder-561.webp 561w, /images/travel-placeholder-1122.webp 1122w"
-					className="travel-feature__image"
+					className="travel-image"
 				/>
 				<div>
 					<p className="eyebrow">The next horizon</p>
-					<h2 id="travel-feature-title">A map still being written.</h2>
-					<p>
+					<h2 className="travel-title" id="travel-feature-title">
+						A map still being written.
+					</h2>
+					<p className="travel-copy">
 						The first entry is deliberately open. As the route grows, each place will carry a small
 						story, a photograph, and what remote work looked like from there.
 					</p>
@@ -80,14 +82,15 @@ function FieldNotes() {
 					publicEntries.map((e) => (
 						<motion.article
 							key={e.id}
+							className="travel-card"
 							whileHover={reducedMotion ? undefined : { y: -2 }}
 							whileTap={reducedMotion ? undefined : { scale: 0.997 }}
 							transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
 						>
-							<time>{e.season}</time>
-							<h2>{e.place}</h2>
-							<p>{e.summary}</p>
-							<p>{e.reflection}</p>
+							<time className="travel-season">{e.season}</time>
+							<h2 className="travel-card-title">{e.place}</h2>
+							<p className="travel-card-copy">{e.summary}</p>
+							<p className="travel-card-copy">{e.reflection}</p>
 						</motion.article>
 					))
 				) : (

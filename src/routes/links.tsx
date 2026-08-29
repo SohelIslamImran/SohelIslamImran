@@ -28,10 +28,10 @@ function Links() {
 	const navigate = useNavigate({ from: "/links" });
 	const reducedMotion = useReducedMotion();
 	return (
-		<main className="prism-page links-page">
+		<main className="page">
 			<header className="page-intro">
 				<p className="eyebrow">Link desk</p>
-				<h1>Find Sohel Islam Imran across the web.</h1>
+				<h1 className="page-title">Find Sohel Islam Imran across the web.</h1>
 				<p className="lede">Profiles, open-source work, contact details, and the longer story.</p>
 			</header>
 			<LinksFilter
@@ -60,18 +60,20 @@ function Links() {
 							}}
 						>
 							<Link
-								className="link-list__item"
+								className="link-item"
 								to="/links/$linkId"
 								params={{ linkId: l.id }}
 								search={{ kind }}
 							>
 								<LinkIcon platform={l.platform} />
-								<span className="link-list__copy">
-									<span>{l.platform}</span>
-									<strong>{l.label}</strong>
-									<small>{l.description ?? l.handle ?? "Open profile"}</small>
+								<span className="link-copy">
+									<span className="link-platform">{l.platform}</span>
+									<strong className="link-label">{l.label}</strong>
+									<small className="link-description">
+										{l.description ?? l.handle ?? "Open profile"}
+									</small>
 								</span>
-								<i className="link-list__arrow" aria-hidden="true">
+								<i className="link-arrow" aria-hidden="true">
 									↗
 								</i>
 							</Link>
