@@ -1,4 +1,11 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+	AnimatePresence,
+	motion,
+	useMotionTemplate,
+	useReducedMotion,
+	useSpring,
+} from "motion/react";
 import type { ExperienceContent, IdentityContent } from "../types/content";
 
 export interface PrismRouteStop {
@@ -31,33 +38,29 @@ export function GlassRouteHero({
 	const [selected, setSelected] = useState(1);
 	const sceneRef = useRef<HTMLDivElement>(null);
 	const boundsRef = useRef<DOMRect | null>(null);
-	const frameRef = useRef<number | null>(null);
-	const pointerRef = useRef({ x: 0, y: 0 });
 	const dragRef = useRef<{ pointerId: number; x: number } | null>(null);
+	const reducedMotion = useReducedMotion();
+	const rotateX = useSpring(0, { stiffness: 210, damping: 28, mass: 0.7 });
+	const rotateY = useSpring(0, { stiffness: 210, damping: 28, mass: 0.7 });
+	const sceneTransform = useMotionTemplate`perspective(1100px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
 
-	useEffect(
-		() => () => {
-			if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
-		},
-		[],
-	);
+	useEffect(() => {
+		return () => {
+			rotateX.stop();
+			rotateY.stop();
+		};
+	}, [rotateX, rotateY]);
 
 	const setTilt = (x: number, y: number) => {
 		if (
 			!sceneRef.current ||
+			reducedMotion ||
 			window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
 			!window.matchMedia("(hover: hover) and (pointer: fine)").matches
 		)
 			return;
-		pointerRef.current = { x, y };
-		if (frameRef.current !== null) return;
-		frameRef.current = window.requestAnimationFrame(() => {
-			const point = pointerRef.current;
-			if (sceneRef.current) {
-				sceneRef.current.style.transform = `rotateX(${(point.y * -4).toFixed(2)}deg) rotateY(${(point.x * 5).toFixed(2)}deg)`;
-			}
-			frameRef.current = null;
-		});
+		rotateX.set(y * -4);
+		rotateY.set(x * 5);
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -73,7 +76,8 @@ export function GlassRouteHero({
 	const resetTilt = () => {
 		boundsRef.current = null;
 		delete sceneRef.current?.dataset.interacting;
-		if (sceneRef.current) sceneRef.current.style.transform = "rotateX(0deg) rotateY(0deg)";
+		rotateX.set(0);
+		rotateY.set(0);
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -119,11 +123,11 @@ export function GlassRouteHero({
 					</a>
 				</div>
 			</div>
-			<div
+			<motion.div
 				ref={sceneRef}
 				className="prism-hero__scene"
 				data-stop={selected}
-				style={{ touchAction: "pan-y" }}
+				style={{ touchAction: "pan-y", transform: sceneTransform }}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
 				onPointerUp={onPointerUp}
@@ -193,15 +197,37 @@ export function GlassRouteHero({
 						);
 					})}
 				</svg>
-				<div
+				<motion.div
 					className="prism-route-dock prism-glass-card"
 					role="group"
 					aria-label="Choose a route stop"
 					onPointerDown={(event) => event.stopPropagation()}
 				>
-					<div className="prism-route-dock__current" id="prism-route-stop-detail">
-						<span>{current?.label}</span>
-						<strong>{current?.detail}</strong>
+					<div
+						className="prism-route-dock__current"
+						id="prism-route-stop-detail"
+						aria-live="polite"
+					>
+						<AnimatePresence initial={false} mode="wait">
+							<motion.span
+								key={current?.label}
+								initial={{ opacity: 0, filter: "blur(4px)", transform: "translateY(4px)" }}
+								animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)" }}
+								exit={{ opacity: 0, filter: "blur(4px)", transform: "translateY(-4px)" }}
+								transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+							>
+								{current?.label}
+							</motion.span>
+							<motion.strong
+								key={`${current?.label}-detail`}
+								initial={{ opacity: 0, filter: "blur(4px)", transform: "translateY(4px)" }}
+								animate={{ opacity: 1, filter: "blur(0px)", transform: "translateY(0px)" }}
+								exit={{ opacity: 0, filter: "blur(4px)", transform: "translateY(-4px)" }}
+								transition={{ duration: 0.2, delay: 0.025, ease: [0.22, 1, 0.36, 1] }}
+							>
+								{current?.detail}
+							</motion.strong>
+						</AnimatePresence>
 					</div>
 					<div className="prism-route-dock__stops">
 						{stops.map((stop, index) => (
@@ -230,8 +256,8 @@ export function GlassRouteHero({
 							</button>
 						))}
 					</div>
-				</div>
-			</div>
+				</motion.div>
+			</motion.div>
 		</section>
 	);
 }

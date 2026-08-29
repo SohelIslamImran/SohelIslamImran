@@ -1,9 +1,10 @@
-import { Link, createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { linksSearchSchema } from "../lib/search";
 import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
-import { LinkIcon } from "../components";
+import { LinkIcon, LinksFilter, linkKinds, type LinkKind } from "../components";
 export const Route = createFileRoute("/links")({
 	validateSearch: linksSearchSchema,
 	loader: getPublishedContent,
@@ -22,8 +23,10 @@ export const Route = createFileRoute("/links")({
 function Links() {
 	const c = Route.useLoaderData();
 	const { kind: requestedKind } = Route.useSearch();
-	const kind = requestedKind ?? "all";
+	const kind = (requestedKind ?? "all") as LinkKind;
 	const links = c.profileLinks.filter((l) => kind === "all" || l.kind === kind);
+	const navigate = useNavigate({ from: "/links" });
+	const reducedMotion = useReducedMotion();
 	return (
 		<main className="prism-page links-page">
 			<header className="page-intro">
@@ -31,39 +34,51 @@ function Links() {
 				<h1>Find Sohel Islam Imran across the web.</h1>
 				<p className="lede">Profiles, open-source work, contact details, and the longer story.</p>
 			</header>
-			<nav className="segmented" aria-label="Link categories">
-				{(["all", "social", "contact", "work", "story", "other"] as const).map((value) => (
-					<Link
-						key={value}
-						to="/links"
-						search={{ kind: value }}
-						aria-current={kind === value ? "page" : undefined}
-					>
-						{value}
-					</Link>
-				))}
-			</nav>
-			<section className="link-list">
-				{links.map((l) => (
-					<Link
-						key={l.id}
-						className="link-list__item"
-						to="/links/$linkId"
-						params={{ linkId: l.id }}
-						search={{ kind }}
-					>
-						<LinkIcon platform={l.platform} />
-						<span className="link-list__copy">
-							<span>{l.platform}</span>
-							<strong>{l.label}</strong>
-							<small>{l.description ?? l.handle ?? "Open profile"}</small>
-						</span>
-						<i className="link-list__arrow" aria-hidden="true">
-							↗
-						</i>
-					</Link>
-				))}
-			</section>
+			<LinksFilter
+				value={kind}
+				onChange={(next) => {
+					if (!linkKinds.includes(next)) return;
+					void navigate({ search: { kind: next }, replace: true, resetScroll: false });
+				}}
+			/>
+			<p className="sr-only" aria-live="polite">
+				Showing {links.length} {kind === "all" ? "links" : `${kind} links`}.
+			</p>
+			<motion.section id="link-results" className="link-list" aria-label="Public links" layout>
+				<AnimatePresence initial={false} mode="popLayout">
+					{links.map((l, index) => (
+						<motion.div
+							key={l.id}
+							layout="position"
+							initial={false}
+							animate={{ opacity: 1, y: 0 }}
+							exit={{ opacity: 0, y: reducedMotion ? 0 : -6 }}
+							transition={{
+								duration: reducedMotion ? 0 : 0.22,
+								delay: reducedMotion ? 0 : index * 0.025,
+								ease: [0.22, 1, 0.36, 1],
+							}}
+						>
+							<Link
+								className="link-list__item"
+								to="/links/$linkId"
+								params={{ linkId: l.id }}
+								search={{ kind }}
+							>
+								<LinkIcon platform={l.platform} />
+								<span className="link-list__copy">
+									<span>{l.platform}</span>
+									<strong>{l.label}</strong>
+									<small>{l.description ?? l.handle ?? "Open profile"}</small>
+								</span>
+								<i className="link-list__arrow" aria-hidden="true">
+									↗
+								</i>
+							</Link>
+						</motion.div>
+					))}
+				</AnimatePresence>
+			</motion.section>
 		</main>
 	);
 }

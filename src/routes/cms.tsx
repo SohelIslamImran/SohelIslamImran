@@ -2,7 +2,13 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { z } from "zod";
-import { getCmsSnapshot, publishDraft, saveDraft, uploadMedia } from "../server/cms.functions";
+import {
+	getCmsSnapshot,
+	publishDraft,
+	saveDraft,
+	type CmsSnapshotResult,
+	uploadMedia,
+} from "../server/cms.functions";
 
 const emptyRecord = z.record(z.string(), z.unknown());
 
@@ -16,7 +22,7 @@ export const Route = createFileRoute("/cms")({
 		],
 	}),
 	errorComponent: CmsError,
-	component: CmsDashboard,
+	component: CmsRoute,
 });
 
 function CmsError({ error }: { error: unknown }) {
@@ -27,15 +33,51 @@ function CmsError({ error }: { error: unknown }) {
 			<p className="eyebrow">Private workspace</p>
 			<h1>Access is required.</h1>
 			<p className="lede">{message}</p>
-			<a className="prism-button prism-button--primary" href="/">
-				Return to the public site <span aria-hidden="true">↗</span>
-			</a>
+			<div className="status-page__actions">
+				<a className="prism-button prism-button--primary" href="https://cms.sohelislamimran.com/">
+					Open CMS sign-in <span aria-hidden="true">↗</span>
+				</a>
+				<a className="prism-button prism-button--quiet" href="/">
+					Return to the public site <span aria-hidden="true">↗</span>
+				</a>
+			</div>
 		</main>
 	);
 }
 
-function CmsDashboard() {
-	const initial = Route.useLoaderData();
+function CmsRoute() {
+	const result = Route.useLoaderData();
+	if (!result.ok) return <CmsAccessState code={result.code} message={result.message} />;
+	return <CmsDashboard initial={result} />;
+}
+
+function CmsAccessState({
+	code,
+	message,
+}: {
+	code: "unauthenticated" | "forbidden" | "configuration" | "unavailable";
+	message: string;
+}) {
+	const actionLabel = code === "unauthenticated" ? "Open CMS sign-in" : "Try CMS again";
+	const actionHref = code === "unauthenticated" ? "https://cms.sohelislamimran.com/" : "/cms";
+	return (
+		<main className="cms-page prism-page status-page">
+			<p className="eyebrow">Private workspace</p>
+			<h1>{code === "forbidden" ? "This route is owner-only." : "Access is required."}</h1>
+			<p className="lede">{message}</p>
+			<div className="status-page__actions">
+				<a className="prism-button prism-button--primary" href={actionHref}>
+					{actionLabel} <span aria-hidden="true">↗</span>
+				</a>
+				<a className="prism-button prism-button--quiet" href="/">
+					Return to the public site <span aria-hidden="true">↗</span>
+				</a>
+			</div>
+		</main>
+	);
+}
+
+function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: true }> }) {
 	const initialRaw = useMemo(() => JSON.stringify(initial.snapshot.draft, null, 2), [initial]);
 	const [raw, setRaw] = useState(initialRaw);
 	const [savedRaw, setSavedRaw] = useState(initialRaw);

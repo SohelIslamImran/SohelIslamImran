@@ -1,10 +1,13 @@
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
+import { and, eq, exists, inArray, lt, sql } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
 import type { MediaAsset, PortfolioContent } from "../types/content";
 import {
 	parsePortfolioContent,
 	parseStoredContent,
 	serializePortfolioContent,
 } from "../lib/validation";
+import { mediaAssets, portfolioDocuments, portfolioRevisions } from "./schema.server";
 
 export const PORTFOLIO_DOCUMENT_ID = "primary" as const;
 
@@ -93,7 +96,7 @@ export class CmsInputError extends Error {
 	}
 }
 
-interface PortfolioDocumentRow {
+interface StoredDocumentRow {
 	id: string;
 	schema_version: number;
 	draft_json: string;
@@ -106,108 +109,19 @@ interface PortfolioDocumentRow {
 	published_by: string | null;
 }
 
-const SELECT_DOCUMENT_SQL = `
-  SELECT
-    id,
-    schema_version,
-    draft_json,
-    published_json,
-    draft_revision,
-    published_revision,
-    draft_updated_at,
-    published_at,
-    updated_by,
-    published_by
-  FROM portfolio_documents
-  WHERE id = ?
-  LIMIT 1
-`;
-
-const UPDATE_DRAFT_SQL = `
-  UPDATE portfolio_documents
-  SET
-    draft_json = ?,
-    draft_revision = draft_revision + 1,
-    draft_updated_at = ?,
-    updated_by = ?
-  WHERE id = ?
-    AND draft_revision = ?
-`;
-
-const INSERT_DRAFT_REVISION_SQL = `
-  INSERT INTO portfolio_revisions (
-    document_id,
-    kind,
-    revision,
-    content_json,
-    changed_by,
-    changed_at
-  )
-  SELECT
-    id,
-    ?,
-    draft_revision,
-    draft_json,
-    ?,
-    ?
-  FROM portfolio_documents
-  WHERE id = ?
-    AND draft_revision = ?
-`;
-
-const PUBLISH_DRAFT_SQL = `
-  UPDATE portfolio_documents
-  SET
-    published_json = draft_json,
-    published_revision = draft_revision,
-    published_at = ?,
-    published_by = ?
-  WHERE id = ?
-    AND draft_revision = ?
-    AND published_revision < ?
-`;
-
-const INSERT_PUBLISHED_REVISION_SQL = `
-  INSERT INTO portfolio_revisions (
-    document_id,
-    kind,
-    revision,
-    content_json,
-    changed_by,
-    changed_at
-  )
-  SELECT
-    id,
-    ?,
-    published_revision,
-    published_json,
-    ?,
-    ?
-  FROM portfolio_documents
-  WHERE id = ?
-    AND draft_revision = ?
-    AND published_revision = ?
-`;
-
-const UNPUBLISH_MEDIA_SQL = `
-  UPDATE media_assets
-  SET status = 'draft', updated_at = ?
-  WHERE status = 'published'
-    AND EXISTS (
-      SELECT 1
-      FROM portfolio_documents
-      WHERE id = ?
-        AND draft_revision = ?
-        AND published_revision = ?
-    )
-`;
-
 function requireDatabase(env: CmsEnvironment): D1Database {
 	if (!env.DB) {
 		throw new CmsStorageUnavailableError();
 	}
 
 	return env.DB;
+}
+
+function database(db: D1Database) {
+	return drizzle(db, {
+		schema: { mediaAssets, portfolioDocuments, portfolioRevisions },
+		logger: false,
+	});
 }
 
 function requireRevision(value: number, name: string): number {
@@ -304,7 +218,7 @@ export function toPublicPortfolioContent(content: PortfolioContent): PortfolioCo
 	};
 }
 
-function snapshotFromRow(row: PortfolioDocumentRow): CmsDocumentSnapshot {
+function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
 	try {
 		const draftRevision = integerColumn(row.draft_revision);
 		const publishedRevision = integerColumn(row.published_revision);
@@ -330,16 +244,28 @@ function snapshotFromRow(row: PortfolioDocumentRow): CmsDocumentSnapshot {
 }
 
 async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
-	const row = await db
-		.prepare(SELECT_DOCUMENT_SQL)
-		.bind(PORTFOLIO_DOCUMENT_ID)
-		.first<PortfolioDocumentRow>();
+	const [stored] = await database(db)
+		.select()
+		.from(portfolioDocuments)
+		.where(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID))
+		.limit(1);
 
-	if (!row) {
+	if (!stored) {
 		throw new CmsDataError();
 	}
 
-	return snapshotFromRow(row);
+	return snapshotFromRow({
+		id: stored.id,
+		schema_version: stored.schemaVersion,
+		draft_json: stored.draftJson,
+		published_json: stored.publishedJson,
+		draft_revision: stored.draftRevision,
+		published_revision: stored.publishedRevision,
+		draft_updated_at: stored.draftUpdatedAt,
+		published_at: stored.publishedAt,
+		updated_by: stored.updatedBy,
+		published_by: stored.publishedBy,
+	});
 }
 
 /**
@@ -384,14 +310,39 @@ export async function saveDraft(
 	const actor = requireActor(input.actor);
 	const contentJson = serializePortfolioContent(input.content);
 	const now = new Date().toISOString();
-
-	const results = await db.batch([
-		db
-			.prepare(UPDATE_DRAFT_SQL)
-			.bind(contentJson, now, actor.email, PORTFOLIO_DOCUMENT_ID, expectedRevision),
-		db
-			.prepare(INSERT_DRAFT_REVISION_SQL)
-			.bind("draft", actor.email, now, PORTFOLIO_DOCUMENT_ID, expectedRevision + 1),
+	const query = database(db);
+	const draftRevisionSelect = query
+		.select({
+			documentId: portfolioDocuments.id,
+			kind: sql<string>`'draft'`.as("kind"),
+			revision: portfolioDocuments.draftRevision,
+			contentJson: portfolioDocuments.draftJson,
+			changedBy: sql<string>`${actor.email}`.as("changed_by"),
+			changedAt: sql<string>`${now}`.as("changed_at"),
+		})
+		.from(portfolioDocuments)
+		.where(
+			and(
+				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+				eq(portfolioDocuments.draftRevision, expectedRevision + 1),
+			),
+		);
+	const results = await query.batch([
+		query
+			.update(portfolioDocuments)
+			.set({
+				draftJson: contentJson,
+				draftRevision: sql`${portfolioDocuments.draftRevision} + 1`,
+				draftUpdatedAt: now,
+				updatedBy: actor.email,
+			})
+			.where(
+				and(
+					eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioDocuments.draftRevision, expectedRevision),
+				),
+			),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
@@ -425,54 +376,62 @@ export async function publishDraft(
 		return { ok: false, kind: "conflict", current: before };
 	}
 	const mediaIds = referencedMediaIds(before.draft);
-	const statements: D1PreparedStatement[] = [
-		db
-			.prepare(PUBLISH_DRAFT_SQL)
-			.bind(now, actor.email, PORTFOLIO_DOCUMENT_ID, expectedDraftRevision, expectedDraftRevision),
-	];
-	statements.push(
-		db
-			.prepare(UNPUBLISH_MEDIA_SQL)
-			.bind(now, PORTFOLIO_DOCUMENT_ID, expectedDraftRevision, expectedDraftRevision),
-	);
-	if (mediaIds.length > 0) {
-		const placeholders = mediaIds.map(() => "?").join(", ");
-		statements.push(
-			db
-				.prepare(`
-          UPDATE media_assets
-          SET status = 'published', updated_at = ?
-          WHERE id IN (${placeholders})
-            AND EXISTS (
-              SELECT 1
-              FROM portfolio_documents
-              WHERE id = ?
-                AND draft_revision = ?
-                AND published_revision = ?
-            )
-        `)
-				.bind(
-					now,
-					...mediaIds,
-					PORTFOLIO_DOCUMENT_ID,
-					expectedDraftRevision,
-					expectedDraftRevision,
-				),
-		);
-	}
-	statements.push(
-		db
-			.prepare(INSERT_PUBLISHED_REVISION_SQL)
-			.bind(
-				"published",
-				actor.email,
-				now,
-				PORTFOLIO_DOCUMENT_ID,
-				expectedDraftRevision,
-				expectedDraftRevision,
+	const query = database(db);
+	const documentAtRevision = query
+		.select({ id: portfolioDocuments.id })
+		.from(portfolioDocuments)
+		.where(
+			and(
+				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
+				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
 			),
-	);
-	const results = await db.batch(statements);
+		);
+	const publishedRevisionSelect = query
+		.select({
+			documentId: portfolioDocuments.id,
+			kind: sql<string>`'published'`.as("kind"),
+			revision: portfolioDocuments.publishedRevision,
+			contentJson: portfolioDocuments.publishedJson,
+			changedBy: sql<string>`${actor.email}`.as("changed_by"),
+			changedAt: sql<string>`${now}`.as("changed_at"),
+		})
+		.from(portfolioDocuments)
+		.where(
+			and(
+				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
+				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
+			),
+		);
+	const results = await query.batch([
+		query
+			.update(portfolioDocuments)
+			.set({
+				publishedJson: portfolioDocuments.draftJson,
+				publishedRevision: portfolioDocuments.draftRevision,
+				publishedAt: now,
+				publishedBy: actor.email,
+			})
+			.where(
+				and(
+					eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioDocuments.draftRevision, expectedDraftRevision),
+					// Keep publishing idempotent: an already-published revision is not
+					// written to the history a second time.
+					lt(portfolioDocuments.publishedRevision, expectedDraftRevision),
+				),
+			),
+		query
+			.update(mediaAssets)
+			.set({ status: "draft", updatedAt: now })
+			.where(and(eq(mediaAssets.status, "published"), exists(documentAtRevision))),
+		query
+			.update(mediaAssets)
+			.set({ status: "published", updatedAt: now })
+			.where(and(inArray(mediaAssets.id, mediaIds), exists(documentAtRevision))),
+		query.insert(portfolioRevisions).select(publishedRevisionSelect),
+	]);
 
 	if (results[0]?.meta.changes === 1) {
 		return {

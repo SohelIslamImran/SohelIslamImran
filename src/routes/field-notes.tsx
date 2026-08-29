@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { motion, useReducedMotion } from "motion/react";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
@@ -37,6 +38,7 @@ export const Route = createFileRoute("/field-notes")({
 });
 function FieldNotes() {
 	const c = Route.useLoaderData();
+	const reducedMotion = useReducedMotion();
 	const publicEntries = c.travel.entries.filter((entry) => entry.visibility === "public");
 	return (
 		<main className="prism-page">
@@ -45,7 +47,13 @@ function FieldNotes() {
 				<h1>{c.travel.title}</h1>
 				<p className="lede">{c.travel.intro}</p>
 			</header>
-			<section className="travel-feature prism-glass-card" aria-labelledby="travel-feature-title">
+			<motion.section
+				className="travel-feature prism-glass-card"
+				aria-labelledby="travel-feature-title"
+				whileHover={reducedMotion ? undefined : { y: -3 }}
+				whileTap={reducedMotion ? undefined : { scale: 0.997 }}
+				transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+			>
 				<PrismImage
 					src="/images/travel-placeholder-1122.webp"
 					alt="A placeholder route photograph for Sohel's future travel journal"
@@ -63,19 +71,24 @@ function FieldNotes() {
 						story, a photograph, and what remote work looked like from there.
 					</p>
 				</div>
-			</section>
+			</motion.section>
 			<section className="travel-route">
 				<p>
 					<strong>Origin:</strong> {c.travel.origin}
 				</p>
 				{publicEntries.length ? (
 					publicEntries.map((e) => (
-						<article key={e.id}>
+						<motion.article
+							key={e.id}
+							whileHover={reducedMotion ? undefined : { y: -2 }}
+							whileTap={reducedMotion ? undefined : { scale: 0.997 }}
+							transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+						>
 							<time>{e.season}</time>
 							<h2>{e.place}</h2>
 							<p>{e.summary}</p>
 							<p>{e.reflection}</p>
-						</article>
+						</motion.article>
 					))
 				) : (
 					<p>Travel notes are coming as the route unfolds.</p>

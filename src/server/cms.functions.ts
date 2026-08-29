@@ -15,30 +15,67 @@ const csrfToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/u, "Invalid CSRF token."
 
 export const getPublishedContent = createServerFn({ method: "GET" }).handler(() => readPublished());
 
-export const getCmsSnapshot = createServerFn({ method: "GET" }).handler(async () => {
-	let result: Awaited<ReturnType<typeof readAdminSnapshot>>;
-	try {
-		result = await readAdminSnapshot(getRequest());
-	} catch (error) {
-		// A Response is useful at a direct Worker boundary but cannot cross
-		// TanStack's serializable server-function transport. Preserve the status
-		// in a safe Error so the CMS route can render an actionable message.
-		if (error instanceof Response) {
-			throw new Error(
-				error.status === 403
-					? "This CMS account is not on the owner allowlist."
-					: "Sign in through Cloudflare Access to open the CMS.",
-			);
+export type CmsSnapshotResult =
+	| {
+			ok: true;
+			snapshot: Awaited<ReturnType<typeof readAdminSnapshot>>["snapshot"];
+			csrfToken: string;
+			owner: string;
+	  }
+	| {
+			ok: false;
+			code: "unauthenticated" | "forbidden" | "configuration" | "unavailable";
+			message: string;
+	  };
+
+/**
+ * Keep the CMS route recoverable when Access, a binding, or the RPC transport
+ * is unavailable. Returning a small discriminated result prevents a loader
+ * failure from falling through to the generic app error page.
+ */
+export const getCmsSnapshot = createServerFn({ method: "GET" }).handler(
+	async (): Promise<CmsSnapshotResult> => {
+		setResponseHeader("Cache-Control", "private, no-store");
+		try {
+			const result = await readAdminSnapshot(getRequest());
+			// HttpOnly cookie issuance is kept at the RPC boundary, not in storage.
+			// The token is returned only to the owner-only CMS form; the cookie itself
+			// is never exposed to client JavaScript.
+			if (result.setCookie) setResponseHeader("Set-Cookie", result.setCookie);
+			return {
+				ok: true,
+				snapshot: result.snapshot,
+				csrfToken: result.csrfToken,
+				owner: result.owner,
+			};
+		} catch (error) {
+			if (error instanceof Response) {
+				if (error.status === 403)
+					return {
+						ok: false,
+						code: "forbidden",
+						message: "This CMS account is not on the owner allowlist.",
+					};
+				if (error.status === 503)
+					return {
+						ok: false,
+						code: "configuration",
+						message: "CMS authentication is not configured on this Worker yet.",
+					};
+				return {
+					ok: false,
+					code: "unauthenticated",
+					message: "Sign in through Cloudflare Access to open the CMS.",
+				};
+			}
+			return {
+				ok: false,
+				code: "unavailable",
+				message: "The CMS snapshot could not be loaded. Try again in a moment.",
+			};
 		}
-		throw error;
-	}
-	// HttpOnly cookie issuance is kept at the RPC boundary, not in storage.
-	// The existing token remains readable by the CMS form only through the
-	// returned value; the cookie itself is never exposed to client JavaScript.
-	setResponseHeader("Cache-Control", "private, no-store");
-	if (result.setCookie) setResponseHeader("Set-Cookie", result.setCookie);
-	return { snapshot: result.snapshot, csrfToken: result.csrfToken, owner: result.owner };
-});
+	},
+);
 
 export const saveDraft = createServerFn({ method: "POST" })
 	.validator(

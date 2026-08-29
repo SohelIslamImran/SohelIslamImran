@@ -55,7 +55,8 @@ This profile repository contains the source for `sohelislamimran.com`, a Kuno-fi
 - **Vite 8 + Bun** — local development and the canonical lockfile.
 - **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
 - **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
-- **Purpose-built CSS, Oxlint, Oxfmt, Vitest** — Prism Route’s visual system, checks, formatting, and focused tests.
+- **Tailwind CSS 4 + Prism Route tokens** — shared color, type, radius, and motion tokens with authored geometry for the signature route surfaces.
+- **Oxlint, Oxfmt, Vitest** — fast static checks, formatting, and focused tests.
 
 Public routes are SSR-first and read published content only. Drafts and private travel entries remain behind the CMS boundary, and public responses never expose R2 object keys.
 
@@ -86,6 +87,8 @@ The portfolio is deployed at `https://sohelislamimran.com`. The `www` hostname r
 Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md).
 
 The single production Worker is named `portfolio`; it owns the D1 binding, three custom domains, Access application, and security settings. The CMS uses Cloudflare's account identity provider behind an owner-only email policy; no separate GitHub OAuth credential is required. R2 remains off because the current release uses static media and does not need usage-based object storage.
+
+Production remains on the last verified Worker release while UI and interaction changes are reviewed on this branch. Deploy only after the preview and acceptance checks in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md) pass.
 
 The zone is on Cloudflare's Free Website plan, and this release did not enable Workers Paid, R2, or paid security add-ons. Free quotas may throttle traffic instead of providing unlimited capacity. Domain renewal is separate, remains enabled, and was not changed by this deployment.
 

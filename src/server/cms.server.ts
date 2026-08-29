@@ -63,7 +63,16 @@ function assertMutation(
 	csrfToken: string | null | undefined,
 ): Promise<Awaited<ReturnType<typeof requireOwner>>> {
 	return requireOwner(request, runtime()).then((identity) => {
-		verifyCsrfToken(request, csrfToken, cmsOrigin());
+		const environment = runtime();
+		const requestUrl = new URL(request.url);
+		const expectedOrigin =
+			environment.ENVIRONMENT === "development" &&
+			(requestUrl.hostname === "localhost" ||
+				requestUrl.hostname === "127.0.0.1" ||
+				requestUrl.hostname === "[::1]")
+				? requestUrl.origin
+				: cmsOrigin(environment);
+		verifyCsrfToken(request, csrfToken, expectedOrigin);
 		return identity;
 	});
 }

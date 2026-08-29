@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import type { ExperienceContent } from "../types/content";
 
 interface CareerTimelineProps {
@@ -8,6 +9,7 @@ interface CareerTimelineProps {
 
 export function CareerTimeline({ experience, sectionNumber = "01" }: CareerTimelineProps) {
 	const titleId = useId();
+	const reducedMotion = useReducedMotion();
 	return (
 		<section className="prism-timeline" id="experience" aria-labelledby={titleId}>
 			<div className="prism-section-intro">
@@ -20,7 +22,14 @@ export function CareerTimeline({ experience, sectionNumber = "01" }: CareerTimel
 			</div>
 			<div className="prism-timeline__list">
 				{experience.map((item, index) => (
-					<article className="prism-timeline__item" key={item.id}>
+					<motion.article
+						className="prism-timeline__item"
+						key={item.id}
+						layout
+						whileHover={reducedMotion ? undefined : { x: 3 }}
+						whileTap={reducedMotion ? undefined : { scale: 0.997 }}
+						transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+					>
 						<div className="prism-timeline__date">
 							<time>{item.period}</time>
 							<i aria-hidden="true" />
@@ -46,7 +55,7 @@ export function CareerTimeline({ experience, sectionNumber = "01" }: CareerTimel
 						{index < experience.length - 1 && (
 							<div className="prism-timeline__connector" aria-hidden="true" />
 						)}
-					</article>
+					</motion.article>
 				))}
 			</div>
 		</section>

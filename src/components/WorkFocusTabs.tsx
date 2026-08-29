@@ -1,4 +1,5 @@
 import { useEffect, useId, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { ProjectContent } from "../types/content";
 import { PrismImage } from "./PrismImage";
 
@@ -22,6 +23,7 @@ export function WorkFocusTabs({
 }) {
 	const [localFocus, setLocalFocus] = useState<Focus>(initialFocus ?? "identity");
 	const focus = localFocus;
+	const reducedMotion = useReducedMotion();
 	useEffect(() => {
 		if (initialFocus) setLocalFocus(initialFocus);
 	}, [initialFocus]);
@@ -74,7 +76,17 @@ export function WorkFocusTabs({
 				<p>Start with Kuno’s product systems, then move through matching and delivery work.</p>
 			</div>
 			<div className="prism-tabs" role="tablist" aria-label="Work focus" data-focus={focus}>
-				<span className="prism-tabs__indicator" aria-hidden="true" />
+				<motion.span
+					className="prism-tabs__indicator"
+					aria-hidden="true"
+					initial={false}
+					animate={{
+						transform: `translateX(calc(${["identity", "matching", "delivery"].indexOf(focus)} * (100% + 4px)))`,
+					}}
+					transition={
+						reducedMotion ? { duration: 0 } : { type: "spring", duration: 0.3, bounce: 0.08 }
+					}
+				/>
 				{(Object.keys(labels) as Focus[]).map((key) => (
 					<button
 						key={key}
@@ -91,57 +103,121 @@ export function WorkFocusTabs({
 					</button>
 				))}
 			</div>
-			<div
-				className="prism-work__panel"
-				id={panelId}
-				role="tabpanel"
-				aria-labelledby={`${baseId}-${focus}`}
-				key={focus}
-			>
-				<div className="prism-work__panel-head">
-					<span>{labels[focus]} systems</span>
-					<span>{String(items.length).padStart(2, "0")} proofs</span>
-				</div>
-				<div className="prism-work__cards">
-					{items.map((project) => (
-						<article className="prism-work-card prism-glass-card" key={project.id}>
-							<PrismImage
-								src={
-									project.cover?.id ? `/media/${project.cover.id}` : "/images/kuno-systems-724.webp"
+			<AnimatePresence initial={false} mode="wait">
+				<motion.div
+					className="prism-work__panel"
+					id={panelId}
+					role="tabpanel"
+					aria-labelledby={`${baseId}-${focus}`}
+					key={focus}
+					initial={
+						reducedMotion
+							? { opacity: 0 }
+							: {
+									opacity: 0,
+									clipPath: "inset(0 0 10% 0 round 22px)",
+									transform: "translateY(8px)",
 								}
-								alt={`${project.title} visual placeholder`}
-								width={724}
-								height={543}
-								sizes="(max-width: 800px) calc(100vw - 88px), 340px"
-								srcSet={
-									project.cover?.id
-										? undefined
-										: "/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
+					}
+					animate={
+						reducedMotion
+							? { opacity: 1 }
+							: { opacity: 1, clipPath: "inset(0 0 0% 0 round 22px)", transform: "translateY(0px)" }
+					}
+					exit={
+						reducedMotion
+							? { opacity: 0 }
+							: {
+									opacity: 0,
+									clipPath: "inset(0 0 10% 0 round 22px)",
+									transform: "translateY(-5px)",
 								}
-								className="prism-work-card__image"
-							/>
-							<span>{project.year}</span>
-							<h3>{project.title}</h3>
-							<p>{project.summary}</p>
-							<div className="prism-tags">
-								{project.tags.slice(0, 3).map((tag) => (
-									<span key={tag}>{tag}</span>
-								))}
-							</div>
-							{(project.repository ?? project.href) && (
-								<a
-									className="prism-work-card__link"
-									href={project.repository ?? project.href}
-									target="_blank"
-									rel="noreferrer"
+					}
+					transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+				>
+					<div className="prism-work__panel-head">
+						<span>{labels[focus]} systems</span>
+						<span>{String(items.length).padStart(2, "0")} proofs</span>
+					</div>
+					<div className="prism-work__cards">
+						{items.length > 0 ? (
+							items.map((project, index) => (
+								<motion.article
+									className="prism-work-card prism-glass-card"
+									key={project.id}
+									whileHover={reducedMotion ? undefined : { y: -5, rotateX: 2 }}
+									whileTap={reducedMotion ? undefined : { scale: 0.992 }}
+									style={{ transformPerspective: 900 }}
+									initial={
+										reducedMotion
+											? { opacity: 0 }
+											: { opacity: 0, transform: "translateY(10px) scale(0.985)" }
+									}
+									animate={
+										reducedMotion
+											? { opacity: 1 }
+											: { opacity: 1, transform: "translateY(0px) scale(1)" }
+									}
+									transition={{
+										duration: reducedMotion ? 0 : 0.25,
+										delay: reducedMotion ? 0 : 0.04 * index,
+										ease: [0.22, 1, 0.36, 1],
+									}}
 								>
-									Open proof <span aria-hidden="true">↗</span>
-								</a>
-							)}
-						</article>
-					))}
-				</div>
-			</div>
+									<PrismImage
+										src={
+											project.cover?.id
+												? `/media/${project.cover.id}`
+												: "/images/kuno-systems-724.webp"
+										}
+										alt={`${project.title} visual placeholder`}
+										width={724}
+										height={543}
+										sizes="(max-width: 800px) calc(100vw - 88px), 340px"
+										srcSet={
+											project.cover?.id
+												? undefined
+												: "/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
+										}
+										className="prism-work-card__image"
+									/>
+									<span>{project.year}</span>
+									<h3>{project.title}</h3>
+									<p>{project.summary}</p>
+									<div className="prism-tags">
+										{project.tags.slice(0, 3).map((tag) => (
+											<span key={tag}>{tag}</span>
+										))}
+									</div>
+									{(project.repository ?? project.href) && (
+										<a
+											className="prism-work-card__link"
+											href={project.repository ?? project.href}
+											target="_blank"
+											rel="noreferrer"
+										>
+											Open proof <span aria-hidden="true">↗</span>
+										</a>
+									)}
+								</motion.article>
+							))
+						) : (
+							<motion.article
+								className="prism-work-card prism-glass-card prism-work-card--empty"
+								initial={{ opacity: 0 }}
+								animate={{ opacity: 1 }}
+							>
+								<span>In progress</span>
+								<h3>{labels[focus]} notes are being prepared.</h3>
+								<p>
+									The public case studies will appear here as this part of the route is ready to
+									share.
+								</p>
+							</motion.article>
+						)}
+					</div>
+				</motion.div>
+			</AnimatePresence>
 		</section>
 	);
 }

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 
 export const prismAccents = [
 	{ id: "cobalt", name: "Cobalt", color: "#2f5cff" },
@@ -17,7 +18,7 @@ const accentIds = prismAccents.map(({ id }) => id);
 const accentStorageKey = "prism-route-accent";
 const themeStorageKey = "prism-route-theme";
 
-export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto";if(${JSON.stringify(accentIds)}.includes(a))r.dataset.prismAccent=a;r.dataset.prismTheme=t;r.dataset.prismThemeResolved=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t}catch{}})()`;
+export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto",d=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;if(${JSON.stringify(accentIds)}.includes(a))r.dataset.prismAccent=a;r.dataset.prismTheme=t;r.dataset.prismThemeResolved=d;r.classList.toggle("dark",d==="dark")}catch{}})()`;
 
 function isPrismAccent(value: string | undefined): value is PrismAccentId {
 	return accentIds.some((accent) => accent === value);
@@ -36,8 +37,10 @@ function resolvedTheme(mode: PrismThemeMode): "light" | "dark" {
 }
 
 function updateTheme(mode: PrismThemeMode) {
+	const nextResolvedTheme = resolvedTheme(mode);
 	document.documentElement.dataset.prismTheme = mode;
-	document.documentElement.dataset.prismThemeResolved = resolvedTheme(mode);
+	document.documentElement.dataset.prismThemeResolved = nextResolvedTheme;
+	document.documentElement.classList.toggle("dark", nextResolvedTheme === "dark");
 	try {
 		localStorage.setItem(themeStorageKey, mode);
 	} catch {
@@ -89,6 +92,14 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
+	const themeRevealSequence = useRef(0);
+	const [themeReveal, setThemeReveal] = useState<{
+		x: number;
+		y: number;
+		color: string;
+		id: number;
+	} | null>(null);
+	const reducedMotion = useReducedMotion();
 
 	useEffect(() => {
 		const savedAccent = document.documentElement.dataset.prismAccent;
@@ -126,24 +137,28 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	}, [onOpenChange, open]);
 
 	const selectTheme = (mode: PrismThemeMode, source: HTMLButtonElement) => {
+		if (mode === theme) {
+			onOpenChange(false);
+			return;
+		}
+		const previousResolvedTheme = resolvedTheme(theme);
 		const apply = () => {
 			setTheme(mode);
 			updateTheme(mode);
 		};
-		const transitionDocument = document as Document & {
-			startViewTransition?: (update: () => void) => unknown;
-		};
-		if (
-			!transitionDocument.startViewTransition ||
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches
-		) {
-			apply();
-			return;
-		}
 		const rect = source.getBoundingClientRect();
-		document.documentElement.style.setProperty("--theme-x", `${rect.left + rect.width / 2}px`);
-		document.documentElement.style.setProperty("--theme-y", `${rect.top + rect.height / 2}px`);
-		transitionDocument.startViewTransition(apply);
+		apply();
+		onOpenChange(false);
+		if (reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		setThemeReveal({
+			x: rect.left + rect.width / 2,
+			y: rect.top + rect.height / 2,
+			// Keep the previous surface above the document and peel it back from
+			// the control. The new theme is applied underneath immediately, so a
+			// fast second click never leaves a half-transitioned document behind.
+			color: previousResolvedTheme === "dark" ? "#08111f" : "#f7f9fc",
+			id: ++themeRevealSequence.current,
+		});
 	};
 
 	const currentAccent = prismAccents.find(({ id }) => id === accent) ?? prismAccents[0];
@@ -179,7 +194,6 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 				data-open={open || undefined}
 			>
 				<div className="appearance-modes" data-theme={theme}>
-					<span className="appearance-modes__indicator" aria-hidden="true" />
 					{themeModes.map((mode) => (
 						<button
 							key={mode}
@@ -189,6 +203,14 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 							aria-pressed={theme === mode}
 							onClick={(event) => selectTheme(mode, event.currentTarget)}
 						>
+							{theme === mode && (
+								<motion.span
+									className="appearance-modes__indicator"
+									aria-hidden="true"
+									layoutId="appearance-mode-indicator"
+									transition={{ type: "spring", duration: 0.28, bounce: 0.08 }}
+								/>
+							)}
 							<ModeIcon mode={mode} />
 							<span>{mode}</span>
 						</button>
@@ -212,6 +234,29 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 					))}
 				</div>
 			</div>
+			<AnimatePresence initial={false}>
+				{themeReveal && (
+					<motion.div
+						key={themeReveal.id}
+						className="theme-reveal"
+						aria-hidden="true"
+						style={
+							{
+								"--theme-x": `${themeReveal.x}px`,
+								"--theme-y": `${themeReveal.y}px`,
+								background: themeReveal.color,
+							} as CSSProperties
+						}
+						initial={{ clipPath: `circle(160vmax at ${themeReveal.x}px ${themeReveal.y}px)` }}
+						animate={{ clipPath: `circle(0px at ${themeReveal.x}px ${themeReveal.y}px)` }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+						onAnimationComplete={() =>
+							setThemeReveal((current) => (current?.id === themeReveal.id ? null : current))
+						}
+					/>
+				)}
+			</AnimatePresence>
 		</div>
 	);
 }

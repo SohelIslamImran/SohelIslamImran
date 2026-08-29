@@ -26,6 +26,11 @@ The production zone currently has:
 - DNSSEC enabled and awaiting automatic DS publication by Cloudflare Registrar
 - no public `workers.dev` or preview hostname for the production Worker
 
+Local UI and interaction work is not promoted automatically. The apex stays on
+the last verified Worker release until a preview build passes the smoke, SEO,
+CMS, and print acceptance checks; this keeps the deployed site as the rollback
+target during iteration.
+
 ## CMS access
 
 The CMS is protected in two layers:

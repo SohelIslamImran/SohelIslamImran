@@ -1,3 +1,7 @@
+import { and, eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/d1";
+import { mediaAssets } from "./schema.server";
+
 export interface MediaEnvironment {
 	DB?: D1Database;
 	MEDIA?: R2Bucket;
@@ -44,11 +48,19 @@ export async function uploadMedia(
 		customMetadata: { assetId: id },
 	});
 	try {
-		await db
-			.prepare(
-				`INSERT INTO media_assets (id, object_key, alt, mime_type, bytes, status, created_at, updated_at, created_by) VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-			)
-			.bind(id, key, cleanAlt, file.type, file.size, now, now, actorEmail)
+		await drizzle(db, { logger: false })
+			.insert(mediaAssets)
+			.values({
+				id,
+				objectKey: key,
+				alt: cleanAlt,
+				mimeType: file.type,
+				bytes: file.size,
+				status: "draft",
+				createdAt: now,
+				updatedAt: now,
+				createdBy: actorEmail,
+			})
 			.run();
 	} catch {
 		// The immutable R2 object is left for an explicit orphan-cleanup job.
@@ -61,17 +73,16 @@ export async function uploadMedia(
 
 export async function getPublishedMedia(env: MediaEnvironment, assetId: string) {
 	const { db, bucket } = requireBindings(env);
-	const row = await db
-		.prepare(
-			`SELECT object_key, mime_type FROM media_assets WHERE id = ? AND status = 'published' LIMIT 1`,
-		)
-		.bind(assetId)
-		.first<{ object_key: string; mime_type: string | null }>();
+	const [row] = await drizzle(db, { logger: false })
+		.select({ objectKey: mediaAssets.objectKey, mimeType: mediaAssets.mimeType })
+		.from(mediaAssets)
+		.where(and(eq(mediaAssets.id, assetId), eq(mediaAssets.status, "published")))
+		.limit(1);
 	if (!row) return null;
-	const object = await bucket.get(row.object_key);
+	const object = await bucket.get(row.objectKey);
 	if (!object) return null;
 	return {
 		object,
-		mimeType: row.mime_type ?? object.httpMetadata?.contentType ?? "application/octet-stream",
+		mimeType: row.mimeType ?? object.httpMetadata?.contentType ?? "application/octet-stream",
 	};
 }

@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { motion, useReducedMotion } from "motion/react";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { dateTimeFromPeriod } from "../lib/content-dates";
@@ -35,6 +36,7 @@ export const Route = createFileRoute("/resume")({
 
 function Resume() {
 	const content = Route.useLoaderData();
+	const reducedMotion = useReducedMotion();
 	const publicExperience = content.experience;
 	const proof = content.projects
 		.filter((project) => project.repository || project.href)
@@ -42,7 +44,11 @@ function Resume() {
 
 	return (
 		<main className="resume-page">
-			<header className="resume-header">
+			<motion.header
+				className="resume-header"
+				whileHover={reducedMotion ? undefined : { y: -3 }}
+				transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+			>
 				<div className="resume-header__copy">
 					<p className="eyebrow">{content.identity.role} · Kuno</p>
 					<h1>{content.identity.name}</h1>
@@ -78,7 +84,7 @@ function Resume() {
 					srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
 					className="resume-header__portrait"
 				/>
-			</header>
+			</motion.header>
 
 			<div className="resume-layout">
 				<section className="resume-main" aria-labelledby="resume-experience-title">
@@ -87,7 +93,13 @@ function Resume() {
 						<h2 id="resume-experience-title">Product work across teams and platforms.</h2>
 					</div>
 					{publicExperience.map((item) => (
-						<article className="resume-entry" key={item.id}>
+						<motion.article
+							className="resume-entry"
+							key={item.id}
+							whileHover={reducedMotion ? undefined : { x: 3 }}
+							whileTap={reducedMotion ? undefined : { scale: 0.998 }}
+							transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+						>
 							<time dateTime={dateTimeFromPeriod(item.period)}>{item.period}</time>
 							<div className="resume-entry__body">
 								<div className="resume-entry__company">
@@ -107,7 +119,7 @@ function Resume() {
 									))}
 								</div>
 							</div>
-						</article>
+						</motion.article>
 					))}
 				</section>
 
@@ -117,7 +129,12 @@ function Resume() {
 						<h2 id="resume-capabilities-title">How I contribute.</h2>
 						<div className="resume-capability-list">
 							{content.capabilities.map((capability) => (
-								<article className="resume-capability" key={capability.id}>
+								<motion.article
+									className="resume-capability"
+									key={capability.id}
+									whileHover={reducedMotion ? undefined : { x: 3 }}
+									transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+								>
 									<h3>{capability.title}</h3>
 									<p>{capability.description}</p>
 									<div className="prism-tags">
@@ -125,7 +142,7 @@ function Resume() {
 											<span key={tool}>{tool}</span>
 										))}
 									</div>
-								</article>
+								</motion.article>
 							))}
 						</div>
 					</section>
