@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { workSearchSchema } from "../lib/search";
-import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { CareerTimeline, WorkFocusTabs } from "../components";
 export const Route = createFileRoute("/work")({
 	validateSearch: workSearchSchema,
@@ -44,10 +44,10 @@ function Work() {
 		<main className="prism-page">
 			<header className="page-intro">
 				<p className="eyebrow">Selected work</p>
-				<h1>Systems that make complicated products feel clear.</h1>
+				<h1>Full-stack product engineering at Kuno.</h1>
 				<p className="lede">
-					My day-to-day work is at Kuno, where I lead full-stack product engineering. Open-source
-					projects are the public edge of that practice.
+					I lead product work across interfaces, backend services, data, infrastructure, and
+					releases. Open-source projects are the parts I can show in full.
 				</p>
 			</header>
 			<section className="work-thesis prism-glass-card" aria-labelledby="work-thesis-title">
@@ -61,14 +61,15 @@ function Work() {
 					can and generalized where the product is private.
 				</p>
 			</section>
-			<CareerTimeline experience={c.experience} />
 			<WorkFocusTabs
 				projects={c.projects}
 				initialFocus={focus}
+				sectionNumber="01"
 				onFocusChange={(next) => {
 					void navigate({ search: { focus: next }, replace: true });
 				}}
 			/>
+			<CareerTimeline experience={c.experience} sectionNumber="02" />
 		</main>
 	);
 }

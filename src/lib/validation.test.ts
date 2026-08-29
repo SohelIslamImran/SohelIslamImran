@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_PORTFOLIO_CONTENT } from "../../app/content/initial";
-import { parseStoredContent, validatePortfolioContent } from "../../app/lib/validation";
+import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
+import { parseStoredContent, validatePortfolioContent } from "./validation";
 
 describe("portfolio content validation", () => {
 	it("accepts the published seed and round-trips it through storage JSON", () => {

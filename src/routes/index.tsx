@@ -61,6 +61,8 @@ function MigrationHome() {
 						alt="Abstract glass architecture representing the systems Sohel builds"
 						width={724}
 						height={543}
+						sizes="(max-width: 800px) calc(100vw - 40px), 560px"
+						srcSet="/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
 					/>
 					<div>
 						<p>{content.about.paragraphs[1]}</p>

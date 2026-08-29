@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { env } from "cloudflare:workers";
-import { getPublishedMedia, type MediaEnvironment } from "../../../app/lib/media.server";
+import { getPublishedMedia } from "../../server/media.server";
 
 export const Route = createFileRoute("/media/$assetId")({
 	server: {
@@ -8,10 +8,7 @@ export const Route = createFileRoute("/media/$assetId")({
 			GET: async ({ params }) => {
 				if (!/^[A-Za-z0-9_-]{8,160}$/u.test(params.assetId)) return mediaNotFound();
 				try {
-					const result = await getPublishedMedia(
-						env as unknown as MediaEnvironment,
-						params.assetId,
-					);
+					const result = await getPublishedMedia(env, params.assetId);
 					if (!result) return mediaNotFound();
 					const headers = new Headers({
 						"Cache-Control": "public, max-age=31536000, immutable",

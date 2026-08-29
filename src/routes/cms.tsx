@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { z } from "zod";
 import { getCmsSnapshot, publishDraft, saveDraft, uploadMedia } from "../server/cms.functions";
 
@@ -36,15 +36,30 @@ function CmsError({ error }: { error: unknown }) {
 
 function CmsDashboard() {
 	const initial = Route.useLoaderData();
-	const [raw, setRaw] = useState(() => JSON.stringify(initial.snapshot.draft, null, 2));
+	const initialRaw = useMemo(() => JSON.stringify(initial.snapshot.draft, null, 2), [initial]);
+	const [raw, setRaw] = useState(initialRaw);
+	const [savedRaw, setSavedRaw] = useState(initialRaw);
 	const [revision, setRevision] = useState(initial.snapshot.draftRevision);
 	const [csrfToken] = useState(initial.csrfToken);
 	const [status, setStatus] = useState("Ready to edit the draft.");
-	const [busy, setBusy] = useState(false);
+	const [pendingAction, setPendingAction] = useState<"save" | "publish" | "upload" | null>(null);
 	const save = useServerFn(saveDraft);
 	const publish = useServerFn(publishDraft);
 	const upload = useServerFn(uploadMedia);
 	const parsed = useMemo(() => parseDraft(raw), [raw]);
+	const dirty = raw !== savedRaw;
+	const busy = pendingAction !== null;
+
+	useEffect(() => {
+		if (!dirty) return;
+		const warnBeforeLeaving = (event: BeforeUnloadEvent) => event.preventDefault();
+		window.addEventListener("beforeunload", warnBeforeLeaving);
+		return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+	}, [dirty]);
+
+	useEffect(() => {
+		if (dirty && !pendingAction) setStatus("Unsaved changes. Save the draft before publishing.");
+	}, [dirty, pendingAction]);
 
 	const updateField = (section: "site" | "identity", key: string, value: string) => {
 		if (!parsed) return;
@@ -59,7 +74,7 @@ function CmsDashboard() {
 			setStatus("The JSON is not valid yet. Fix it before saving.");
 			return;
 		}
-		setBusy(true);
+		setPendingAction("save");
 		setStatus("Saving draft…");
 		try {
 			const result = await save({
@@ -67,21 +82,28 @@ function CmsDashboard() {
 			});
 			if (result.ok) {
 				setRevision(result.revision);
+				setSavedRaw(raw);
 				setStatus(`Draft saved at revision ${result.revision}.`);
 			} else {
 				setRevision(result.current.draftRevision);
-				setRaw(JSON.stringify(result.current.draft, null, 2));
+				const currentRaw = JSON.stringify(result.current.draft, null, 2);
+				setRaw(currentRaw);
+				setSavedRaw(currentRaw);
 				setStatus("A newer draft won the race. The latest draft is loaded; review and save again.");
 			}
 		} catch {
 			setStatus("The draft could not be saved. Check your session and try again.");
 		} finally {
-			setBusy(false);
+			setPendingAction(null);
 		}
 	};
 
 	const handlePublish = async () => {
-		setBusy(true);
+		if (dirty) {
+			setStatus("Save the current changes before publishing.");
+			return;
+		}
+		setPendingAction("publish");
 		setStatus("Publishing…");
 		try {
 			const result = await publish({ data: { expectedDraftRevision: revision, csrfToken } });
@@ -89,13 +111,15 @@ function CmsDashboard() {
 				setStatus(`Published revision ${result.revision}. Public pages now use this snapshot.`);
 			} else {
 				setRevision(result.current.draftRevision);
-				setRaw(JSON.stringify(result.current.draft, null, 2));
+				const currentRaw = JSON.stringify(result.current.draft, null, 2);
+				setRaw(currentRaw);
+				setSavedRaw(currentRaw);
 				setStatus("Publishing found a newer draft. Review the latest version before trying again.");
 			}
 		} catch {
 			setStatus("The draft could not be published. Check your session and try again.");
 		} finally {
-			setBusy(false);
+			setPendingAction(null);
 		}
 	};
 
@@ -108,7 +132,7 @@ function CmsDashboard() {
 			setStatus("Choose an image and provide meaningful alt text first.");
 			return;
 		}
-		setBusy(true);
+		setPendingAction("upload");
 		setStatus("Uploading media…");
 		try {
 			const asset = await upload({ data: { file, alt, csrfToken } });
@@ -117,7 +141,7 @@ function CmsDashboard() {
 		} catch {
 			setStatus("The media upload failed. Check the file type, size, and session.");
 		} finally {
-			setBusy(false);
+			setPendingAction(null);
 		}
 	};
 
@@ -182,33 +206,43 @@ function CmsDashboard() {
 				</div>
 				<div className="cms-fields">
 					<Field
+						name="site-title"
 						label="Site title"
 						value={stringValue(site?.title)}
 						onChange={(value) => updateField("site", "title", value)}
 					/>
 					<Field
+						name="site-description"
 						label="Site description"
 						value={stringValue(site?.description)}
 						onChange={(value) => updateField("site", "description", value)}
 						multiline
 					/>
 					<Field
+						name="name"
 						label="Name"
+						autoComplete="name"
 						value={stringValue(identity?.name)}
 						onChange={(value) => updateField("identity", "name", value)}
 					/>
 					<Field
+						name="role"
 						label="Role"
+						autoComplete="organization-title"
 						value={stringValue(identity?.role)}
 						onChange={(value) => updateField("identity", "role", value)}
 					/>
 					<Field
+						name="location"
 						label="Location"
+						autoComplete="address-level2"
 						value={stringValue(identity?.location)}
 						onChange={(value) => updateField("identity", "location", value)}
 					/>
 					<Field
+						name="email"
 						label="Public email"
+						autoComplete="email"
 						value={stringValue(identity?.email)}
 						onChange={(value) => updateField("identity", "email", value)}
 						type="email"
@@ -227,6 +261,8 @@ function CmsDashboard() {
 				</div>
 				<textarea
 					className="cms-json"
+					name="portfolio-json"
+					autoComplete="off"
 					value={raw}
 					onChange={(event) => setRaw(event.target.value)}
 					spellCheck={false}
@@ -236,18 +272,19 @@ function CmsDashboard() {
 					<button
 						className="prism-button prism-button--primary"
 						type="button"
-						disabled={busy || !parsed}
+						disabled={busy || !parsed || !dirty}
 						onClick={() => void handleSave()}
 					>
-						Save draft <span aria-hidden="true">↗</span>
+						{pendingAction === "save" ? "Saving…" : "Save draft"} <span aria-hidden="true">↗</span>
 					</button>
 					<button
 						className="prism-button prism-button--quiet"
 						type="button"
-						disabled={busy}
+						disabled={busy || dirty}
 						onClick={() => void handlePublish()}
 					>
-						Publish revision <span aria-hidden="true">↗</span>
+						{pendingAction === "publish" ? "Publishing…" : "Publish revision"}{" "}
+						<span aria-hidden="true">↗</span>
 					</button>
 				</div>
 			</section>
@@ -275,13 +312,14 @@ function CmsDashboard() {
 						<input
 							name="alt"
 							type="text"
+							autoComplete="off"
 							maxLength={240}
 							required
-							placeholder="What should a screen reader know?"
+							placeholder="Describe the image…"
 						/>
 					</label>
 					<button className="prism-button prism-button--quiet" type="submit" disabled={busy}>
-						Upload media
+						{pendingAction === "upload" ? "Uploading…" : "Upload media"}
 					</button>
 				</form>
 			</section>
@@ -300,25 +338,41 @@ function StatusCard({ label, value, detail }: { label: string; value: string; de
 }
 
 function Field({
+	name,
 	label,
 	value,
 	onChange,
 	multiline = false,
 	type = "text",
+	autoComplete = "off",
 }: {
+	name: string;
 	label: string;
 	value: string;
 	onChange: (value: string) => void;
 	multiline?: boolean;
 	type?: string;
+	autoComplete?: string;
 }) {
 	return (
 		<label className="cms-field">
 			{label}
 			{multiline ? (
-				<textarea value={value} onChange={(event) => onChange(event.target.value)} rows={3} />
+				<textarea
+					name={name}
+					autoComplete={autoComplete}
+					value={value}
+					onChange={(event) => onChange(event.target.value)}
+					rows={3}
+				/>
 			) : (
-				<input type={type} value={value} onChange={(event) => onChange(event.target.value)} />
+				<input
+					name={name}
+					type={type}
+					autoComplete={autoComplete}
+					value={value}
+					onChange={(event) => onChange(event.target.value)}
+				/>
 			)}
 		</label>
 	);

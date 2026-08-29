@@ -22,28 +22,32 @@ const securityHeaders: Record<string, string> = {
 };
 
 export default {
-	async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+	async fetch(request: Request, env: Env): Promise<Response> {
 		const incoming = new URL(request.url);
 		const host = incoming.hostname.toLowerCase();
 		const appOrigin = env.APP_ORIGIN || `https://${PUBLIC_HOST}`;
 		const cmsOrigin = env.CMS_ORIGIN || `https://${CMS_HOST}`;
+		const publicHost = hostnameFromOrigin(appOrigin, PUBLIC_HOST);
+		const cmsHost = hostnameFromOrigin(cmsOrigin, CMS_HOST);
+		const wwwHost = publicHost === PUBLIC_HOST ? WWW_HOST : `www.${publicHost}`;
+		const splitCmsHost = cmsHost !== publicHost;
 
-		if (host === WWW_HOST) {
+		if (host === wwwHost) {
 			return withSecurityHeaders(
 				Response.redirect(`${appOrigin}${incoming.pathname}${incoming.search}`, 308),
 			);
 		}
 
-		if (host === PUBLIC_HOST && /^\/resume\/edit(?:\/|$)/u.test(incoming.pathname)) {
+		if (splitCmsHost && host === publicHost && /^\/resume\/edit(?:\/|$)/u.test(incoming.pathname)) {
 			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/`, 308));
 		}
 
-		if (host === PUBLIC_HOST && incoming.pathname === "/cms") {
+		if (splitCmsHost && host === publicHost && incoming.pathname === "/cms") {
 			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/`, 308));
 		}
 
 		let routedRequest = request;
-		if (host === CMS_HOST) {
+		if (splitCmsHost && host === cmsHost) {
 			if (incoming.pathname === "/" || incoming.pathname === "/index.html") {
 				const cmsUrl = new URL(incoming);
 				cmsUrl.pathname = "/cms";
@@ -55,14 +59,23 @@ export default {
 			}
 		}
 
-		// TanStack's Start handler reads Cloudflare bindings through the
-		// `cloudflare:workers` runtime module. The Worker still receives env/ctx
-		// here so the edge adapter can invoke this standard fetch signature.
-		void ctx;
+		// TanStack Start reads bindings through `cloudflare:workers`. The edge
+		// adapter still receives `env` here for host configuration and redirects.
 		const response = await startFetch(routedRequest);
-		return withSecurityHeaders(response, { request: routedRequest, cms: host === CMS_HOST });
+		const cmsRequest = splitCmsHost
+			? host === cmsHost
+			: incoming.pathname === "/cms" || incoming.pathname.startsWith("/resume/edit");
+		return withSecurityHeaders(response, { request: routedRequest, cms: cmsRequest });
 	},
-};
+} satisfies ExportedHandler<Env>;
+
+function hostnameFromOrigin(origin: string, fallback: string) {
+	try {
+		return new URL(origin).hostname.toLowerCase();
+	} catch {
+		return fallback;
+	}
+}
 
 function withSecurityHeaders(
 	response: Response,

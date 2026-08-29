@@ -19,13 +19,13 @@ At Kuno, I lead full-stack engineering across secure enterprise learning flows, 
 
 ### Experience
 
-| Period | Company | Role |
-| --- | --- | --- |
-| Mar 2026 — present | Kuno | Lead Full Stack Engineer |
-| Jan 2025 — Mar 2026 | Kuno | Full Stack Engineer |
-| Dec 2023 — Jan 2025 | Kuno | Mobile Application Developer |
-| Jun 2021 — Jan 2024 | Tilleli | React Native Developer |
-| Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer |
+| Period              | Company   | Role                         |
+| ------------------- | --------- | ---------------------------- |
+| Mar 2026 — present  | Kuno      | Lead Full Stack Engineer     |
+| Jan 2025 — Mar 2026 | Kuno      | Full Stack Engineer          |
+| Dec 2023 — Jan 2025 | Kuno      | Mobile Application Developer |
+| Jun 2021 — Jan 2024 | Tilleli   | React Native Developer       |
+| Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer           |
 
 ### Selected public work
 
@@ -55,9 +55,9 @@ This profile repository contains the source for `sohelislamimran.com`, a Kuno-fi
 - **Vite 8 + Bun** — local development and the canonical lockfile.
 - **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
 - **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
-- **Tailwind CSS 4, Oxlint, Oxfmt, Vitest** — styling tokens, checks, formatting, and focused tests.
+- **Purpose-built CSS, Oxlint, Oxfmt, Vitest** — Prism Route’s visual system, checks, formatting, and focused tests.
 
-The former React Router app remains under `app/` as a rollback/reference path while the TanStack build is validated. Public routes are SSR-first and read published content only; drafts remain behind the CMS boundary.
+Public routes are SSR-first and read published content only. Drafts and private travel entries remain behind the CMS boundary, and public responses never expose R2 object keys.
 
 ### Local development
 

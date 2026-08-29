@@ -5,6 +5,9 @@ interface PrismImageProps {
 	height: number;
 	className?: string;
 	loading?: "eager" | "lazy";
+	fetchPriority?: "high" | "low" | "auto";
+	sizes?: string;
+	srcSet?: string;
 }
 export function PrismImage({
 	src,
@@ -13,10 +16,18 @@ export function PrismImage({
 	height,
 	className,
 	loading = "lazy",
+	fetchPriority,
+	sizes,
+	srcSet,
 }: PrismImageProps) {
 	if (!src)
 		return (
-			<div className={`prism-image-placeholder ${className ?? ""}`} role="img" aria-label={alt}>
+			<div
+				className={`prism-image-placeholder ${className ?? ""}`}
+				role="img"
+				aria-label={alt}
+				style={{ aspectRatio: `${width} / ${height}` }}
+			>
 				<span aria-hidden="true">SI</span>
 			</div>
 		);
@@ -28,6 +39,9 @@ export function PrismImage({
 			width={width}
 			height={height}
 			loading={loading}
+			fetchPriority={fetchPriority}
+			sizes={sizes}
+			srcSet={srcSet}
 			decoding="async"
 		/>
 	);

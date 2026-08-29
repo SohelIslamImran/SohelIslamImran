@@ -1,14 +1,24 @@
 {
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.node.json" },
-    { "path": "./tsconfig.cloudflare.json" }
-  ],
-  "compilerOptions": {
-    "checkJs": true,
-    "verbatimModuleSyntax": true,
-    "skipLibCheck": true,
-    "strict": true,
-    "noEmit": true
-  }
+	"compilerOptions": {
+		"checkJs": true,
+		"esModuleInterop": true,
+		"jsx": "react-jsx",
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
+		"module": "ESNext",
+		"moduleResolution": "bundler",
+		"noEmit": true,
+		"resolveJsonModule": true,
+		"skipLibCheck": true,
+		"strict": true,
+		"target": "ES2022",
+		"types": ["node", "vite/client"],
+		"verbatimModuleSyntax": true
+	},
+	"include": [
+		"src/**/*.ts",
+		"src/**/*.tsx",
+		"vite.config.ts",
+		"vitest.config.ts",
+		"worker-configuration.d.ts"
+	]
 }

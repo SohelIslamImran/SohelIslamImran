@@ -1,9 +1,8 @@
 /**
  * Server-only CMS primitives for TanStack Start.
  *
- * This module is deliberately a thin adapter over the existing storage layer.
- * Keeping the D1/R2 implementation in app/lib means the React Router build can
- * remain a rollback target while the Start app is migrated incrementally.
+ * This module keeps Cloudflare bindings behind a server-only boundary while
+ * storage and validation remain independently testable.
  */
 import { env } from "cloudflare:workers";
 import {
@@ -14,23 +13,20 @@ import {
 	type CmsDocumentSnapshot,
 	type PublishDraftResult,
 	type SaveDraftResult,
-} from "../../app/lib/cms.server";
+} from "./cms-storage.server";
 import {
 	getCsrfToken,
 	requireOwner,
 	verifyCsrfToken,
 	type AccessAuthEnvironment,
-} from "../../app/lib/auth.server";
-import {
-	uploadMedia as uploadStoredMedia,
-	type MediaEnvironment,
-} from "../../app/lib/media.server";
-import type { PortfolioContent } from "../../app/types/content";
+} from "./auth.server";
+import { uploadMedia as uploadStoredMedia, type MediaEnvironment } from "./media.server";
+import type { PortfolioContent } from "../types/content";
 
 export type CmsRuntime = AccessAuthEnvironment & MediaEnvironment & { CMS_ORIGIN?: string };
 
 function runtime(): CmsRuntime {
-	return env as unknown as CmsRuntime;
+	return env;
 }
 
 /** The CMS host is separate from the public origin, but remains configurable. */

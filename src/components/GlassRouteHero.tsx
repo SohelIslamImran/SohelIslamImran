@@ -1,5 +1,5 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import type { ExperienceContent, IdentityContent } from "../../app/types/content";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import type { ExperienceContent, IdentityContent } from "../types/content";
 
 export interface PrismRouteStop {
 	label: string;
@@ -24,7 +24,7 @@ const defaultStops: PrismRouteStop[] = [
 export function GlassRouteHero({
 	identity,
 	experience = [],
-	portraitSrc = "/images/sohel-linkedin.png",
+	portraitSrc = "/images/sohel-linkedin-800.webp",
 	portraitAlt = "Portrait of Sohel Islam Imran",
 	stops = defaultStops,
 }: GlassRouteHeroProps) {
@@ -35,19 +35,33 @@ export function GlassRouteHero({
 	const pointerRef = useRef({ x: 0, y: 0 });
 	const dragRef = useRef<{ pointerId: number; x: number } | null>(null);
 
+	useEffect(
+		() => () => {
+			if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
+		},
+		[],
+	);
+
 	const setTilt = (x: number, y: number) => {
-		if (!sceneRef.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+		if (
+			!sceneRef.current ||
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+			!window.matchMedia("(hover: hover) and (pointer: fine)").matches
+		)
+			return;
 		pointerRef.current = { x, y };
 		if (frameRef.current !== null) return;
 		frameRef.current = window.requestAnimationFrame(() => {
 			const point = pointerRef.current;
-			sceneRef.current?.style.setProperty("--tilt-x", `${(point.y * -5).toFixed(2)}deg`);
-			sceneRef.current?.style.setProperty("--tilt-y", `${(point.x * 7).toFixed(2)}deg`);
+			if (sceneRef.current) {
+				sceneRef.current.style.transform = `rotateX(${(point.y * -4).toFixed(2)}deg) rotateY(${(point.x * 5).toFixed(2)}deg)`;
+			}
 			frameRef.current = null;
 		});
 	};
 
 	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+		event.currentTarget.dataset.interacting = "true";
 		if (!boundsRef.current) boundsRef.current = event.currentTarget.getBoundingClientRect();
 		const rect = boundsRef.current;
 		setTilt(
@@ -58,7 +72,8 @@ export function GlassRouteHero({
 
 	const resetTilt = () => {
 		boundsRef.current = null;
-		setTilt(0, 0);
+		delete sceneRef.current?.dataset.interacting;
+		if (sceneRef.current) sceneRef.current.style.transform = "rotateX(0deg) rotateY(0deg)";
 	};
 
 	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -88,10 +103,12 @@ export function GlassRouteHero({
 				<p className="prism-kicker">
 					<span className="prism-status-dot" aria-hidden="true" /> {currentKunoRole} · Kuno
 				</p>
-				<h1 id="prism-hero-title">I make complex product systems feel simple.</h1>
+				<h1 id="prism-hero-title">
+					I lead <span className="prism-nowrap">full-stack</span> product engineering at Kuno.
+				</h1>
 				<p className="prism-hero__intro">
-					{identity.name} leads full-stack product work across interfaces, services, data, and
-					delivery—from {identity.location} for teams working everywhere.
+					I’m {identity.name}, a software engineer in {identity.location}. I work across product
+					interfaces, backend services, data, infrastructure, and releases.
 				</p>
 				<div className="prism-actions">
 					<a className="prism-button prism-button--primary" href="#experience">
@@ -105,6 +122,7 @@ export function GlassRouteHero({
 			<div
 				ref={sceneRef}
 				className="prism-hero__scene"
+				data-stop={selected}
 				style={{ touchAction: "pan-y" }}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
@@ -121,10 +139,13 @@ export function GlassRouteHero({
 					{portraitSrc ? (
 						<img
 							src={portraitSrc}
+							srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
+							sizes="(max-width: 800px) min(86vw, 330px), 360px"
 							alt={portraitAlt}
 							width={800}
 							height={800}
 							fetchPriority="high"
+							decoding="async"
 						/>
 					) : (
 						<div className="prism-portrait-placeholder" aria-label={portraitAlt}>
@@ -173,56 +194,41 @@ export function GlassRouteHero({
 					})}
 				</svg>
 				<div
-					className="prism-hero__control prism-glass-card"
+					className="prism-route-dock prism-glass-card"
 					role="group"
 					aria-label="Choose a route stop"
 					onPointerDown={(event) => event.stopPropagation()}
 				>
-					<div className="prism-hero__control-copy">
-						<span>Now exploring</span>
-						<strong>{current?.label}</strong>
-						<small>{current?.detail}</small>
+					<div className="prism-route-dock__current" id="prism-route-stop-detail">
+						<span>{current?.label}</span>
+						<strong>{current?.detail}</strong>
 					</div>
-					<div className="prism-hero__controls">
-						<button
-							type="button"
-							aria-label="Previous route stop"
-							onClick={() => select(selected - 1)}
-						>
-							←
-						</button>
-						<div className="prism-stop-buttons">
-							{stops.map((stop, index) => (
-								<button
-									key={stop.label}
-									type="button"
-									aria-label={`Explore ${stop.label}`}
-									aria-pressed={selected === index}
-									onClick={() => select(index)}
-									onKeyDown={(event) => {
-										const key = event.key;
-										if (key === "ArrowRight" || key === "ArrowDown") {
-											event.preventDefault();
-											select(index + 1);
-										} else if (key === "ArrowLeft" || key === "ArrowUp") {
-											event.preventDefault();
-											select(index - 1);
-										} else if (key === "Home") {
-											event.preventDefault();
-											select(0);
-										} else if (key === "End") {
-											event.preventDefault();
-											select(stops.length - 1);
-										}
-									}}
-								>
-									{index + 1}
-								</button>
-							))}
-						</div>
-						<button type="button" aria-label="Next route stop" onClick={() => select(selected + 1)}>
-							→
-						</button>
+					<div className="prism-route-dock__stops">
+						{stops.map((stop, index) => (
+							<button
+								key={stop.label}
+								id={`prism-route-stop-${index}`}
+								type="button"
+								aria-pressed={selected === index}
+								aria-describedby={selected === index ? "prism-route-stop-detail" : undefined}
+								onClick={() => select(index)}
+								onKeyDown={(event) => {
+									let next = index;
+									if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index + 1;
+									else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = index - 1;
+									else if (event.key === "Home") next = 0;
+									else if (event.key === "End") next = stops.length - 1;
+									else return;
+									event.preventDefault();
+									next = Math.max(0, Math.min(stops.length - 1, next));
+									select(next);
+									document.getElementById(`prism-route-stop-${next}`)?.focus();
+								}}
+							>
+								<span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
+								<strong>{stop.label}</strong>
+							</button>
+						))}
 					</div>
 				</div>
 			</div>

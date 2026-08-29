@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { INITIAL_PORTFOLIO_CONTENT } from "../../app/content/initial";
+import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
 import { pageHead } from "./seo";
 
 describe("pageHead", () => {

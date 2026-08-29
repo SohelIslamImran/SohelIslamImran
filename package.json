@@ -2,12 +2,11 @@
 	"name": "portfolio",
 	"private": true,
 	"type": "module",
-	"packageManager": "bun@1.4.0",
 	"scripts": {
 		"build": "vite build && tsc --noEmit",
 		"dev": "vite dev",
-		"typecheck": "wrangler types && tsc -b",
-		"check": "oxlint src vite.config.ts && oxfmt --check src vite.config.ts '!src/routeTree.gen.ts'",
+		"typecheck": "wrangler types && tsc --noEmit",
+		"check": "oxlint src vite.config.ts vitest.config.ts && oxfmt --check src vite.config.ts vitest.config.ts '!src/routeTree.gen.ts'",
 		"test": "vitest run --config vitest.config.ts",
 		"deploy": "bun run build && wrangler deploy",
 		"preview": "vite preview",
@@ -17,30 +16,25 @@
 	"dependencies": {
 		"@tanstack/react-router": "1.170.32",
 		"@tanstack/react-start": "1.168.49",
-		"isbot": "5.2.1",
 		"jose": "6.2.10",
-		"motion": "13.1.1",
 		"react": "19.2.8",
 		"react-dom": "19.2.8",
-		"react-router": "8.3.0",
 		"zod": "4.5.1"
 	},
 	"devDependencies": {
-		"@cloudflare/vite-plugin": "1.54.0",
+		"@cloudflare/vite-plugin": "1.54.2",
 		"@cloudflare/workers-types": "5.20260828.1",
-		"@react-router/dev": "8.3.0",
-		"@tailwindcss/vite": "4.3.3",
 		"@tanstack/router-plugin": "1.168.35",
-		"@types/node": "22.20.1",
+		"@types/node": "26.4.0",
 		"@types/react": "19.2.18",
 		"@types/react-dom": "19.2.5",
 		"@vitejs/plugin-react": "6.1.1",
-		"oxfmt": "0.64.0",
+		"oxfmt": "0.65.0",
 		"oxlint": "1.80.0",
-		"tailwindcss": "4.3.3",
 		"typescript": "7.0.2",
 		"vite": "8.2.2",
 		"vitest": "4.1.11",
-		"wrangler": "4.126.0"
-	}
+		"wrangler": "4.127.1"
+	},
+	"packageManager": "bun@1.4.0"
 }

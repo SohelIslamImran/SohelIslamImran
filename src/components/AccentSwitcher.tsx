@@ -9,24 +9,73 @@ export const prismAccents = [
 	{ id: "mint", name: "Mint", color: "#18b89a" },
 ] as const;
 
+const themeModes = ["light", "dark", "auto"] as const;
 export type PrismAccentId = (typeof prismAccents)[number]["id"];
+export type PrismThemeMode = (typeof themeModes)[number];
 
 const accentIds = prismAccents.map(({ id }) => id);
-const storageKey = "prism-route-accent";
+const accentStorageKey = "prism-route-accent";
+const themeStorageKey = "prism-route-theme";
 
-export const accentBootScript = `(()=>{try{const a=localStorage.getItem("${storageKey}");if(${JSON.stringify(accentIds)}.includes(a))document.documentElement.dataset.prismAccent=a}catch{}})()`;
+export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto";if(${JSON.stringify(accentIds)}.includes(a))r.dataset.prismAccent=a;r.dataset.prismTheme=t;r.dataset.prismThemeResolved=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t}catch{}})()`;
 
 function isPrismAccent(value: string | undefined): value is PrismAccentId {
 	return accentIds.some((accent) => accent === value);
 }
 
+function isThemeMode(value: string | undefined): value is PrismThemeMode {
+	return themeModes.some((mode) => mode === value);
+}
+
+function resolvedTheme(mode: PrismThemeMode): "light" | "dark" {
+	return mode === "auto"
+		? window.matchMedia("(prefers-color-scheme: dark)").matches
+			? "dark"
+			: "light"
+		: mode;
+}
+
+function updateTheme(mode: PrismThemeMode) {
+	document.documentElement.dataset.prismTheme = mode;
+	document.documentElement.dataset.prismThemeResolved = resolvedTheme(mode);
+	try {
+		localStorage.setItem(themeStorageKey, mode);
+	} catch {
+		// The mode still applies for this page when storage is unavailable.
+	}
+}
+
 function applyAccent(accent: PrismAccentId) {
 	document.documentElement.dataset.prismAccent = accent;
 	try {
-		localStorage.setItem(storageKey, accent);
+		localStorage.setItem(accentStorageKey, accent);
 	} catch {
-		// The selection still applies for this page when storage is unavailable.
+		// The accent still applies for this page when storage is unavailable.
 	}
+}
+
+function ModeIcon({ mode }: { mode: PrismThemeMode }) {
+	if (mode === "light") {
+		return (
+			<svg viewBox="0 0 20 20" aria-hidden="true">
+				<circle cx="10" cy="10" r="3.25" />
+				<path d="M10 1.75v2M10 16.25v2M1.75 10h2M16.25 10h2M4.17 4.17l1.42 1.42M14.41 14.41l1.42 1.42M15.83 4.17l-1.42 1.42M5.59 14.41l-1.42 1.42" />
+			</svg>
+		);
+	}
+	if (mode === "dark") {
+		return (
+			<svg viewBox="0 0 20 20" aria-hidden="true">
+				<path d="M16.75 12.44A7 7 0 0 1 7.56 3.25a7 7 0 1 0 9.19 9.19Z" />
+			</svg>
+		);
+	}
+	return (
+		<svg viewBox="0 0 20 20" aria-hidden="true">
+			<rect x="2.25" y="3.25" width="15.5" height="11" rx="2" />
+			<path d="M7 17h6M10 14.25V17M10 5.25v7" />
+		</svg>
+	);
 }
 
 interface AccentSwitcherProps {
@@ -36,16 +85,30 @@ interface AccentSwitcherProps {
 
 export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	const [accent, setAccent] = useState<PrismAccentId>("cobalt");
+	const [theme, setTheme] = useState<PrismThemeMode>("auto");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const triggerRef = useRef<HTMLButtonElement>(null);
+	const panelRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const savedAccent = document.documentElement.dataset.prismAccent;
+		const savedTheme = document.documentElement.dataset.prismTheme;
 		if (isPrismAccent(savedAccent)) setAccent(savedAccent);
+		if (isThemeMode(savedTheme)) setTheme(savedTheme);
+	}, []);
+
+	useEffect(() => {
+		const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+		const syncAutoTheme = () => {
+			if (document.documentElement.dataset.prismTheme === "auto") updateTheme("auto");
+		};
+		colorScheme.addEventListener("change", syncAutoTheme);
+		return () => colorScheme.removeEventListener("change", syncAutoTheme);
 	}, []);
 
 	useEffect(() => {
 		if (!open) return;
+		panelRef.current?.focus();
 		const onPointerDown = (event: PointerEvent) => {
 			if (!containerRef.current?.contains(event.target as Node)) onOpenChange(false);
 		};
@@ -62,6 +125,27 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 		};
 	}, [onOpenChange, open]);
 
+	const selectTheme = (mode: PrismThemeMode, source: HTMLButtonElement) => {
+		const apply = () => {
+			setTheme(mode);
+			updateTheme(mode);
+		};
+		const transitionDocument = document as Document & {
+			startViewTransition?: (update: () => void) => unknown;
+		};
+		if (
+			!transitionDocument.startViewTransition ||
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches
+		) {
+			apply();
+			return;
+		}
+		const rect = source.getBoundingClientRect();
+		document.documentElement.style.setProperty("--theme-x", `${rect.left + rect.width / 2}px`);
+		document.documentElement.style.setProperty("--theme-y", `${rect.top + rect.height / 2}px`);
+		transitionDocument.startViewTransition(apply);
+	};
+
 	const currentAccent = prismAccents.find(({ id }) => id === accent) ?? prismAccents[0];
 
 	return (
@@ -70,7 +154,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 				ref={triggerRef}
 				type="button"
 				className="accent-switcher__trigger"
-				aria-label={`Change accent. Current accent: ${currentAccent.name}`}
+				aria-label={`Appearance. ${theme} mode, ${currentAccent.name} accent`}
 				aria-haspopup="dialog"
 				aria-expanded={open}
 				aria-controls="accent-switcher-panel"
@@ -84,23 +168,38 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 			</button>
 
 			<div
+				ref={panelRef}
 				id="accent-switcher-panel"
 				className="accent-switcher__panel"
 				role="dialog"
-				aria-label="Accent theme"
+				aria-label="Appearance"
 				aria-hidden={!open}
+				tabIndex={-1}
 				inert={!open}
 				data-open={open || undefined}
 			>
-				<div className="accent-switcher__heading">
-					<span>Accent</span>
-					<strong>Choose your signal.</strong>
+				<div className="appearance-modes" data-theme={theme}>
+					<span className="appearance-modes__indicator" aria-hidden="true" />
+					{themeModes.map((mode) => (
+						<button
+							key={mode}
+							type="button"
+							data-theme-mode={mode}
+							aria-label={`${mode[0].toUpperCase()}${mode.slice(1)} appearance`}
+							aria-pressed={theme === mode}
+							onClick={(event) => selectTheme(mode, event.currentTarget)}
+						>
+							<ModeIcon mode={mode} />
+							<span>{mode}</span>
+						</button>
+					))}
 				</div>
 				<div className="accent-switcher__palette" role="group" aria-label="Accent color">
 					{prismAccents.map((option) => (
 						<button
 							key={option.id}
 							type="button"
+							aria-label={`${option.name} accent`}
 							aria-pressed={accent === option.id}
 							style={{ "--accent-option": option.color } as CSSProperties}
 							onClick={() => {
@@ -108,17 +207,10 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 								applyAccent(option.id);
 							}}
 						>
-							<i aria-hidden="true" />
-							<span>{option.name}</span>
-							<svg viewBox="0 0 16 16" aria-hidden="true">
-								<path d="m3.5 8.2 2.7 2.7 6.3-6.3" />
-							</svg>
+							<span aria-hidden="true" />
 						</button>
 					))}
 				</div>
-				<p className="accent-switcher__status" aria-live="polite">
-					{currentAccent.name} is active across the site.
-				</p>
 			</div>
 		</div>
 	);

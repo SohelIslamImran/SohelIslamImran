@@ -1,5 +1,5 @@
 import { useEffect, useId, useState } from "react";
-import type { ProjectContent } from "../../app/types/content";
+import type { ProjectContent } from "../types/content";
 import { PrismImage } from "./PrismImage";
 
 type Focus = "identity" | "matching" | "delivery";
@@ -13,10 +13,12 @@ export function WorkFocusTabs({
 	projects,
 	initialFocus,
 	onFocusChange,
+	sectionNumber = "02",
 }: {
 	projects: ProjectContent[];
 	initialFocus?: Focus;
 	onFocusChange?: (focus: Focus) => void;
+	sectionNumber?: "01" | "02";
 }) {
 	const [localFocus, setLocalFocus] = useState<Focus>(initialFocus ?? "identity");
 	const focus = localFocus;
@@ -41,8 +43,11 @@ export function WorkFocusTabs({
 			return project.tags.some((tag) => /delivery|cloud|cli|native|swift/i.test(tag));
 		})
 		.slice(0, 3);
-	const fallback = projects.slice(0, 3);
-	const items = visible.length ? visible : fallback;
+	const visibleIds = new Set(visible.map((project) => project.id));
+	const items = [...visible, ...projects.filter((project) => !visibleIds.has(project.id))].slice(
+		0,
+		3,
+	);
 	const onKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
 		const keys: Focus[] = ["identity", "matching", "delivery"];
 		const index = keys.indexOf(focus);
@@ -64,12 +69,9 @@ export function WorkFocusTabs({
 	return (
 		<section className="prism-work" id="work-focus" aria-labelledby={`${baseId}-title`}>
 			<div className="prism-section-intro">
-				<p className="prism-kicker">02 · Selected work</p>
-				<h2 id={`${baseId}-title`}>One lens at a time.</h2>
-				<p>
-					Explore the kind of problem I solve at Kuno, then see the smaller tools that support the
-					practice.
-				</p>
+				<p className="prism-kicker">{sectionNumber} · Selected work</p>
+				<h2 id={`${baseId}-title`}>What the work needs.</h2>
+				<p>Start with Kuno’s product systems, then move through matching and delivery work.</p>
 			</div>
 			<div className="prism-tabs" role="tablist" aria-label="Work focus" data-focus={focus}>
 				<span className="prism-tabs__indicator" aria-hidden="true" />
@@ -93,7 +95,6 @@ export function WorkFocusTabs({
 				className="prism-work__panel"
 				id={panelId}
 				role="tabpanel"
-				aria-live="polite"
 				aria-labelledby={`${baseId}-${focus}`}
 				key={focus}
 			>
@@ -111,6 +112,12 @@ export function WorkFocusTabs({
 								alt={`${project.title} visual placeholder`}
 								width={724}
 								height={543}
+								sizes="(max-width: 800px) calc(100vw - 88px), 340px"
+								srcSet={
+									project.cover?.id
+										? undefined
+										: "/images/kuno-systems-724.webp 724w, /images/kuno-systems-1448.webp 1448w"
+								}
 								className="prism-work-card__image"
 							/>
 							<span>{project.year}</span>

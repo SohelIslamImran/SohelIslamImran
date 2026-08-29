@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
-import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { PrismImage } from "../components";
 export const Route = createFileRoute("/field-notes")({
 	loader: getPublishedContent,
@@ -37,6 +37,7 @@ export const Route = createFileRoute("/field-notes")({
 });
 function FieldNotes() {
 	const c = Route.useLoaderData();
+	const publicEntries = c.travel.entries.filter((entry) => entry.visibility === "public");
 	return (
 		<main className="prism-page">
 			<header className="page-intro">
@@ -50,6 +51,8 @@ function FieldNotes() {
 					alt="A placeholder route photograph for Sohel's future travel journal"
 					width={1122}
 					height={1402}
+					sizes="(max-width: 800px) calc(100vw - 60px), 450px"
+					srcSet="/images/travel-placeholder-561.webp 561w, /images/travel-placeholder-1122.webp 1122w"
 					className="travel-feature__image"
 				/>
 				<div>
@@ -65,8 +68,8 @@ function FieldNotes() {
 				<p>
 					<strong>Origin:</strong> {c.travel.origin}
 				</p>
-				{c.travel.entries.length ? (
-					c.travel.entries.map((e) => (
+				{publicEntries.length ? (
+					publicEntries.map((e) => (
 						<article key={e.id}>
 							<time>{e.season}</time>
 							<h2>{e.place}</h2>

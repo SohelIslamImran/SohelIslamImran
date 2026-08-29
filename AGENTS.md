@@ -1,8 +1,7 @@
 # Prism Route portfolio
 
 This is a TanStack Start application with file-based TanStack Router routes,
-full-document SSR, streaming, and a Cloudflare Workers runtime. The former
-React Router implementation remains under `app/` as a rollback/reference path.
+full-document SSR, streaming, and a Cloudflare Workers runtime.
 
 - Retrieve current Cloudflare documentation before changing Workers, D1, R2, or Access behavior.
 - Run `bun run cf-typegen` after changing bindings in `wrangler.jsonc`.

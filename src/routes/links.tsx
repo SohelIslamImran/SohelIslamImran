@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { linksSearchSchema } from "../lib/search";
-import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { LinkIcon } from "../components";
 export const Route = createFileRoute("/links")({
 	validateSearch: linksSearchSchema,
@@ -28,8 +28,8 @@ function Links() {
 		<main className="prism-page links-page">
 			<header className="page-intro">
 				<p className="eyebrow">Link desk</p>
-				<h1>Everything in one place.</h1>
-				<p className="lede">Choose a route and follow it to the source.</p>
+				<h1>Find Sohel Islam Imran across the web.</h1>
+				<p className="lede">Profiles, open-source work, contact details, and the longer story.</p>
 			</header>
 			<nav className="segmented" aria-label="Link categories">
 				{(["all", "social", "contact", "work", "story", "other"] as const).map((value) => (

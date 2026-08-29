@@ -1,7 +1,7 @@
-import type { PortfolioContent, ProfileLinkContent } from "../../app/types/content";
+import type { PortfolioContent, ProfileLinkContent } from "../types/content";
 import { getPublishedContent as getPublishedFromServer } from "./cms.functions";
 
-/** Temporary public adapter. The Cloudflare/D1 server-function layer can replace this without changing routes. */
+/** Public content crosses the typed server-function boundary; draft content never does. */
 export async function getPublishedContent(): Promise<PortfolioContent> {
 	return getPublishedFromServer();
 }

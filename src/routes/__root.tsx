@@ -16,8 +16,9 @@ export const Route = createRootRoute({
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1" },
 			{ title: "Sohel Islam Imran" },
-			{ name: "theme-color", content: "#f7f9fc" },
-			{ name: "color-scheme", content: "light" },
+			{ name: "theme-color", content: "#f7f9fc", media: "(prefers-color-scheme: light)" },
+			{ name: "theme-color", content: "#08111f", media: "(prefers-color-scheme: dark)" },
+			{ name: "color-scheme", content: "light dark" },
 			{ name: "format-detection", content: "telephone=no" },
 		],
 		links: [
@@ -40,6 +41,7 @@ function RootComponent() {
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [accentOpen, setAccentOpen] = useState(false);
 	const menuButtonRef = useRef<HTMLButtonElement>(null);
+	const navigationRef = useRef<HTMLElement>(null);
 
 	useEffect(() => {
 		setMenuOpen(false);
@@ -48,6 +50,7 @@ function RootComponent() {
 
 	useEffect(() => {
 		if (!menuOpen) return;
+		navigationRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.key !== "Escape") return;
 			setMenuOpen(false);
@@ -70,6 +73,7 @@ function RootComponent() {
 					<span>Sohel Islam Imran</span>
 				</Link>
 				<nav
+					ref={navigationRef}
 					id="primary-navigation"
 					className="site-shell__nav"
 					data-open={menuOpen || undefined}
@@ -120,11 +124,11 @@ function RootComponent() {
 					</button>
 				</div>
 			</header>
-			<div id="main-content">
+			<div id="main-content" tabIndex={-1}>
 				<Outlet />
 			</div>
 			<footer className="site-footer">
-				<p>© {new Date().getFullYear()} Sohel Islam Imran</p>
+				<p>© {new Date().getUTCFullYear()} Sohel Islam Imran</p>
 				<p>Full-stack product engineering from Dhaka, for teams everywhere.</p>
 				<Link to="/links" search={{ kind: "all" }}>
 					Find every link <span aria-hidden="true">↗</span>
@@ -152,6 +156,8 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 function NotFoundPage() {
 	return (
 		<main className="prism-page status-page">
+			<title>Page not found — Sohel Islam Imran</title>
+			<meta name="robots" content="noindex, nofollow" />
 			<p className="eyebrow">404 · Route not found</p>
 			<h1>That route drifted off the map.</h1>
 			<p className="lede">The page may have moved, or the link may be incomplete.</p>
@@ -165,12 +171,26 @@ function NotFoundPage() {
 function RootErrorPage() {
 	return (
 		<main className="prism-page status-page">
+			<title>Page interrupted — Sohel Islam Imran</title>
+			<meta name="robots" content="noindex, nofollow" />
 			<p className="eyebrow">A small interruption</p>
 			<h1>The route needs another try.</h1>
-			<p className="lede">Something interrupted this page. Return home and try the route again.</p>
-			<Link className="prism-button prism-button--primary" to="/">
-				Return home <span aria-hidden="true">↗</span>
-			</Link>
+			<p className="lede">
+				The page could not finish loading. Try it once more; if it keeps happening, return to the
+				public site.
+			</p>
+			<div className="status-page__actions">
+				<button
+					type="button"
+					className="prism-button prism-button--primary"
+					onClick={() => window.location.reload()}
+				>
+					Try again <span aria-hidden="true">↻</span>
+				</button>
+				<Link className="prism-button prism-button--quiet" to="/">
+					Return home <span aria-hidden="true">↗</span>
+				</Link>
+			</div>
 		</main>
 	);
 }

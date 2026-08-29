@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { articleJsonLd, pageHead } from "../lib/seo";
-import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { PrismImage } from "../components";
 export const Route = createFileRoute("/story")({
 	loader: getPublishedContent,
@@ -33,6 +33,9 @@ function Story() {
 				width={800}
 				height={800}
 				loading="eager"
+				fetchPriority="high"
+				sizes="(max-width: 800px) calc(100vw - 40px), 620px"
+				srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
 				className="article__hero-image"
 			/>
 			<blockquote>{c.story.quote}</blockquote>

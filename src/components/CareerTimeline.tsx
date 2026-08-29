@@ -1,23 +1,28 @@
 import { useId } from "react";
-import type { ExperienceContent } from "../../app/types/content";
+import type { ExperienceContent } from "../types/content";
 
-export function CareerTimeline({ experience }: { experience: ExperienceContent[] }) {
+interface CareerTimelineProps {
+	experience: ExperienceContent[];
+	sectionNumber?: "01" | "02";
+}
+
+export function CareerTimeline({ experience, sectionNumber = "01" }: CareerTimelineProps) {
 	const titleId = useId();
 	return (
 		<section className="prism-timeline" id="experience" aria-labelledby={titleId}>
 			<div className="prism-section-intro">
-				<p className="prism-kicker">01 · Experience</p>
-				<h2 id={titleId}>The work behind the work.</h2>
+				<p className="prism-kicker">{sectionNumber} · Experience</p>
+				<h2 id={titleId}>Experience, with Kuno first.</h2>
 				<p>
-					Roles are chapters in one continuous practice: turning complicated systems into calm,
-					useful product experiences.
+					I grew from mobile engineering into leading product architecture, delivery, and the full
+					stack around them.
 				</p>
 			</div>
 			<div className="prism-timeline__list">
 				{experience.map((item, index) => (
 					<article className="prism-timeline__item" key={item.id}>
 						<div className="prism-timeline__date">
-							<span>{item.period}</span>
+							<time>{item.period}</time>
 							<i aria-hidden="true" />
 						</div>
 						<div className="prism-timeline__body">

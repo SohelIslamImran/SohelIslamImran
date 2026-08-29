@@ -1,4 +1,4 @@
-import type { PortfolioContent } from "../../app/types/content";
+import type { PortfolioContent } from "../types/content";
 
 export const ORIGIN = "https://sohelislamimran.com";
 export const SOCIAL_IMAGE = "/images/social-home.png";
@@ -30,6 +30,7 @@ export function pageHead(
 			{ property: "og:type", content: "website" },
 			{ property: "og:url", content: canonical },
 			{ property: "og:image", content: absolute(image) },
+			{ property: "og:image:alt", content: `${content.identity.name} — ${title}` },
 			{ property: "og:image:width", content: "1200" },
 			{ property: "og:image:height", content: "630" },
 			{ name: "twitter:card", content: "summary_large_image" },
@@ -37,6 +38,7 @@ export function pageHead(
 			{ name: "twitter:title", content: title },
 			{ name: "twitter:description", content: description },
 			{ name: "twitter:image", content: absolute(image) },
+			{ name: "twitter:image:alt", content: `${content.identity.name} — ${title}` },
 		],
 		links: [{ rel: "canonical", href: canonical }],
 		scripts: [

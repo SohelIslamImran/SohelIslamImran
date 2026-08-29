@@ -1,7 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
-import { EMPTY_PORTFOLIO_CONTENT } from "../../app/types/content";
+import { dateTimeFromPeriod } from "../lib/content-dates";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { PrismImage } from "../components";
 
 export const Route = createFileRoute("/resume")({
@@ -72,6 +73,9 @@ function Resume() {
 					width={800}
 					height={800}
 					loading="eager"
+					fetchPriority="high"
+					sizes="(max-width: 800px) 128px, 180px"
+					srcSet="/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
 					className="resume-header__portrait"
 				/>
 			</header>
@@ -80,11 +84,11 @@ function Resume() {
 				<section className="resume-main" aria-labelledby="resume-experience-title">
 					<div className="resume-section-heading">
 						<p className="eyebrow">Experience</p>
-						<h2 id="resume-experience-title">A Kuno-first career timeline.</h2>
+						<h2 id="resume-experience-title">Product work across teams and platforms.</h2>
 					</div>
 					{publicExperience.map((item) => (
 						<article className="resume-entry" key={item.id}>
-							<time dateTime={item.period}>{item.period}</time>
+							<time dateTime={dateTimeFromPeriod(item.period)}>{item.period}</time>
 							<div className="resume-entry__body">
 								<div className="resume-entry__company">
 									<strong>{item.company}</strong>
@@ -109,19 +113,21 @@ function Resume() {
 
 				<aside className="resume-side">
 					<section aria-labelledby="resume-capabilities-title">
-						<p className="eyebrow">Capabilities</p>
+						<p className="eyebrow">Core systems</p>
 						<h2 id="resume-capabilities-title">How I contribute.</h2>
-						{content.capabilities.map((capability) => (
-							<article className="resume-capability" key={capability.id}>
-								<h3>{capability.title}</h3>
-								<p>{capability.description}</p>
-								<div className="prism-tags">
-									{capability.tools.map((tool) => (
-										<span key={tool}>{tool}</span>
-									))}
-								</div>
-							</article>
-						))}
+						<div className="resume-capability-list">
+							{content.capabilities.map((capability) => (
+								<article className="resume-capability" key={capability.id}>
+									<h3>{capability.title}</h3>
+									<p>{capability.description}</p>
+									<div className="prism-tags">
+										{capability.tools.map((tool) => (
+											<span key={tool}>{tool}</span>
+										))}
+									</div>
+								</article>
+							))}
+						</div>
 					</section>
 					<section aria-labelledby="resume-proof-title">
 						<p className="eyebrow">Public proof</p>
