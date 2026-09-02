@@ -22,9 +22,8 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	},
 	hero: {
 		eyebrow: "Lead Full Stack Engineer · Kuno",
-		title: "I lead full-stack engineering for ambitious products.",
-		intro:
-			"I build secure TypeScript products across React interfaces, backend services, data systems, and delivery for teams working everywhere.",
+		title: "I follow product problems through the whole stack.",
+		intro: "I build clear, dependable systems across interfaces, services, data, and delivery.",
 		actions: [
 			{ label: "Explore selected work", href: "/work" },
 			{ label: "Start a conversation", href: "mailto:sohelislamimran@gmail.com", external: true },
@@ -91,8 +90,9 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			company: "Tilleli",
 			role: "React Native Developer",
 			period: "Jun 2021 — Jan 2024",
-			summary: "Built and maintained mobile experiences for a language-learning product.",
-			highlights: ["Delivered product features across React Native interfaces and integrations."],
+			summary:
+				"My first professional role was with a US-based company, working in a real React Native codebase.",
+			highlights: ["Shipped product work across React Native interfaces and integrations."],
 			technologies: ["React Native", "TypeScript"],
 		},
 		{

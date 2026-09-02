@@ -63,7 +63,9 @@ function Home() {
 							className="min-w-0 border-border px-4 py-5 first:pl-0 last:pr-0 max-[719px]:border-b max-[719px]:last:border-b-0 max-[719px]:px-0 max-[719px]:odd:border-r min-[720px]:border-l min-[720px]:first:border-l-0"
 							key={`${metric.label}-${index}`}
 						>
-							<strong className="block [font-variant-numeric:tabular-nums] text-[clamp(1.35rem,2.5vw,2rem)] font-[760] tracking-[-0.045em] text-foreground">
+							<strong
+								className={`block [font-variant-numeric:tabular-nums] text-[clamp(1.35rem,2.5vw,2rem)] font-[760] tracking-[-0.045em] ${index === 0 ? "text-primary-text" : "text-foreground"}`}
+							>
 								{metric.value}
 							</strong>
 							<span className="mt-1 block max-w-[17rem] text-pretty text-sm leading-[1.4] text-muted-foreground">

@@ -23,7 +23,7 @@ import type {
 	LinkContent,
 } from "../types/content";
 import { cn } from "../lib/utils";
-import { ActionRow, StatusBadge, Surface } from "./ui/portfolio";
+import { ActionRow, Surface } from "./ui/portfolio";
 import { PortfolioImage } from "./PortfolioImage";
 
 export interface RouteStop {
@@ -234,7 +234,7 @@ export function GlassRouteHero({
 
 	return (
 		<section
-			className="mx-auto grid min-h-[min(760px,calc(100svh-72px))] w-[min(1180px,calc(100%-40px))] grid-cols-[minmax(0,1.08fr)_minmax(400px,.92fr)] items-center gap-[clamp(40px,6vw,88px)] py-[76px] max-[959px]:block max-[959px]:min-h-0 max-[959px]:w-full max-[959px]:px-5 max-[959px]:py-[clamp(50px,7vw,74px)]"
+			className="mx-auto grid min-h-[min(760px,calc(100svh-72px))] w-[min(1180px,calc(100%-40px))] grid-cols-[minmax(0,1fr)_minmax(420px,1fr)] items-center gap-[clamp(36px,5vw,72px)] py-[76px] max-[959px]:block max-[959px]:min-h-0 max-[959px]:w-full max-[959px]:px-5 max-[959px]:py-[clamp(50px,7vw,74px)]"
 			aria-labelledby="hero-title"
 		>
 			<motion.div
@@ -269,7 +269,7 @@ export function GlassRouteHero({
 			<motion.div
 				ref={sceneRef}
 				data-slot="hero-scene"
-				className="relative min-h-[min(560px,calc(100vw+140px))] min-w-0 cursor-grab [perspective:1100px] [transform-style:preserve-3d] max-[959px]:mt-7 max-[959px]:min-h-[clamp(460px,68vw,540px)] min-[960px]:min-h-[560px] active:cursor-grabbing"
+				className="relative min-h-[min(560px,calc(100vw+140px))] min-w-0 cursor-grab [perspective:1100px] [transform-style:preserve-3d] max-[959px]:mt-7 max-[959px]:min-h-[clamp(500px,78vw,560px)] min-[960px]:min-h-[560px] active:cursor-grabbing"
 				style={{ touchAction: "pan-y", transform: sceneTransform }}
 				onPointerDown={onPointerDown}
 				onPointerMove={onPointerMove}
@@ -286,10 +286,10 @@ export function GlassRouteHero({
 				onPointerLeave={resetTilt}
 			>
 				<div
-					className="pointer-events-none absolute inset-[12%_9%_8%] rounded-full border border-primary/20 shadow-[inset_0_0_80px_color-mix(in_srgb,var(--theme-surface-solid)_85%,transparent),0_30px_100px_var(--theme-accent-shadow)] [transform:rotate(-18deg)_scaleY(.7)]"
+					className="pointer-events-none absolute inset-[10%_7%_9%] rounded-full border border-primary/10 shadow-[inset_0_0_72px_color-mix(in_srgb,var(--theme-surface-solid)_58%,transparent),0_24px_80px_color-mix(in_srgb,var(--theme-accent-shadow)_58%,transparent)] [transform:rotate(-14deg)_scaleY(.76)]"
 					aria-hidden="true"
 				/>
-				<Surface className="absolute right-[8%] top-[4%] z-[2] w-[min(68%,360px)] gap-0 p-2.5 [transform:translateZ(42px)_rotate(2deg)] will-change-transform max-[959px]:right-[7%] max-[959px]:top-[2%] max-[959px]:w-[min(86%,330px)] max-[560px]:w-[min(86%,330px)]">
+				<Surface className="absolute right-[4%] top-[1%] z-[2] w-[min(76%,400px)] gap-0 p-2 shadow-[0_30px_84px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] [transform:translateZ(48px)_rotate(1deg)] will-change-transform max-[959px]:right-[5%] max-[959px]:top-[1%] max-[959px]:w-[min(90%,350px)] max-[560px]:w-[min(90%,350px)]">
 					<div className="overflow-hidden rounded-[20px]">
 						<PortfolioImage
 							src={portrait}
@@ -298,7 +298,7 @@ export function GlassRouteHero({
 							height={800}
 							loading="eager"
 							fetchPriority="high"
-							sizes="(max-width: 959px) min(86vw, 330px), 360px"
+							sizes="(max-width: 959px) min(90vw, 350px), 400px"
 							srcSet={
 								portraitSrc
 									? undefined
@@ -307,11 +307,15 @@ export function GlassRouteHero({
 							className="block aspect-square w-full rounded-[20px] object-cover object-[center_20%]"
 						/>
 					</div>
-					<div className="flex items-start justify-between gap-3 px-2 pb-1 pt-3.5 text-[11px] leading-[1.35] text-muted-foreground">
-						<span>{identity.location}</span>
-						<StatusBadge className="shrink-0 whitespace-nowrap py-0.5 text-right text-[10px] leading-[1.25]">
+					<div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3.5 text-[11px] leading-[1.35] text-muted-foreground">
+						<span className="min-w-0 truncate">{identity.location}</span>
+						<span className="inline-flex max-w-[58%] shrink-0 items-center justify-end gap-1.5 text-right text-[10px] font-semibold leading-[1.25] text-muted-foreground">
+							<span
+								className="size-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_0_4px_color-mix(in_srgb,var(--theme-signal)_9%,transparent)]"
+								aria-hidden="true"
+							/>
 							{identity.availability || "Available for thoughtful work"}
-						</StatusBadge>
+						</span>
 					</div>
 				</Surface>
 				<svg
@@ -323,19 +327,20 @@ export function GlassRouteHero({
 					<path
 						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
 						fill="none"
-						stroke="color-mix(in_srgb,var(--theme-surface-solid)_84%,transparent)"
+						stroke="color-mix(in_srgb,var(--theme-surface-solid)_62%,transparent)"
 						strokeLinecap="round"
-						strokeWidth="15"
-						style={{ filter: "blur(2px)" }}
+						strokeWidth="11"
+						style={{ filter: "blur(1px)" }}
 					/>
 					<path
 						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
 						fill="none"
 						stroke="var(--theme-accent)"
-						strokeDasharray="7 12"
+						strokeDasharray="6 13"
 						strokeDashoffset="380"
 						strokeLinecap="round"
-						strokeWidth="2"
+						strokeOpacity="0.52"
+						strokeWidth="1.6"
 						className="animate-route-draw motion-reduce:animate-none"
 					/>
 					{stops.map((stop, index) => {
@@ -345,22 +350,22 @@ export function GlassRouteHero({
 								key={stop.label}
 								className={cn(
 									"origin-center transition-transform duration-240 ease-route [transform-box:fill-box]",
-									index === selected && "scale-[1.35]",
+									index === selected && "scale-[1.18]",
 								)}
 								style={{ transformOrigin: "center" } as CSSProperties}
 							>
 								<circle
 									cx={position[0]}
 									cy={position[1]}
-									r="22"
-									fill="color-mix(in_srgb,var(--theme-surface-solid)_72%,transparent)"
+									r="18"
+									fill="color-mix(in_srgb,var(--theme-surface-solid)_58%,transparent)"
 									stroke="var(--theme-accent-soft)"
 									strokeWidth="1"
 								/>
 								<circle
 									cx={position[0]}
 									cy={position[1]}
-									r="8"
+									r="7"
 									fill={stop.accent === "orange" ? "var(--theme-signal)" : "var(--theme-accent)"}
 									stroke="var(--theme-surface-solid)"
 									strokeWidth="3"
@@ -371,7 +376,7 @@ export function GlassRouteHero({
 				</svg>
 				<div
 					data-material="glass"
-					className="absolute bottom-[2%] left-1/2 z-[3] grid w-[min(94%,510px)] -translate-x-1/2 [transform:translateZ(65px)] grid-cols-[minmax(116px,.55fr)_minmax(0,1.45fr)] items-center gap-3 rounded-[20px] border border-border/80 bg-[color-mix(in_srgb,var(--theme-surface-solid)_84%,transparent)] p-2 shadow-accent backdrop-blur-2xl backdrop-saturate-150 max-[959px]:bottom-0 max-[959px]:w-full max-[959px]:grid-cols-1 max-[959px]:[transform:none] max-[560px]:rounded-[18px] max-[560px]:p-1.5"
+					className="absolute bottom-[1%] left-1/2 z-[3] grid w-[min(90%,470px)] -translate-x-1/2 [transform:translateZ(65px)] grid-cols-[minmax(116px,.55fr)_minmax(0,1.45fr)] items-center gap-3 rounded-[20px] border border-border/60 bg-[color-mix(in_srgb,var(--theme-surface-solid)_88%,transparent)] p-2 shadow-[0_18px_50px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] backdrop-blur-xl backdrop-saturate-150 max-[959px]:bottom-0 max-[959px]:w-full max-[959px]:grid-cols-1 max-[959px]:[transform:none] max-[560px]:rounded-[18px] max-[560px]:p-1.5"
 					role="group"
 					aria-label="Choose a route stop"
 					onPointerDown={(event) => event.stopPropagation()}
