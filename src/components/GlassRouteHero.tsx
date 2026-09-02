@@ -289,7 +289,7 @@ export function GlassRouteHero({
 					className="pointer-events-none absolute inset-[10%_7%_9%] rounded-full border border-primary/10 shadow-[inset_0_0_72px_color-mix(in_srgb,var(--theme-surface-solid)_58%,transparent),0_24px_80px_color-mix(in_srgb,var(--theme-accent-shadow)_58%,transparent)] [transform:rotate(-14deg)_scaleY(.76)]"
 					aria-hidden="true"
 				/>
-				<Surface className="absolute right-[4%] top-[1%] z-[2] w-[min(76%,400px)] gap-0 p-2 shadow-[0_30px_84px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] [transform:translateZ(48px)_rotate(1deg)] will-change-transform max-[959px]:right-[5%] max-[959px]:top-[1%] max-[959px]:w-[min(90%,350px)] max-[560px]:w-[min(90%,350px)]">
+				<Surface className="absolute right-[8%] top-[4%] z-[2] w-[min(62%,360px)] gap-0 p-2.5 shadow-[0_30px_84px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] [transform:translateZ(42px)_rotate(2deg)] will-change-transform max-[959px]:right-[7%] max-[959px]:top-[2%] max-[959px]:w-[min(86%,330px)] max-[560px]:w-[min(86%,330px)]">
 					<div className="overflow-hidden rounded-[20px]">
 						<PortfolioImage
 							src={portrait}
@@ -298,7 +298,7 @@ export function GlassRouteHero({
 							height={800}
 							loading="eager"
 							fetchPriority="high"
-							sizes="(max-width: 959px) min(90vw, 350px), 400px"
+							sizes="(max-width: 959px) min(86vw, 330px), 360px"
 							srcSet={
 								portraitSrc
 									? undefined
