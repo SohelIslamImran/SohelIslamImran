@@ -1,5 +1,8 @@
+import { cn } from "../lib/utils";
+
 interface LinkIconProps {
 	platform: string;
+	className?: string;
 }
 
 /**
@@ -7,7 +10,7 @@ interface LinkIconProps {
  * Unknown platforms intentionally receive a neutral signal glyph so new CMS
  * links still have a polished affordance without another dependency.
  */
-export function LinkIcon({ platform }: LinkIconProps) {
+export function LinkIcon({ platform, className }: LinkIconProps) {
 	const name = platform.toLowerCase();
 	const icon = name.includes("linkedin") ? (
 		<>
@@ -83,10 +86,17 @@ export function LinkIcon({ platform }: LinkIconProps) {
 
 	return (
 		<span
-			className="link-icon grid size-12 shrink-0 place-items-center rounded-2xl border border-line bg-[var(--theme-picker-soft)] text-primary transition-[transform,border-color,box-shadow] duration-220 ease-route"
+			className={cn(
+				"grid size-12 shrink-0 place-items-center rounded-[17px] border border-border/60 bg-primary-soft text-primary-text shadow-[0_4px_14px_var(--theme-accent-shadow)] transition-[transform,translate,scale,rotate,border-color,box-shadow,background-color] duration-220 ease-route will-change-transform group-hover:-translate-y-0.5 group-hover:rotate-[-4deg] group-hover:border-primary group-hover:bg-primary/12 group-hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)] group-focus-visible:-translate-y-0.5 group-focus-visible:rotate-[-4deg] group-focus-visible:border-primary group-focus-visible:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)]",
+				className,
+			)}
 			aria-hidden="true"
 		>
-			<svg viewBox="0 0 24 24" focusable="false">
+			<svg
+				className="block size-6 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+				viewBox="0 0 24 24"
+				focusable="false"
+			>
 				{icon}
 			</svg>
 		</span>

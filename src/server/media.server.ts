@@ -68,7 +68,7 @@ export async function uploadMedia(
 			"The file uploaded, but its metadata could not be saved. Try again with a new file.",
 		);
 	}
-	return { id, key, alt: cleanAlt, mimeType: file.type, bytes: file.size };
+	return { id, alt: cleanAlt, mimeType: file.type, bytes: file.size };
 }
 
 export async function getPublishedMedia(env: MediaEnvironment, assetId: string) {

@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
-import { animate, motion, useMotionValue, useReducedMotion } from "motion/react";
-import { cn } from "../lib/utils";
+import type { KeyboardEvent } from "react";
+import { motion } from "motion/react";
+import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 export const linkKinds = ["all", "social", "contact", "work", "story", "other"] as const;
 export type LinkKind = (typeof linkKinds)[number];
@@ -10,121 +10,60 @@ interface LinksFilterProps {
 	onChange: (value: LinkKind) => void;
 }
 
-/**
- * A URL-backed segmented control. It becomes a compact two-row grid on small
- * screens so every category stays discoverable without horizontal scrolling.
- * Motion's layout projection keeps the selected pill moving between targets.
- */
 export function LinksFilter({ value, onChange }: LinksFilterProps) {
-	const reducedMotion = useReducedMotion();
-	const trackRef = useRef<HTMLDivElement>(null);
-	const [indicator, setIndicator] = useState<{
-		x: number;
-		y: number;
-		width: number;
-		height: number;
-	} | null>(null);
-	const indicatorX = useMotionValue(0);
-	const indicatorY = useMotionValue(0);
-	const indicatorWidth = useMotionValue(0);
-	const indicatorHeight = useMotionValue(0);
-	const indicatorInitialized = useRef(false);
-
-	useLayoutEffect(() => {
-		const track = trackRef.current;
-		const active = track?.querySelector<HTMLButtonElement>(`[data-kind="${value}"]`);
-		if (!track || !active) return;
-		const syncIndicator = () => {
-			const trackRect = track.getBoundingClientRect();
-			const activeRect = active.getBoundingClientRect();
-			setIndicator({
-				x: activeRect.left - trackRect.left,
-				y: activeRect.top - trackRect.top,
-				width: activeRect.width,
-				height: activeRect.height,
-			});
-		};
-		syncIndicator();
-		if (typeof ResizeObserver !== "undefined") {
-			const observer = new ResizeObserver(syncIndicator);
-			observer.observe(track);
-			return () => observer.disconnect();
-		}
-		window.addEventListener("resize", syncIndicator);
-		return () => window.removeEventListener("resize", syncIndicator);
-	}, [value]);
-
-	useLayoutEffect(() => {
-		if (!indicator) return;
-		const transition =
-			!indicatorInitialized.current || reducedMotion
-				? { duration: 0 }
-				: { type: "spring" as const, duration: 0.32, bounce: 0.08 };
-		indicatorInitialized.current = true;
-		const controls = [
-			animate(indicatorX, indicator.x, transition),
-			animate(indicatorY, indicator.y, transition),
-			animate(indicatorWidth, indicator.width, transition),
-			animate(indicatorHeight, indicator.height, transition),
-		];
-		return () => controls.forEach((control) => control.stop());
-	}, [indicator, indicatorHeight, indicatorWidth, indicatorX, indicatorY, reducedMotion]);
-	const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-		const index = linkKinds.indexOf(event.currentTarget.dataset.kind as LinkKind);
-		const nextIndex =
-			event.key === "ArrowRight" || event.key === "ArrowDown"
-				? (index + 1) % linkKinds.length
-				: event.key === "ArrowLeft" || event.key === "ArrowUp"
-					? (index - 1 + linkKinds.length) % linkKinds.length
+	const moveFocus = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+		const next =
+			event.key === "ArrowRight"
+				? index + 1
+				: event.key === "ArrowLeft"
+					? index - 1
 					: event.key === "Home"
 						? 0
 						: event.key === "End"
 							? linkKinds.length - 1
 							: -1;
-		if (nextIndex < 0) return;
+		if (next < 0 || next >= linkKinds.length) return;
 		event.preventDefault();
-		const next = linkKinds[nextIndex];
-		onChange(next);
-		document.getElementById(`link-filter-${next}`)?.focus();
+		event.stopPropagation();
+		const target = Array.from(event.currentTarget.parentElement?.querySelectorAll("button") ?? [])[
+			next
+		] as HTMLButtonElement | undefined;
+		onChange(linkKinds[next]);
+		target?.focus();
 	};
 
 	return (
-		<div
-			className="links-filter relative mb-6 w-full overflow-hidden rounded-[20px] border border-line bg-surface-solid p-1 shadow-[0_18px_40px_var(--theme-shadow)] backdrop-blur-xl"
-			role="group"
-			aria-label="Link categories"
-		>
-			<div
-				className="links-filter-track relative grid min-w-0 grid-cols-6 max-[560px]:grid-cols-3 max-[560px]:grid-rows-2"
-				ref={trackRef}
+		<div className="mb-6 w-full max-w-full overflow-hidden rounded-[22px] border border-border/60 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--theme-surface-solid)_98%,transparent),color-mix(in_srgb,var(--theme-surface-solid)_88%,var(--theme-accent-soft)))] p-1 shadow-accent backdrop-blur-xl">
+			<ToggleGroup
+				value={[value]}
+				onValueChange={(next) => {
+					const kind = next[0];
+					if (kind && linkKinds.includes(kind as LinkKind)) onChange(kind as LinkKind);
+				}}
+				aria-label="Link categories"
+				className="flex w-full min-w-0 flex-nowrap gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden min-[640px]:items-center"
+				spacing={0}
 			>
-				{indicator && (
-					<motion.span
-						className="links-filter-indicator pointer-events-none absolute left-0 top-0 z-0 rounded-[15px] bg-primary shadow-[0_8px_18px_var(--theme-accent-glow)]"
-						aria-hidden="true"
-						initial={false}
-						style={{ x: indicatorX, y: indicatorY, width: indicatorWidth, height: indicatorHeight }}
-					/>
-				)}
 				{linkKinds.map((kind) => (
-					<button
+					<ToggleGroupItem
 						key={kind}
-						id={`link-filter-${kind}`}
-						type="button"
-						className={cn(
-							"relative z-10 min-w-0 rounded-[15px] px-3 py-3 text-sm font-semibold capitalize text-muted transition-[color,transform] duration-200 ease-route hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-canvas active:scale-[0.98] max-[560px]:px-2",
-							value === kind && "text-[var(--theme-picker-ink)]",
-						)}
-						aria-pressed={value === kind}
+						value={kind}
+						className="relative isolate h-auto min-h-10 min-w-0 flex-1 basis-0 rounded-[16px] border-0 bg-transparent !px-3.5 text-center text-[13px] font-medium capitalize text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-220 ease-route hover:bg-transparent hover:text-foreground focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring active:scale-[.98] aria-pressed:bg-transparent aria-pressed:text-primary-foreground data-[pressed]:bg-transparent data-[pressed]:text-primary-foreground max-[639px]:min-w-[56px] max-[639px]:!px-1"
 						aria-controls="link-results"
-						data-kind={kind}
-						onKeyDown={onKeyDown}
-						onClick={() => onChange(kind)}
+						onKeyDown={(event) => moveFocus(event, linkKinds.indexOf(kind))}
 					>
+						{value === kind ? (
+							<motion.span
+								className="pointer-events-none absolute inset-0 z-0 rounded-[16px] bg-primary shadow-[0_8px_18px_var(--theme-accent-glow)]"
+								aria-hidden="true"
+								layoutId="links-filter-indicator"
+								transition={{ type: "spring", duration: 0.32, bounce: 0.06 }}
+							/>
+						) : null}
 						<span className="relative z-[1]">{kind}</span>
-					</button>
+					</ToggleGroupItem>
 				))}
-			</div>
+			</ToggleGroup>
 		</div>
 	);
 }

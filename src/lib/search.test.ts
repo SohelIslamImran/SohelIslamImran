@@ -7,8 +7,8 @@ describe("validated route search", () => {
 		expect(linksSearchSchema.parse({})).toEqual({ kind: "all" });
 	});
 
-	it("rejects unsupported focus and link categories", () => {
-		expect(workSearchSchema.safeParse({ focus: "random" }).success).toBe(false);
-		expect(linksSearchSchema.safeParse({ kind: "private" }).success).toBe(false);
+	it("falls back when a bookmarked URL contains an unsupported value", () => {
+		expect(workSearchSchema.parse({ focus: "random" })).toEqual({ focus: "identity" });
+		expect(linksSearchSchema.parse({ kind: "private" })).toEqual({ kind: "all" });
 	});
 });

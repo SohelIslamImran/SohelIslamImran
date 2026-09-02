@@ -5,7 +5,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	site: {
 		title: "Sohel Islam Imran — Lead Full Stack Engineer",
 		description:
-			"Sohel Islam Imran is a Lead Full Stack Engineer at Kuno in Dhaka, building secure TypeScript products with React, backend services, data systems, and Cloudflare.",
+			"Sohel Islam Imran is a Lead Full Stack Engineer at Kuno, building secure TypeScript products with React, backend services, data systems, and Cloudflare.",
 		url: "https://sohelislamimran.com",
 		locale: "en",
 		theme: "systems-atlas",
@@ -24,13 +24,13 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Lead Full Stack Engineer · Kuno",
 		title: "I lead full-stack engineering for ambitious products.",
 		intro:
-			"I build secure TypeScript products across React interfaces, backend services, data systems, and delivery—from Dhaka for teams working everywhere.",
+			"I build secure TypeScript products across React interfaces, backend services, data systems, and delivery for teams working everywhere.",
 		actions: [
 			{ label: "Explore selected work", href: "/work" },
 			{ label: "Start a conversation", href: "mailto:sohelislamimran@gmail.com", external: true },
 		],
 		metrics: [
-			{ value: "86", label: "public repositories" },
+			{ value: "5+", label: "years across product engineering" },
 			{ value: "294", label: "stars on expo-in-app-updates" },
 			{ value: "40.7k", label: "weekly package downloads · Aug 2026" },
 			{ value: "280k", label: "people reached on Stack Overflow" },
@@ -117,6 +117,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Lead full-stack engineering",
 			status: "Current · details generalized",
 			tags: ["Product systems", "Identity", "TypeScript", "Cloud infrastructure"],
+			focuses: ["identity", "matching", "delivery"],
 			highlights: [
 				"Role-aware domain behavior",
 				"Lifecycle-wide authorization",
@@ -134,6 +135,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Creator and maintainer",
 			status: "Maintained",
 			tags: ["Expo", "React Native", "Kotlin", "Swift"],
+			focuses: ["identity", "matching"],
 			highlights: ["294 GitHub stars", "40,753 npm downloads in the measured Aug 19–25, 2026 week"],
 			href: "https://www.npmjs.com/package/expo-in-app-updates",
 			repository: "https://github.com/SohelIslamImran/expo-in-app-updates",
@@ -150,6 +152,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Creator and maintainer",
 			status: "Maintained",
 			tags: ["TypeScript", "CLI", "npm"],
+			focuses: ["delivery"],
 			highlights: ["85 GitHub stars"],
 			href: "https://www.npmjs.com/package/ghosttime",
 			repository: "https://github.com/SohelIslamImran/ghosttime",
@@ -167,6 +170,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Creator",
 			status: "Experimental",
 			tags: ["Swift", "iOS", "PhotoKit", "Tailscale"],
+			focuses: ["delivery"],
 			highlights: [
 				"Private-network transfers",
 				"Per-device delivery tracking",
@@ -185,6 +189,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Creator",
 			status: "Prototype",
 			tags: ["Swift", "macOS", "Android", "ADB", "USB"],
+			focuses: ["delivery"],
 			highlights: ["Local-only streaming", "Automated ADB setup", "Native clients"],
 			repository: "https://github.com/SohelIslamImran/AndroidMacDisplay",
 		},

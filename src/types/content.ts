@@ -65,6 +65,8 @@ export interface ExperienceContent {
 	href?: string;
 }
 
+export type WorkFocus = "identity" | "matching" | "delivery";
+
 export interface ProjectContent {
 	id: string;
 	title: string;
@@ -75,6 +77,7 @@ export interface ProjectContent {
 	role: string;
 	status: string;
 	tags: string[];
+	focuses?: WorkFocus[];
 	highlights: string[];
 	href?: string;
 	repository?: string;

@@ -20,10 +20,12 @@ import {
 	type TravelContent,
 	type TravelEntryContent,
 	type WritingContent,
+	type WorkFocus,
 } from "../types/content";
 
 export const MAX_CONTENT_BYTES = 512_000;
 export const MAX_COLLECTION_ITEMS = 100;
+const PROJECT_FOCUSES = new Set<WorkFocus>(["identity", "matching", "delivery"]);
 
 export interface ValidationIssue {
 	path: string;
@@ -571,6 +573,24 @@ function readProjectItem(value: unknown, path: string, issues: ValidationIssue[]
 	const repository = readHref(object, "repository", `${path}.repository`, issues, false);
 	const cover = readOptionalMedia(object, "cover", `${path}.cover`, issues);
 	const featured = readOptionalBoolean(object, "featured", `${path}.featured`, issues);
+	const focusValues = object.focuses;
+	let focuses: WorkFocus[] | undefined;
+	if (focusValues !== undefined && focusValues !== null) {
+		if (!Array.isArray(focusValues)) {
+			issues.push({ path: `${path}.focuses`, message: "must be an array" });
+		} else {
+			focuses = focusValues.slice(0, 3).flatMap((focus, index) => {
+				if (typeof focus !== "string" || !PROJECT_FOCUSES.has(focus as WorkFocus)) {
+					issues.push({
+						path: `${path}.focuses[${index}]`,
+						message: "must be identity, matching, or delivery",
+					});
+					return [];
+				}
+				return [focus as WorkFocus];
+			});
+		}
+	}
 
 	return {
 		id: readRequiredString(object, "id", `${path}.id`, issues, { maxLength: 160 }),
@@ -597,6 +617,7 @@ function readProjectItem(value: unknown, path: string, issues: ValidationIssue[]
 			maxLength: 120,
 		}),
 		tags: readStringArray(object, "tags", `${path}.tags`, issues),
+		...(focuses === undefined ? {} : { focuses }),
 		highlights: readStringArray(object, "highlights", `${path}.highlights`, issues, {
 			maxLength: 600,
 		}),

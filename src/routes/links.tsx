@@ -1,10 +1,14 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { AnimatePresence, LayoutGroup, motion } from "motion/react";
+import { LinkIcon } from "../components/LinkIcon";
+import { LinksFilter, linkKinds, type LinkKind } from "../components/LinksFilter";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { linksSearchSchema } from "../lib/search";
 import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
-import { LinkIcon, LinksFilter, linkKinds, type LinkKind } from "../components";
+import { ButtonLink, EmptyState, PageHeader, PageShell } from "../components/ui/portfolio";
+
 export const Route = createFileRoute("/links")({
 	validateSearch: linksSearchSchema,
 	loader: getPublishedContent,
@@ -20,24 +24,38 @@ export const Route = createFileRoute("/links")({
 	},
 	component: Links,
 });
+
 function Links() {
-	const c = Route.useLoaderData();
+	const content = Route.useLoaderData();
 	const { kind: requestedKind } = Route.useSearch();
 	const kind = (requestedKind ?? "all") as LinkKind;
-	const links = c.profileLinks.filter((l) => kind === "all" || (l.kind ?? "other") === kind);
+	const links = content.profileLinks.filter(
+		(link) => kind === "all" || (link.kind ?? "other") === kind,
+	);
 	const navigate = useNavigate({ from: "/links" });
-	const reducedMotion = useReducedMotion();
+	const listRef = useRef<HTMLDivElement>(null);
+	const [listHeight, setListHeight] = useState<number | null>(null);
+
+	useLayoutEffect(() => {
+		const list = listRef.current;
+		if (!list) return;
+		const updateHeight = () => {
+			const nextHeight = list.getBoundingClientRect().height;
+			setListHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+		};
+		updateHeight();
+		const observer = new ResizeObserver(updateHeight);
+		observer.observe(list);
+		return () => observer.disconnect();
+	}, [kind]);
+
 	return (
-		<main className="page mx-auto min-h-[calc(100svh-150px)] w-[min(1080px,calc(100%-40px))] py-[clamp(58px,9vw,120px)]">
-			<header className="page-intro mb-16 max-w-[960px] max-[800px]:mb-12">
-				<p className="eyebrow">Link desk</p>
-				<h1 className="page-title mb-[22px] mt-0 max-w-[960px] text-[clamp(3rem,5vw,4.8rem)] font-[760] leading-[.98] tracking-[-.06em] [text-wrap:balance]">
-					Find Sohel Islam Imran across the web.
-				</h1>
-				<p className="lede m-0 max-w-[650px] text-[clamp(17px,2vw,21px)] leading-[1.55] text-muted">
-					Profiles, open-source work, contact details, and the longer story.
-				</p>
-			</header>
+		<PageShell className="max-w-[1144px]">
+			<PageHeader
+				eyebrow="Link desk"
+				title="Find Sohel Islam Imran across the web."
+				description="Profiles, open-source work, contact details, and the longer story."
+			/>
 			<LinksFilter
 				value={kind}
 				onChange={(next) => {
@@ -48,52 +66,75 @@ function Links() {
 			<p className="sr-only" aria-live="polite">
 				Showing {links.length} {kind === "all" ? "links" : `${kind} links`}.
 			</p>
-			<motion.section
-				id="link-results"
-				className="link-list grid gap-2.5"
-				aria-label="Public links"
-				layout
-			>
-				<AnimatePresence initial={false} mode="popLayout">
-					{links.map((l, index) => (
+			<section aria-label="Public links" id="link-results">
+				{links.length > 0 ? (
+					<LayoutGroup id="links-results">
 						<motion.div
-							key={l.id}
-							layout="position"
-							initial={false}
-							animate={{ opacity: 1, y: 0 }}
-							exit={{ opacity: 0, y: reducedMotion ? 0 : -6 }}
-							transition={{
-								duration: reducedMotion ? 0 : 0.22,
-								delay: reducedMotion ? 0 : index * 0.025,
-								ease: [0.22, 1, 0.36, 1],
-							}}
+							className="overflow-visible"
+							animate={{ height: listHeight ?? "auto" }}
+							transition={{ height: { type: "spring", stiffness: 420, damping: 36, mass: 0.8 } }}
 						>
-							<Link
-								className="link-item grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[17px] rounded-[22px] border border-line bg-[color-mix(in_srgb,var(--theme-surface-solid)_96%,var(--theme-paper))] px-[22px] py-5 text-inherit no-underline transition-[transform,box-shadow,border-color] duration-220 ease-route max-[560px]:gap-3 max-[560px]:px-4 max-[560px]:py-[18px]"
-								to="/links/$linkId"
-								params={{ linkId: l.id }}
-								search={{ kind }}
-							>
-								<LinkIcon platform={l.platform} />
-								<span className="link-copy grid min-w-0 gap-[3px]">
-									<span className="link-platform text-xs font-extrabold uppercase tracking-[.1em] text-primary">
-										{l.platform}
-									</span>
-									<strong className="link-label min-w-0 overflow-hidden text-ellipsis text-[17px]">
-										{l.label}
-									</strong>
-									<small className="link-description overflow-hidden text-ellipsis text-muted max-[800px]:whitespace-nowrap">
-										{l.description ?? l.handle ?? "Open profile"}
-									</small>
-								</span>
-								<i className="link-arrow text-xl not-italic text-primary" aria-hidden="true">
-									↗
-								</i>
-							</Link>
+							<div ref={listRef} className="grid gap-2.5">
+								<AnimatePresence mode="popLayout">
+									{links.map((link, index) => (
+										<motion.div
+											key={link.id}
+											layout="position"
+											initial={{ opacity: 0, y: 8 }}
+											animate={{ opacity: 1, y: 0 }}
+											exit={{ opacity: 0, y: -8 }}
+											transition={{
+												layout: { type: "spring", stiffness: 420, damping: 36, mass: 0.8 },
+												opacity: { duration: 0.22, delay: Math.min(index * 0.025, 0.12) },
+												y: {
+													type: "spring",
+													stiffness: 420,
+													damping: 36,
+													mass: 0.8,
+													delay: Math.min(index * 0.025, 0.12),
+												},
+											}}
+										>
+											<Link
+												className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[17px] rounded-[22px] border border-border/60 bg-[color-mix(in_srgb,var(--theme-surface-solid)_96%,var(--theme-paper))] px-[22px] py-5 text-inherit no-underline transition-[transform,translate,scale,rotate,box-shadow,border-color,background-color] duration-220 ease-route will-change-transform hover:-translate-y-[3px] hover:border-primary/20 hover:shadow-[0_22px_45px_var(--theme-accent-shadow)] focus-visible:outline-2 focus-visible:outline-ring max-[560px]:gap-3 max-[560px]:px-4 max-[560px]:py-[18px]"
+												to="/links/$linkId"
+												params={{ linkId: link.id }}
+												search={{ kind }}
+											>
+												<LinkIcon platform={link.platform} />
+												<span className="grid min-w-0 gap-1">
+													<span className="text-xs font-extrabold uppercase tracking-[0.1em] text-primary-text">
+														{link.platform}
+													</span>
+													<strong className="min-w-0 truncate text-[17px]">{link.label}</strong>
+													<span className="truncate text-sm text-muted-foreground">
+														{link.description ?? link.handle ?? "Open profile"}
+													</span>
+												</span>
+												<span
+													className="text-xl text-primary-text transition-transform duration-200 ease-route group-hover:translate-x-[3px] group-hover:-translate-y-[3px]"
+													aria-hidden="true"
+												>
+													↗
+												</span>
+											</Link>
+										</motion.div>
+									))}
+								</AnimatePresence>
+							</div>
 						</motion.div>
-					))}
-				</AnimatePresence>
-			</motion.section>
-		</main>
+					</LayoutGroup>
+				) : (
+					<EmptyState
+						title={`No ${kind} links yet.`}
+						description="This category is ready for another public link when there is one worth adding."
+					>
+						<ButtonLink href="/links?kind=all" size="lg">
+							Show all links
+						</ButtonLink>
+					</EmptyState>
+				)}
+			</section>
+		</PageShell>
 	);
 }

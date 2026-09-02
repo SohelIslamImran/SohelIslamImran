@@ -13,6 +13,15 @@ full-document SSR, streaming, and a Cloudflare Workers runtime.
 - Use Bun as the canonical package manager and keep `bun.lock` in sync with
   exact dependency versions.
 
+## Animation
+
+- Tailwind v4 `translate-*`, `scale-*`, and `rotate-*` utilities emit the CSS
+  longhand properties `translate`, `scale`, and `rotate`. A custom
+  `transition-[...]` that lists only `transform` will not animate those
+  properties. Include the matching longhands, or use `transition-transform`,
+  which covers `transform`, `translate`, `scale`, and `rotate`. Check the
+  generated or computed CSS for hover, active, focus, and data-state motion.
+
 ## Validation
 
 Run these before handoff:

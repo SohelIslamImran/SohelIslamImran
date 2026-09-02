@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./public/images/sohel-linkedin-400.webp" width="128" height="128" alt="Sohel Islam Imran" />
   <h1>Sohel Islam Imran</h1>
-  <p><strong>Lead Full Stack Engineer at Kuno</strong><br />Product systems, mobile infrastructure, and delivery from Dhaka for teams everywhere.</p>
+  <p><strong>Lead Full Stack Engineer at Kuno</strong><br />Product systems, mobile infrastructure, and delivery for teams everywhere.</p>
   <p>
     <a href="https://sohelislamimran.com">Portfolio</a> ·
     <a href="https://www.linkedin.com/in/sohelislamimran/">LinkedIn</a> ·
@@ -62,7 +62,7 @@ Public routes are SSR-first and read published content only. Drafts and private 
 
 ### Styling migration
 
-The former route stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities and named `@utility` primitives backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to SVG route art, responsive state, accessibility fallbacks, and print layout; no separate named stylesheet or utility layer is required.
+The former route stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities, shadcn Base UI primitives, CVA variants, and `cn()` backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to theme tokens, accessibility fallbacks, and print layout; no separate named stylesheet or custom visual utility layer is required.
 
 ### Local development
 

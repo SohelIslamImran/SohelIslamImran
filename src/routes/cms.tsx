@@ -1,7 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
+import * as React from "react";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { z } from "zod";
+import { createFileRoute, useBlocker } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
 	getCmsSnapshot,
 	publishDraft,
@@ -9,9 +9,21 @@ import {
 	type CmsSnapshotResult,
 	uploadMedia,
 } from "../server/cms.functions";
-import { Button } from "../components";
-
-const emptyRecord = z.record(z.string(), z.unknown());
+import { validatePortfolioContent, type ValidationIssue } from "../lib/validation";
+import { Button } from "../components/ui/button";
+import { CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "../components/ui/alert";
+import {
+	Field as FormField,
+	FieldDescription,
+	FieldError,
+	FieldGroup,
+	FieldLabel,
+} from "../components/ui/field";
+import { Input } from "../components/ui/input";
+import { Textarea } from "../components/ui/textarea";
+import { ButtonLink, PageHeader, PageShell, Surface } from "../components/ui/portfolio";
+import type { PortfolioContent } from "../types/content";
 
 export const Route = createFileRoute("/cms")({
 	loader: () => getCmsSnapshot(),
@@ -26,33 +38,27 @@ export const Route = createFileRoute("/cms")({
 	component: CmsRoute,
 });
 
-function CmsError({ error }: { error: unknown }) {
-	const message =
-		error instanceof Error ? error.message : "Sign in through Cloudflare Access to open the CMS.";
+function CmsError() {
 	return (
-		<main className="page cms status-page mx-auto grid min-h-[calc(100svh-170px)] w-[min(1180px,calc(100%-40px))] content-center justify-items-start py-[clamp(58px,9vw,120px)]">
-			<p className="eyebrow">Private workspace</p>
-			<h1 className="page-title mb-[22px] mt-0 max-w-[960px] text-[clamp(3rem,5vw,4.8rem)] font-[760] leading-[.98] tracking-[-.06em]">
-				Access is required.
-			</h1>
-			<p className="lede m-0 max-w-[650px] text-[clamp(17px,2vw,21px)] leading-[1.55] text-muted">
-				{message}
-			</p>
-			<div className="status-actions mt-[30px] flex flex-wrap gap-2.5">
-				<a
-					className="button button-primary inline-flex min-h-12 items-center gap-[15px] rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground no-underline shadow-[0_10px_24px_var(--theme-accent-glow)]"
-					href="https://cms.sohelislamimran.com/"
-				>
-					Open CMS sign-in <span aria-hidden="true">↗</span>
-				</a>
-				<a
-					className="button button-quiet inline-flex min-h-12 items-center gap-[15px] rounded-full border border-line bg-surface-solid px-5 text-sm font-bold text-ink no-underline"
-					href="/"
-				>
-					Return to the public site <span aria-hidden="true">↗</span>
-				</a>
-			</div>
-		</main>
+		<PageShell
+			width="wide"
+			className="grid min-h-[calc(100svh-170px)] content-center justify-items-start"
+		>
+			<PageHeader
+				eyebrow="Private workspace"
+				title="Access is required."
+				description="Sign in through Cloudflare Access to open the owner-only editor."
+			>
+				<div className="mt-7 flex flex-wrap gap-2.5">
+					<ButtonLink href="https://cms.sohelislamimran.com/" size="lg">
+						Open CMS sign-in <span aria-hidden="true">↗</span>
+					</ButtonLink>
+					<ButtonLink href="/" variant="outline" size="lg">
+						Return to the public site <span aria-hidden="true">↗</span>
+					</ButtonLink>
+				</div>
+			</PageHeader>
+		</PageShell>
 	);
 }
 
@@ -72,29 +78,25 @@ function CmsAccessState({
 	const actionLabel = code === "unauthenticated" ? "Open CMS sign-in" : "Try CMS again";
 	const actionHref = code === "unauthenticated" ? "https://cms.sohelislamimran.com/" : "/cms";
 	return (
-		<main className="page cms status-page mx-auto grid min-h-[calc(100svh-170px)] w-[min(1180px,calc(100%-40px))] content-center justify-items-start py-[clamp(58px,9vw,120px)]">
-			<p className="eyebrow">Private workspace</p>
-			<h1 className="page-title mb-[22px] mt-0 max-w-[960px] text-[clamp(3rem,5vw,4.8rem)] font-[760] leading-[.98] tracking-[-.06em]">
-				{code === "forbidden" ? "This route is owner-only." : "Access is required."}
-			</h1>
-			<p className="lede m-0 max-w-[650px] text-[clamp(17px,2vw,21px)] leading-[1.55] text-muted">
-				{message}
-			</p>
-			<div className="status-actions mt-[30px] flex flex-wrap gap-2.5">
-				<a
-					className="button button-primary inline-flex min-h-12 items-center gap-[15px] rounded-full bg-primary px-5 text-sm font-bold text-primary-foreground no-underline shadow-[0_10px_24px_var(--theme-accent-glow)]"
-					href={actionHref}
-				>
-					{actionLabel} <span aria-hidden="true">↗</span>
-				</a>
-				<a
-					className="button button-quiet inline-flex min-h-12 items-center gap-[15px] rounded-full border border-line bg-surface-solid px-5 text-sm font-bold text-ink no-underline"
-					href="/"
-				>
-					Return to the public site <span aria-hidden="true">↗</span>
-				</a>
-			</div>
-		</main>
+		<PageShell
+			width="wide"
+			className="grid min-h-[calc(100svh-170px)] content-center justify-items-start"
+		>
+			<PageHeader
+				eyebrow="Private workspace"
+				title={code === "forbidden" ? "This route is owner-only." : "Access is required."}
+				description={message}
+			>
+				<div className="mt-7 flex flex-wrap gap-2.5">
+					<ButtonLink href={actionHref} size="lg">
+						{actionLabel} <span aria-hidden="true">↗</span>
+					</ButtonLink>
+					<ButtonLink href="/" variant="outline" size="lg">
+						Return to the public site <span aria-hidden="true">↗</span>
+					</ButtonLink>
+				</div>
+			</PageHeader>
+		</PageShell>
 	);
 }
 
@@ -103,41 +105,55 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 	const [raw, setRaw] = useState(initialRaw);
 	const [savedRaw, setSavedRaw] = useState(initialRaw);
 	const [revision, setRevision] = useState(initial.snapshot.draftRevision);
+	const [publishedRevision, setPublishedRevision] = useState(initial.snapshot.publishedRevision);
+	const [publishedAt, setPublishedAt] = useState(initial.snapshot.publishedAt);
 	const [csrfToken] = useState(initial.csrfToken);
 	const [status, setStatus] = useState("Ready to edit the draft.");
+	const [statusTone, setStatusTone] = useState<"neutral" | "success" | "error">("neutral");
 	const [pendingAction, setPendingAction] = useState<"save" | "publish" | "upload" | null>(null);
 	const save = useServerFn(saveDraft);
 	const publish = useServerFn(publishDraft);
 	const upload = useServerFn(uploadMedia);
-	const parsed = useMemo(() => parseDraft(raw), [raw]);
+	const parsedResult = useMemo(() => parseDraft(raw), [raw]);
+	const parsed = parsedResult.value;
 	const dirty = raw !== savedRaw;
 	const busy = pendingAction !== null;
+	const blocker = useBlocker({
+		shouldBlockFn: () => dirty,
+		enableBeforeUnload: () => dirty,
+		withResolver: true,
+	});
 
 	useEffect(() => {
-		if (!dirty) return;
-		const warnBeforeLeaving = (event: BeforeUnloadEvent) => event.preventDefault();
-		window.addEventListener("beforeunload", warnBeforeLeaving);
-		return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
-	}, [dirty]);
+		if (dirty && !busy && statusTone === "neutral")
+			setStatus("Unsaved changes. Save the draft before publishing.");
+	}, [busy, dirty, statusTone]);
 
-	useEffect(() => {
-		if (dirty && !pendingAction) setStatus("Unsaved changes. Save the draft before publishing.");
-	}, [dirty, pendingAction]);
+	const updateRaw = (next: string) => {
+		setRaw(next);
+		if (!busy) setStatusTone("neutral");
+	};
 
-	const updateField = (section: "site" | "identity", key: string, value: string) => {
+	const updateField = (
+		section: "site" | "identity" | "hero" | "contact",
+		key: string,
+		value: string,
+	) => {
 		if (!parsed) return;
-		const currentSection = emptyRecord.safeParse(parsed[section]).success
-			? (parsed[section] as Record<string, unknown>)
-			: {};
-		setRaw(JSON.stringify({ ...parsed, [section]: { ...currentSection, [key]: value } }, null, 2));
+		const currentSection = parsed[section] as unknown as Record<string, unknown>;
+		updateRaw(
+			JSON.stringify({ ...parsed, [section]: { ...currentSection, [key]: value } }, null, 2),
+		);
 	};
 
 	const handleSave = async () => {
 		if (!parsed) {
-			setStatus("The JSON is not valid yet. Fix it before saving.");
+			setStatusTone("error");
+			setStatus("Fix the highlighted document errors before saving.");
 			return;
 		}
 		setPendingAction("save");
+		setStatusTone("neutral");
 		setStatus("Saving draft…");
 		try {
 			const result = await save({
@@ -146,18 +162,17 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 			if (result.ok) {
 				setRevision(result.revision);
 				setSavedRaw(raw);
+				setStatusTone("success");
 				setStatus(`Draft saved at revision ${result.revision}.`);
 			} else {
 				setRevision(result.current.draftRevision);
-				// Keep the submitted document in the editor. Replacing it with the
-				// server snapshot here silently discards the owner's local changes.
-				// Advancing the revision lets the owner explicitly save this draft
-				// again after reviewing the conflict message.
+				setStatusTone("error");
 				setStatus(
-					"A newer draft exists. Your local edits are still here; review them, then save again to use the latest revision.",
+					"A newer draft exists. Your local edits are still here. Review them, then save again.",
 				);
 			}
 		} catch {
+			setStatusTone("error");
 			setStatus("The draft could not be saved. Check your session and try again.");
 		} finally {
 			setPendingAction(null);
@@ -165,85 +180,135 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 	};
 
 	const handlePublish = async () => {
-		if (dirty) {
-			setStatus("Save the current changes before publishing.");
+		if (dirty || !parsed) {
+			setStatusTone("error");
+			setStatus(
+				dirty
+					? "Save the current changes before publishing."
+					: "Fix the document errors before publishing.",
+			);
 			return;
 		}
 		setPendingAction("publish");
+		setStatusTone("neutral");
 		setStatus("Publishing…");
 		try {
 			const result = await publish({ data: { expectedDraftRevision: revision, csrfToken } });
 			if (result.ok) {
-				setStatus(`Published revision ${result.revision}. Public pages now use this snapshot.`);
+				setPublishedRevision(result.revision);
+				setPublishedAt(result.publishedAt);
+				setStatusTone("success");
+				setStatus(
+					`Revision ${result.revision} published. Public pages update after the edge cache refreshes.`,
+				);
 			} else {
 				setRevision(result.current.draftRevision);
 				const currentRaw = JSON.stringify(result.current.draft, null, 2);
 				setRaw(currentRaw);
 				setSavedRaw(currentRaw);
+				setStatusTone("error");
 				setStatus("Publishing found a newer draft. Review the latest version before trying again.");
 			}
 		} catch {
+			setStatusTone("error");
 			setStatus("The draft could not be published. Check your session and try again.");
 		} finally {
 			setPendingAction(null);
 		}
 	};
 
+	const handleRevert = () => {
+		updateRaw(savedRaw);
+		setStatusTone("success");
+		setStatus("Local changes reverted to the last saved draft.");
+	};
+
 	const handleUpload = async (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
-		const form = new FormData(event.currentTarget);
+		const formElement = event.currentTarget;
+		const form = new FormData(formElement);
 		const file = form.get("file");
 		const alt = String(form.get("alt") ?? "").trim();
 		if (!(file instanceof File) || file.size === 0 || alt.length === 0) {
+			setStatusTone("error");
 			setStatus("Choose an image and provide meaningful alt text first.");
 			return;
 		}
 		setPendingAction("upload");
+		setStatusTone("neutral");
 		setStatus("Uploading media…");
 		try {
 			const asset = await upload({ data: { file, alt, csrfToken } });
-			setStatus(`Uploaded ${asset.id}. Attach it to a published content field before publishing.`);
-			event.currentTarget.reset();
+			setStatusTone("success");
+			setStatus(`Uploaded ${asset.id}. Attach it to a content field before publishing.`);
+			formElement.reset();
 		} catch {
+			setStatusTone("error");
 			setStatus("The media upload failed. Check the file type, size, and session.");
 		} finally {
 			setPendingAction(null);
 		}
 	};
 
-	const site = readSection(parsed, "site");
-	const identity = readSection(parsed, "identity");
+	const site = parsed?.site;
+	const identity = parsed?.identity;
+	const hero = parsed?.hero;
+	const contact = parsed?.contact;
 	const experienceCount = arrayLength(parsed?.experience);
 	const projectCount = arrayLength(parsed?.projects);
-	const storyCount = arrayLength(readSection(parsed, "story")?.chapters);
-	const travelCount = arrayLength(readSection(parsed, "travel")?.entries);
+	const storyCount = arrayLength(parsed?.story.chapters);
+	const travelCount = arrayLength(parsed?.travel.entries);
 	const linkCount = arrayLength(parsed?.profileLinks);
+	const issueErrors = parsedResult.issues
+		.slice(0, 8)
+		.map((issue) => ({ message: `${issue.path}: ${issue.message}` }));
+	const issueFor = (path: string) =>
+		parsedResult.issues.find(
+			(issue) =>
+				issue.path === path ||
+				issue.path.startsWith(`${path}.`) ||
+				path.startsWith(`${issue.path}.`),
+		)?.message;
+	const siteTitleError = issueFor("site.title");
+	const siteDescriptionError = issueFor("site.description");
+	const nameError = issueFor("identity.name");
+	const roleError = issueFor("identity.role");
+	const locationError = issueFor("identity.location");
+	const emailError = issueFor("identity.email");
+	const heroEyebrowError = issueFor("hero.eyebrow");
+	const heroTitleError = issueFor("hero.title");
+	const heroIntroError = issueFor("hero.intro");
+	const contactTitleError = issueFor("contact.title");
 
 	return (
-		<main className="page cms mx-auto min-h-[calc(100svh-150px)] w-[min(1180px,calc(100%-40px))] py-[clamp(58px,9vw,120px)]">
-			<header className="cms-header mb-[54px] grid grid-cols-[minmax(0,1fr)_minmax(220px,320px)] items-end gap-[30px] max-[800px]:grid-cols-1">
-				<div>
-					<p className="eyebrow">Private workspace · {initial.owner}</p>
-					<h1 className="cms-title mb-[18px] mt-0 max-w-[760px] text-[clamp(3.2rem,7vw,6.8rem)] font-[760] leading-[.9] tracking-[-.08em] [text-wrap:balance]">
-						Keep the route current.
-					</h1>
-					<p className="lede m-0 max-w-[650px] text-[clamp(17px,2vw,21px)] leading-[1.55] text-muted">
-						Edit the published story, proof, links, travel notes, media, and search metadata from
-						one owner-only dashboard.
-					</p>
-				</div>
+		<PageShell width="wide" data-page="cms" aria-busy={busy}>
+			<div className="grid grid-cols-[minmax(0,1fr)_minmax(240px,320px)] items-end gap-8 max-[800px]:grid-cols-1">
+				<PageHeader
+					eyebrow={`Private workspace · ${initial.owner}`}
+					title="Keep the route current."
+					description="Edit the public story, proof, links, travel notes, media, and search metadata from one owner-only dashboard."
+					className="mb-0"
+				/>
 				<div
-					className="cms-status flex items-start gap-2 rounded-[18px] border border-line bg-[color-mix(in_srgb,var(--theme-surface-solid)_92%,transparent)] p-4 text-[13px] leading-[1.45] text-muted shadow-[0_12px_32px_var(--theme-shadow)] backdrop-blur-[16px]"
+					className="flex min-h-14 items-start gap-2 rounded-[18px] border border-border bg-muted/50 p-4 text-[13px] leading-[1.45] text-muted-foreground"
 					role="status"
 					aria-live="polite"
+					aria-busy={busy}
 				>
-					<span className="status-dot" aria-hidden="true" />
-					{status}
+					<span
+						className={
+							statusTone === "error"
+								? "mt-1.5 size-2 shrink-0 rounded-full bg-destructive"
+								: "mt-1.5 size-2 shrink-0 rounded-full bg-signal"
+						}
+						aria-hidden="true"
+					/>
+					<span>{status}</span>
 				</div>
-			</header>
+			</div>
 
 			<section
-				className="cms-overview mb-[68px] grid grid-cols-6 gap-2.5 max-[800px]:grid-cols-2"
+				className="mt-[clamp(42px,6vw,72px)] grid grid-cols-6 gap-2.5 max-[900px]:grid-cols-3 max-[560px]:grid-cols-2"
 				aria-label="Content overview"
 			>
 				<StatusCard
@@ -253,8 +318,8 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 				/>
 				<StatusCard
 					label="Published revision"
-					value={String(initial.snapshot.publishedRevision)}
-					detail={initial.snapshot.publishedAt ?? "Not published yet"}
+					value={String(publishedRevision)}
+					detail={publishedAt ?? "Not published yet"}
 				/>
 				<StatusCard
 					label="Experience"
@@ -270,153 +335,195 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 				<StatusCard label="Public links" value={String(linkCount)} detail="Stable /links IDs" />
 			</section>
 
-			<section
-				className="cms-editor grid grid-cols-[minmax(190px,.4fr)_minmax(0,1fr)] gap-8 border-t border-line py-[42px] max-[800px]:grid-cols-1 max-[800px]:gap-6"
-				aria-labelledby="cms-editor-title"
+			<EditorSection
+				eyebrow="Structured fields"
+				title="Identity and search surface"
+				description="High-value fields stay visible. Collections keep their existing schema in the advanced editor below."
 			>
-				<div className="cms-editor-intro min-w-0">
-					<p className="eyebrow">Structured fields</p>
-					<h2
-						className="cms-editor-intro-title mb-3 mt-2 max-w-[600px] text-[clamp(26px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-						id="cms-editor-title"
-					>
-						Identity and search surface
-					</h2>
-					<p className="cms-editor-intro-copy m-0 text-[15px] leading-[1.55] text-muted">
-						These high-value fields stay visible. Use the advanced editor below for collections and
-						rich content.
-					</p>
-				</div>
-				<div className="cms-fields grid grid-cols-2 gap-3.5 max-[560px]:grid-cols-1">
-					<Field
-						name="site-title"
-						label="Site title"
-						value={stringValue(site?.title)}
-						onChange={(value) => updateField("site", "title", value)}
-					/>
-					<Field
-						name="site-description"
-						label="Site description"
-						value={stringValue(site?.description)}
-						onChange={(value) => updateField("site", "description", value)}
-						multiline
-					/>
-					<Field
-						name="name"
-						label="Name"
-						autoComplete="name"
-						value={stringValue(identity?.name)}
-						onChange={(value) => updateField("identity", "name", value)}
-					/>
-					<Field
-						name="role"
-						label="Role"
-						autoComplete="organization-title"
-						value={stringValue(identity?.role)}
-						onChange={(value) => updateField("identity", "role", value)}
-					/>
-					<Field
-						name="location"
-						label="Location"
-						autoComplete="address-level2"
-						value={stringValue(identity?.location)}
-						onChange={(value) => updateField("identity", "location", value)}
-					/>
-					<Field
-						name="email"
-						label="Public email"
-						autoComplete="email"
-						value={stringValue(identity?.email)}
-						onChange={(value) => updateField("identity", "email", value)}
-						type="email"
-					/>
-				</div>
-			</section>
+				<FieldGroup className="grid grid-cols-2 gap-4 max-[640px]:grid-cols-1">
+					<CmsField id="site-title" label="Site title" error={siteTitleError}>
+						<Input
+							id="site-title"
+							aria-invalid={siteTitleError ? true : undefined}
+							value={stringValue(site?.title)}
+							onChange={(event) => updateField("site", "title", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="site-description" label="Site description" error={siteDescriptionError}>
+						<Textarea
+							id="site-description"
+							rows={3}
+							aria-invalid={siteDescriptionError ? true : undefined}
+							value={stringValue(site?.description)}
+							onChange={(event) => updateField("site", "description", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="name" label="Name" error={nameError}>
+						<Input
+							id="name"
+							autoComplete="name"
+							aria-invalid={nameError ? true : undefined}
+							value={stringValue(identity?.name)}
+							onChange={(event) => updateField("identity", "name", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="role" label="Role" error={roleError}>
+						<Input
+							id="role"
+							autoComplete="organization-title"
+							aria-invalid={roleError ? true : undefined}
+							value={stringValue(identity?.role)}
+							onChange={(event) => updateField("identity", "role", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="location" label="Location" error={locationError}>
+						<Input
+							id="location"
+							autoComplete="address-level2"
+							aria-invalid={locationError ? true : undefined}
+							value={stringValue(identity?.location)}
+							onChange={(event) => updateField("identity", "location", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="email" label="Public email" error={emailError}>
+						<Input
+							id="email"
+							type="email"
+							autoComplete="email"
+							aria-invalid={emailError ? true : undefined}
+							value={stringValue(identity?.email)}
+							onChange={(event) => updateField("identity", "email", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="hero-eyebrow" label="Hero eyebrow" error={heroEyebrowError}>
+						<Input
+							id="hero-eyebrow"
+							aria-invalid={heroEyebrowError ? true : undefined}
+							value={stringValue(hero?.eyebrow)}
+							onChange={(event) => updateField("hero", "eyebrow", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="hero-title" label="Hero title" error={heroTitleError}>
+						<Textarea
+							id="hero-title"
+							rows={3}
+							aria-invalid={heroTitleError ? true : undefined}
+							value={stringValue(hero?.title)}
+							onChange={(event) => updateField("hero", "title", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="hero-intro" label="Hero introduction" error={heroIntroError}>
+						<Textarea
+							id="hero-intro"
+							rows={3}
+							aria-invalid={heroIntroError ? true : undefined}
+							value={stringValue(hero?.intro)}
+							onChange={(event) => updateField("hero", "intro", event.target.value)}
+						/>
+					</CmsField>
+					<CmsField id="contact-title" label="Contact title" error={contactTitleError}>
+						<Input
+							id="contact-title"
+							aria-invalid={contactTitleError ? true : undefined}
+							value={stringValue(contact?.title)}
+							onChange={(event) => updateField("contact", "title", event.target.value)}
+						/>
+					</CmsField>
+				</FieldGroup>
+			</EditorSection>
 
-			<section
-				className="cms-editor grid grid-cols-[minmax(190px,.4fr)_minmax(0,1fr)] gap-8 border-t border-line py-[42px] max-[800px]:grid-cols-1 max-[800px]:gap-6"
-				aria-labelledby="cms-json-title"
+			<EditorSection
+				eyebrow="Advanced fallback"
+				title="The complete content document"
+				description="Collections keep their existing schema and revision history. Invalid or stale drafts never reach public pages."
 			>
-				<div className="cms-editor-intro min-w-0">
-					<p className="eyebrow">Advanced fallback</p>
-					<h2
-						className="cms-editor-intro-title mb-3 mt-2 max-w-[600px] text-[clamp(26px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-						id="cms-json-title"
-					>
-						The complete content document
-					</h2>
-					<p className="cms-editor-intro-copy m-0 text-[15px] leading-[1.55] text-muted">
-						Collections keep their existing schema and revision history. Invalid or stale drafts
-						never reach public pages.
-					</p>
-				</div>
-				<textarea
-					className="cms-json col-span-full min-h-[520px] w-full resize-y rounded-[13px] border border-line bg-surface-solid p-4 font-mono text-[13px] leading-[1.45] text-ink outline-none transition-[border-color,box-shadow] duration-180 ease-route focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_var(--theme-picker-soft)] max-[800px]:col-span-1"
-					name="portfolio-json"
-					autoComplete="off"
-					value={raw}
-					onChange={(event) => setRaw(event.target.value)}
-					spellCheck={false}
-					aria-label="Portfolio JSON document"
-				/>
-				<div className="cms-actions col-span-full flex flex-wrap gap-2.5 max-[800px]:col-span-1">
+				<FormField data-invalid={parsedResult.issues.length > 0 || undefined}>
+					<FieldLabel htmlFor="portfolio-json">Portfolio JSON document</FieldLabel>
+					<Textarea
+						id="portfolio-json"
+						name="portfolio-json"
+						autoComplete="off"
+						spellCheck={false}
+						value={raw}
+						onChange={(event) => updateRaw(event.target.value)}
+						aria-invalid={parsedResult.issues.length > 0 || undefined}
+						className="min-h-[min(520px,55vh)] resize-y font-mono text-[13px] leading-[1.5]"
+					/>
+					<FieldDescription>
+						Use this editor for repeatable collections and fields that are not in the structured
+						form.
+					</FieldDescription>
+					{issueErrors.length > 0 ? <FieldError errors={issueErrors} /> : null}
+				</FormField>
+				{parsedResult.issues.length > 0 ? (
+					<Alert variant="destructive" className="mt-4">
+						<AlertTitle>Fix the document before saving.</AlertTitle>
+						<AlertDescription>
+							<ul className="grid gap-1 pl-4">
+								{parsedResult.issues.slice(0, 8).map((issue) => (
+									<li key={`${issue.path}-${issue.message}`}>
+										{issue.path}: {issue.message}
+									</li>
+								))}
+							</ul>
+						</AlertDescription>
+					</Alert>
+				) : null}
+				<div className="mt-4 flex flex-wrap gap-2.5">
 					<Button
-						className="button button-primary min-h-12"
 						size="lg"
 						type="button"
-						disabled={busy || !parsed || !dirty}
+						disabled={busy || !parsed || parsedResult.issues.length > 0 || !dirty}
 						onClick={() => void handleSave()}
 					>
-						{pendingAction === "save" ? "Saving…" : "Save draft"} <span aria-hidden="true">↗</span>
+						{" "}
+						{pendingAction === "save" ? "Saving…" : "Save draft"}{" "}
+						<span data-icon="inline-end" aria-hidden="true">
+							↗
+						</span>
 					</Button>
 					<Button
-						className="button button-quiet border border-line bg-surface-solid text-ink"
 						variant="outline"
 						size="lg"
 						type="button"
-						disabled={busy || dirty}
+						disabled={busy || !parsed || parsedResult.issues.length > 0 || dirty}
 						onClick={() => void handlePublish()}
 					>
 						{pendingAction === "publish" ? "Publishing…" : "Publish revision"}{" "}
-						<span aria-hidden="true">↗</span>
+						<span data-icon="inline-end" aria-hidden="true">
+							↗
+						</span>
 					</Button>
+					{dirty ? (
+						<Button variant="ghost" size="lg" type="button" disabled={busy} onClick={handleRevert}>
+							Revert local changes
+						</Button>
+					) : null}
 				</div>
-			</section>
+			</EditorSection>
 
-			<section
-				className="cms-editor grid grid-cols-[minmax(190px,.4fr)_minmax(0,1fr)] gap-8 border-t border-line py-[42px] max-[800px]:grid-cols-1 max-[800px]:gap-6"
-				aria-labelledby="cms-media-title"
+			<EditorSection
+				eyebrow="Media shelf"
+				title="Upload a future memory."
+				description="R2 is optional until its production bucket is enabled. Images need alt text before they can enter the document."
 			>
-				<div className="cms-editor-intro min-w-0">
-					<p className="eyebrow">Media shelf</p>
-					<h2
-						className="cms-editor-intro-title mb-3 mt-2 max-w-[600px] text-[clamp(26px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-						id="cms-media-title"
-					>
-						Upload a future memory.
-					</h2>
-					<p className="cms-editor-intro-copy m-0 text-[15px] leading-[1.55] text-muted">
-						R2 is optional until its production bucket is enabled. Images need alt text before they
-						can enter the document.
-					</p>
-				</div>
 				<form
-					className="cms-upload grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-3.5 max-[800px]:grid-cols-1"
+					className="grid grid-cols-[repeat(2,minmax(0,1fr))_auto] items-end gap-4 max-[800px]:grid-cols-1"
 					onSubmit={(event) => void handleUpload(event)}
 				>
-					<label className="grid gap-1.5 text-xs font-[750] text-muted">
-						Image or PDF
-						<input
-							className="cms-input w-full rounded-[13px] border border-line bg-surface-solid px-3 py-[9px] text-[15px] leading-[1.45] text-ink outline-none transition-[border-color,box-shadow] duration-180 ease-route focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_var(--theme-picker-soft)]"
+					<FormField>
+						<FieldLabel htmlFor="media-file">Image or PDF</FieldLabel>
+						<Input
+							id="media-file"
 							name="file"
 							type="file"
 							accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
 						/>
-					</label>
-					<label className="grid gap-1.5 text-xs font-[750] text-muted">
-						Alt text
-						<input
-							className="cms-input w-full rounded-[13px] border border-line bg-surface-solid px-3 py-[9px] text-[15px] leading-[1.45] text-ink outline-none transition-[border-color,box-shadow] duration-180 ease-route focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_var(--theme-picker-soft)]"
+					</FormField>
+					<FormField>
+						<FieldLabel htmlFor="media-alt">Alt text</FieldLabel>
+						<Input
+							id="media-alt"
 							name="alt"
 							type="text"
 							autoComplete="off"
@@ -424,90 +531,115 @@ function CmsDashboard({ initial }: { initial: Extract<CmsSnapshotResult, { ok: t
 							required
 							placeholder="Describe the image…"
 						/>
-					</label>
-					<Button
-						className="button button-quiet border border-line bg-surface-solid text-ink"
-						variant="outline"
-						type="submit"
-						disabled={busy}
-					>
+					</FormField>
+					<Button variant="outline" type="submit" disabled={busy}>
 						{pendingAction === "upload" ? "Uploading…" : "Upload media"}
 					</Button>
 				</form>
-			</section>
-		</main>
+			</EditorSection>
+
+			{blocker.status === "blocked" ? (
+				<Alert className="mt-6" role="alert">
+					<AlertTitle>You have unsaved changes.</AlertTitle>
+					<AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+						<span>Leave this page and discard the local draft?</span>
+						<span className="flex flex-wrap gap-2">
+							<Button variant="outline" size="sm" type="button" onClick={blocker.reset}>
+								Stay here
+							</Button>
+							<Button size="sm" type="button" onClick={blocker.proceed}>
+								Leave page
+							</Button>
+						</span>
+					</AlertDescription>
+				</Alert>
+			) : null}
+		</PageShell>
+	);
+}
+
+function EditorSection({
+	eyebrow,
+	title,
+	description,
+	children,
+}: {
+	eyebrow: string;
+	title: string;
+	description: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<section
+			className="grid grid-cols-[minmax(190px,.4fr)_minmax(0,1fr)] gap-8 border-t border-border py-10 max-[800px]:grid-cols-1 max-[800px]:gap-6"
+			aria-labelledby={title.toLowerCase().replaceAll(" ", "-")}
+		>
+			<div>
+				<p className="mb-3.5 text-xs font-extrabold uppercase tracking-[0.11em] text-primary-text">
+					{eyebrow}
+				</p>
+				<h2
+					id={title.toLowerCase().replaceAll(" ", "-")}
+					className="m-0 max-w-[600px] text-[clamp(1.65rem,3vw,2.4rem)] font-[760] leading-none tracking-[-0.055em]"
+				>
+					{title}
+				</h2>
+				<p className="mt-3 max-w-[560px] text-[15px] leading-[1.55] text-muted-foreground">
+					{description}
+				</p>
+			</div>
+			<div className="min-w-0">{children}</div>
+		</section>
+	);
+}
+
+function CmsField({
+	id,
+	label,
+	description,
+	error,
+	children,
+}: {
+	id: string;
+	label: string;
+	description?: React.ReactNode;
+	error?: string;
+	children: React.ReactNode;
+}) {
+	return (
+		<FormField data-invalid={error ? true : undefined}>
+			<FieldLabel htmlFor={id}>{label}</FieldLabel>
+			{children}
+			{description ? <FieldDescription>{description}</FieldDescription> : null}
+			{error ? <FieldError>{error}</FieldError> : null}
+		</FormField>
 	);
 }
 
 function StatusCard({ label, value, detail }: { label: string; value: string; detail: string }) {
 	return (
-		<article className="cms-status-card glass grid min-h-[125px] min-w-0 gap-1 rounded-[18px] p-4 max-[560px]:min-h-[110px]">
-			<span className="cms-status-label text-xs leading-[1.3] text-muted">{label}</span>
-			<strong className="cms-status-value text-[28px] font-[760] tracking-[-.06em]">{value}</strong>
-			<small className="cms-status-label text-xs leading-[1.3] text-muted">{detail}</small>
-		</article>
+		<Surface className="min-w-0 p-4" size="sm">
+			<CardHeader className="p-0">
+				<CardTitle className="text-xs leading-[1.3] font-normal text-muted-foreground">
+					{label}
+				</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-1 p-0">
+				<strong className="text-[28px] font-[760] tracking-[-0.06em]">{value}</strong>
+				<span className="text-xs leading-[1.3] text-muted-foreground">{detail}</span>
+			</CardContent>
+		</Surface>
 	);
 }
 
-function Field({
-	name,
-	label,
-	value,
-	onChange,
-	multiline = false,
-	type = "text",
-	autoComplete = "off",
-}: {
-	name: string;
-	label: string;
-	value: string;
-	onChange: (value: string) => void;
-	multiline?: boolean;
-	type?: string;
-	autoComplete?: string;
-}) {
-	return (
-		<label className="cms-field grid gap-1.5 text-xs font-[750] text-muted">
-			{label}
-			{multiline ? (
-				<textarea
-					name={name}
-					autoComplete={autoComplete}
-					value={value}
-					onChange={(event) => onChange(event.target.value)}
-					rows={3}
-					className="cms-input w-full rounded-[13px] border border-line bg-surface-solid px-3 py-[9px] text-[15px] leading-[1.45] text-ink outline-none transition-[border-color,box-shadow] duration-180 ease-route focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_var(--theme-picker-soft)]"
-				/>
-			) : (
-				<input
-					name={name}
-					type={type}
-					autoComplete={autoComplete}
-					value={value}
-					onChange={(event) => onChange(event.target.value)}
-					className="cms-input w-full rounded-[13px] border border-line bg-surface-solid px-3 py-[9px] text-[15px] leading-[1.45] text-ink outline-none transition-[border-color,box-shadow] duration-180 ease-route focus-visible:border-primary focus-visible:shadow-[0_0_0_4px_var(--theme-picker-soft)]"
-				/>
-			)}
-		</label>
-	);
-}
-
-function parseDraft(raw: string): Record<string, unknown> | null {
+function parseDraft(raw: string): { value: PortfolioContent | null; issues: ValidationIssue[] } {
 	try {
 		const value: unknown = JSON.parse(raw);
-		return emptyRecord.safeParse(value).success ? (value as Record<string, unknown>) : null;
+		const result = validatePortfolioContent(value);
+		return result.ok ? { value: result.value, issues: [] } : { value: null, issues: result.issues };
 	} catch {
-		return null;
+		return { value: null, issues: [{ path: "$", message: "must contain valid JSON" }] };
 	}
-}
-
-function readSection(
-	value: Record<string, unknown> | null,
-	key: string,
-): Record<string, unknown> | null {
-	if (!value) return null;
-	const result = emptyRecord.safeParse(value[key]);
-	return result.success ? (result.data as Record<string, unknown>) : null;
 }
 
 function stringValue(value: unknown) {

@@ -1,11 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
 import { dateTimeFromPeriod } from "../lib/content-dates";
 import { mediaHref } from "../lib/media";
 import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
-import { Button, PortfolioImage } from "../components";
+import { PortfolioImage } from "../components/PortfolioImage";
+import {
+	EmptyState,
+	PageHeader,
+	PageShell,
+	StatusBadge,
+	Surface,
+	TagList,
+} from "../components/ui/portfolio";
+import { Button, buttonVariants } from "../components/ui/button";
+import { cn } from "../lib/utils";
 
 export const Route = createFileRoute("/resume")({
 	loader: getPublishedContent,
@@ -37,200 +46,208 @@ export const Route = createFileRoute("/resume")({
 
 function Resume() {
 	const content = Route.useLoaderData();
-	const reducedMotion = useReducedMotion();
-	const publicExperience = content.experience;
 	const proof = content.projects
 		.filter((project) => project.repository || project.href)
 		.slice(0, 4);
 
 	return (
-		<main className="resume mx-auto w-[min(1120px,calc(100%-40px))] py-[clamp(58px,8vw,110px)] max-[800px]:w-[calc(100%-40px)]">
-			<motion.header
-				className="resume-header glass grid grid-cols-[minmax(0,1fr)_168px] items-center gap-[clamp(30px,6vw,72px)] rounded-[32px] border border-[color-mix(in_srgb,var(--theme-line)_72%,transparent)] bg-[radial-gradient(circle_at_88%_18%,var(--theme-blue-soft),transparent_260px),var(--theme-surface)] p-[clamp(28px,4vw,48px)] max-[800px]:grid-cols-1 max-[800px]:gap-6"
-				whileHover={reducedMotion ? undefined : { y: -3 }}
-				transition={{ duration: reducedMotion ? 0 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+		<PageShell width="default" data-page="resume" className="max-w-[1160px]">
+			<Surface
+				data-slot="resume-header"
+				className="grid overflow-visible grid-cols-[minmax(0,1fr)_168px] items-center gap-[clamp(30px,6vw,72px)] p-[clamp(28px,4vw,48px)] max-[800px]:grid-cols-1 max-[800px]:gap-6"
 			>
-				<div className="resume-header-copy">
-					<p className="eyebrow">{content.identity.role} · Kuno</p>
-					<h1 className="resume-title mb-4 mt-0 max-w-[780px] text-[clamp(3.2rem,6.4vw,5.8rem)] font-[760] leading-[.96] tracking-[-.065em] [text-wrap:balance]">
-						{content.identity.name}
-					</h1>
-					<p className="resume-summary m-0 max-w-[670px] text-[19px] leading-[1.55] text-muted">
-						{content.resume.summary ?? content.about.paragraphs[0]}
-					</p>
-					<div className="resume-meta mt-[22px] flex flex-wrap gap-x-[18px] gap-y-2 text-[13px] text-muted">
+				<PageHeader
+					eyebrow={`${content.identity.role} · Kuno`}
+					title={<span data-slot="resume-title">{content.identity.name}</span>}
+					description={content.resume.summary ?? content.about.paragraphs[0]}
+					className="mb-0 min-w-0"
+				>
+					<div className="mt-5 flex flex-wrap gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
 						<span>{content.identity.location}</span>
 						<span>{content.identity.timezone}</span>
 						<a
-							className="resume-meta-link font-bold text-primary no-underline"
+							className="min-w-0 break-words font-bold text-primary-text no-underline"
 							href={`mailto:${content.identity.email}`}
 						>
 							{content.identity.email}
 						</a>
+						{content.resume.updatedAt ? (
+							<time dateTime={content.resume.updatedAt}>Updated {content.resume.updatedAt}</time>
+						) : null}
 					</div>
-					<div className="resume-actions mt-7 flex flex-wrap gap-[9px]">
-						<Button
-							className="button button-primary resume-action min-h-[42px] px-4 text-[13px]"
-							size="lg"
-							type="button"
-							onClick={() => window.print()}
-						>
-							Print / save PDF <span aria-hidden="true">↗</span>
+					<div data-slot="resume-actions" className="mt-7 flex flex-wrap gap-2.5">
+						<Button size="lg" type="button" onClick={() => window.print()}>
+							Print / save PDF{" "}
+							<span data-icon="inline-end" aria-hidden="true">
+								↗
+							</span>
 						</Button>
 						<Link
-							className="button button-quiet resume-action inline-flex min-h-[42px] items-center gap-3 rounded-full border border-line bg-surface-solid px-4 text-[13px] font-bold text-ink no-underline"
+							className={cn(
+								buttonVariants({ variant: "outline", size: "lg" }),
+								"border-[color-mix(in_srgb,var(--theme-accent)_14%,var(--theme-line))]",
+							)}
 							to="/links"
 							search={{ kind: "all" }}
 						>
 							All links <span aria-hidden="true">↗</span>
 						</Link>
 					</div>
+				</PageHeader>
+				<div
+					data-slot="resume-portrait"
+					className="block h-[200px] w-[168px] rotate-2 rounded-[24px] border-[7px] border-surface-solid shadow-float max-[800px]:order-[-1] max-[800px]:size-32 print:order-none print:rotate-0"
+				>
+					<PortfolioImage
+						src={mediaHref(content.identity.avatar) ?? "/images/sohel-linkedin-800.webp"}
+						alt={content.identity.avatar?.alt ?? "Portrait of Sohel Islam Imran"}
+						width={800}
+						height={800}
+						loading="eager"
+						fetchPriority="high"
+						sizes="(max-width: 800px) 128px, 180px"
+						srcSet={
+							content.identity.avatar
+								? undefined
+								: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
+						}
+						className="block size-full rounded-[17px] object-cover object-[center_16%]"
+					/>
 				</div>
-				<PortfolioImage
-					src={mediaHref(content.identity.avatar) ?? "/images/sohel-linkedin-800.webp"}
-					alt={content.identity.avatar?.alt ?? "Portrait of Sohel Islam Imran"}
-					width={800}
-					height={800}
-					loading="eager"
-					fetchPriority="high"
-					sizes="(max-width: 800px) 128px, 180px"
-					srcSet={
-						content.identity.avatar
-							? undefined
-							: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
-					}
-					className="resume-portrait block h-[200px] w-[168px] rotate-2 rounded-[28px] border-[7px] border-[color-mix(in_srgb,var(--theme-surface-solid)_86%,transparent)] object-cover object-[center_16%] shadow-[0_24px_50px_var(--theme-shadow)] max-[800px]:order-[-1] max-[800px]:size-32"
-				/>
-			</motion.header>
+			</Surface>
 
-			<div className="resume-layout grid grid-cols-[minmax(0,1fr)_minmax(250px,310px)] gap-[clamp(40px,6vw,72px)] pt-16 max-[800px]:grid-cols-1 max-[800px]:gap-[54px]">
-				<section className="resume-main min-w-0" aria-labelledby="resume-experience-title">
-					<div className="resume-section-heading mb-[22px] max-w-[680px]">
-						<p className="eyebrow">Experience</p>
-						<h2
-							className="resume-section-title mb-5 mt-0 text-[clamp(25px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-							id="resume-experience-title"
-						>
-							Product work across teams and platforms.
-						</h2>
-					</div>
-					{publicExperience.map((item) => (
-						<motion.article
-							className="resume-entry grid grid-cols-[minmax(120px,150px)_minmax(0,1fr)] gap-[22px] border-t border-line py-7 [break-inside:avoid] max-[800px]:grid-cols-1 max-[800px]:gap-2"
-							key={item.id}
-							whileHover={reducedMotion ? undefined : { x: 3 }}
-							whileTap={reducedMotion ? undefined : { scale: 0.998 }}
-							transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-						>
-							<time
-								className="resume-entry-date block max-w-[140px] text-[13px] font-[750] leading-[1.4] text-primary max-[800px]:max-w-none"
-								dateTime={dateTimeFromPeriod(item.period)}
+			<div
+				data-slot="resume-layout"
+				className="grid grid-cols-[minmax(0,1fr)_minmax(250px,310px)] gap-[clamp(40px,6vw,72px)] pt-16 max-[800px]:grid-cols-1 max-[800px]:gap-14"
+			>
+				<section className="min-w-0" aria-labelledby="resume-experience-title">
+					<PageHeader
+						eyebrow="Experience"
+						title={
+							<span id="resume-experience-title">Product work across teams and platforms.</span>
+						}
+						level={2}
+						className="mb-5"
+					/>
+					{content.experience.length > 0 ? (
+						content.experience.map((item) => (
+							<article
+								data-slot="resume-entry"
+								className="grid grid-cols-[minmax(120px,150px)_minmax(0,1fr)] gap-6 border-t border-border py-7 max-[800px]:grid-cols-1 max-[800px]:gap-2.5"
+								key={item.id}
 							>
-								{item.period}
-							</time>
-							<div className="resume-entry-body min-w-0">
-								<div className="resume-entry-company flex flex-wrap items-center gap-[9px] text-[15px] text-ink">
-									<strong>{item.company}</strong>
-									{item.current && <span className="current">Current</span>}
+								<time
+									className="block max-w-[140px] text-[13px] font-[750] leading-[1.4] text-primary-text max-[800px]:max-w-none"
+									dateTime={dateTimeFromPeriod(item.period)}
+								>
+									{item.period}
+								</time>
+								<div className="min-w-0">
+									<div className="flex flex-wrap items-center gap-2.5 text-[15px] text-foreground">
+										<strong>{item.company}</strong>
+										{item.current ? <StatusBadge>Current</StatusBadge> : null}
+									</div>
+									<h3 className="mb-2.5 mt-2 text-[clamp(1.35rem,2.5vw,1.8rem)] font-[760] tracking-[-0.04em]">
+										{item.role}
+									</h3>
+									<p className="m-0 text-[15px] leading-[1.55] text-muted-foreground">
+										{item.summary}
+									</p>
+									{item.highlights.length > 0 ? (
+										<ul className="my-4 grid gap-2 pl-[18px] text-[15px] leading-[1.55] text-muted-foreground">
+											{item.highlights.map((highlight) => (
+												<li key={highlight}>{highlight}</li>
+											))}
+										</ul>
+									) : null}
+									<TagList items={item.technologies.slice(0, 6)} />
 								</div>
-								<h3 className="resume-entry-title mb-2.5 mt-2 text-[clamp(21px,2.5vw,29px)] font-[760] tracking-[-.04em]">
-									{item.role}
-								</h3>
-								<p className="resume-entry-copy m-0 text-[15px] leading-[1.55] text-muted">
-									{item.summary}
-								</p>
-								<ul className="resume-entry-list my-[14px] mb-4 pl-[18px] text-[15px] leading-[1.55] text-muted">
-									{item.highlights.map((highlight) => (
-										<li key={highlight}>{highlight}</li>
-									))}
-								</ul>
-								<div className="tags flex flex-wrap gap-1.5">
-									{item.technologies.slice(0, 6).map((technology) => (
-										<span
-											className="tag rounded-full border border-line px-[9px] py-[5px] text-xs text-muted"
-											key={technology}
-										>
-											{technology}
-										</span>
-									))}
-								</div>
-							</div>
-						</motion.article>
-					))}
+							</article>
+						))
+					) : (
+						<EmptyState
+							title="Experience is being updated."
+							description="The public résumé will return when there is a verified role to share."
+						/>
+					)}
 				</section>
 
-				<aside className="resume-side grid min-w-0 content-start gap-[42px] border-l border-line pl-[34px] max-[800px]:border-l-0 max-[800px]:border-t max-[800px]:pl-0 max-[800px]:pt-[34px]">
+				<aside
+					data-slot="resume-side"
+					className="grid min-w-0 content-start gap-10 border-l border-border pl-8 max-[800px]:border-l-0 max-[800px]:border-t max-[800px]:pl-0 max-[800px]:pt-8"
+				>
 					<section aria-labelledby="resume-capabilities-title">
-						<p className="eyebrow">Core systems</p>
-						<h2
-							className="resume-section-title mb-5 mt-0 text-[clamp(25px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-							id="resume-capabilities-title"
-						>
-							How I contribute.
-						</h2>
-						<div className="resume-capability-list grid">
-							{content.capabilities.map((capability) => (
-								<motion.article
-									className="resume-capability border-t border-line py-[18px] [break-inside:avoid]"
-									key={capability.id}
-									whileHover={reducedMotion ? undefined : { x: 3 }}
-									transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-								>
-									<h3 className="resume-capability-title mb-1.5 mt-0 text-base font-[760] tracking-[-.02em]">
+						<PageHeader
+							eyebrow="Core systems"
+							title={<span id="resume-capabilities-title">How I contribute.</span>}
+							level={2}
+							className="mb-5"
+						/>
+						{content.capabilities.length > 0 ? (
+							content.capabilities.map((capability) => (
+								<article className="border-t border-border py-5" key={capability.id}>
+									<h3 className="mb-1.5 mt-0 text-base font-[760] tracking-[-0.02em]">
 										{capability.title}
 									</h3>
-									<p className="resume-capability-copy mb-3 mt-0 text-sm leading-[1.55] text-muted">
+									<p className="mb-3 mt-0 text-sm leading-[1.55] text-muted-foreground">
 										{capability.description}
 									</p>
-									<div className="tags flex flex-wrap gap-1.5">
-										{capability.tools.map((tool) => (
-											<span
-												className="tag rounded-full border border-line px-[9px] py-[5px] text-xs text-muted"
-												key={tool}
-											>
-												{tool}
-											</span>
-										))}
-									</div>
-								</motion.article>
-							))}
-						</div>
+									<TagList items={capability.tools} />
+								</article>
+							))
+						) : (
+							<EmptyState
+								title="Capabilities are being updated."
+								description="The next version of the résumé will include the current systems I work on."
+							/>
+						)}
 					</section>
 					<section aria-labelledby="resume-proof-title">
-						<p className="eyebrow">Public proof</p>
-						<h2
-							className="resume-section-title mb-5 mt-0 text-[clamp(25px,3vw,38px)] font-[760] leading-none tracking-[-.055em]"
-							id="resume-proof-title"
-						>
-							Selected builds.
-						</h2>
-						<div className="resume-proof grid gap-[9px]">
-							{proof.map((project) => (
-								<a
-									className="resume-proof-link grid gap-[3px] border-t border-line py-[13px] text-primary no-underline transition-transform duration-180 ease-route hover:translate-x-1"
-									key={project.id}
-									href={project.repository ?? project.href}
-									target="_blank"
-									rel="noreferrer"
-								>
-									<strong className="resume-proof-title text-sm text-ink">{project.title}</strong>
-									<span className="resume-proof-meta text-xs text-muted">{project.role}</span>
-								</a>
-							))}
-						</div>
+						<PageHeader
+							eyebrow="Public proof"
+							title={<span id="resume-proof-title">Selected builds.</span>}
+							level={2}
+							className="mb-5"
+						/>
+						{proof.length > 0 ? (
+							<div className="grid">
+								{proof.map((project) => (
+									<a
+										className="grid gap-1 border-t border-border py-3.5 text-primary-text no-underline focus-visible:outline-2 focus-visible:outline-ring"
+										key={project.id}
+										href={project.repository ?? project.href}
+										target="_blank"
+										rel="noreferrer"
+									>
+										<strong className="text-sm text-foreground">{project.title}</strong>
+										<span className="text-xs text-muted-foreground">
+											{project.role}
+											<span className="sr-only">, opens in a new tab</span>
+										</span>
+									</a>
+								))}
+							</div>
+						) : (
+							<EmptyState
+								title="Public proof is being updated."
+								description="Selected builds will return when their public links are verified."
+							/>
+						)}
 					</section>
-					<section
-						className="resume-note rounded-[18px] border border-[#ff765750] bg-[#fff8f5] p-[18px]"
+					<div
+						className="rounded-[18px] border border-signal/40 bg-signal/10 p-[18px]"
 						aria-label="Availability"
 					>
-						<p className="eyebrow">Next route</p>
-						<p className="resume-note-copy m-0 text-sm leading-[1.55] text-muted">
+						<p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-signal">
+							Next route
+						</p>
+						<p className="m-0 text-sm leading-[1.55] text-muted-foreground">
 							{content.identity.availability}. I am building toward a remote life with room for
 							meaningful travel.
 						</p>
-					</section>
+					</div>
 				</aside>
 			</div>
-		</main>
+		</PageShell>
 	);
 }

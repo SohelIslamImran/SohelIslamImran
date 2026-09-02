@@ -21,4 +21,17 @@ describe("portfolio content validation", () => {
 			expect(result.issues.some((issue) => issue.path.includes("profileLinks[0].href"))).toBe(true);
 		}
 	});
+
+	it("accepts explicit project focus metadata and rejects unknown focus values", () => {
+		const content = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		content.projects[0].focuses = ["identity", "delivery"];
+
+		expect(validatePortfolioContent(content).ok).toBe(true);
+
+		Reflect.set(content.projects[0], "focuses", ["private"]);
+		const result = validatePortfolioContent(content);
+		expect(result.ok).toBe(false);
+		if (!result.ok)
+			expect(result.issues.some((issue) => issue.path.includes("projects[0].focuses"))).toBe(true);
+	});
 });
