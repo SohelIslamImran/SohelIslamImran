@@ -1,0 +1,42 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "portfolio",
+	"compatibility_date": "2026-08-25",
+	"compatibility_flags": ["nodejs_compat"],
+	"main": "./src/server-entry.ts",
+	"workers_dev": false,
+	"preview_urls": false,
+	"vars": {
+		"APP_ORIGIN": "https://sohelislamimran.com",
+		"CMS_ORIGIN": "https://cms.sohelislamimran.com",
+		"OWNER_EMAIL": "sohelislamimran@gmail.com",
+		"ENVIRONMENT": "production",
+	},
+	"observability": {
+		"enabled": true,
+		"head_sampling_rate": 1,
+	},
+	"upload_source_maps": true,
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "portfolio-content-production",
+			"database_id": "999eab4e-2274-49f5-9bdb-a9acc5075b40",
+			"migrations_dir": "migrations",
+		},
+	],
+	// Enable after the production bucket exists. Media uploads stay unavailable
+	// until this binding is present.
+	// "r2_buckets": [
+	//   { "binding": "MEDIA", "bucket_name": "portfolio-media-production" }
+	// ],
+	"routes": [
+		{ "pattern": "sohelislamimran.com", "custom_domain": true },
+		{ "pattern": "www.sohelislamimran.com", "custom_domain": true },
+		{ "pattern": "cms.sohelislamimran.com", "custom_domain": true },
+	],
+}
