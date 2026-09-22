@@ -1,26 +1,105 @@
-<h3 align="center">Hey there, I'm Sohel Islam Imran <img src="https://media.giphy.com/media/hvRJCLFzcasrR4ia7z/giphy.gif" width="26"></h3>
+<div align="center">
+  <img src="./public/images/sohel-linkedin-400.webp" width="128" height="128" alt="Sohel Islam Imran" />
+  <h1>Sohel Islam Imran</h1>
+  <p><strong>Lead Full Stack Engineer at Kuno</strong><br />Product systems, mobile infrastructure, and delivery for teams everywhere.</p>
+  <p>
+    <a href="https://sohelislamimran.com">Portfolio</a> ·
+    <a href="https://www.linkedin.com/in/sohelislamimran/">LinkedIn</a> ·
+    <a href="https://github.com/SohelIslamImran">GitHub</a> ·
+    <a href="https://x.com/SohelIslamImran">X</a> ·
+    <a href="mailto:sohelislamimran@gmail.com">Email</a>
+  </p>
+</div>
 
-<p align="center">
-<img src="https://komarev.com/ghpvc/?username=SohelIslamImran&label=Profile%20views&color=0e75b6&style=flat" alt="SohelIslamImran" />
-</p>
+## What I build
 
-### 📖 About me
+I follow product problems through the whole stack: interface behavior, services, data, authorization, release systems, and the feedback loops that keep software dependable.
 
-Full-Stack Software Engineer passionate about building modern web and mobile applications. Specializing in TypeScript/JavaScript ecosystems with demonstrated expertise across frontend and backend technologies. Experienced in crafting responsive user interfaces for web and mobile platforms using React-based frameworks, complemented by strong capabilities in designing scalable API services and data management solutions. Proficient in enterprise-scale application architectures, cloud infrastructure implementation, and performance optimization techniques. Committed to delivering clean, maintainable code while continuously expanding technical expertise to drive innovative solutions.
+At Kuno, I lead full-stack engineering across secure enterprise learning flows, role-aware product behavior, localized interfaces, internal tooling, CI/CD, observability, and platform operations. Public descriptions stay intentionally general where the product itself is private.
 
-[![X Follow](https://img.shields.io/badge/-Follow-black?logo=x)](https://x.com/SohelIslamImran)
-[![LinkedIn Connect](https://custom-icon-badges.demolab.com/badge/-Connect-black?logo=linkedin-white)](https://www.linkedin.com/in/sohelislamimran)
-[![Facebook Follow](https://img.shields.io/badge/-Follow-black?color=14171A&labelColor=1976d2&logo=facebook)](https://www.facebook.com/SohelIslamImran)
+### Experience
 
-### Languages and Frameworks :
+| Period              | Company   | Role                         |
+| ------------------- | --------- | ---------------------------- |
+| Mar 2026 — present  | Kuno      | Lead Full Stack Engineer     |
+| Jan 2025 — Mar 2026 | Kuno      | Full Stack Engineer          |
+| Dec 2023 — Jan 2025 | Kuno      | Mobile Application Developer |
+| Jun 2021 — Jan 2024 | Tilleli   | React Native Developer       |
+| Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer           |
 
-![TypeScript](https://img.shields.io/badge/-TypeScript-000000?logo=typescript)
-![React](https://img.shields.io/badge/-React-000000?logo=react)
-![React Native](https://img.shields.io/badge/-React%20Native-000000?logo=react)
-![Expo](https://img.shields.io/badge/-Expo-000000?logo=expo)
-![NextJS](https://img.shields.io/badge/-NextJS-000000?logo=next.js)
-![Nodejs](https://img.shields.io/badge/-Nodejs-000000?logo=Node.js)
-![Bun](https://img.shields.io/badge/-Bun-000000?logo=bun)
-![Postgres](https://img.shields.io/badge/Postgres-000000?logo=postgresql)
-![Redis](https://img.shields.io/badge/Redis-000000?logo=redis)
-![Docker](https://img.shields.io/badge/Docker-000000?logo=docker)
+### Selected public work
+
+- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates) — native Android and iOS update flows behind one compact Expo API.
+- [`ghosttime`](https://github.com/SohelIslamImran/ghosttime) — a customizable Ghostty-style animation for any terminal.
+- [`TailSync`](https://github.com/SohelIslamImran/TailSync) — private iOS transfers to personal Tailscale Taildrop devices.
+- [`AndroidMacDisplay`](https://github.com/SohelIslamImran/AndroidMacDisplay) — a local USB path for using an Android phone as a secondary Mac display.
+
+The current toolkit includes TypeScript, React, React Native, Expo, TanStack, ElysiaJS, Bun, PostgreSQL, Redis, Swift, Kotlin, containers, and Cloudflare. The tools change; clear product behavior and safe delivery do not.
+
+## Beyond the code
+
+I started learning on a phone in Bangladesh before I owned a computer. That path now runs through full-stack engineering, open source, mentoring, and a growing wish to work remotely while seeing more of the world.
+
+- [Read the full story](https://sohelislamimran.com/story)
+- [Follow the travel journal](https://sohelislamimran.com/field-notes)
+- [Find every public link](https://sohelislamimran.com/links)
+
+## This repository
+
+This profile repository contains the source for `sohelislamimran.com`, a Kuno-first portfolio called **Portfolio**. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
+
+### Stack
+
+- **TanStack Start + TanStack Router** — file-based routes, typed loaders/search params, server functions, full-document SSR, and streaming-ready boundaries.
+- **React 19 + TypeScript 7** — the UI and shared content contracts.
+- **Vite 8 + Bun** — local development and the canonical lockfile.
+- **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
+- **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
+- **Tailwind CSS 4** — the source of truth for theme tokens, responsive utilities, glass surfaces, and motion-friendly component primitives in `src/styles/tailwind.css`.
+- **Oxlint, Oxfmt, Vitest** — fast static checks, formatting, and focused tests.
+
+Public routes are SSR-first and read published content only. Drafts and private travel entries remain behind the CMS boundary, and public responses never expose R2 object keys.
+
+### Styling migration
+
+The former route stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities, shadcn Base UI primitives, CVA variants, and `cn()` backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to theme tokens, accessibility fallbacks, and print layout; no separate named stylesheet or custom visual utility layer is required.
+
+### Local development
+
+```sh
+bun install
+bun dev
+```
+
+Useful commands:
+
+```sh
+bun run build       # production client + SSR/Worker build
+bun run typecheck   # Wrangler bindings + strict TypeScript
+bun run check       # Oxlint + Oxfmt
+bun run test        # focused Vitest tests
+bun run preview     # preview the Vite build
+bun run deploy      # build, then wrangler deploy
+```
+
+Copy `.dev.vars.example` to `.dev.vars` for local values. Never commit Access tokens, CSRF material, database credentials, R2 keys, or contract information.
+
+## CMS and Cloudflare
+
+The portfolio is deployed at `https://sohelislamimran.com`. The `www` hostname redirects to the apex, and `https://cms.sohelislamimran.com` is protected by an owner-only Cloudflare Access policy. The Worker also verifies the Access JWT and owner allowlist, checks origin and CSRF on mutations, and keeps draft/publish revisions safe.
+
+Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md).
+
+The single production Worker is named `portfolio`; it owns the D1 binding, three custom domains, Access application, and security settings. The CMS uses Cloudflare's account identity provider behind an owner-only email policy; no separate GitHub OAuth credential is required. R2 remains off because the current release uses static media and does not need usage-based object storage.
+
+Production remains on the last verified Worker release while UI and interaction changes are reviewed on this branch. Deploy only after the preview and acceptance checks in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md) pass.
+
+The zone is on Cloudflare's Free Website plan, and this release did not enable Workers Paid, R2, or paid security add-ons. Free quotas may throttle traffic instead of providing unlimited capacity. Domain renewal is separate, remains enabled, and was not changed by this deployment.
+
+## Privacy and publishing
+
+The public story is generalized and does not publish salary, addresses, signatures, IDs, contract terms, private customer details, or private repositories. The CMS publishes only the validated document revision; public loaders never read drafts. Redirect utilities under `/links/:linkId` are allowlisted and marked `noindex`.
+
+## License
+
+The portfolio content and visual identity are personal. Source code is shared for reference; contact me before reusing personal copy, photographs, or brand assets.

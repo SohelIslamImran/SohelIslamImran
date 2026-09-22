@@ -1,0 +1,4 @@
+interface:
+  display_name: "Sohel Profile Knowledge"
+  short_description: "Use Sohel’s verified career and project facts"
+  default_prompt: "Use $sohel-profile to draft an evidence-based professional profile for Sohel Islam Imran."
