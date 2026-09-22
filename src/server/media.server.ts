@@ -63,7 +63,11 @@ export async function uploadMedia(
 			})
 			.run();
 	} catch {
-		// The immutable R2 object is left for an explicit orphan-cleanup job.
+		try {
+			await bucket.delete(key);
+		} catch {
+			// Best-effort cleanup; the metadata failure is the error worth surfacing.
+		}
 		throw new MediaUploadError(
 			"The file uploaded, but its metadata could not be saved. Try again with a new file.",
 		);

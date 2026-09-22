@@ -1,5 +1,5 @@
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
-import { and, eq, exists, inArray, lt, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, lt, notExists, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import type { MediaAsset, PortfolioContent } from "../types/content";
 import {
@@ -387,6 +387,16 @@ export async function publishDraft(
 				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
 			),
 		);
+	const existingPublishedHistory = query
+		.select({ id: portfolioRevisions.id })
+		.from(portfolioRevisions)
+		.where(
+			and(
+				eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID),
+				eq(portfolioRevisions.kind, "published"),
+				eq(portfolioRevisions.revision, expectedDraftRevision),
+			),
+		);
 	const publishedRevisionSelect = query
 		.select({
 			documentId: portfolioDocuments.id,
@@ -402,6 +412,7 @@ export async function publishDraft(
 				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
 				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
 				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
+				notExists(existingPublishedHistory),
 			),
 		);
 	const results = await query.batch([
