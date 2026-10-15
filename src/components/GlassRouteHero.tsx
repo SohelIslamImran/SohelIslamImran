@@ -44,9 +44,9 @@ interface GlassRouteHeroProps {
 }
 
 const defaultStops: RouteStops = [
-	{ label: "Origin", detail: "Personal origin · UTC+6", accent: "orange" },
-	{ label: "Kuno", detail: "Product systems · present" },
-	{ label: "World", detail: "Remote by design", accent: "orange" },
+	{ label: "Origin", detail: "Dhaka · first code in 2020", accent: "orange" },
+	{ label: "Today", detail: "Full-stack product work" },
+	{ label: "Next", detail: "Remote, and more of the world", accent: "orange" },
 ];
 
 const stopPositions = [
@@ -132,14 +132,12 @@ export function GlassRouteHero({
 
 	const select = (index: number) => setSelected(Math.max(0, Math.min(stops.length - 1, index)));
 	const current = stops[selected] ?? stops[0];
-	const currentKunoRole =
-		experience.find((item) => item.company.toLowerCase() === "kuno" && item.current)?.role ??
-		identity.role;
+	const currentRole = experience.find((item) => item.current);
 	const portrait = portraitSrc ?? "/images/sohel-linkedin-800.webp";
 	const actions = hero?.actions?.length
 		? hero.actions
 		: [
-				{ label: "See the route", href: "#experience" },
+				{ label: "See experience", href: "#experience" },
 				{ label: "Start a conversation", href: `mailto:${identity.email}`, external: true },
 			];
 
@@ -248,13 +246,16 @@ export function GlassRouteHero({
 						className="mr-1.5 inline-block size-2 rounded-full bg-signal align-[1px] shadow-[0_0_0_5px_color-mix(in_srgb,var(--theme-signal)_12%,transparent)]"
 						aria-hidden="true"
 					/>
-					{hero?.eyebrow || `${currentKunoRole} · Kuno`}
+					{hero?.eyebrow ||
+						(currentRole ? `${currentRole.role} · ${currentRole.company}` : identity.role)}
 				</p>
 				<h1
 					className="m-0 max-w-[790px] text-[clamp(3.15rem,4.7vw,5rem)] font-[760] leading-[0.95] tracking-[-0.065em] text-balance max-[959px]:text-[clamp(2.85rem,12.4vw,4.4rem)]"
 					id="hero-title"
 				>
-					{renderHeadline(hero?.title || "I lead full-stack product engineering at Kuno.")}
+					{renderHeadline(
+						hero?.title || "I follow product problems all the way through the stack.",
+					)}
 				</h1>
 				<p className="mt-5 max-w-[580px] text-[clamp(1.05rem,1.8vw,1.3rem)] leading-[1.55] text-muted-foreground">
 					{hero?.intro ||
@@ -322,7 +323,7 @@ export function GlassRouteHero({
 					className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
 					viewBox="0 0 620 470"
 					role="img"
-					aria-label="Interactive route from origin to Kuno to the world"
+					aria-label="Interactive route from where I started to where I’m headed"
 				>
 					<path
 						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"

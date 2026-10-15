@@ -23,8 +23,8 @@ export function CareerTimeline({
 		>
 			<SectionIntro
 				eyebrow={`${sectionNumber} · Experience`}
-				title={<span id={titleId}>Experience, with Kuno first.</span>}
-				description="I grew from mobile engineering into leading product architecture, delivery, and the full stack around them."
+				title={<span id={titleId}>Five years of shipping.</span>}
+				description="From a React Native internship in 2021 to leading full-stack product work today."
 			/>
 			{experience.length > 0 ? (
 				<div className="grid">

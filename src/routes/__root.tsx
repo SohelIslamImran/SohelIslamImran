@@ -163,7 +163,7 @@ function RootComponent() {
 					className="mx-auto grid w-[calc(100%-40px)] max-w-[1200px] grid-cols-[1fr_1.4fr_auto] gap-5 border-t border-border py-10 pb-[max(3rem,env(safe-area-inset-bottom))] text-[13px] text-muted-foreground max-[800px]:grid-cols-1 max-[800px]:gap-2.5"
 				>
 					<p>© {new Date().getUTCFullYear()} Sohel Islam Imran</p>
-					<p>Full-stack product engineering for teams everywhere.</p>
+					<p>Full-stack product engineering, from Dhaka.</p>
 					<Link
 						className="font-bold text-primary-text no-underline"
 						to="/links"
@@ -268,7 +268,7 @@ function NavigationLinks({
 				if (!groupRef.current?.contains(event.relatedTarget as Node | null)) setHovered(null);
 			}}
 		>
-			<Link {...linkProps("work")} to="/work" search={{ focus: "identity" }}>
+			<Link {...linkProps("work")} to="/work">
 				{showIndicator("work")}
 				<span className="relative z-[1]">Work</span>
 			</Link>
