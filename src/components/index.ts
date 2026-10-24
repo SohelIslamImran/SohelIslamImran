@@ -6,7 +6,7 @@ export { LinkIcon } from "./LinkIcon";
 export { LinksFilter, linkKinds } from "./LinksFilter";
 export type { LinkKind } from "./LinksFilter";
 export { PortfolioImage } from "./PortfolioImage";
-export { WorkFocusTabs } from "./WorkFocusTabs";
+export { SelectedWork } from "./SelectedWork";
 export type { RouteStop, RouteStops } from "./GlassRouteHero";
 export { Button, buttonVariants } from "./ui/button";
 export {

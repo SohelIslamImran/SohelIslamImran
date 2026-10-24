@@ -20,10 +20,11 @@ export const Route = createFileRoute("/resume")({
 	loader: getPublishedContent,
 	head: ({ loaderData }) => {
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
+		const currentCompany = c.experience.find((item) => item.current)?.company;
 		return pageHead(
 			c,
 			`${c.identity.name} — Résumé`,
-			`${c.identity.role} at Kuno. Experience, projects, and capabilities.`,
+			`${c.identity.role} in ${c.identity.location}. Experience, projects, and skills.`,
 			"/resume",
 			"/images/social-resume.png",
 			[
@@ -35,7 +36,9 @@ export const Route = createFileRoute("/resume")({
 						"@type": "Person",
 						name: c.identity.name,
 						jobTitle: c.identity.role,
-						worksFor: { "@type": "Organization", name: "Kuno" },
+						...(currentCompany
+							? { worksFor: { "@type": "Organization", name: currentCompany } }
+							: {}),
 					},
 				},
 			],
@@ -57,7 +60,7 @@ function Resume() {
 				className="grid overflow-visible grid-cols-[minmax(0,1fr)_168px] items-center gap-[clamp(30px,6vw,72px)] p-[clamp(28px,4vw,48px)] max-[800px]:grid-cols-1 max-[800px]:gap-6"
 			>
 				<PageHeader
-					eyebrow={`${content.identity.role} · Kuno`}
+					eyebrow={`${content.identity.role} · ${content.identity.location}`}
 					title={<span data-slot="resume-title">{content.identity.name}</span>}
 					description={content.resume.summary ?? content.about.paragraphs[0]}
 					className="mb-0 min-w-0"
@@ -123,9 +126,7 @@ function Resume() {
 				<section className="min-w-0" aria-labelledby="resume-experience-title">
 					<PageHeader
 						eyebrow="Experience"
-						title={
-							<span id="resume-experience-title">Product work across teams and platforms.</span>
-						}
+						title={<span id="resume-experience-title">Experience.</span>}
 						level={2}
 						className="mb-5"
 					/>
@@ -178,8 +179,8 @@ function Resume() {
 				>
 					<section aria-labelledby="resume-capabilities-title">
 						<PageHeader
-							eyebrow="Core systems"
-							title={<span id="resume-capabilities-title">How I contribute.</span>}
+							eyebrow="Skills"
+							title={<span id="resume-capabilities-title">What I work on.</span>}
 							level={2}
 							className="mb-5"
 						/>
@@ -204,8 +205,8 @@ function Resume() {
 					</section>
 					<section aria-labelledby="resume-proof-title">
 						<PageHeader
-							eyebrow="Public proof"
-							title={<span id="resume-proof-title">Selected builds.</span>}
+							eyebrow="Projects"
+							title={<span id="resume-proof-title">Public work.</span>}
 							level={2}
 							className="mb-5"
 						/>
@@ -239,11 +240,11 @@ function Resume() {
 						aria-label="Availability"
 					>
 						<p className="mb-2 text-xs font-extrabold uppercase tracking-[0.11em] text-signal">
-							Next route
+							Availability
 						</p>
 						<p className="m-0 text-sm leading-[1.55] text-muted-foreground">
-							{content.identity.availability}. I am building toward a remote life with room for
-							meaningful travel.
+							{content.identity.availability}. I work from Dhaka (UTC+6) and am comfortable
+							collaborating remotely across time zones.
 						</p>
 					</div>
 				</aside>

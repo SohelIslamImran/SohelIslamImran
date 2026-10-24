@@ -2,7 +2,7 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { CareerTimeline } from "../components/CareerTimeline";
 import { GlassRouteHero } from "../components/GlassRouteHero";
 import { PortfolioImage } from "../components/PortfolioImage";
-import { WorkFocusTabs } from "../components/WorkFocusTabs";
+import { SelectedWork } from "../components/SelectedWork";
 import { ButtonLink, SectionIntro } from "../components/ui/portfolio";
 import { getPublishedContent } from "../server/content";
 import { jsonLd, pageHead } from "../lib/seo";
@@ -37,7 +37,6 @@ export const Route = createFileRoute("/")({
 
 function Home() {
 	const content = Route.useLoaderData();
-	const kunoExperience = content.experience.filter((item) => item.company.toLowerCase() === "kuno");
 	const metrics = content.hero.metrics
 		.filter((metric) => metric.value || metric.label)
 		.filter((metric) => !/public repositories?/iu.test(metric.label))
@@ -76,21 +75,23 @@ function Home() {
 				</section>
 			) : null}
 			<div className="mx-auto w-full max-w-[1200px] px-5 sm:px-8">
-				<WorkFocusTabs projects={content.projects} sectionNumber="01" />
-				<CareerTimeline
-					experience={kunoExperience.length ? kunoExperience : content.experience}
-					sectionNumber="02"
+				<SelectedWork
+					projects={content.projects}
+					sectionNumber="01"
+					showOtherWork={false}
+					showAllLink
 				/>
+				<CareerTimeline experience={content.experience} sectionNumber="02" />
 				<section className="w-full py-[clamp(68px,8vw,96px)]" aria-labelledby="about-title">
 					<SectionIntro
-						eyebrow="03 · The practice"
+						eyebrow="03 · About"
 						title={<span id="about-title">{content.about.title}</span>}
 						description={aboutParagraphs[0]}
 					/>
 					<div className="grid grid-cols-[minmax(0,1.05fr)_minmax(0,.95fr)] items-center gap-[clamp(32px,8vw,110px)] max-[800px]:grid-cols-1">
 						<PortfolioImage
 							src="/images/kuno-systems-724.webp"
-							alt="Abstract glass architecture representing the systems Sohel builds"
+							alt="Abstract glass architecture"
 							width={724}
 							height={543}
 							sizes="(max-width: 800px) calc(100vw - 40px), 560px"
@@ -117,7 +118,7 @@ function Home() {
 					aria-labelledby="contact-title"
 				>
 					<p className="mb-3.5 text-xs font-extrabold uppercase tracking-[0.11em] text-primary-text">
-						04 · Open channel
+						04 · Contact
 					</p>
 					<h2
 						className="mx-auto my-4 max-w-[760px] text-[clamp(2.7rem,5vw,5rem)] font-[760] leading-[0.96] tracking-[-0.06em] text-balance"
@@ -131,7 +132,7 @@ function Home() {
 					) : null}
 					<div className="mt-7 flex flex-wrap justify-center gap-2.5">
 						<ButtonLink href={`mailto:${content.contact.email}`} size="lg">
-							Start a conversation <span aria-hidden="true">↗</span>
+							Email me <span aria-hidden="true">↗</span>
 						</ButtonLink>
 						{content.contact.links.slice(0, 2).map((link) => (
 							<ButtonLink

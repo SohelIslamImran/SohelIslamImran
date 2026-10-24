@@ -1,7 +1,7 @@
 <div align="center">
   <img src="./public/images/sohel-linkedin-400.webp" width="128" height="128" alt="Sohel Islam Imran" />
   <h1>Sohel Islam Imran</h1>
-  <p><strong>Lead Full Stack Engineer at Kuno</strong><br />Product systems, mobile infrastructure, and delivery for teams everywhere.</p>
+  <p><strong>Lead Full Stack Engineer</strong><br />I follow product problems all the way through the stack.</p>
   <p>
     <a href="https://sohelislamimran.com">Portfolio</a> ·
     <a href="https://www.linkedin.com/in/sohelislamimran/">LinkedIn</a> ·
@@ -11,11 +11,11 @@
   </p>
 </div>
 
-## What I build
+## What I do
 
-I follow product problems through the whole stack: interface behavior, services, data, authorization, release systems, and the feedback loops that keep software dependable.
+I'm a full-stack engineer in Dhaka. I started on React Native apps in 2021 and kept going: into the APIs, data, access rules, infrastructure, and release paths that decide whether a feature actually holds up.
 
-At Kuno, I lead full-stack engineering across secure enterprise learning flows, role-aware product behavior, localized interfaces, internal tooling, CI/CD, observability, and platform operations. Public descriptions stay intentionally general where the product itself is private.
+Today I'm Lead Full Stack Engineer at [Kuno](https://www.kuno-ai.com/), a B2B professional-development platform, where I work across product architecture, application security, and delivery. Before that I spent nearly three years building a React Native events app at Tilleli, starting as an intern.
 
 ### Experience
 
@@ -27,26 +27,24 @@ At Kuno, I lead full-stack engineering across secure enterprise learning flows, 
 | Jun 2021 — Jan 2024 | Tilleli   | React Native Developer       |
 | Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer           |
 
-### Selected public work
+### Open source
 
-- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates) — native Android and iOS update flows behind one compact Expo API.
-- [`ghosttime`](https://github.com/SohelIslamImran/ghosttime) — a customizable Ghostty-style animation for any terminal.
-- [`TailSync`](https://github.com/SohelIslamImran/TailSync) — private iOS transfers to personal Tailscale Taildrop devices.
-- [`AndroidMacDisplay`](https://github.com/SohelIslamImran/AndroidMacDisplay) — a local USB path for using an Android phone as a secondary Mac display.
+- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates): one API for native in-app updates on Android (Play Core) and iOS (App Store lookup), written in Kotlin, Swift, and TypeScript. 72,220 npm downloads in the week of Oct 5–11, 2026.
 
-The current toolkit includes TypeScript, React, React Native, Expo, TanStack, ElysiaJS, Bun, PostgreSQL, Redis, Swift, Kotlin, containers, and Cloudflare. The tools change; clear product behavior and safe delivery do not.
+Smaller builds and experiments: [`ghosttime`](https://github.com/SohelIslamImran/ghosttime), [TailSync](https://github.com/SohelIslamImran/TailSync), and [Android Mac Display](https://github.com/SohelIslamImran/AndroidMacDisplay).
+
+**Day to day:** TypeScript, React, TanStack, Elysia on Bun, Drizzle, PostgreSQL, Redis, React Native and Expo, AWS and Terraform, Cloudflare.
 
 ## Beyond the code
 
-I started learning on a phone in Bangladesh before I owned a computer. That path now runs through full-stack engineering, open source, mentoring, and a growing wish to work remotely while seeing more of the world.
+I wrote my first code in late 2020, on the first computer my family could afford. The [longer story](https://sohelislamimran.com/story) covers how that turned into a career.
 
-- [Read the full story](https://sohelislamimran.com/story)
 - [Follow the travel journal](https://sohelislamimran.com/field-notes)
 - [Find every public link](https://sohelislamimran.com/links)
 
 ## This repository
 
-This profile repository contains the source for `sohelislamimran.com`, a Kuno-first portfolio called **Portfolio**. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
+This profile repository contains the source for `sohelislamimran.com`, my personal portfolio. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
 
 ### Stack
 
