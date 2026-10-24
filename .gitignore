@@ -1,0 +1,15 @@
+.DS_Store
+.env
+/node_modules/
+*.tsbuildinfo
+/dist/
+/.tanstack/
+
+# Cloudflare
+.mf
+.wrangler
+.dev.vars*
+worker-configuration.d.ts
+
+!.dev.vars.example
+!.env.example
