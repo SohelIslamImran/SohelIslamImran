@@ -3,6 +3,25 @@ import type { PortfolioContent } from "../types/content";
 export const ORIGIN = "https://sohelislamimran.com";
 export const SOCIAL_IMAGE = "/images/social-home.png";
 
+const jsonLdEscapes: Record<string, string> = {
+	"<": "\\u003c",
+	">": "\\u003e",
+	"&": "\\u0026",
+	"\u2028": "\\u2028",
+	"\u2029": "\\u2029",
+};
+
+function escapeJsonLd(value: string) {
+	return value.replace(/[<>&\u2028\u2029]/g, (character) => jsonLdEscapes[character] ?? character);
+}
+
+function jsonLdScript(value: unknown) {
+	return {
+		type: "application/ld+json",
+		children: escapeJsonLd(JSON.stringify(value)),
+	};
+}
+
 export function absolute(path: string) {
 	return new URL(path, ORIGIN).href;
 }
@@ -42,27 +61,15 @@ export function pageHead(
 		],
 		links: [{ rel: "canonical", href: canonical }],
 		scripts: [
-			{
-				type: "application/ld+json",
-				children: JSON.stringify(personJsonLd(content)),
-			},
-			{
-				type: "application/ld+json",
-				children: JSON.stringify({
-					...jsonLd(content, "WebPage", title, path),
-					name: title,
-					description,
-					inLanguage: content.site.locale,
-				}),
-			},
-			{
-				type: "application/ld+json",
-				children: JSON.stringify(breadcrumbs),
-			},
-			...structuredData.map((item) => ({
-				type: "application/ld+json",
-				children: JSON.stringify(item),
-			})),
+			jsonLdScript(personJsonLd(content)),
+			jsonLdScript({
+				...jsonLd(content, "WebPage", title, path),
+				name: title,
+				description,
+				inLanguage: content.site.locale,
+			}),
+			jsonLdScript(breadcrumbs),
+			...structuredData.map((item) => jsonLdScript(item)),
 		],
 	};
 }
@@ -75,7 +82,6 @@ export function personJsonLd(content: PortfolioContent) {
 		jobTitle: content.identity.role,
 		url: ORIGIN,
 		email: `mailto:${content.identity.email}`,
-		address: { "@type": "PostalAddress", addressLocality: "Dhaka", addressCountry: "BD" },
 		sameAs: content.social.map((link) => link.href),
 	};
 }

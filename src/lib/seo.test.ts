@@ -27,4 +27,20 @@ describe("pageHead", () => {
 		expect(jsonLdScripts.join(" ")).toContain('"@type":"Person"');
 		expect(jsonLdScripts.join(" ")).toContain('"@type":"BreadcrumbList"');
 	});
+
+	it("escapes CMS strings so JSON-LD cannot close its script element", () => {
+		const content = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		const unsafe = '</script><script>alert("x")</script>&\u2028\u2029';
+		content.identity.name = unsafe;
+		content.story.title = unsafe;
+
+		const head = pageHead(content, unsafe, unsafe, "/");
+		const scripts = (head.scripts as Array<{ children: string }>).map((script) => script.children);
+
+		for (const script of scripts) {
+			expect(script).not.toMatch(/[<>&\u2028\u2029]/u);
+			expect(() => JSON.parse(script)).not.toThrow();
+		}
+		expect(scripts.some((script) => script.includes("\\u003c/script\\u003e"))).toBe(true);
+	});
 });

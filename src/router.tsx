@@ -5,7 +5,8 @@ export function getRouter() {
 	return createRouter({
 		routeTree,
 		scrollRestoration: true,
-		defaultViewTransition: true,
+		scrollRestorationBehavior: "instant",
+		defaultViewTransition: false,
 	});
 }
 

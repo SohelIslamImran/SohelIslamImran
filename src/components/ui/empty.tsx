@@ -19,7 +19,7 @@ function EmptyHeader({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="empty-header"
-			className={cn("flex max-w-sm flex-col items-center gap-2", className)}
+			className={cn("flex min-w-0 max-w-full flex-col items-center gap-2", className)}
 			{...props}
 		/>
 	);
@@ -55,22 +55,40 @@ function EmptyMedia({
 	);
 }
 
-function EmptyTitle({ className, ...props }: React.ComponentProps<"div">) {
+export type EmptyTitleLevel = 2 | 3 | 4 | 5 | 6;
+
+type EmptyTitleProps = Omit<React.ComponentProps<"h2">, "children"> & {
+	children?: React.ReactNode;
+	level?: EmptyTitleLevel;
+};
+
+function EmptyTitle({ className, children, level = 3, ...props }: EmptyTitleProps) {
+	const Heading = `h${level}` as "h2" | "h3" | "h4" | "h5" | "h6";
+	const content =
+		typeof children === "string" && !children.trim()
+			? "Nothing here yet."
+			: (children ?? "Nothing here yet.");
+
 	return (
-		<div
+		<Heading
 			data-slot="empty-title"
-			className={cn("font-heading text-sm font-medium tracking-tight", className)}
 			{...props}
-		/>
+			className={cn(
+				"m-0 min-w-0 max-w-full break-words font-heading text-sm font-medium tracking-tight [overflow-wrap:anywhere]",
+				className,
+			)}
+		>
+			{content}
+		</Heading>
 	);
 }
 
 function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
 	return (
-		<div
+		<p
 			data-slot="empty-description"
 			className={cn(
-				"text-sm/relaxed text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary-text",
+				"m-0 min-w-0 max-w-full break-words text-sm/relaxed text-muted-foreground [overflow-wrap:anywhere] [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary-text",
 				className,
 			)}
 			{...props}
@@ -83,7 +101,7 @@ function EmptyContent({ className, ...props }: React.ComponentProps<"div">) {
 		<div
 			data-slot="empty-content"
 			className={cn(
-				"flex w-full max-w-sm min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
+				"flex w-full max-w-full min-w-0 flex-col items-center gap-2.5 text-sm text-balance",
 				className,
 			)}
 			{...props}

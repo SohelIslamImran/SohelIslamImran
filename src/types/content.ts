@@ -4,7 +4,7 @@
  * loaders, editor forms, and lightweight client components.
  */
 
-export const CONTENT_SCHEMA_VERSION = 2 as const;
+export const CONTENT_SCHEMA_VERSION = 3 as const;
 
 export type ContentSchemaVersion = typeof CONTENT_SCHEMA_VERSION;
 
@@ -65,7 +65,14 @@ export interface ExperienceContent {
 	href?: string;
 }
 
-export type WorkFocus = "identity" | "matching" | "delivery";
+/**
+ * How much weight a project carries. `product` is paid work on a real product,
+ * `open-source` is published and maintained, `experiment` is a prototype. The
+ * work page groups and orders by this, so it also controls emphasis.
+ */
+export type ProjectCategory = "product" | "open-source" | "experiment";
+
+export const PROJECT_CATEGORIES = ["product", "open-source", "experiment"] as const;
 
 export interface ProjectContent {
 	id: string;
@@ -77,12 +84,31 @@ export interface ProjectContent {
 	role: string;
 	status: string;
 	tags: string[];
-	focuses?: WorkFocus[];
+	category: ProjectCategory;
 	highlights: string[];
+	/** Public adoption numbers. Keep the measurement date inside the label. */
+	metrics?: MetricContent[];
 	href?: string;
 	repository?: string;
 	cover?: MediaAsset | null;
 	featured?: boolean;
+}
+
+export interface TestimonialContent {
+	id: string;
+	quote: string;
+	author: string;
+	role: string;
+	date?: string;
+	href?: string;
+}
+
+export interface CredentialContent {
+	id: string;
+	title: string;
+	issuer: string;
+	issuedAt: string;
+	href?: string;
 }
 
 export interface CapabilityContent {
@@ -199,6 +225,8 @@ export interface PortfolioContent {
 	experience: ExperienceContent[];
 	projects: ProjectContent[];
 	capabilities: CapabilityContent[];
+	testimonials: TestimonialContent[];
+	credentials: CredentialContent[];
 	writing: WritingContent[];
 	contact: ContactContent;
 	social: SocialLinkContent[];
@@ -221,8 +249,8 @@ export const EMPTY_PORTFOLIO_CONTENT: PortfolioContent = {
 		name: "Sohel Islam Imran",
 		handle: "sohelislamimran",
 		role: "",
-		location: "Dhaka, Bangladesh",
-		timezone: "Asia/Dhaka",
+		location: "",
+		timezone: "",
 		availability: "",
 		email: "sohelislamimran@gmail.com",
 		avatar: null,
@@ -242,6 +270,8 @@ export const EMPTY_PORTFOLIO_CONTENT: PortfolioContent = {
 	experience: [],
 	projects: [],
 	capabilities: [],
+	testimonials: [],
+	credentials: [],
 	writing: [],
 	contact: {
 		title: "",

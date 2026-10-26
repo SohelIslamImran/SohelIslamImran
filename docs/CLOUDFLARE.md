@@ -1,109 +1,103 @@
 # Cloudflare deployment
 
-The portfolio runs as one Cloudflare Worker named `portfolio` with three custom
-hostnames:
+This guide describes the deployment shape represented by `wrangler.jsonc` and the Worker source. It is not a live Cloudflare account audit. This handoff did not verify a deployed Worker, active hostnames, Access, remote D1 migrations, redirects, or response headers.
 
-- `https://sohelislamimran.com` — canonical public site
-- `https://www.sohelislamimran.com` — redirects to the apex hostname
-- `https://cms.sohelislamimran.com` — private unified CMS
+## Configured shape
 
-## Production status
+`wrangler.jsonc` names the Worker `portfolio` and points its main entry at `src/server-entry.ts`. It configures these routes:
 
-The TanStack Start build is deployed to the `portfolio` Worker. The former
-duplicate Worker was removed after its domains and settings were migrated. The
-apex,
-`www`, and CMS custom domains are active. The
-`portfolio-content-production` D1 database exists, both migrations are applied,
-and the public site reads the published revision.
+| Hostname | Configured intent |
+| --- | --- |
+| `sohelislamimran.com` | Canonical public origin. |
+| `www.sohelislamimran.com` | Redirect to the configured public origin. |
+| `cms.sohelislamimran.com` | Rewrite the root to `/cms` and redirect other public paths to the public origin. |
 
-The production zone currently has:
+The Worker also keeps `workers.dev` and preview URLs disabled. The `DB` binding targets the D1 database named `portfolio-content-production`. The R2 binding is commented out, so media uploads are unavailable in this configuration.
 
-- the Free Website plan
-- Full (strict) SSL mode
-- Always Use HTTPS, TLS 1.2 minimum, TLS 1.3, HTTP/3, Brotli, and Browser
-  Integrity Check enabled
-- 0-RTT disabled to avoid replaying state-changing CMS requests
-- DNSSEC enabled and awaiting automatic DS publication by Cloudflare Registrar
-- no public `workers.dev` or preview hostname for the production Worker
+The public origin variables are:
 
-Local UI and interaction work is not promoted automatically. The apex stays on
-the last verified Worker release until a preview build passes the smoke, SEO,
-CMS, and print acceptance checks; this keeps the deployed site as the rollback
-target during iteration.
+| Variable | Value in `wrangler.jsonc` |
+| --- | --- |
+| `APP_ORIGIN` | `https://sohelislamimran.com` |
+| `CMS_ORIGIN` | `https://cms.sohelislamimran.com` |
+| `OWNER_EMAIL` | `sohelislamimran@gmail.com` |
+| `ENVIRONMENT` | `production` |
+
+These values are configuration, not proof of remote deployment.
+
+## Host routing
+
+`src/server-entry.ts` contains an early host-routing pass. It redirects the `www` hostname, sends public `/cms` and `/resume/edit` requests to the CMS origin, and keeps CMS runtime paths on the CMS host. The `resume.edit.tsx` compatibility route also contains a permanent redirect.
+
+No live request verified that this redirect chain is deployed. Do not infer production routing or response headers from the checkout. Check the intended hosts directly before describing either behavior as active.
 
 ## CMS access
 
-The CMS is protected in two layers:
+Production CMS access has two application-level checks:
 
-1. Cloudflare Access protects the `cms.sohelislamimran.com` hostname with an
-   owner-only policy that allows `sohelislamimran@gmail.com`. Requests without
-   a valid Access session never reach the Worker.
-2. The Worker verifies the Access JWT, audience, team domain, and owner email
-   before allowing draft, publish, or media mutations.
+1. Cloudflare Access must protect the CMS hostname. The application expects the owner email allowlist to match the Access identity.
+2. The Worker verifies the Access assertion issuer, audience, token type, and owner email. Mutations additionally require the configured origin and matching CSRF cookie and submitted token.
 
-The self-hosted Access application, owner policy, custom domain, Access audience,
-and team-domain secrets are configured. It uses Cloudflare's account identity
-provider by owner choice, so no separate GitHub OAuth app or persistent client
-secret is created.
-
-The old `/resume/edit` path remains an application compatibility path and should
-redirect to the CMS hostname. The public apex never serves draft content.
-
-## Variables
-
-Non-secret production variables are in `wrangler.jsonc`:
-
-| Variable      | Production value                  |
-| ------------- | --------------------------------- |
-| `APP_ORIGIN`  | `https://sohelislamimran.com`     |
-| `CMS_ORIGIN`  | `https://cms.sohelislamimran.com` |
-| `OWNER_EMAIL` | `sohelislamimran@gmail.com`       |
-| `ENVIRONMENT` | `production`                      |
-
-These are configured as Worker secrets and must not be committed:
+Set the Access configuration as Worker secrets after the Access application exists:
 
 ```sh
-wrangler secret put ACCESS_TEAM_DOMAIN
-wrangler secret put ACCESS_AUDIENCE
+bunx wrangler secret put ACCESS_TEAM_DOMAIN
+bunx wrangler secret put ACCESS_AUDIENCE
 ```
 
-Never paste Access JWTs, cookies, contract data, or draft content into logs,
-commits, or issue reports.
+The source does not prove that the Access application, policy, audience, team domain, or secrets are currently present in the Cloudflare account. The local loopback exception in `auth.server.ts` applies only when `ENVIRONMENT=development`, `OWNER_EMAIL` is set, and the request uses a loopback hostname.
+
+Do not paste Access JWTs, cookies, draft JSON, private media keys, or personal contract data into logs, commits, or issue reports.
+
+## D1 and migrations
+
+The repository keeps SQL migrations explicit under `migrations/`:
+
+- `0001_initial.sql`
+- `0002_profile_links.sql`
+- `0003_project_categories.sql`
+
+Apply local migrations with:
+
+```sh
+bun run db:migrate
+```
+
+For a chosen production database, review the pending migrations and run:
+
+```sh
+bunx wrangler d1 migrations list portfolio-content-production --remote
+bunx wrangler d1 migrations apply portfolio-content-production --remote
+```
+
+The command output and the remote database are the source of truth for migration state. This handoff does not claim that any migration has been applied remotely.
+
+The public read path serves the seed when the D1 binding is absent or the original blank revision-one bootstrap is encountered. When D1 is configured, malformed or incomplete stored content is an error. Draft JSON never crosses the public loader.
 
 ## Media storage
 
-R2 is optional and remains disabled. Static profile and placeholder media ship
-with the Worker assets, so the public site and CMS content editor do not need R2
-for the current release. The binding is intentionally commented in
-`wrangler.jsonc`; this also avoids activating usage-based R2 billing merely for
-unused storage.
+R2 is optional and is not enabled in this checkout. Static profile and placeholder images are served from the Worker assets. If editable uploads are needed:
 
-If editable media uploads become necessary, enable R2 deliberately, create the
-`portfolio-media-production` bucket, enable the `MEDIA` binding, and run:
+1. Create or select the R2 bucket in the intended Cloudflare account.
+2. Add the `MEDIA` binding to `wrangler.jsonc`.
+3. Run `bun run cf-typegen`.
+4. Re-run the canonical checks and deploy deliberately.
+
+The application keeps uploads owner-only and draft-only. `/media/:assetId` returns an object only when the media row is published. Public content references are filtered before SSR, and private object keys are cleared from the public content object.
+
+## Release checks
+
+Run all four canonical checks before handoff:
 
 ```sh
-bun run cf-typegen
+bun run typecheck
+bun run check
+bun run test
+bun run build
 ```
 
-Then deploy normally. The application keeps public media reads separate from
-owner-only uploads and publishes only media referenced by published content.
-
-## Free-tier guardrails
-
-The zone was verified on the Free Website plan before this deployment. This
-release did not enable Workers Paid, R2, paid WAF rules, or another paid add-on.
-Workers, D1, and Access remain within their free-compatible product shapes for
-this personal portfolio. Free quotas can still throttle or reject requests when
-exceeded; application configuration cannot guarantee account-wide billing.
-
-Cloudflare Registrar renewal is separate from Worker usage. Domain auto-renewal
-remains enabled and was not changed; it is currently scheduled against the
-domain's 2028 expiration date. Change that only as an explicit registrar
-decision, not as part of an application deployment.
+`bun run check` runs Oxlint and Oxfmt. These checks validate the source and build; they do not verify DNS, Access, D1 migration state, deployed routing or headers, browser interaction, responsive behavior, reduced motion, or print output. Perform those checks separately against the intended environment.
 
 ## Local development
 
-Copy `.dev.vars.example` to `.dev.vars` and replace Access placeholders with
-local test values. Do not commit `.dev.vars`. Local CMS requests can use the
-`CMS_ORIGIN` value from the example file; production Access still applies only
-to the production CMS hostname.
+Copy `.dev.vars.example` to `.dev.vars`, replace placeholders with local values, and keep the file out of version control. Use the local CMS hostname or loopback flow for development. The production Access policy and production secrets are not replaced by local values.
