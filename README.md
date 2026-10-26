@@ -1,103 +1,59 @@
 <div align="center">
   <img src="./public/images/sohel-linkedin-400.webp" width="128" height="128" alt="Sohel Islam Imran" />
   <h1>Sohel Islam Imran</h1>
-  <p><strong>Lead Full Stack Engineer</strong><br />I follow product problems all the way through the stack.</p>
+  <p><strong>Lead Full Stack Engineer</strong> based in Dhaka, Bangladesh</p>
+  <p>I build product interfaces, backend services, data systems, and the infrastructure that ships them.</p>
   <p>
-    <a href="https://sohelislamimran.com">Portfolio</a> ·
+    <a href="https://sohelislamimran.com">Website</a> ·
     <a href="https://www.linkedin.com/in/sohelislamimran/">LinkedIn</a> ·
     <a href="https://github.com/SohelIslamImran">GitHub</a> ·
-    <a href="https://x.com/SohelIslamImran">X</a> ·
+    <a href="https://www.npmjs.com/~sohelislamimran">npm</a> ·
     <a href="mailto:sohelislamimran@gmail.com">Email</a>
   </p>
 </div>
 
-## What I do
+## About
 
-I'm a full-stack engineer in Dhaka. I started on React Native apps in 2021 and kept going: into the APIs, data, access rules, infrastructure, and release paths that decide whether a feature actually holds up.
+I'm a lead full-stack product engineer at [Kuno](https://www.kuno-ai.com/). I work across TypeScript applications, APIs, data, application security, cloud infrastructure, testing, and release operations.
 
-Today I'm Lead Full Stack Engineer at [Kuno](https://www.kuno-ai.com/), a B2B professional-development platform, where I work across product architecture, application security, and delivery. Before that I spent nearly three years building a React Native events app at Tilleli, starting as an intern.
+I started with web development in late 2020, moved into React Native and Expo product work in 2021, and grew into full-stack architecture and delivery. I like following a product problem through the whole system, including the less visible work that makes it secure, reliable, and ready to ship.
 
-### Experience
+## Experience
 
-| Period              | Company   | Role                         |
-| ------------------- | --------- | ---------------------------- |
-| Mar 2026 — present  | Kuno      | Lead Full Stack Engineer     |
-| Jan 2025 — Mar 2026 | Kuno      | Full Stack Engineer          |
-| Dec 2023 — Jan 2025 | Kuno      | Mobile Application Developer |
-| Jun 2021 — Jan 2024 | Tilleli   | React Native Developer       |
-| Jul 2021 — Sep 2021 | Bugfixers | Frontend Developer           |
+| Period               | Company   | Role                         |
+| -------------------- | --------- | ---------------------------- |
+| Mar 2026 to present  | Kuno      | Lead Full Stack Engineer     |
+| Jan 2025 to Mar 2026 | Kuno      | Full Stack Engineer          |
+| Dec 2023 to Jan 2025 | Kuno      | Mobile Application Developer |
+| Jun 2021 to Jan 2024 | Tilleli   | React Native Developer       |
+| Jul 2021 to Sep 2021 | Bugfixers | Frontend Developer           |
 
-### Open source
+At Kuno, I contribute to B2B product workflows across React interfaces, APIs, validation, data services, authorization, infrastructure, and automated testing. At Tilleli, I built and maintained a React Native and Expo events application with Firebase services and managed its build and store-release workflows.
 
-- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates): one API for native in-app updates on Android (Play Core) and iOS (App Store lookup), written in Kotlin, Swift, and TypeScript. 72,220 npm downloads in the week of Oct 5–11, 2026.
+## Selected open-source work
 
-Smaller builds and experiments: [`ghosttime`](https://github.com/SohelIslamImran/ghosttime), [TailSync](https://github.com/SohelIslamImran/TailSync), and [Android Mac Display](https://github.com/SohelIslamImran/AndroidMacDisplay).
+- [`expo-in-app-updates`](https://github.com/SohelIslamImran/expo-in-app-updates) is an Expo module I created and maintain. It provides one TypeScript API for Android Play Core update flows and iOS App Store version checks, with native implementations in Kotlin and Swift.
+- [`ghosttime`](https://github.com/SohelIslamImran/ghosttime) is a TypeScript CLI for animated terminal output.
+- [TailSync](https://github.com/SohelIslamImran/TailSync) is an experimental Swift iOS utility for private-network file transfer through Tailscale Taildrop.
+- [Android Mac Display](https://github.com/SohelIslamImran/AndroidMacDisplay) explores low-latency screen streaming between macOS and Android.
 
-**Day to day:** TypeScript, React, TanStack, Elysia on Bun, Drizzle, PostgreSQL, Redis, React Native and Expo, AWS and Terraform, Cloudflare.
+## Technical skills
 
-## Beyond the code
+| Area | Technologies and practices |
+| ---- | -------------------------- |
+| Product engineering | TypeScript, JavaScript, React, TanStack Router, TanStack Query, Tailwind CSS |
+| Mobile and native | React Native, Expo, Kotlin, Swift, Firebase, EAS Build and Update |
+| Backend and data | Bun, Elysia, Node.js, Drizzle, PostgreSQL, Redis, REST APIs |
+| Cloud and delivery | AWS, Terraform, Docker, GitHub Actions, CI/CD, release engineering |
+| Quality and security | Vitest, Bun tests, Playwright, API contract tests, authorization, privacy boundaries |
 
-I wrote my first code in late 2020, on the first computer my family could afford. The [longer story](https://sohelislamimran.com/story) covers how that turned into a career.
+## Certifications
 
-- [Follow the travel journal](https://sohelislamimran.com/field-notes)
-- [Find every public link](https://sohelislamimran.com/links)
+- Complete Web Development Course with Jhankar Mahbub, Programming Hero, April 2021
+- Complete React Native: Zero to Mastery, June 2021
 
-## This repository
+## Elsewhere
 
-This profile repository contains the source for `sohelislamimran.com`, my personal portfolio. The public surface is intentionally quiet: a white/paper foundation, cobalt route markers, orange signal states, restrained glass, and one keyboard-accessible route-orbit interaction.
-
-### Stack
-
-- **TanStack Start + TanStack Router** — file-based routes, typed loaders/search params, server functions, full-document SSR, and streaming-ready boundaries.
-- **React 19 + TypeScript 7** — the UI and shared content contracts.
-- **Vite 8 + Bun** — local development and the canonical lockfile.
-- **Cloudflare Workers + D1** — edge runtime and revisioned published content; optional R2 media storage remains disabled.
-- **Cloudflare Access** — owner-only CMS authentication, currently using Cloudflare's account identity provider.
-- **Tailwind CSS 4** — the source of truth for theme tokens, responsive utilities, glass surfaces, and motion-friendly component primitives in `src/styles/tailwind.css`.
-- **Oxlint, Oxfmt, Vitest** — fast static checks, formatting, and focused tests.
-
-Public routes are SSR-first and read published content only. Drafts and private travel entries remain behind the CMS boundary, and public responses never expose R2 object keys.
-
-### Styling migration
-
-The former route stylesheet has been replaced by `tailwind.css`. Components now use Tailwind utilities, shadcn Base UI primitives, CVA variants, and `cn()` backed by semantic tokens (`canvas`, `ink`, `muted`, `line`, `primary`, and `surface`). The authored CSS that remains is limited to theme tokens, accessibility fallbacks, and print layout; no separate named stylesheet or custom visual utility layer is required.
-
-### Local development
-
-```sh
-bun install
-bun dev
-```
-
-Useful commands:
-
-```sh
-bun run build       # production client + SSR/Worker build
-bun run typecheck   # Wrangler bindings + strict TypeScript
-bun run check       # Oxlint + Oxfmt
-bun run test        # focused Vitest tests
-bun run preview     # preview the Vite build
-bun run deploy      # build, then wrangler deploy
-```
-
-Copy `.dev.vars.example` to `.dev.vars` for local values. Never commit Access tokens, CSRF material, database credentials, R2 keys, or contract information.
-
-## CMS and Cloudflare
-
-The portfolio is deployed at `https://sohelislamimran.com`. The `www` hostname redirects to the apex, and `https://cms.sohelislamimran.com` is protected by an owner-only Cloudflare Access policy. The Worker also verifies the Access JWT and owner allowlist, checks origin and CSRF on mutations, and keeps draft/publish revisions safe.
-
-Setup and rollout details live in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md).
-
-The single production Worker is named `portfolio`; it owns the D1 binding, three custom domains, Access application, and security settings. The CMS uses Cloudflare's account identity provider behind an owner-only email policy; no separate GitHub OAuth credential is required. R2 remains off because the current release uses static media and does not need usage-based object storage.
-
-Production remains on the last verified Worker release while UI and interaction changes are reviewed on this branch. Deploy only after the preview and acceptance checks in [`docs/CLOUDFLARE.md`](./docs/CLOUDFLARE.md) pass.
-
-The zone is on Cloudflare's Free Website plan, and this release did not enable Workers Paid, R2, or paid security add-ons. Free quotas may throttle traffic instead of providing unlimited capacity. Domain renewal is separate, remains enabled, and was not changed by this deployment.
-
-## Privacy and publishing
-
-The public story is generalized and does not publish salary, addresses, signatures, IDs, contract terms, private customer details, or private repositories. The CMS publishes only the validated document revision; public loaders never read drafts. Redirect utilities under `/links/:linkId` are allowlisted and marked `noindex`.
-
-## License
-
-The portfolio content and visual identity are personal. Source code is shared for reference; contact me before reusing personal copy, photographs, or brand assets.
+- [Stack Overflow](https://stackoverflow.com/users/17672428/sohel-islam-imran)
+- [X](https://x.com/SohelIslamImran)
+- [My story](https://sohelislamimran.com/story)
