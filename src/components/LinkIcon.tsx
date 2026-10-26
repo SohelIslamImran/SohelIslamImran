@@ -79,15 +79,15 @@ export function LinkIcon({ platform, className }: LinkIconProps) {
 		</>
 	) : (
 		<>
-			<circle cx="12" cy="12" r="8" />
-			<path d="M9 12h6M12 9v6" />
+			<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+			<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
 		</>
 	);
 
 	return (
 		<span
 			className={cn(
-				"grid size-12 shrink-0 place-items-center rounded-[17px] border border-border/60 bg-primary-soft text-primary-text shadow-[0_4px_14px_var(--theme-accent-shadow)] transition-[transform,translate,scale,rotate,border-color,box-shadow,background-color] duration-220 ease-route will-change-transform group-hover:-translate-y-0.5 group-hover:rotate-[-4deg] group-hover:border-primary group-hover:bg-primary/12 group-hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)] group-focus-visible:-translate-y-0.5 group-focus-visible:rotate-[-4deg] group-focus-visible:border-primary group-focus-visible:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)]",
+				"grid size-12 shrink-0 place-items-center rounded-[17px] border border-border/60 bg-primary-soft text-primary-text shadow-[0_4px_14px_var(--theme-accent-shadow)] transition-[transform,translate,scale,rotate,border-color,box-shadow,background-color] duration-200 ease-route motion-reduce:transition-none motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:rotate-[-4deg] motion-safe:group-focus-visible:-translate-y-0.5 motion-safe:group-focus-visible:rotate-[-4deg] group-hover:border-primary group-hover:bg-primary/12 group-hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)] group-focus-visible:border-primary group-focus-visible:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)]",
 				className,
 			)}
 			aria-hidden="true"

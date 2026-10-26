@@ -1,11 +1,13 @@
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
-import { and, eq, exists, inArray, lt, notExists, sql } from "drizzle-orm";
+import { and, eq, exists, inArray, lt, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
-import type { MediaAsset, PortfolioContent } from "../types/content";
+import { CONTENT_SCHEMA_VERSION, type MediaAsset, type PortfolioContent } from "../types/content";
 import {
+	MAX_CONTENT_BYTES,
 	parsePortfolioContent,
 	parseStoredContent,
 	serializePortfolioContent,
+	upgradeStoredContent,
 } from "../lib/validation";
 import { mediaAssets, portfolioDocuments, portfolioRevisions } from "./schema.server";
 
@@ -81,8 +83,8 @@ export class CmsStorageUnavailableError extends Error {
 export class CmsDataError extends Error {
 	readonly code = "CMS_DATA_INVALID";
 
-	constructor() {
-		super("Portfolio content could not be read.");
+	constructor(options?: { cause: unknown }) {
+		super("Portfolio content could not be read.", options);
 		this.name = "CmsDataError";
 	}
 }
@@ -107,6 +109,11 @@ interface StoredDocumentRow {
 	published_at: string | null;
 	updated_by: string;
 	published_by: string | null;
+}
+
+interface PublishedDocumentRow {
+	publishedJson: string;
+	publishedRevision: number;
 }
 
 function requireDatabase(env: CmsEnvironment): D1Database {
@@ -166,18 +173,84 @@ function nullableStringColumn(value: unknown): string | null {
 	return value;
 }
 
-export function parseStoredOrBootstrap(json: string, revision: number): PortfolioContent {
-	if (revision > 1) return parseStoredContent(json);
+const LEGACY_SCHEMA_VERSIONS: readonly unknown[] = [1, 2];
 
-	try {
-		const value = JSON.parse(json) as { hero?: { title?: unknown } };
-		if (typeof value.hero?.title === "string" && value.hero.title.trim() === "") {
-			return INITIAL_PORTFOLIO_CONTENT;
-		}
-		return parsePortfolioContent(value);
-	} catch {
+const CONTENT_COLLECTION_PATHS: readonly (readonly string[])[] = [
+	["hero", "actions"],
+	["hero", "metrics"],
+	["about", "paragraphs"],
+	["about", "facts"],
+	["contact", "links"],
+	["story", "chapters"],
+	["travel", "entries"],
+	["experience"],
+	["projects"],
+	["capabilities"],
+	["writing"],
+	["testimonials"],
+	["credentials"],
+	["social"],
+	["profileLinks"],
+	["media"],
+];
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+	return value !== null && typeof value === "object" && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
+function readPath(value: unknown, path: readonly string[]): unknown {
+	let current = value;
+	for (const key of path) {
+		const object = asRecord(current);
+		if (!object) return undefined;
+		current = object[key];
+	}
+	return current;
+}
+
+function isEmptyCollection(value: unknown): boolean {
+	return value === undefined || value === null || (Array.isArray(value) && value.length === 0);
+}
+
+function isBlankBootstrapDocument(value: unknown): boolean {
+	const document = asRecord(value);
+	if (!document) return false;
+	const hero = asRecord(document.hero);
+	if (!hero || typeof hero.title !== "string" || hero.title.trim() !== "") return false;
+	return CONTENT_COLLECTION_PATHS.every((path) => isEmptyCollection(readPath(document, path)));
+}
+
+export function parseStoredOrBootstrap(json: string, revision: number): PortfolioContent {
+	if (new TextEncoder().encode(json).byteLength > MAX_CONTENT_BYTES) {
 		return parseStoredContent(json);
 	}
+
+	let value: { schemaVersion?: unknown; hero?: { title?: unknown } };
+	try {
+		value = JSON.parse(json) as typeof value;
+	} catch {
+		// Delegate so the caller gets the standard validation error.
+		return parseStoredContent(json);
+	}
+
+	const blankBootstrap = isBlankBootstrapDocument(value);
+	if (blankBootstrap && revision <= 1 && LEGACY_SCHEMA_VERSIONS.includes(value.schemaVersion)) {
+		return INITIAL_PORTFOLIO_CONTENT;
+	}
+
+	if (value.schemaVersion !== undefined && value.schemaVersion !== CONTENT_SCHEMA_VERSION) {
+		return upgradeStoredContent(value);
+	}
+
+	if (revision > 1) return parseStoredContent(json);
+
+	if (blankBootstrap) {
+		return INITIAL_PORTFOLIO_CONTENT;
+	}
+
+	return parsePortfolioContent(value);
 }
 
 function referencedMediaIds(content: PortfolioContent): string[] {
@@ -218,6 +291,20 @@ export function toPublicPortfolioContent(content: PortfolioContent): PortfolioCo
 	};
 }
 
+function parseContentColumn(json: unknown, revision: unknown): PortfolioContent {
+	try {
+		return parseStoredOrBootstrap(stringColumn(json), integerColumn(revision));
+	} catch (error) {
+		if (error instanceof CmsDataError) {
+			throw error;
+		}
+
+		// Keep the cause so the original failure is not lost, without letting an
+		// internal message reach the client.
+		throw new CmsDataError({ cause: error });
+	}
+}
+
 function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
 	try {
 		const draftRevision = integerColumn(row.draft_revision);
@@ -231,15 +318,17 @@ function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
 			publishedAt: nullableStringColumn(row.published_at),
 			updatedBy: stringColumn(row.updated_by),
 			publishedBy: nullableStringColumn(row.published_by),
-			draft: parseStoredOrBootstrap(stringColumn(row.draft_json), draftRevision),
-			published: parseStoredOrBootstrap(stringColumn(row.published_json), publishedRevision),
+			draft: parseContentColumn(row.draft_json, draftRevision),
+			published: parseContentColumn(row.published_json, publishedRevision),
 		};
 	} catch (error) {
 		if (error instanceof CmsDataError) {
 			throw error;
 		}
 
-		throw new CmsDataError();
+		// Keep the cause so the original failure is not lost, without letting an
+		// internal message reach the client.
+		throw new CmsDataError({ cause: error });
 	}
 }
 
@@ -269,6 +358,50 @@ async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
 }
 
 /**
+ * Publish only needs the draft revision and the exact stored draft bytes.
+ * Reading the full snapshot would also parse the published column, so an
+ * unreadable published document would block publishing a perfectly valid draft.
+ */
+async function readDraftForPublish(
+	db: D1Database,
+): Promise<{ draftJson: string; draftRevision: number }> {
+	const [stored] = await database(db)
+		.select({
+			draftJson: portfolioDocuments.draftJson,
+			draftRevision: portfolioDocuments.draftRevision,
+		})
+		.from(portfolioDocuments)
+		.where(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID))
+		.limit(1);
+
+	if (!stored) {
+		throw new CmsDataError();
+	}
+
+	return {
+		draftJson: stringColumn(stored.draftJson),
+		draftRevision: integerColumn(stored.draftRevision),
+	};
+}
+
+async function readPublishedDocument(db: D1Database): Promise<PublishedDocumentRow> {
+	const [stored] = await database(db)
+		.select({
+			publishedJson: portfolioDocuments.publishedJson,
+			publishedRevision: portfolioDocuments.publishedRevision,
+		})
+		.from(portfolioDocuments)
+		.where(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID))
+		.limit(1);
+
+	if (!stored) {
+		throw new CmsDataError();
+	}
+
+	return stored;
+}
+
+/**
  * Public reads may use the empty seed when no D1 binding exists. A configured
  * database that is empty or malformed is an error, never a silent fallback.
  */
@@ -277,12 +410,13 @@ export async function getPublicContent(env: CmsEnvironment): Promise<PortfolioCo
 		return toPublicPortfolioContent(INITIAL_PORTFOLIO_CONTENT);
 	}
 
-	const snapshot = await readSnapshot(env.DB);
-	const published =
-		snapshot.publishedRevision <= 1 && snapshot.published.hero.title.trim() === ""
+	const stored = await readPublishedDocument(env.DB);
+	const published = parseContentColumn(stored.publishedJson, stored.publishedRevision);
+	const content =
+		stored.publishedRevision <= 1 && published.hero.title.trim() === ""
 			? INITIAL_PORTFOLIO_CONTENT
-			: snapshot.published;
-	return toPublicPortfolioContent(published);
+			: published;
+	return toPublicPortfolioContent(content);
 }
 
 export async function getPublishedContent(env: CmsEnvironment): Promise<PortfolioContent> {
@@ -313,10 +447,11 @@ export async function saveDraft(
 	const query = database(db);
 	const draftRevisionSelect = query
 		.select({
+			id: sql<number | null>`NULL`.as("id"),
 			documentId: portfolioDocuments.id,
 			kind: sql<string>`'draft'`.as("kind"),
-			revision: portfolioDocuments.draftRevision,
-			contentJson: portfolioDocuments.draftJson,
+			revision: sql<number>`${expectedRevision + 1}`.as("revision"),
+			contentJson: sql<string>`${contentJson}`.as("content_json"),
 			changedBy: sql<string>`${actor.email}`.as("changed_by"),
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
@@ -325,6 +460,9 @@ export async function saveDraft(
 			and(
 				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
 				eq(portfolioDocuments.draftRevision, expectedRevision + 1),
+				eq(portfolioDocuments.draftJson, contentJson),
+				eq(portfolioDocuments.draftUpdatedAt, now),
+				eq(portfolioDocuments.updatedBy, actor.email),
 			),
 		);
 	const results = await query.batch([
@@ -342,7 +480,7 @@ export async function saveDraft(
 					eq(portfolioDocuments.draftRevision, expectedRevision),
 				),
 			),
-		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(portfolioRevisions).select(draftRevisionSelect).onConflictDoNothing(),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
@@ -371,11 +509,18 @@ export async function publishDraft(
 	);
 	const actor = requireActor(input.actor);
 	const now = new Date().toISOString();
-	const before = await readSnapshot(db);
+	const before = await readDraftForPublish(db);
 	if (before.draftRevision !== expectedDraftRevision) {
-		return { ok: false, kind: "conflict", current: before };
+		// A conflict has to show the caller the current state, so the published
+		// column is read here — but only on this path, never on a successful publish.
+		return { ok: false, kind: "conflict", current: await readSnapshot(db) };
 	}
-	const mediaIds = referencedMediaIds(before.draft);
+	// The draft may still be on an older schema; parseStoredOrBootstrap upgrades it
+	// and backfills blank legacy sections from the seed, so the stored document and
+	// its schema_version column agree after publishing.
+	const draft = parseStoredOrBootstrap(before.draftJson, before.draftRevision);
+	const mediaIds = referencedMediaIds(draft);
+	const publishedJson = serializePortfolioContent(draft);
 	const query = database(db);
 	const documentAtRevision = query
 		.select({ id: portfolioDocuments.id })
@@ -387,22 +532,13 @@ export async function publishDraft(
 				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
 			),
 		);
-	const existingPublishedHistory = query
-		.select({ id: portfolioRevisions.id })
-		.from(portfolioRevisions)
-		.where(
-			and(
-				eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioRevisions.kind, "published"),
-				eq(portfolioRevisions.revision, expectedDraftRevision),
-			),
-		);
 	const publishedRevisionSelect = query
 		.select({
+			id: sql<number | null>`NULL`.as("id"),
 			documentId: portfolioDocuments.id,
 			kind: sql<string>`'published'`.as("kind"),
-			revision: portfolioDocuments.publishedRevision,
-			contentJson: portfolioDocuments.publishedJson,
+			revision: sql<number>`${expectedDraftRevision}`.as("revision"),
+			contentJson: sql<string>`${publishedJson}`.as("content_json"),
 			changedBy: sql<string>`${actor.email}`.as("changed_by"),
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
@@ -412,14 +548,25 @@ export async function publishDraft(
 				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
 				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
 				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-				notExists(existingPublishedHistory),
+				eq(portfolioDocuments.publishedAt, now),
+				eq(portfolioDocuments.publishedBy, actor.email),
 			),
 		);
+	const mediaIdBatches: string[][] = [];
+	for (let index = 0; index < mediaIds.length; index += 50) {
+		mediaIdBatches.push(mediaIds.slice(index, index + 50));
+	}
+	const publishMediaStatements = mediaIdBatches.map((ids) =>
+		query
+			.update(mediaAssets)
+			.set({ status: "published", updatedAt: now })
+			.where(and(inArray(mediaAssets.id, ids), exists(documentAtRevision))),
+	);
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
 			.set({
-				publishedJson: portfolioDocuments.draftJson,
+				publishedJson,
 				publishedRevision: portfolioDocuments.draftRevision,
 				publishedAt: now,
 				publishedBy: actor.email,
@@ -437,11 +584,8 @@ export async function publishDraft(
 			.update(mediaAssets)
 			.set({ status: "draft", updatedAt: now })
 			.where(and(eq(mediaAssets.status, "published"), exists(documentAtRevision))),
-		query
-			.update(mediaAssets)
-			.set({ status: "published", updatedAt: now })
-			.where(and(inArray(mediaAssets.id, mediaIds), exists(documentAtRevision))),
-		query.insert(portfolioRevisions).select(publishedRevisionSelect),
+		...publishMediaStatements,
+		query.insert(portfolioRevisions).select(publishedRevisionSelect).onConflictDoNothing(),
 	]);
 
 	if (results[0]?.meta.changes === 1) {

@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
+import { MAX_CONTENT_BYTES } from "../lib/validation";
 import {
 	readAdminSnapshot,
 	readPublished,
@@ -11,7 +12,20 @@ import {
 } from "./cms.server";
 
 const revision = z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER);
+
 const csrfToken = z.string().regex(/^[A-Za-z0-9_-]{43}$/u, "Invalid CSRF token.");
+
+function assertContentSize(content: unknown): void {
+	let json: string;
+	try {
+		json = JSON.stringify(content) ?? "";
+	} catch {
+		throw new Response("The document could not be read.", { status: 400 });
+	}
+	if (new TextEncoder().encode(json).byteLength > MAX_CONTENT_BYTES) {
+		throw new Response("The document is too large to save.", { status: 413 });
+	}
+}
 
 export const getPublishedContent = createServerFn({ method: "GET" }).handler(() => readPublished());
 
@@ -21,6 +35,7 @@ export type CmsSnapshotResult =
 			snapshot: Awaited<ReturnType<typeof readAdminSnapshot>>["snapshot"];
 			csrfToken: string;
 			owner: string;
+			mediaEnabled: boolean;
 	  }
 	| {
 			ok: false;
@@ -47,6 +62,7 @@ export const getCmsSnapshot = createServerFn({ method: "GET" }).handler(
 				snapshot: result.snapshot,
 				csrfToken: result.csrfToken,
 				owner: result.owner,
+				mediaEnabled: result.mediaEnabled,
 			};
 		} catch (error) {
 			if (error instanceof Response) {
@@ -85,7 +101,12 @@ export const saveDraft = createServerFn({ method: "POST" })
 			csrfToken,
 		}),
 	)
-	.handler(({ data }) => saveStoredDraft(getRequest(), data));
+	.handler(async ({ data }) => {
+		// Reject an oversized body before it is serialized and stored, so a
+		// maliciously large document cannot be pushed through the whole pipeline.
+		assertContentSize(data.content);
+		return saveStoredDraft(getRequest(), data);
+	});
 
 export const publishDraft = createServerFn({ method: "POST" })
 	.validator(z.object({ expectedDraftRevision: revision, csrfToken }))

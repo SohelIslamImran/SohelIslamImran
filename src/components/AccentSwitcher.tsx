@@ -118,6 +118,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	const [accent, setAccent] = useState<AccentId>("cobalt");
 	const [theme, setTheme] = useState<ThemeMode>("auto");
 	const themeRef = useRef<ThemeMode>("auto");
+	const themeFocusRef = useRef<HTMLButtonElement | null>(null);
 	const activeTransitionRef = useRef<ReturnType<
 		NonNullable<ViewTransitionDocument["startViewTransition"]>
 	> | null>(null);
@@ -143,6 +144,14 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	}, []);
 
 	useEffect(() => {
+		if (themeTransitioning) return;
+		const control = themeFocusRef.current;
+		if (!control) return;
+		themeFocusRef.current = null;
+		if (control.isConnected && !control.disabled) control.focus({ preventScroll: true });
+	}, [themeTransitioning]);
+
+	useEffect(() => {
 		const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
 		const syncAutoTheme = () => {
 			if (document.documentElement.dataset.theme === "auto") {
@@ -156,7 +165,9 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 	}, []);
 
 	const selectTheme = (mode: ThemeMode, source: HTMLButtonElement) => {
+		if (themeTransitioning) return;
 		if (mode === themeRef.current) return;
+		themeFocusRef.current = source;
 		themeRef.current = mode;
 		const apply = () => {
 			setTheme(mode);
@@ -175,6 +186,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 		};
 		if (reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
 			clearFallbackTransition();
+			themeFocusRef.current = null;
 			apply();
 			return;
 		}
@@ -225,8 +237,8 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 		<>
 			<Popover open={open} onOpenChange={onOpenChange}>
 				<PopoverTrigger
-					className="relative grid size-[38px] place-items-center rounded-[13px] border border-border/60 bg-surface p-0 text-foreground shadow-[0_8px_20px_var(--theme-accent-shadow),inset_0_1px_var(--theme-highlight)] transition-[border-color,box-shadow,transform,translate,scale,rotate,background-color] duration-200 ease-route hover:border-primary/40 hover:bg-surface-solid hover:shadow-accent focus-visible:outline-2 focus-visible:outline-ring active:scale-[.94]"
-					aria-label={`Appearance. ${theme} mode, ${currentAccent.name} accent`}
+					className="relative grid size-11 min-h-11 min-w-11 place-items-center rounded-[13px] border border-control-border bg-surface-solid p-0 text-foreground shadow-[0_8px_20px_var(--theme-accent-shadow),inset_0_1px_var(--theme-highlight)] transition-[border-color,box-shadow,transform,translate,scale,rotate,background-color] duration-200 ease-route hover:border-primary/40 hover:bg-muted hover:shadow-accent focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100"
+					aria-label={`Appearance. ${theme === "auto" ? "Automatic" : `${theme[0].toUpperCase()}${theme.slice(1)}`} mode, ${currentAccent.name} accent`}
 					aria-haspopup="dialog"
 				>
 					<svg className="size-[19px]" viewBox="0 0 24 24" aria-hidden="true">
@@ -258,7 +270,7 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 					sideOffset={10}
 					className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none"
 				>
-					<MenuSurface className="flex w-[min(232px,calc(100vw-32px))] flex-col gap-2.5 p-2.5">
+					<MenuSurface className="flex w-[min(288px,calc(100vw-32px))] flex-col gap-2.5 p-2.5">
 						<PopoverHeader className="sr-only">
 							<PopoverTitle>Appearance</PopoverTitle>
 						</PopoverHeader>
@@ -273,8 +285,8 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 									type="button"
 									aria-label={`${mode[0].toUpperCase()}${mode.slice(1)} appearance`}
 									aria-pressed={theme === mode}
-									disabled={themeTransitioning}
-									className="relative grid min-h-11 place-items-center gap-0.5 rounded-[10px] border-0 bg-transparent px-1 py-1 text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-180 ease-route hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:scale-[.94] aria-pressed:text-foreground"
+									aria-disabled={themeTransitioning || undefined}
+									className="relative grid min-h-11 place-items-center gap-0.5 rounded-[10px] border-0 bg-transparent px-1 py-1 text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-200 ease-route hover:text-foreground focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100 aria-pressed:text-foreground aria-disabled:pointer-events-none"
 									onClick={(event) => selectTheme(mode, event.currentTarget)}
 								>
 									{theme === mode ? (
@@ -293,21 +305,18 @@ export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
 								</button>
 							))}
 						</div>
-						<div
-							className="mt-2 flex justify-between gap-0 p-1"
-							role="group"
-							aria-label="Accent color"
-						>
+						<div className="mt-2 grid grid-cols-3 gap-1 p-1" role="group" aria-label="Accent color">
 							{accentOptions.map((option) => (
 								<button
 									key={option.id}
 									type="button"
 									aria-label={`${option.name} accent`}
 									aria-pressed={accent === option.id}
-									disabled={themeTransitioning}
-									className="grid size-[34px] shrink-0 place-items-center rounded-full border-0 p-0 transition-[transform,translate,scale,rotate,box-shadow] duration-200 ease-route hover:scale-110 focus-visible:outline-2 focus-visible:outline-ring active:scale-[.94] aria-pressed:ring-2 aria-pressed:ring-primary/25 aria-pressed:ring-offset-1 aria-pressed:ring-offset-transparent disabled:pointer-events-none"
+									aria-disabled={themeTransitioning || undefined}
+									className="grid size-11 min-h-11 min-w-11 shrink-0 place-items-center rounded-full border-0 p-0 transition-[transform,translate,scale,rotate,box-shadow] duration-200 ease-route motion-safe:pointer-fine:hover:scale-110 focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100 aria-pressed:ring-2 aria-pressed:ring-primary aria-pressed:ring-offset-2 aria-pressed:ring-offset-surface-solid aria-disabled:pointer-events-none"
 									style={{ color: option.color } as CSSProperties}
 									onClick={() => {
+										if (themeTransitioning) return;
 										setAccent(option.id);
 										applyAccent(option.id);
 									}}

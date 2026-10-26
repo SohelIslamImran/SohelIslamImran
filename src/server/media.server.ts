@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { mediaAssets } from "./schema.server";
+import type { MediaAsset } from "../types/content";
 
 export interface MediaEnvironment {
 	DB?: D1Database;
@@ -17,7 +18,12 @@ const ALLOWED_TYPES = new Map([
 ]);
 
 export class MediaStorageUnavailableError extends Error {}
-export class MediaUploadError extends Error {}
+export class MediaUploadError extends Error {
+	constructor(message: string, options?: { cause: unknown }) {
+		super(message, options);
+		this.name = "MediaUploadError";
+	}
+}
 
 function requireBindings(env: MediaEnvironment) {
 	if (!env.DB || !env.MEDIA)
@@ -62,17 +68,29 @@ export async function uploadMedia(
 				createdBy: actorEmail,
 			})
 			.run();
-	} catch {
-		try {
-			await bucket.delete(key);
-		} catch {
-			// Best-effort cleanup; the metadata failure is the error worth surfacing.
-		}
+	} catch (error) {
+		// The key cannot be logged per the security rules, but leaving the object
+		// behind forever is worse than a generic signal, so surface that the
+		// rollback itself failed.
+		const rolledBack = await bucket.delete(key).then(
+			() => true,
+			() => false,
+		);
 		throw new MediaUploadError(
-			"The file uploaded, but its metadata could not be saved. Try again with a new file.",
+			rolledBack
+				? "The media record could not be saved. Check the storage configuration and try again."
+				: "The media record could not be saved, and the uploaded file could not be cleaned up. Remove it from storage manually.",
+			{ cause: error },
 		);
 	}
-	return { id, alt: cleanAlt, mimeType: file.type, bytes: file.size };
+	const asset: MediaAsset = {
+		id,
+		key,
+		alt: cleanAlt,
+		mimeType: file.type,
+		bytes: file.size,
+	};
+	return asset;
 }
 
 export async function getPublishedMedia(env: MediaEnvironment, assetId: string) {

@@ -1,8 +1,11 @@
+import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
 import {
 	CONTENT_SCHEMA_VERSION,
 	type AboutContent,
+	PROJECT_CATEGORIES,
 	type CapabilityContent,
 	type ContactContent,
+	type CredentialContent,
 	type ExperienceContent,
 	type HeroContent,
 	type IdentityContent,
@@ -11,21 +14,25 @@ import {
 	type MetricContent,
 	type PortfolioContent,
 	type ProfileLinkContent,
+	type ProjectCategory,
 	type ProjectContent,
 	type ResumeContent,
 	type SiteContent,
 	type SocialLinkContent,
 	type StoryChapterContent,
 	type StoryContent,
+	type TestimonialContent,
 	type TravelContent,
 	type TravelEntryContent,
 	type WritingContent,
-	type WorkFocus,
 } from "../types/content";
 
 export const MAX_CONTENT_BYTES = 512_000;
 export const MAX_COLLECTION_ITEMS = 100;
-const PROJECT_FOCUSES = new Set<WorkFocus>(["identity", "matching", "delivery"]);
+
+const MIN_MEDIA_ASPECT_RATIO = 0.25;
+const MAX_MEDIA_ASPECT_RATIO = 4;
+const HREF_BASE = "https://portfolio.invalid";
 
 export interface ValidationIssue {
 	path: string;
@@ -205,21 +212,38 @@ function readStringArray(
 	});
 }
 
-function isSafeHref(value: string): boolean {
-	// Reject protocol-relative URLs (`//example.com`) even though they begin
-	// with a slash. They can otherwise turn an internal-looking link into an
-	// open redirect when used by /links/:linkId.
-	if ((value.startsWith("/") && !value.startsWith("//")) || value.startsWith("#")) {
-		return true;
+function hasHrefControlCharacter(value: string): boolean {
+	for (const character of value) {
+		const codePoint = character.codePointAt(0) ?? 0;
+		if (codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f)) return true;
 	}
+	return false;
+}
+
+function isSafeHref(value: string): boolean {
+	if (hasHrefControlCharacter(value) || value.includes("\\")) return false;
+
+	if (value.startsWith("#")) return true;
 
 	if (/^(mailto|tel):/i.test(value)) {
-		return true;
+		try {
+			const url = new URL(value);
+			return url.protocol === "mailto:" || url.protocol === "tel:";
+		} catch {
+			return false;
+		}
+	}
+
+	if (value.startsWith("/")) {
+		try {
+			return new URL(value, HREF_BASE).origin === HREF_BASE;
+		} catch {
+			return false;
+		}
 	}
 
 	try {
-		const url = new URL(value);
-		return url.protocol === "https:";
+		return new URL(value).protocol === "https:";
 	} catch {
 		return false;
 	}
@@ -319,6 +343,24 @@ function readMetricArray(
 		.map((item, index) => readMetric(item, `${path}[${index}]`, issues));
 }
 
+function isValidMediaDimensionPair(width: unknown, height: unknown): boolean {
+	if (
+		typeof width !== "number" ||
+		!Number.isSafeInteger(width) ||
+		width < 1 ||
+		width > 20_000 ||
+		typeof height !== "number" ||
+		!Number.isSafeInteger(height) ||
+		height < 1 ||
+		height > 20_000
+	) {
+		return false;
+	}
+
+	const aspectRatio = width / height;
+	return aspectRatio >= MIN_MEDIA_ASPECT_RATIO && aspectRatio <= MAX_MEDIA_ASPECT_RATIO;
+}
+
 function readMedia(value: unknown, path: string, issues: ValidationIssue[]): MediaAsset {
 	const object = asObject(value);
 	if (!object) {
@@ -337,6 +379,15 @@ function readMedia(value: unknown, path: string, issues: ValidationIssue[]): Med
 		min: 1,
 		max: 20_000,
 	});
+	if ((width === undefined) !== (height === undefined)) {
+		issues.push({ path, message: "width and height must be provided together" });
+	}
+	if (width !== undefined && height !== undefined && !isValidMediaDimensionPair(width, height)) {
+		issues.push({
+			path,
+			message: "must have an aspect ratio between 1:4 and 4:1",
+		});
+	}
 	const bytes = readOptionalInteger(object, "bytes", `${path}.bytes`, issues, {
 		min: 0,
 		max: MAX_CONTENT_BYTES * 100,
@@ -451,7 +502,6 @@ function readHero(value: unknown, issues: ValidationIssue[]): HeroContent {
 			maxLength: 160,
 		}),
 		title: readRequiredString(object, "title", "hero.title", issues, {
-			allowEmpty: true,
 			maxLength: 240,
 		}),
 		intro: readRequiredString(object, "intro", "hero.intro", issues, {
@@ -564,6 +614,7 @@ function readProjectItem(value: unknown, path: string, issues: ValidationIssue[]
 			role: "",
 			status: "",
 			tags: [],
+			category: "product",
 			highlights: [],
 			cover: null,
 		};
@@ -573,24 +624,23 @@ function readProjectItem(value: unknown, path: string, issues: ValidationIssue[]
 	const repository = readHref(object, "repository", `${path}.repository`, issues, false);
 	const cover = readOptionalMedia(object, "cover", `${path}.cover`, issues);
 	const featured = readOptionalBoolean(object, "featured", `${path}.featured`, issues);
-	const focusValues = object.focuses;
-	let focuses: WorkFocus[] | undefined;
-	if (focusValues !== undefined && focusValues !== null) {
-		if (!Array.isArray(focusValues)) {
-			issues.push({ path: `${path}.focuses`, message: "must be an array" });
-		} else {
-			focuses = focusValues.slice(0, 3).flatMap((focus, index) => {
-				if (typeof focus !== "string" || !PROJECT_FOCUSES.has(focus as WorkFocus)) {
-					issues.push({
-						path: `${path}.focuses[${index}]`,
-						message: "must be identity, matching, or delivery",
-					});
-					return [];
-				}
-				return [focus as WorkFocus];
-			});
-		}
+	const rawCategory = object.category;
+	let category: ProjectCategory = "product";
+	if (
+		typeof rawCategory !== "string" ||
+		!(PROJECT_CATEGORIES as readonly string[]).includes(rawCategory)
+	) {
+		issues.push({
+			path: `${path}.category`,
+			message: `must be one of ${PROJECT_CATEGORIES.join(", ")}`,
+		});
+	} else {
+		category = rawCategory as ProjectCategory;
 	}
+	const metrics =
+		object.metrics === undefined || object.metrics === null
+			? undefined
+			: readMetricArray(object, "metrics", `${path}.metrics`, issues);
 
 	return {
 		id: readRequiredString(object, "id", `${path}.id`, issues, { maxLength: 160 }),
@@ -617,10 +667,11 @@ function readProjectItem(value: unknown, path: string, issues: ValidationIssue[]
 			maxLength: 120,
 		}),
 		tags: readStringArray(object, "tags", `${path}.tags`, issues),
-		...(focuses === undefined ? {} : { focuses }),
+		category,
 		highlights: readStringArray(object, "highlights", `${path}.highlights`, issues, {
 			maxLength: 600,
 		}),
+		...(metrics === undefined ? {} : { metrics }),
 		...(href.length === 0 ? {} : { href }),
 		...(repository.length === 0 ? {} : { repository }),
 		...(cover === undefined ? {} : { cover }),
@@ -684,6 +735,94 @@ function readCapabilities(value: unknown, issues: ValidationIssue[]): Capability
 	return value
 		.slice(0, MAX_COLLECTION_ITEMS)
 		.map((item, index) => readCapabilityItem(item, `capabilities[${index}]`, issues));
+}
+
+function readTestimonialItem(
+	value: unknown,
+	path: string,
+	issues: ValidationIssue[],
+): TestimonialContent {
+	const object = asObject(value);
+	if (!object) {
+		issues.push({ path, message: "must be an object" });
+		return { id: "", quote: "", author: "", role: "" };
+	}
+
+	const date = readOptionalString(object, "date", `${path}.date`, issues, { maxLength: 80 });
+	const href = readHref(object, "href", `${path}.href`, issues, false);
+
+	return {
+		id: readRequiredString(object, "id", `${path}.id`, issues, { maxLength: 160 }),
+		quote: readRequiredString(object, "quote", `${path}.quote`, issues, { maxLength: 1_200 }),
+		author: readRequiredString(object, "author", `${path}.author`, issues, { maxLength: 160 }),
+		role: readRequiredString(object, "role", `${path}.role`, issues, {
+			allowEmpty: true,
+			maxLength: 240,
+		}),
+		...(date === undefined ? {} : { date }),
+		...(href.length === 0 ? {} : { href }),
+	};
+}
+
+function readTestimonials(value: unknown, issues: ValidationIssue[]): TestimonialContent[] {
+	if (!Array.isArray(value)) {
+		issues.push({ path: "testimonials", message: "must be an array" });
+		return [];
+	}
+
+	if (value.length > MAX_COLLECTION_ITEMS) {
+		issues.push({
+			path: "testimonials",
+			message: `must contain no more than ${MAX_COLLECTION_ITEMS} items`,
+		});
+	}
+
+	return value
+		.slice(0, MAX_COLLECTION_ITEMS)
+		.map((item, index) => readTestimonialItem(item, `testimonials[${index}]`, issues));
+}
+
+function readCredentialItem(
+	value: unknown,
+	path: string,
+	issues: ValidationIssue[],
+): CredentialContent {
+	const object = asObject(value);
+	if (!object) {
+		issues.push({ path, message: "must be an object" });
+		return { id: "", title: "", issuer: "", issuedAt: "" };
+	}
+
+	const href = readHref(object, "href", `${path}.href`, issues, false);
+
+	return {
+		id: readRequiredString(object, "id", `${path}.id`, issues, { maxLength: 160 }),
+		title: readRequiredString(object, "title", `${path}.title`, issues, { maxLength: 240 }),
+		issuer: readRequiredString(object, "issuer", `${path}.issuer`, issues, { maxLength: 240 }),
+		issuedAt: readRequiredString(object, "issuedAt", `${path}.issuedAt`, issues, {
+			allowEmpty: true,
+			maxLength: 80,
+		}),
+		...(href.length === 0 ? {} : { href }),
+	};
+}
+
+function readCredentials(value: unknown, issues: ValidationIssue[]): CredentialContent[] {
+	if (!Array.isArray(value)) {
+		issues.push({ path: "credentials", message: "must be an array" });
+		return [];
+	}
+
+	if (value.length > MAX_COLLECTION_ITEMS) {
+		issues.push({
+			path: "credentials",
+			message: `must contain no more than ${MAX_COLLECTION_ITEMS} items`,
+		});
+	}
+
+	return value
+		.slice(0, MAX_COLLECTION_ITEMS)
+		.map((item, index) => readCredentialItem(item, `credentials[${index}]`, issues));
 }
 
 function readWritingItem(value: unknown, path: string, issues: ValidationIssue[]): WritingContent {
@@ -860,6 +999,10 @@ function readProfileLinkItem(
 		}
 	}
 	const featured = readOptionalBoolean(object, "featured", `${path}.featured`, issues);
+	const href = readHref(object, "href", `${path}.href`, issues);
+	if (href.trim().startsWith("#")) {
+		issues.push({ path: `${path}.href`, message: "must not be a fragment-only link" });
+	}
 
 	return {
 		id,
@@ -869,7 +1012,7 @@ function readProfileLinkItem(
 		label: readRequiredString(object, "label", `${path}.label`, issues, {
 			maxLength: 240,
 		}),
-		href: readHref(object, "href", `${path}.href`, issues),
+		href,
 		...(handle === undefined ? {} : { handle }),
 		...(description === undefined ? {} : { description }),
 		...(kind === undefined ? {} : { kind }),
@@ -985,7 +1128,6 @@ function readStory(value: unknown, issues: ValidationIssue[]): StoryContent {
 			maxLength: 160,
 		}),
 		title: readRequiredString(object, "title", "story.title", issues, {
-			allowEmpty: true,
 			maxLength: 240,
 		}),
 		intro: readRequiredString(object, "intro", "story.intro", issues, {
@@ -1084,13 +1226,20 @@ function readTravel(value: unknown, issues: ValidationIssue[]): TravelContent {
 				.slice(0, MAX_COLLECTION_ITEMS)
 				.map((item, index) => readTravelEntry(item, `travel.entries[${index}]`, issues))
 		: (issues.push({ path: "travel.entries", message: "must be an array" }), []);
+	if (Array.isArray(rawEntries) && rawEntries.length > MAX_COLLECTION_ITEMS) {
+		// Without this the truncation above would drop entries silently and the
+		// owner would save a document that quietly lost rows.
+		issues.push({
+			path: "travel.entries",
+			message: `must contain no more than ${MAX_COLLECTION_ITEMS} items`,
+		});
+	}
 	return {
 		eyebrow: readRequiredString(object, "eyebrow", "travel.eyebrow", issues, {
 			allowEmpty: true,
 			maxLength: 160,
 		}),
 		title: readRequiredString(object, "title", "travel.title", issues, {
-			allowEmpty: true,
 			maxLength: 240,
 		}),
 		intro: readRequiredString(object, "intro", "travel.intro", issues, {
@@ -1138,6 +1287,235 @@ export function validatePortfolioContent(value: unknown): ValidationResult<Portf
 	}
 }
 
+const LEGACY_PROJECT_CATEGORIES: Record<string, ProjectCategory> = {
+	"kuno-platform": "product",
+	kuno: "product",
+	tilleli: "product",
+	"expo-in-app-updates": "open-source",
+	portfolio: "open-source",
+	ghosttime: "experiment",
+	tailsync: "experiment",
+	"android-mac-display": "experiment",
+	"expo-import-cost": "experiment",
+};
+
+const LEGACY_PUBLIC_SECTION_FIELDS = {
+	site: ["title", "description", "locale", "theme"],
+	identity: ["name", "handle", "role", "location", "timezone", "availability", "email"],
+	hero: ["eyebrow", "title", "intro", "actions", "metrics"],
+	contact: ["title", "intro", "email", "links"],
+	story: ["eyebrow", "title", "intro", "quote", "chapters", "sourceLabel", "sourceHref"],
+	travel: ["eyebrow", "title", "intro", "origin", "entries"],
+	resume: ["href", "label", "summary", "updatedAt"],
+} as const;
+
+const LEGACY_PUBLIC_NONBLANK_FIELDS = new Set([
+	"site.title",
+	"site.locale",
+	"site.theme",
+	"identity.name",
+	"identity.handle",
+	"identity.email",
+	"hero.title",
+	"contact.email",
+	"story.title",
+	"story.sourceHref",
+	"resume.href",
+	"resume.label",
+	"travel.title",
+]);
+
+function legacyProjectCategory(project: Record<string, unknown>): ProjectCategory {
+	const id = typeof project.id === "string" ? project.id : "";
+	const knownCategory = LEGACY_PROJECT_CATEGORIES[id];
+	if (knownCategory) return knownCategory;
+	if (Array.isArray(project.focuses) && project.focuses.length > 0) return "product";
+	if (typeof project.repository === "string" || typeof project.href === "string")
+		return "open-source";
+	return "product";
+}
+
+function isLegacyFieldMissing(value: unknown, path: string): boolean {
+	return (
+		value === undefined ||
+		value === null ||
+		(LEGACY_PUBLIC_NONBLANK_FIELDS.has(path) &&
+			typeof value === "string" &&
+			value.trim().length === 0)
+	);
+}
+
+function normalizeLegacyPublicSection(
+	value: unknown,
+	fallback: object,
+	fields: readonly string[],
+	path: string,
+): unknown {
+	const source = asObject(value);
+	const blankSection = typeof value === "string" && value.trim().length === 0;
+	if (value !== undefined && value !== null && !blankSection && source === null) return value;
+
+	const normalized = { ...source };
+	for (const field of fields) {
+		if (
+			isLegacyFieldMissing(normalized[field], `${path}.${field}`) &&
+			Object.prototype.hasOwnProperty.call(fallback, field)
+		) {
+			normalized[field] = Reflect.get(fallback, field);
+		}
+	}
+	return normalized;
+}
+
+function normalizeLegacyPublicSections(object: Record<string, unknown>): Record<string, unknown> {
+	return {
+		...object,
+		site: normalizeLegacyPublicSection(
+			object.site,
+			INITIAL_PORTFOLIO_CONTENT.site,
+			LEGACY_PUBLIC_SECTION_FIELDS.site,
+			"site",
+		),
+		identity: normalizeLegacyPublicSection(
+			object.identity,
+			INITIAL_PORTFOLIO_CONTENT.identity,
+			LEGACY_PUBLIC_SECTION_FIELDS.identity,
+			"identity",
+		),
+		hero: normalizeLegacyPublicSection(
+			object.hero,
+			INITIAL_PORTFOLIO_CONTENT.hero,
+			LEGACY_PUBLIC_SECTION_FIELDS.hero,
+			"hero",
+		),
+		contact: normalizeLegacyPublicSection(
+			object.contact,
+			INITIAL_PORTFOLIO_CONTENT.contact,
+			LEGACY_PUBLIC_SECTION_FIELDS.contact,
+			"contact",
+		),
+		story: normalizeLegacyPublicSection(
+			object.story,
+			INITIAL_PORTFOLIO_CONTENT.story,
+			LEGACY_PUBLIC_SECTION_FIELDS.story,
+			"story",
+		),
+		travel: normalizeLegacyPublicSection(
+			object.travel,
+			INITIAL_PORTFOLIO_CONTENT.travel,
+			LEGACY_PUBLIC_SECTION_FIELDS.travel,
+			"travel",
+		),
+		resume: normalizeLegacyPublicSection(
+			object.resume,
+			INITIAL_PORTFOLIO_CONTENT.resume,
+			LEGACY_PUBLIC_SECTION_FIELDS.resume,
+			"resume",
+		),
+	};
+}
+
+function normalizeLegacyMediaObject(value: Record<string, unknown>): Record<string, unknown> {
+	const hasWidth = Object.prototype.hasOwnProperty.call(value, "width");
+	const hasHeight = Object.prototype.hasOwnProperty.call(value, "height");
+	if (!hasWidth && !hasHeight) return value;
+	if (hasWidth && hasHeight && isValidMediaDimensionPair(value.width, value.height)) return value;
+
+	const normalized = { ...value };
+	Reflect.deleteProperty(normalized, "width");
+	Reflect.deleteProperty(normalized, "height");
+	return normalized;
+}
+
+function normalizeLegacyMediaValue(value: unknown): MediaAsset | null {
+	if (value === null) return null;
+	const object = asObject(value);
+	if (!object) return null;
+
+	const issues: ValidationIssue[] = [];
+	const normalized = readMedia(normalizeLegacyMediaObject(object), "legacyMedia", issues);
+	return issues.length === 0 ? normalized : null;
+}
+
+function normalizeLegacyMediaField(
+	object: Record<string, unknown>,
+	key: string,
+): Record<string, unknown> {
+	if (!Object.prototype.hasOwnProperty.call(object, key)) return object;
+	return { ...object, [key]: normalizeLegacyMediaValue(object[key]) };
+}
+
+function normalizeLegacyMediaArray(value: unknown): MediaAsset[] {
+	if (!Array.isArray(value)) return [];
+
+	const media: MediaAsset[] = [];
+	for (const item of value) {
+		const normalized = normalizeLegacyMediaValue(item);
+		if (!normalized) continue;
+		media.push(normalized);
+		if (media.length >= MAX_COLLECTION_ITEMS) break;
+	}
+	return media;
+}
+
+function normalizeLegacyProfileLinks(value: unknown): ProfileLinkContent[] {
+	if (!Array.isArray(value)) return [];
+
+	const links: ProfileLinkContent[] = [];
+	const seen = new Set<string>();
+	for (const item of value) {
+		const issues: ValidationIssue[] = [];
+		const link = readProfileLinkItem(item, "profileLinks", issues);
+		if (issues.length > 0 || seen.has(link.id)) continue;
+		seen.add(link.id);
+		links.push(link);
+		if (links.length >= MAX_COLLECTION_ITEMS) break;
+	}
+	return links;
+}
+
+function normalizeLegacyProjects(value: unknown): unknown {
+	if (!Array.isArray(value)) return value;
+
+	return value.map((project) => {
+		const projectObject = asObject(project);
+		if (!projectObject) return project;
+		const rawCategory = projectObject.category;
+		const category =
+			typeof rawCategory === "string" &&
+			(PROJECT_CATEGORIES as readonly string[]).includes(rawCategory)
+				? (rawCategory as ProjectCategory)
+				: legacyProjectCategory(projectObject);
+		return normalizeLegacyMediaField({ ...projectObject, category }, "cover");
+	});
+}
+
+export function upgradeStoredContent(value: unknown): PortfolioContent {
+	const object = asObject(value);
+	if (!object) {
+		throw new ContentValidationError([{ path: "$", message: "must be an object" }]);
+	}
+	if (object.schemaVersion !== 1 && object.schemaVersion !== 2) {
+		throw new ContentValidationError([
+			{ path: "schemaVersion", message: "must equal 1 or 2 to upgrade legacy content" },
+		]);
+	}
+
+	const normalized = normalizeLegacyPublicSections(object);
+	const identity = asObject(normalized.identity);
+	if (identity) normalized.identity = normalizeLegacyMediaField(identity, "avatar");
+
+	return parsePortfolioContent({
+		...normalized,
+		schemaVersion: CONTENT_SCHEMA_VERSION,
+		projects: normalizeLegacyProjects(object.projects),
+		testimonials: object.testimonials ?? [],
+		credentials: object.credentials ?? [],
+		profileLinks: normalizeLegacyProfileLinks(object.profileLinks ?? []),
+		media: normalizeLegacyMediaArray(object.media),
+	});
+}
+
 export function parsePortfolioContent(value: unknown): PortfolioContent {
 	const issues: ValidationIssue[] = [];
 	const object = asObject(value);
@@ -1162,6 +1540,8 @@ export function parsePortfolioContent(value: unknown): PortfolioContent {
 		experience: readExperience(object.experience, issues),
 		projects: readProjects(object.projects, issues),
 		capabilities: readCapabilities(object.capabilities, issues),
+		testimonials: readTestimonials(object.testimonials, issues),
+		credentials: readCredentials(object.credentials, issues),
 		writing: readWriting(object.writing, issues),
 		contact: readContact(object.contact, issues),
 		social: readSocial(object.social, issues),

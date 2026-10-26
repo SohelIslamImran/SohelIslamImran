@@ -3,7 +3,7 @@ import { getPublicProfileLink } from "../../server/content";
 export const Route = createFileRoute("/links/$linkId")({
 	loader: async ({ params }) => {
 		const link = await getPublicProfileLink(params.linkId);
-		if (!link) throw notFound();
+		if (!link || link.href.trim().startsWith("#")) throw notFound();
 		throw redirect({ href: link.href, statusCode: 302 });
 	},
 	head: () => ({

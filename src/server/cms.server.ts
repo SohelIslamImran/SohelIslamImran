@@ -45,6 +45,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 	csrfToken: string;
 	setCookie: string | null;
 	owner: string;
+	mediaEnabled: boolean;
 }> {
 	const identity = await requireOwner(request, runtime());
 	const csrf = getCsrfToken(request);
@@ -55,6 +56,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 		// The caller sets this header because server functions do not expose a
 		// response object to the storage layer.
 		owner: identity.email,
+		mediaEnabled: Boolean(runtime().MEDIA),
 	};
 }
 

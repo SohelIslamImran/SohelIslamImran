@@ -21,7 +21,7 @@ function PopoverContent({
 }: PopoverPrimitive.Popup.Props &
 	Pick<PopoverPrimitive.Positioner.Props, "align" | "alignOffset" | "side" | "sideOffset">) {
 	return (
-		<PopoverPrimitive.Portal keepMounted>
+		<PopoverPrimitive.Portal>
 			<PopoverPrimitive.Positioner
 				align={align}
 				alignOffset={alignOffset}
@@ -32,7 +32,7 @@ function PopoverContent({
 				<PopoverPrimitive.Popup
 					data-slot="popover-content"
 					className={cn(
-						"z-50 flex w-72 origin-(--transform-origin) flex-col gap-2.5 rounded-surface bg-popover p-2.5 text-sm text-popover-foreground shadow-accent ring-0 outline-hidden transition-[opacity,transform,translate,scale,rotate,filter,visibility] duration-220 ease-route data-closed:pointer-events-none data-[starting-style]:animate-popover-in data-[ending-style]:animate-popover-out",
+						"z-50 flex w-72 origin-(--transform-origin) flex-col gap-2.5 rounded-surface bg-popover p-2.5 text-sm text-popover-foreground shadow-accent ring-0 outline-hidden transition-[opacity,transform,translate,scale,rotate,filter,visibility] duration-200 ease-route data-closed:pointer-events-none data-[starting-style]:animate-popover-in data-[ending-style]:animate-popover-out",
 						className,
 					)}
 					{...props}

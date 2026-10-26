@@ -1,42 +1,32 @@
 import {
-	createElement,
 	useEffect,
 	useRef,
 	useState,
-	type CSSProperties,
+	type KeyboardEvent,
 	type PointerEvent as ReactPointerEvent,
 } from "react";
 import { Link } from "@tanstack/react-router";
-import {
-	animate,
-	AnimatePresence,
-	motion,
-	useMotionTemplate,
-	useMotionValue,
-	useReducedMotion,
-	useSpring,
-} from "motion/react";
+import { animate, motion, useMotionTemplate, useMotionValue, useReducedMotion } from "motion/react";
 import type {
 	ExperienceContent,
 	HeroContent,
 	IdentityContent,
 	LinkContent,
 } from "../types/content";
-import { cn } from "../lib/utils";
-import { ActionRow, Surface } from "./ui/portfolio";
 import { PortfolioImage } from "./PortfolioImage";
+import { Eyebrow } from "./ui/portfolio";
+import { cn } from "../lib/utils";
 
 export interface RouteStop {
 	label: string;
 	detail: string;
-	accent?: "blue" | "orange";
 }
 
 export type RouteStops = readonly [RouteStop, RouteStop, RouteStop];
 
 interface GlassRouteHeroProps {
 	identity: IdentityContent;
-	hero?: HeroContent;
+	hero: HeroContent;
 	experience?: ExperienceContent[];
 	portraitSrc?: string | null;
 	portraitAlt?: string;
@@ -44,48 +34,164 @@ interface GlassRouteHeroProps {
 }
 
 const defaultStops: RouteStops = [
-	{ label: "Origin", detail: "Dhaka · first code in 2020", accent: "orange" },
-	{ label: "Today", detail: "Full-stack product work" },
-	{ label: "Next", detail: "Remote, and more of the world", accent: "orange" },
+	{ label: "2020", detail: "First computer · learning web development" },
+	{ label: "2021", detail: "Tilleli · React Native product work" },
+	{ label: "2023—now", detail: "Kuno · full-stack systems" },
 ];
 
 const stopPositions = [
-	[72, 380],
-	[320, 228],
-	[558, 72],
+	[88, 232],
+	[320, 140],
+	[556, 56],
 ] as const;
+
+const routePath = "M 88 232 C 182 206, 236 166, 320 140 C 402 114, 480 76, 556 56";
+
+type HeroActionKind = "internal" | "hash" | "mail" | "tel" | "external";
+
+interface DragState {
+	pointerId: number;
+	startX: number;
+	startValue: number;
+	previousX: number;
+	previousTime: number;
+	lastX: number;
+	lastTime: number;
+}
 
 function rubberband(value: number, dimension: number, constant = 0.55) {
 	if (value <= 0) return 0;
 	return (value * dimension * constant) / (dimension + constant * value);
 }
 
+interface SceneBounds {
+	left: number;
+	right: number;
+	width: number;
+}
+
+function getSceneBounds(card: HTMLDivElement | null, translation: number): SceneBounds | null {
+	if (!card) return null;
+	const rect = card.getBoundingClientRect();
+	return {
+		left: rect.left - translation,
+		right: rect.right - translation,
+		width: rect.width,
+	};
+}
+
+function clampSceneTranslation(bounds: SceneBounds | null, value: number) {
+	if (!bounds) return value;
+	const visualViewport = window.visualViewport;
+	const viewportLeft = (visualViewport?.offsetLeft ?? 0) + 8;
+	const viewportRight =
+		(visualViewport?.offsetLeft ?? 0) + (visualViewport?.width ?? window.innerWidth) - 8;
+	const minimum = viewportLeft - bounds.left;
+	const maximum = viewportRight - bounds.right;
+	if (minimum >= maximum) return 0;
+	return Math.max(minimum, Math.min(maximum, value));
+}
+
+/** How far the card can travel in either direction before it would leave the viewport. */
+function sceneSlack(bounds: SceneBounds | null): { left: number; right: number } {
+	if (!bounds) return { left: 0, right: 0 };
+	const visualViewport = window.visualViewport;
+	const viewportLeft = (visualViewport?.offsetLeft ?? 0) + 8;
+	const viewportRight =
+		(visualViewport?.offsetLeft ?? 0) + (visualViewport?.width ?? window.innerWidth) - 8;
+	// Negative values mean the card is already wider than the viewport, so that
+	// direction has no slack at all rather than a negative budget.
+	return {
+		left: Math.max(0, viewportLeft - bounds.left),
+		right: Math.max(0, viewportRight - bounds.right),
+	};
+}
+
+function getHeroActionKind(action: LinkContent): HeroActionKind {
+	const href = action.href.trim();
+	const lowerHref = href.toLowerCase();
+	if (lowerHref.startsWith("mailto:")) return "mail";
+	if (lowerHref.startsWith("tel:")) return "tel";
+	if (href.startsWith("#")) return "hash";
+	if (/^(?:https?:)?\/\//iu.test(href)) return "external";
+	return "internal";
+}
+
 function HeroAction({ action, index }: { action: LinkContent; index: number }) {
+	const href = action.href.trim();
+	const kind = getHeroActionKind(action);
+	// U+2709 is missing from the display font and falls back to a glyph that
+	// reads as a close control, so use a plain at-sign for email.
+	const affordance =
+		kind === "mail"
+			? "@"
+			: kind === "tel"
+				? "☎"
+				: kind === "hash"
+					? "↓"
+					: kind === "external"
+						? "↗"
+						: "→";
 	const content = (
 		<>
-			{action.label} <span aria-hidden="true">{action.href.startsWith("#") ? "↘" : "↗"}</span>
+			{action.label} <span aria-hidden="true">{affordance}</span>
+			{kind === "external" ? <span className="sr-only">, opens in a new tab</span> : null}
 		</>
 	);
+	const className = cn(
+		"inline-flex min-h-12 min-w-12 max-w-full touch-manipulation items-center gap-3 rounded-full px-5 text-sm font-bold no-underline shadow-[0_10px_24px_var(--theme-accent-glow)] transition-[background-color,border-color,box-shadow,translate,scale] duration-200 ease-route motion-safe:pointer-fine:hover:-translate-y-0.5 focus-visible:translate-y-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.97]",
+		index === 0
+			? "bg-primary text-primary-foreground shadow-[0_12px_26px_var(--theme-accent-glow)] hover:bg-primary hover:shadow-[0_16px_32px_var(--theme-accent-glow)]"
+			: "border border-border bg-surface-solid text-foreground hover:bg-muted",
+	);
 
-	return createElement(
-		action.href.startsWith("/") ? Link : "a",
-		{
-			...(action.href.startsWith("/") ? { to: action.href } : { href: action.href }),
-			className: cn(
-				"inline-flex min-h-12 items-center gap-3 rounded-full px-5 text-sm font-bold no-underline shadow-[0_10px_24px_var(--theme-accent-glow)] transition-[transform,translate,scale,rotate,background-color,border-color,box-shadow] duration-180 ease-route hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-ring active:scale-[.97]",
-				index === 0
-					? "bg-primary text-primary-foreground shadow-[0_12px_26px_var(--theme-accent-glow)] hover:bg-primary/90 hover:shadow-[0_16px_32px_var(--theme-accent-glow)]"
-					: "border border-border bg-surface-solid text-foreground hover:bg-muted",
-			),
-		},
-		content,
+	if (kind === "internal") {
+		return (
+			<Link className={className} to={href}>
+				{content}
+			</Link>
+		);
+	}
+
+	return (
+		<a
+			className={className}
+			href={href}
+			target={kind === "external" ? "_blank" : undefined}
+			rel={kind === "external" ? "noopener noreferrer" : undefined}
+		>
+			{content}
+		</a>
 	);
 }
 
+/** Past stops share the accent; the selected one takes the signal color, so the
+ *  highlight always marks "where you are" instead of a fixed milestone. */
+function getStopAccent(isCurrent: boolean) {
+	return isCurrent ? "var(--theme-signal)" : "var(--theme-accent)";
+}
+
+function getReleaseVelocity(drag: DragState, clientX: number, now: number) {
+	const releaseElapsed = now - drag.lastTime;
+	if (clientX !== drag.lastX && releaseElapsed > 0) {
+		return ((clientX - drag.lastX) * 1000) / Math.max(16, releaseElapsed);
+	}
+	const sampleElapsed = drag.lastTime - drag.previousTime;
+	if (sampleElapsed > 0) {
+		return ((drag.lastX - drag.previousX) * 1000) / Math.max(16, sampleElapsed);
+	}
+	return 0;
+}
+
+/**
+ * The hero title is CMS-editable, so a hyphenated token such as
+ * "Full-stack-product" must not be allowed to break at every hyphen. Marking the
+ * token nowrap keeps it intact while still allowing breaks at the spaces.
+ */
 function renderHeadline(title: string) {
-	return title.split(/(\s+)/).map((part, index) =>
-		/[-‐‑‒–—]/u.test(part) ? (
-			<span className="inline-block whitespace-nowrap" key={`${part}-${index}`}>
+	return title.split(/(\s+)/u).map((part, index) =>
+		/[-\u2010\u2011\u2012\u2013\u2014]/u.test(part) ? (
+			<span className="whitespace-nowrap" key={`${part}-${index}`}>
 				{part}
 			</span>
 		) : (
@@ -102,360 +208,394 @@ export function GlassRouteHero({
 	portraitAlt = "Portrait of Sohel Islam Imran",
 	stops = defaultStops,
 }: GlassRouteHeroProps) {
-	const [selected, setSelected] = useState(1);
+	const [selected, setSelected] = useState(() => stops.length - 1);
 	const sceneRef = useRef<HTMLDivElement>(null);
-	const boundsRef = useRef<DOMRect | null>(null);
-	const dragRef = useRef<{
-		pointerId: number;
-		startX: number;
-		previousX: number;
-		previousTime: number;
-		lastX: number;
-		lastTime: number;
-	} | null>(null);
-	const pointerRef = useRef<{ x: number; y: number } | null>(null);
-	const tiltFrameRef = useRef<number | null>(null);
+	const cardRef = useRef<HTMLDivElement>(null);
+	const stopRefs = useRef<(HTMLButtonElement | null)[]>([]);
+	const boundsRef = useRef<SceneBounds | null>(null);
+	const dragRef = useRef<DragState | null>(null);
 	const reducedMotion = useReducedMotion();
+	const reduceMotion = reducedMotion === true;
 	const dragX = useMotionValue(0);
-	const rotateX = useSpring(0, { stiffness: 210, damping: 28, mass: 0.7 });
-	const rotateY = useSpring(0, { stiffness: 210, damping: 28, mass: 0.7 });
-	const sceneTransform = useMotionTemplate`perspective(1100px) translateX(${dragX}px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+	const sceneTransform = useMotionTemplate`translateX(${dragX}px)`;
 
 	useEffect(() => {
-		return () => {
-			if (tiltFrameRef.current !== null) cancelAnimationFrame(tiltFrameRef.current);
-			rotateX.stop();
-			rotateY.stop();
-			dragX.stop();
-		};
-	}, [dragX, rotateX, rotateY]);
+		return () => dragX.stop();
+	}, [dragX]);
+
+	useEffect(() => {
+		if (!reduceMotion) return;
+		dragX.stop();
+		dragX.jump(0);
+	}, [dragX, reduceMotion]);
 
 	const select = (index: number) => setSelected(Math.max(0, Math.min(stops.length - 1, index)));
 	const current = stops[selected] ?? stops[0];
-	const currentRole = experience.find((item) => item.current);
 	const portrait = portraitSrc ?? "/images/sohel-linkedin-800.webp";
-	const actions = hero?.actions?.length
-		? hero.actions
-		: [
-				{ label: "See experience", href: "#experience" },
-				{ label: "Start a conversation", href: `mailto:${identity.email}`, external: true },
-			];
+	const latestRole = experience.find((item) => item.current) ?? experience[0];
+	const heroActions = hero.actions.slice(0, 2);
 
-	const setTilt = (x: number, y: number) => {
-		if (
-			!sceneRef.current ||
-			dragRef.current ||
-			reducedMotion ||
-			window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-			!window.matchMedia("(hover: hover) and (pointer: fine)").matches
-		)
+	const returnScene = (velocity: number) => {
+		dragX.stop();
+		if (reduceMotion) {
+			dragX.jump(0);
 			return;
-		rotateX.set(y * -4);
-		rotateY.set(x * 5);
+		}
+		animate(dragX, 0, { type: "spring", duration: 0.34, bounce: 0, velocity });
 	};
 
-	const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+	const onScenePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
 		const drag = dragRef.current;
-		if (drag?.pointerId === event.pointerId) {
-			const now = performance.now();
-			const delta = event.clientX - drag.startX;
-			const bound = 96;
-			const next =
-				Math.sign(delta) *
-				(Math.abs(delta) > bound
-					? bound + rubberband(Math.abs(delta) - bound, 120)
-					: Math.abs(delta));
-			dragX.set(next);
-			drag.previousX = drag.lastX;
-			drag.previousTime = drag.lastTime;
-			drag.lastX = event.clientX;
-			drag.lastTime = now;
+		if (!drag || drag.pointerId !== event.pointerId) return;
+		if (reduceMotion) {
+			cancelDrag(event.pointerId);
+			if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+				event.currentTarget.releasePointerCapture(event.pointerId);
+			}
 			return;
 		}
-		if (!boundsRef.current) boundsRef.current = event.currentTarget.getBoundingClientRect();
-		const rect = boundsRef.current;
-		pointerRef.current = {
-			x: ((event.clientX - rect.left) / rect.width - 0.5) * 2,
-			y: ((event.clientY - rect.top) / rect.height - 0.5) * 2,
-		};
-		if (tiltFrameRef.current !== null) return;
-		tiltFrameRef.current = requestAnimationFrame(() => {
-			tiltFrameRef.current = null;
-			const pointer = pointerRef.current;
-			if (pointer) setTilt(pointer.x, pointer.y);
-		});
-	};
-
-	const resetTilt = () => {
-		if (tiltFrameRef.current !== null) {
-			cancelAnimationFrame(tiltFrameRef.current);
-			tiltFrameRef.current = null;
+		const now = performance.now();
+		drag.previousX = drag.lastX;
+		drag.previousTime = drag.lastTime;
+		drag.lastX = event.clientX;
+		drag.lastTime = now;
+		const delta = event.clientX - drag.startX;
+		const width = Math.max(
+			1,
+			boundsRef.current?.width ?? sceneRef.current?.getBoundingClientRect().width ?? 640,
+		);
+		// A fixed travel budget is silently clipped by the viewport clamp on narrow
+		// screens, so the card barely follows the pointer there. Scale the budget
+		// to the slack that actually exists in the direction being dragged.
+		const slack = sceneSlack(boundsRef.current);
+		const travel = Math.min(Math.max(width * 0.2, 96), 160, Math.max(slack.left, slack.right, 1));
+		const atStart = selected === 0 && delta > 0;
+		const atEnd = selected === stops.length - 1 && delta < 0;
+		if (atStart || atEnd) {
+			const sign = delta < 0 ? -1 : 1;
+			const offset = Math.min(24, rubberband(Math.abs(delta), travel, 0.4));
+			dragX.jump(clampSceneTranslation(boundsRef.current, drag.startValue + sign * offset));
+			return;
 		}
-		pointerRef.current = null;
-		boundsRef.current = null;
-		delete sceneRef.current?.dataset.interacting;
-		rotateX.set(0);
-		rotateY.set(0);
+		const limit =
+			delta < 0 ? Math.min(travel, slack.left || travel) : Math.min(travel, slack.right || travel);
+		dragX.jump(
+			clampSceneTranslation(
+				boundsRef.current,
+				Math.max(
+					drag.startValue - limit,
+					Math.min(drag.startValue + limit, drag.startValue + delta),
+				),
+			),
+		);
 	};
 
-	const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (!event.isPrimary || (event.target as Element).closest("button,a")) return;
+	const onScenePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (!event.isPrimary || dragRef.current || event.button !== 0 || reduceMotion) return;
+		const target = event.target as Element | null;
+		if (target?.closest("button, a")) return;
+		dragX.stop();
+		const bounds = getSceneBounds(cardRef.current, dragX.get());
+		if (!bounds) return;
+		boundsRef.current = bounds;
+		const now = performance.now();
 		dragRef.current = {
 			pointerId: event.pointerId,
 			startX: event.clientX,
+			startValue: dragX.get(),
 			previousX: event.clientX,
-			previousTime: performance.now(),
+			previousTime: now,
 			lastX: event.clientX,
-			lastTime: performance.now(),
+			lastTime: now,
 		};
 		event.currentTarget.setPointerCapture(event.pointerId);
 	};
 
-	const finishDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+	const endDrag = (clientX: number) => {
 		const drag = dragRef.current;
-		if (!drag || drag.pointerId !== event.pointerId) return;
+		if (!drag) return;
 		const now = performance.now();
-		const releaseMoved = event.clientX !== drag.lastX;
-		const velocity = releaseMoved
-			? ((event.clientX - drag.lastX) / Math.max(16, now - drag.lastTime)) * 1000
-			: ((drag.lastX - drag.previousX) / Math.max(16, drag.lastTime - drag.previousTime)) * 1000;
-		const distance = event.clientX - drag.startX;
-		const projected = distance + velocity * 0.18;
-		if (Math.abs(projected) > 28) select(selected + (projected < 0 ? 1 : -1));
+		const velocity = getReleaseVelocity(drag, clientX, now);
+		const width = Math.max(
+			1,
+			boundsRef.current?.width ?? sceneRef.current?.getBoundingClientRect().width ?? 640,
+		);
+		const delta = clientX - drag.startX;
+		const distanceThreshold = Math.max(28, width * 0.16);
+		const velocityThreshold = 500;
 		dragRef.current = null;
-		if (event.currentTarget.hasPointerCapture(event.pointerId))
+		boundsRef.current = null;
+		if (
+			(delta < -distanceThreshold || velocity < -velocityThreshold) &&
+			selected < stops.length - 1
+		) {
+			select(selected + 1);
+		} else if ((delta > distanceThreshold || velocity > velocityThreshold) && selected > 0) {
+			select(selected - 1);
+		}
+		returnScene(velocity);
+	};
+
+	function cancelDrag(pointerId: number) {
+		const drag = dragRef.current;
+		if (!drag || drag.pointerId !== pointerId) return;
+		const velocity = getReleaseVelocity(drag, drag.lastX, performance.now());
+		dragRef.current = null;
+		boundsRef.current = null;
+		returnScene(velocity);
+	}
+
+	const onScenePointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (dragRef.current?.pointerId !== event.pointerId) return;
+		endDrag(event.clientX);
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
 			event.currentTarget.releasePointerCapture(event.pointerId);
-		if (reducedMotion) dragX.set(0);
-		else animate(dragX, 0, { type: "spring", duration: 0.36, bounce: 0.12, velocity });
-		resetTilt();
+		}
+	};
+
+	const onScenePointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+		if (dragRef.current?.pointerId !== event.pointerId) return;
+		cancelDrag(event.pointerId);
+		if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+			event.currentTarget.releasePointerCapture(event.pointerId);
+		}
+	};
+
+	const onSceneLostPointerCapture = (event: ReactPointerEvent<HTMLDivElement>) => {
+		cancelDrag(event.pointerId);
 	};
 
 	return (
 		<section
-			className="mx-auto grid min-h-[min(760px,calc(100svh-72px))] w-[min(1180px,calc(100%-40px))] grid-cols-[minmax(0,1fr)_minmax(420px,1fr)] items-center gap-[clamp(36px,5vw,72px)] py-[76px] max-[959px]:block max-[959px]:min-h-0 max-[959px]:w-full max-[959px]:px-5 max-[959px]:py-[clamp(50px,7vw,74px)]"
+			className="relative min-w-0 overflow-visible pb-12 pt-[clamp(28px,5vw,56px)]"
 			aria-labelledby="hero-title"
+			data-slot="route-hero"
 		>
-			<motion.div
-				className="min-w-0"
-				initial={{ opacity: 0, y: 14 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-			>
-				<p className="mb-3.5 text-xs font-extrabold uppercase tracking-[0.11em] text-primary-text">
-					<span
-						className="mr-1.5 inline-block size-2 rounded-full bg-signal align-[1px] shadow-[0_0_0_5px_color-mix(in_srgb,var(--theme-signal)_12%,transparent)]"
-						aria-hidden="true"
-					/>
-					{hero?.eyebrow ||
-						(currentRole ? `${currentRole.role} · ${currentRole.company}` : identity.role)}
-				</p>
-				<h1
-					className="m-0 max-w-[790px] text-[clamp(3.15rem,4.7vw,5rem)] font-[760] leading-[0.95] tracking-[-0.065em] text-balance max-[959px]:text-[clamp(2.85rem,12.4vw,4.4rem)]"
-					id="hero-title"
-				>
-					{renderHeadline(
-						hero?.title || "I follow product problems all the way through the stack.",
-					)}
-				</h1>
-				<p className="mt-5 max-w-[580px] text-[clamp(1.05rem,1.8vw,1.3rem)] leading-[1.55] text-muted-foreground">
-					{hero?.intro ||
-						`I’m ${identity.name}, a software engineer. I work across product interfaces, backend services, data, infrastructure, and releases.`}
-				</p>
-				<ActionRow>
-					{actions.slice(0, 2).map((action, index) => (
-						<HeroAction action={action} index={index} key={action.label} />
-					))}
-				</ActionRow>
-			</motion.div>
-			<motion.div
-				ref={sceneRef}
-				data-slot="hero-scene"
-				className="relative min-h-[min(560px,calc(100vw+140px))] min-w-0 cursor-grab [perspective:1100px] [transform-style:preserve-3d] max-[959px]:mt-7 max-[959px]:min-h-[clamp(500px,78vw,560px)] min-[960px]:min-h-[560px] active:cursor-grabbing"
-				style={{ touchAction: "pan-y", transform: sceneTransform }}
-				onPointerDown={onPointerDown}
-				onPointerMove={onPointerMove}
-				onPointerUp={finishDrag}
-				onPointerCancel={(event) => {
-					dragRef.current = null;
-					if (reducedMotion) dragX.set(0);
-					else animate(dragX, 0, { type: "spring", duration: 0.32, bounce: 0.1 });
-					resetTilt();
-					if (event.currentTarget.hasPointerCapture(event.pointerId))
-						event.currentTarget.releasePointerCapture(event.pointerId);
-				}}
-				onLostPointerCapture={resetTilt}
-				onPointerLeave={resetTilt}
-			>
-				<div
-					className="pointer-events-none absolute inset-[10%_7%_9%] rounded-full border border-primary/10 shadow-[inset_0_0_72px_color-mix(in_srgb,var(--theme-surface-solid)_58%,transparent),0_24px_80px_color-mix(in_srgb,var(--theme-accent-shadow)_58%,transparent)] [transform:rotate(-14deg)_scaleY(.76)]"
-					aria-hidden="true"
-				/>
-				<Surface className="absolute right-[8%] top-[4%] z-[2] w-[min(62%,360px)] gap-0 p-2.5 shadow-[0_30px_84px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] [transform:translateZ(42px)_rotate(2deg)] will-change-transform max-[959px]:right-[7%] max-[959px]:top-[2%] max-[959px]:w-[min(86%,330px)] max-[560px]:w-[min(86%,330px)]">
-					<div className="overflow-hidden rounded-[20px]">
-						<PortfolioImage
-							src={portrait}
-							alt={portraitAlt}
-							width={800}
-							height={800}
-							loading="eager"
-							fetchPriority="high"
-							sizes="(max-width: 959px) min(86vw, 330px), 360px"
-							srcSet={
-								portraitSrc
-									? undefined
-									: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
-							}
-							className="block aspect-square w-full rounded-[20px] object-cover object-[center_20%]"
-						/>
-					</div>
-					<div className="flex items-center justify-between gap-3 px-2 pb-1 pt-3.5 text-[11px] leading-[1.35] text-muted-foreground">
-						<span className="min-w-0 truncate">{identity.location}</span>
-						<span className="inline-flex max-w-[58%] shrink-0 items-center justify-end gap-1.5 text-right text-[10px] font-semibold leading-[1.25] text-muted-foreground">
-							<span
-								className="size-1.5 shrink-0 rounded-full bg-signal shadow-[0_0_0_4px_color-mix(in_srgb,var(--theme-signal)_9%,transparent)]"
-								aria-hidden="true"
-							/>
-							{identity.availability || "Available for thoughtful work"}
-						</span>
-					</div>
-				</Surface>
-				<svg
-					className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-					viewBox="0 0 620 470"
-					role="img"
-					aria-label="Interactive route from where I started to where I’m headed"
-				>
-					<path
-						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
-						fill="none"
-						stroke="color-mix(in_srgb,var(--theme-surface-solid)_62%,transparent)"
-						strokeLinecap="round"
-						strokeWidth="11"
-						style={{ filter: "blur(1px)" }}
-					/>
-					<path
-						d="M72 380 C180 250 250 350 320 228 S465 102 558 72"
-						fill="none"
-						stroke="var(--theme-accent)"
-						strokeDasharray="6 13"
-						strokeDashoffset="380"
-						strokeLinecap="round"
-						strokeOpacity="0.52"
-						strokeWidth="1.6"
-						className="animate-route-draw motion-reduce:animate-none"
-					/>
-					{stops.map((stop, index) => {
-						const position = stopPositions[index];
-						return (
-							<g
-								key={stop.label}
-								className={cn(
-									"origin-center transition-transform duration-240 ease-route [transform-box:fill-box]",
-									index === selected && "scale-[1.18]",
-								)}
-								style={{ transformOrigin: "center" } as CSSProperties}
-							>
-								<circle
-									cx={position[0]}
-									cy={position[1]}
-									r="18"
-									fill="color-mix(in_srgb,var(--theme-surface-solid)_58%,transparent)"
-									stroke="var(--theme-accent-soft)"
-									strokeWidth="1"
-								/>
-								<circle
-									cx={position[0]}
-									cy={position[1]}
-									r="7"
-									fill={stop.accent === "orange" ? "var(--theme-signal)" : "var(--theme-accent)"}
-									stroke="var(--theme-surface-solid)"
-									strokeWidth="3"
-								/>
-							</g>
-						);
-					})}
-				</svg>
-				<div
-					data-material="glass"
-					className="absolute bottom-[1%] left-1/2 z-[3] grid w-[min(90%,470px)] -translate-x-1/2 [transform:translateZ(65px)] grid-cols-[minmax(116px,.55fr)_minmax(0,1.45fr)] items-center gap-3 rounded-[20px] border border-border/60 bg-[color-mix(in_srgb,var(--theme-surface-solid)_88%,transparent)] p-2 shadow-[0_18px_50px_var(--theme-shadow),inset_0_1px_var(--theme-highlight)] backdrop-blur-xl backdrop-saturate-150 max-[959px]:bottom-0 max-[959px]:w-full max-[959px]:grid-cols-1 max-[959px]:[transform:none] max-[560px]:rounded-[18px] max-[560px]:p-1.5"
-					role="group"
-					aria-label="Choose a route stop"
-					onPointerDown={(event) => event.stopPropagation()}
-				>
-					<div
-						className="grid gap-0.5 px-2.5 py-2 max-[959px]:flex max-[959px]:items-baseline max-[959px]:justify-between max-[959px]:gap-2.5"
-						id="route-stop-detail"
+			<div className="mx-auto grid w-full max-w-[1240px] grid-cols-[minmax(0,1.6fr)_minmax(0,0.9fr)] items-center gap-[clamp(28px,5vw,64px)] max-[960px]:grid-cols-1">
+				<div className="min-w-0">
+					<Eyebrow className="mb-4">
+						<span data-slot="hero-eyebrow">{hero.eyebrow}</span>
+					</Eyebrow>
+					<h1
+						aria-label={hero.title}
+						className="m-0 min-w-0 max-w-[20ch] break-words text-pretty text-[clamp(2.6rem,6vw,5.4rem)] font-[760] leading-[0.98] tracking-[-0.06em] [overflow-wrap:anywhere]"
+						id="hero-title"
+						data-slot="hero-title"
 					>
-						<AnimatePresence initial={false} mode="wait">
-							<motion.span
-								className="text-xs font-extrabold text-primary-text"
-								key={current?.label}
-								initial={{ opacity: 0, y: 4 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={{ opacity: 0, y: -4 }}
-								transition={{ duration: reducedMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-								aria-hidden="true"
-							>
-								{current?.label}
-							</motion.span>
-						</AnimatePresence>
-						<AnimatePresence initial={false} mode="wait">
-							<motion.strong
-								className="text-[11px] leading-[1.3] text-muted-foreground"
-								key={`${current?.label}-detail`}
-								initial={{ opacity: 0, y: 4 }}
-								animate={{ opacity: 1, y: 0 }}
-								exit={{ opacity: 0, y: -4 }}
-								transition={{
-									duration: reducedMotion ? 0 : 0.2,
-									delay: reducedMotion ? 0 : 0.025,
-									ease: [0.22, 1, 0.36, 1],
-								}}
-								aria-hidden="true"
-							>
-								{current?.detail}
-							</motion.strong>
-						</AnimatePresence>
-					</div>
-					<p className="sr-only" role="status" aria-live="polite">
-						{current?.label}. {current?.detail}
+						{renderHeadline(hero.title)}
+					</h1>
+					<p
+						className="mt-6 min-w-0 w-full max-w-[min(100%,48ch)] break-words whitespace-normal text-pretty text-[clamp(1.05rem,1.8vw,1.25rem)] leading-[1.6] text-muted-foreground [overflow-wrap:anywhere]"
+						data-slot="hero-intro"
+					>
+						{hero.intro}
 					</p>
-					<div className="grid grid-cols-3 gap-1">
-						{stops.map((stop, index) => (
-							<button
-								key={stop.label}
-								className="grid min-w-0 gap-px rounded-[13px] border border-transparent bg-transparent px-2 py-2.5 text-left text-muted-foreground transition-[background-color,border-color,transform,translate,scale,rotate,color] duration-180 ease-route hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:scale-[.97] aria-pressed:border-primary/30 aria-pressed:bg-primary-soft aria-pressed:text-foreground"
-								id={`route-stop-${index}`}
-								type="button"
-								aria-label={`${stop.label}: ${stop.detail}`}
-								aria-describedby={selected === index ? "route-stop-detail" : undefined}
-								aria-pressed={selected === index}
-								onClick={() => select(index)}
-								onKeyDown={(event) => {
-									let next = index;
-									if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index + 1;
-									else if (event.key === "ArrowLeft" || event.key === "ArrowUp") next = index - 1;
-									else if (event.key === "Home") next = 0;
-									else if (event.key === "End") next = stops.length - 1;
-									else return;
-									event.preventDefault();
-									next = Math.max(0, Math.min(stops.length - 1, next));
-									select(next);
-									document.getElementById(`route-stop-${next}`)?.focus();
-								}}
-							>
-								<span
-									className="text-[9px] font-extrabold tracking-[.08em] text-primary-text"
-									aria-hidden="true"
-								>
-									{String(index + 1).padStart(2, "0")}
-								</span>
-								<strong className="truncate text-xs">{stop.label}</strong>
-							</button>
-						))}
-					</div>
+					{heroActions.length > 0 ? (
+						<div className="mt-8 flex min-w-0 max-w-full flex-wrap gap-3">
+							{heroActions.map((action, index) => (
+								<HeroAction action={action} index={index} key={`${action.href}-${action.label}`} />
+							))}
+						</div>
+					) : null}
 				</div>
-			</motion.div>
+
+				<div
+					ref={sceneRef}
+					className="relative isolate min-w-0 w-full touch-pan-y select-none py-4 max-[960px]:mx-auto max-[960px]:max-w-[620px]"
+					data-slot="route-scene"
+					style={{ touchAction: "pan-y" }}
+					onPointerDown={onScenePointerDown}
+					onPointerMove={onScenePointerMove}
+					onPointerUp={onScenePointerUp}
+					onPointerCancel={onScenePointerCancel}
+					onLostPointerCapture={onSceneLostPointerCapture}
+					onDragStart={(event) => event.preventDefault()}
+				>
+					<motion.div
+						ref={cardRef}
+						data-material="glass"
+						className="relative min-w-0 max-w-full rounded-[28px] border border-border/70 bg-[color-mix(in_srgb,var(--theme-surface-solid)_92%,transparent)] p-6 shadow-float backdrop-blur-2xl backdrop-saturate-150 transition-shadow duration-200 ease-route motion-reduce:transition-none max-[560px]:p-4.5"
+						style={{ transform: sceneTransform }}
+					>
+						<div className="flex min-w-0 flex-wrap items-center gap-4 border-b border-border/60 pb-4 max-[560px]:gap-3">
+							<div
+								className="relative aspect-[4/5] w-[104px] shrink-0 overflow-hidden rounded-[20px] border border-border/70 bg-muted shadow-[0_10px_28px_var(--theme-shadow)] max-[560px]:w-[84px]"
+								draggable={false}
+							>
+								<PortfolioImage
+									src={portrait}
+									alt={portraitAlt}
+									width={400}
+									height={500}
+									className="size-full object-cover object-[center_18%]"
+									loading="eager"
+									fetchPriority="high"
+									sizes="(max-width: 560px) 84px, 104px"
+									srcSet={
+										portraitSrc
+											? undefined
+											: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
+									}
+								/>
+							</div>
+							<div className="min-w-0 flex-1">
+								<strong className="block text-[15px] font-[760] leading-tight tracking-[-0.02em] text-foreground">
+									{identity.name}
+								</strong>
+								<span className="mt-1 block text-[13px] leading-snug text-muted-foreground">
+									{latestRole?.role ?? identity.role}
+								</span>
+								<span className="mt-2.5 inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[11px] font-semibold text-muted-foreground [font-variant-numeric:tabular-nums]">
+									{experience.length > 0 ? `${experience.length} roles` : "5+ years"}
+								</span>
+							</div>
+						</div>
+
+						<div className="relative my-5 aspect-[640/300] min-w-0 w-full max-[560px]:my-4">
+							<svg
+								aria-hidden="true"
+								className="pointer-events-none size-full"
+								focusable="false"
+								viewBox="0 0 640 300"
+								preserveAspectRatio="xMidYMid meet"
+								fill="none"
+							>
+								<path
+									d={routePath}
+									stroke="currentColor"
+									strokeWidth="3"
+									strokeDasharray="6 6"
+									strokeLinecap="round"
+									className="text-muted-foreground/60"
+								/>
+								<path
+									d={routePath}
+									stroke="var(--theme-accent)"
+									strokeWidth="4"
+									strokeLinecap="round"
+									pathLength={1}
+									strokeDasharray={1}
+									strokeDashoffset={1 - selected / Math.max(1, stops.length - 1)}
+									className="transition-[stroke-dashoffset] duration-200 ease-route motion-reduce:transition-none"
+								/>
+								{stops.map((stop, index) => {
+									const pos = stopPositions[index] ?? [0, 0];
+									const isCurrent = selected === index;
+									const accent = getStopAccent(isCurrent);
+									return (
+										<g key={stop.label}>
+											{isCurrent ? (
+												<circle
+													cx={pos[0]}
+													cy={pos[1]}
+													r="22"
+													fill="none"
+													stroke={accent}
+													strokeOpacity="0.32"
+													strokeWidth="2"
+												/>
+											) : null}
+											<circle
+												cx={pos[0]}
+												cy={pos[1]}
+												r={isCurrent ? 14 : 10}
+												fill={accent}
+												fillOpacity={isCurrent ? 1 : 0.95}
+												stroke={isCurrent ? "var(--theme-surface-solid)" : accent}
+												strokeWidth={isCurrent ? 4 : 3.5}
+											/>
+											{/* Year under each stop turns the curve into a readable timeline. */}
+											<text
+												x={pos[0]}
+												y={pos[1] + 40}
+												textAnchor="middle"
+												className="fill-current text-[26px] font-semibold"
+												fill={isCurrent ? "var(--theme-signal)" : "var(--theme-muted)"}
+												opacity={isCurrent ? 1 : 0.75}
+											>
+												{stop.label.replace(/\s*—.*$/u, "")}
+											</text>
+										</g>
+									);
+								})}
+							</svg>
+						</div>
+
+						<div className="rounded-[20px] border border-border/70 bg-surface-solid p-4">
+							<div className="flex min-w-0 max-w-full flex-wrap items-center justify-between gap-x-2 gap-y-2">
+								<span className="min-w-0 max-w-full break-words whitespace-normal text-xs font-extrabold uppercase tracking-[0.11em] text-primary-text [overflow-wrap:anywhere]">
+									Route Milestone
+								</span>
+								<div
+									className="ml-auto flex min-w-0 max-w-full flex-wrap justify-end gap-1.5 max-[640px]:ml-0 max-[640px]:w-full max-[640px]:justify-start"
+									role="group"
+									aria-label="Route milestones"
+								>
+									{stops.map((stop, index) => {
+										const isSelected = selected === index;
+										return (
+											<button
+												key={stop.label}
+												ref={(element) => {
+													stopRefs.current[index] = element;
+												}}
+												type="button"
+												aria-pressed={isSelected}
+												aria-label={`Milestone ${index + 1} of ${stops.length}, ${stop.label}`}
+												tabIndex={isSelected ? 0 : -1}
+												className="grid size-11 min-h-11 min-w-11 touch-manipulation cursor-pointer place-items-center rounded-full border border-transparent transition-[background-color,border-color] duration-200 ease-route hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:bg-muted aria-pressed:border-primary/30 aria-pressed:bg-primary/10 motion-reduce:transition-none"
+												onPointerDown={(event) => {
+													event.stopPropagation();
+													if (!event.isPrimary) event.preventDefault();
+												}}
+												onClick={() => select(index)}
+												onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+													let next = index;
+													if (event.key === "ArrowRight") next = index + 1;
+													else if (event.key === "ArrowLeft") next = index - 1;
+													else if (event.key === "Home") next = 0;
+													else if (event.key === "End") next = stops.length - 1;
+													else return;
+													event.preventDefault();
+													event.stopPropagation();
+													next = Math.max(0, Math.min(stops.length - 1, next));
+													if (next === index) return;
+													select(next);
+													stopRefs.current[next]?.focus();
+												}}
+											>
+												<span
+													aria-hidden="true"
+													className={cn(
+														"size-2.5 rounded-full ring-1 transition-[width,background-color,--tw-ring-color] duration-200 ease-route motion-reduce:transition-none",
+														isSelected
+															? "w-6 bg-primary ring-primary/40"
+															: "bg-muted-foreground ring-muted-foreground/30",
+													)}
+												/>
+											</button>
+										);
+									})}
+								</div>
+							</div>
+							<div className="mt-2.5 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)]">
+								<strong className="block min-w-0 max-w-full break-words whitespace-normal text-lg font-bold tracking-tight text-foreground [overflow-wrap:anywhere] [text-wrap:pretty]">
+									{current.label}
+								</strong>
+								<span className="block min-w-0 max-w-full break-words whitespace-normal text-sm text-muted-foreground [overflow-wrap:anywhere] [text-wrap:pretty]">
+									{current.detail}
+								</span>
+							</div>
+							{/* The single announcement for a selection change. The button labels
+						    carry only position and year, so without this the detail would
+						    never be spoken once a drag changes the stop. */}
+							<p className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+								{current.label}: {current.detail}
+							</p>
+						</div>
+					</motion.div>
+				</div>
+			</div>
 		</section>
 	);
 }
