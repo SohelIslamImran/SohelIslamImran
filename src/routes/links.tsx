@@ -1,4 +1,5 @@
-import { AnimatePresence, motion, useIsPresent } from "motion/react";
+import { useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion, useIsPresent } from "motion/react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { LinkIcon } from "../components/LinkIcon";
 import { LinksFilter, linkKindLabels, linkKinds, type LinkKind } from "../components/LinksFilter";
@@ -49,7 +50,15 @@ function classifyDestination(href: string): DestinationKind {
 	return "internal";
 }
 
-function LinkListItem({ link, kind }: { link: ProfileLinkContent; kind: LinkKind }) {
+function LinkListItem({
+	link,
+	kind,
+	index,
+}: {
+	link: ProfileLinkContent;
+	kind: LinkKind;
+	index: number;
+}) {
 	const isPresent = useIsPresent();
 	const destinationKind = classifyDestination(link.href);
 	const destination = destinationDetails[destinationKind];
@@ -61,10 +70,21 @@ function LinkListItem({ link, kind }: { link: ProfileLinkContent; kind: LinkKind
 	return (
 		<motion.li
 			className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)]"
-			initial={{ opacity: 0 }}
-			animate={{ opacity: 1 }}
-			exit={{ opacity: 0 }}
-			transition={{ duration: 0.14, ease: "easeOut" }}
+			layout="position"
+			initial={{ opacity: 0, y: 8 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{ opacity: 0, y: -8 }}
+			transition={{
+				layout: { type: "spring", stiffness: 420, damping: 36, mass: 0.8 },
+				opacity: { duration: 0.22, delay: Math.min(index * 0.025, 0.12) },
+				y: {
+					type: "spring",
+					stiffness: 420,
+					damping: 36,
+					mass: 0.8,
+					delay: Math.min(index * 0.025, 0.12),
+				},
+			}}
 			inert={!isPresent}
 			aria-hidden={!isPresent || undefined}
 		>
@@ -120,6 +140,8 @@ function Links() {
 		(link) => kind === "all" || (link.kind ?? "other") === kind,
 	);
 	const navigate = useNavigate({ from: "/links" });
+	const listRef = useRef<HTMLUListElement>(null);
+	const [listHeight, setListHeight] = useState<number | null>(null);
 	const filterLabel = linkKindLabels[kind];
 	const resultNoun =
 		kind === "all"
@@ -127,6 +149,19 @@ function Links() {
 				? "curated link"
 				: "curated links"
 			: `${filterLabel.toLowerCase()} ${links.length === 1 ? "link" : "links"}`;
+
+	useLayoutEffect(() => {
+		const list = listRef.current;
+		if (!list) return;
+		const updateHeight = () => {
+			const nextHeight = list.getBoundingClientRect().height;
+			setListHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
+		};
+		updateHeight();
+		const observer = new ResizeObserver(updateHeight);
+		observer.observe(list);
+		return () => observer.disconnect();
+	}, [kind]);
 
 	return (
 		<PageShell className="min-w-0 max-w-full max-w-[1144px]">
@@ -163,13 +198,26 @@ function Links() {
 					</p>
 				</div>
 				{links.length > 0 ? (
-					<ul className="m-0 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] list-none gap-2.5 p-0">
-						<AnimatePresence initial={false} mode="sync">
-							{links.map((link) => (
-								<LinkListItem key={link.id} link={link} kind={kind} />
-							))}
-						</AnimatePresence>
-					</ul>
+					<LayoutGroup id="links-results">
+						<motion.div
+							className="overflow-visible"
+							animate={{ height: listHeight ?? "auto" }}
+							transition={{
+								height: { type: "spring", stiffness: 420, damping: 36, mass: 0.8 },
+							}}
+						>
+							<ul
+								ref={listRef}
+								className="m-0 grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] list-none gap-2.5 p-0"
+							>
+								<AnimatePresence mode="popLayout">
+									{links.map((link, index) => (
+										<LinkListItem key={link.id} link={link} kind={kind} index={index} />
+									))}
+								</AnimatePresence>
+							</ul>
+						</motion.div>
+					</LayoutGroup>
 				) : (
 					<EmptyState
 						title={
