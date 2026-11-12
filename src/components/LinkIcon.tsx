@@ -2,6 +2,8 @@ import { cn } from "../lib/utils";
 
 interface LinkIconProps {
 	platform: string;
+	/** `md` 44px (list rows), `lg` 52px (featured tiles). */
+	size?: "md" | "lg";
 	className?: string;
 }
 
@@ -10,8 +12,8 @@ interface LinkIconProps {
  * Unknown platforms intentionally receive a neutral signal glyph so new CMS
  * links still have a polished affordance without another dependency.
  */
-export function LinkIcon({ platform, className }: LinkIconProps) {
-	const name = platform.toLowerCase();
+export function LinkIcon({ platform, size = "md", className }: LinkIconProps) {
+	const name = platform.trim().toLowerCase();
 	const icon = name.includes("linkedin") ? (
 		<>
 			<rect x="5" y="5" width="14" height="14" rx="2.5" />
@@ -20,9 +22,10 @@ export function LinkIcon({ platform, className }: LinkIconProps) {
 		</>
 	) : name.includes("github") ? (
 		<>
-			<path d="M8.4 18.5c-3.2.8-3.2-1.5-4.5-2m9-11.1c2.8-.3 4.7 1.3 4.7 4.7 0 1.8-.6 3-1.7 3.8.2 1.1.2 2.1-.1 3.1-.9.2-1.6-.2-2.2-.7" />
-			<path d="M7.5 5.4C4.7 5.1 2.8 6.7 2.8 10c0 1.8.6 3 1.7 3.8-.2 1.1-.2 2.1.1 3.1.9.2 1.6-.2 2.2-.7" />
-			<path d="M8 18.2c-.1-1.1.4-1.9 1.5-2.2 1.1-.3 2-.3 3.1 0 1.1.3 1.6 1.1 1.5 2.2" />
+			<path
+				d="M9 19c-4 1-4-2-6-2m12 5v-3.5c0-1 .1-1.8-.5-2.4 3-.3 6-1.4 6-6.1A4.8 4.8 0 0 0 19.2 6a4.4 4.4 0 0 0-.1-4s-1.1-.3-4.1 1.5a14 14 0 0 0-7 0C5 1.7 3.9 2 3.9 2a4.4 4.4 0 0 0-.1 4 4.8 4.8 0 0 0-1.3 3.5c0 4.7 3 5.8 6 6.1-.5.5-.6 1.2-.5 2.4V22"
+				transform="translate(2 1) scale(.83)"
+			/>
 		</>
 	) : name === "x" || name.includes("twitter") ? (
 		<path d="m5 5 5.8 6.2L5.2 19h2.6l4.2-5 4.6 5H19l-5.8-6.4L18.4 5h-2.6l-3.8 4.6L7.7 5H5Z" />
@@ -57,6 +60,26 @@ export function LinkIcon({ platform, className }: LinkIconProps) {
 		</>
 	) : name.includes("bluesky") ? (
 		<path d="M12 10.8C10.9 8.5 8 5.4 5.5 4.1 3.1 2.9 2.4 3.8 2.4 5c0 .3.2 2.6.3 3.1.4 1.8 1.7 2.8 3.4 3.2-1.9-.2-3.6.1-3.7 1.6-.1 1.8 2 2.7 3.6 3.2 1.8.6 3.5-.1 4.6-1.3l1.4-1.8 1.4 1.8c1.1 1.2 2.8 1.9 4.6 1.3 1.6-.5 3.7-1.4 3.6-3.2-.1-1.5-1.8-1.8-3.7-1.6 1.7-.4 3-1.4 3.4-3.2.1-.5.3-2.8.3-3.1 0-1.2-.7-2.1-3.1-.9-2.5 1.3-5.4 4.4-6.5 6.7Z" />
+	) : name === "npm" ? (
+		<>
+			<path d="M3 7h18v10H12v2H8v-2H3V7Z" />
+			<path d="M7 10v4m4 0v-4h6v4m-3-4v4" />
+		</>
+	) : name.includes("medium") ? (
+		<>
+			<ellipse cx="7" cy="12" rx="4.5" ry="6" />
+			<ellipse cx="16" cy="12" rx="2.5" ry="6" />
+			<path d="M22 7v10" />
+		</>
+	) : name.includes("threads") ? (
+		<>
+			<path d="M19 7c-1-3-3.2-4-6.5-4C6.5 3 4 6.7 4 12s2.5 9 8.5 9c4.8 0 7.5-2.6 7.5-6 0-3.6-3-5.5-6.5-5.5-3.2 0-5 1.4-5 3.5 0 1.6 1.2 2.5 2.9 2.5 3 0 4.1-2.2 4.1-5 0-3.1-2.1-4.7-4.5-3.2" />
+		</>
+	) : name.includes("field") || name.includes("notes") ? (
+		<>
+			<rect x="5" y="3" width="15" height="18" rx="2" />
+			<path d="M8 3v18M3 7h4m-4 5h4m-4 5h4m5-10h5m-5 4h5m-5 4h3" />
+		</>
 	) : name.includes("website") || name.includes("portfolio") ? (
 		<>
 			<circle cx="12" cy="12" r="8" />
@@ -87,13 +110,17 @@ export function LinkIcon({ platform, className }: LinkIconProps) {
 	return (
 		<span
 			className={cn(
-				"grid size-12 shrink-0 place-items-center rounded-[17px] border border-border/60 bg-primary-soft text-primary-text shadow-[0_4px_14px_var(--theme-accent-shadow)] transition-[transform,translate,scale,rotate,border-color,box-shadow,background-color] duration-200 ease-route motion-reduce:transition-none motion-safe:group-hover:-translate-y-0.5 motion-safe:group-hover:rotate-[-4deg] motion-safe:group-focus-visible:-translate-y-0.5 motion-safe:group-focus-visible:rotate-[-4deg] group-hover:border-primary group-hover:bg-primary/12 group-hover:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)] group-focus-visible:border-primary group-focus-visible:shadow-[0_10px_24px_color-mix(in_srgb,var(--theme-accent)_11%,transparent)]",
+				"grid shrink-0 place-items-center border border-line bg-[color-mix(in_srgb,var(--theme-ink)_4%,var(--theme-surface-solid))] text-ink-soft shadow-[inset_0_1px_0_var(--theme-highlight)] transition-[color,background-color,border-color] duration-200 pointer-fine:group-hover:border-line-strong pointer-fine:group-hover:text-primary-text group-has-[:focus-visible]:text-primary-text",
+				size === "lg" ? "size-[52px] rounded-[16px]" : "size-11 rounded-[13px]",
 				className,
 			)}
 			aria-hidden="true"
 		>
 			<svg
-				className="block size-6 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+				className={cn(
+					"block fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]",
+					size === "lg" ? "size-[26px]" : "size-[22px]",
+				)}
 				viewBox="0 0 24 24"
 				focusable="false"
 			>

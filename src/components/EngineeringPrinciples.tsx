@@ -1,70 +1,75 @@
-import { SectionIntro, Surface } from "./ui/portfolio";
+import type { CapabilityContent } from "../types/content";
 
-interface Principle {
+export interface EngineeringPrinciple {
+	id: string;
+	/** The capability this principle belongs with on the home page. */
+	capabilityId: string;
 	title: string;
-	subtitle: string;
-	description: string;
+	body: string;
 }
 
-const PRINCIPLES: Principle[] = [
+/** UI copy from the copy deck's "Engineering principles". */
+export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 	{
-		title: "Follow the change end to end",
-		subtitle: "Interface to release",
-		description:
-			"I keep the user action, server rule, data change, test, and release path in the same working loop.",
+		id: "end-to-end",
+		capabilityId: "product",
+		title: "Follow the whole change.",
+		body: "I keep the interface, server rule, data change, test, and release in view together.",
 	},
 	{
-		title: "Enforce boundaries in the system",
-		subtitle: "Access and data",
-		description:
-			"I apply authorization and privacy checks at service and data boundaries, not only in the interface.",
+		id: "native",
+		capabilityId: "mobile",
+		title: "Work with the platform.",
+		body: "I start with shared tools. When Android or iOS needs something native, I use Kotlin or Swift.",
 	},
 	{
-		title: "Respect native platform behavior",
-		subtitle: "Pragmatic bridges",
-		description:
-			"I use cross-platform tools first, then Kotlin, Swift, or native APIs when the platform requires them.",
+		id: "boundaries",
+		capabilityId: "access",
+		title: "Put rules where they count.",
+		body: "I check access and privacy in the services and data layer, as well as the interface.",
 	},
 	{
-		title: "Keep delivery inspectable",
-		subtitle: "Checks and recovery",
-		description:
-			"I work with infrastructure as code, automated checks, release coordination, and explicit rollback behavior.",
+		id: "delivery",
+		capabilityId: "delivery",
+		title: "Make releases easy to check.",
+		body: "I use infrastructure as code and automated checks. I also work on clear ways to recover or roll back.",
 	},
 ];
 
-export function EngineeringPrinciples() {
-	return (
-		<section
-			className="w-full min-w-0 py-[clamp(56px,7vw,84px)]"
-			aria-labelledby="principles-title"
-		>
-			<SectionIntro
-				eyebrow="Approach"
-				title={<span id="principles-title">Principles that survive the handoff.</span>}
-				description="A few checks I keep close when a change crosses interfaces, data, or deployment."
-				className="mb-[clamp(34px,5vw,52px)] [&_h2]:text-[clamp(1.9rem,3.4vw,3rem)] [&_h2]:leading-[1.04]"
-			/>
-			<div className="grid min-w-0 grid-cols-2 gap-4 max-[760px]:grid-cols-1">
-				{PRINCIPLES.map((principle) => (
-					<Surface
-						key={principle.title}
-						className="relative flex min-w-0 flex-col justify-between gap-3 border border-border/70 p-6 max-[560px]:p-5"
-					>
-						<div>
-							<p className="m-0 min-w-0 break-words text-xs font-semibold text-muted-foreground [overflow-wrap:anywhere]">
-								{principle.subtitle}
-							</p>
-							<h3 className="m-0 mt-2 min-w-0 break-words text-[1.25rem] font-[760] leading-[1.2] tracking-[-0.035em] text-foreground [overflow-wrap:anywhere]">
-								{principle.title}
-							</h3>
-						</div>
-						<p className="m-0 min-w-0 break-words text-pretty text-[14.5px] leading-[1.6] text-muted-foreground [overflow-wrap:anywhere]">
-							{principle.description}
-						</p>
-					</Surface>
-				))}
-			</div>
-		</section>
-	);
+export interface PairedCapability {
+	capability: CapabilityContent;
+	principle?: EngineeringPrinciple;
+}
+
+/**
+ * Pairs each published capability with its principle: by id first, then any
+ * unused principle in order, so a CMS edit to capability ids never drops a
+ * principle. Principles left over (more principles than capabilities) are
+ * returned separately.
+ */
+export function pairPrinciples(capabilities: CapabilityContent[]): {
+	pairs: PairedCapability[];
+	leftover: EngineeringPrinciple[];
+} {
+	const used = new Set<string>();
+	const byCapability = new Map(ENGINEERING_PRINCIPLES.map((item) => [item.capabilityId, item]));
+	const pairs: PairedCapability[] = capabilities.map((capability) => {
+		const match = byCapability.get(capability.id);
+		if (match && !used.has(match.id)) {
+			used.add(match.id);
+			return { capability, principle: match };
+		}
+		return { capability };
+	});
+	for (const pair of pairs) {
+		if (pair.principle) continue;
+		const next = ENGINEERING_PRINCIPLES.find(
+			(item) => !used.has(item.id) && !capabilities.some((cap) => cap.id === item.capabilityId),
+		);
+		if (next) {
+			used.add(next.id);
+			pair.principle = next;
+		}
+	}
+	return { pairs, leftover: ENGINEERING_PRINCIPLES.filter((item) => !used.has(item.id)) };
 }

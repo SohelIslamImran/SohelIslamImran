@@ -22,6 +22,7 @@ import { Route as WorkRouteImport } from './routes/work'
 import { Route as LinksLinkIdRouteImport } from './routes/links/$linkId'
 import { Route as MediaAssetIdRouteImport } from './routes/media/$assetId'
 import { Route as ResumeEditRouteImport } from './routes/resume.edit'
+import { Route as WorkSlugRouteImport } from './routes/work_.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -88,6 +89,11 @@ const ResumeEditRoute = ResumeEditRouteImport.update({
   path: '/edit',
   getParentRoute: () => ResumeRoute,
 } as any)
+const WorkSlugRoute = WorkSlugRouteImport.update({
+  id: '/work_/$slug',
+  path: '/work/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
+  '/work/$slug': typeof WorkSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
+  '/work/$slug': typeof WorkSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -134,6 +142,7 @@ export interface FileRoutesById {
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
+  '/work_/$slug': typeof WorkSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +160,7 @@ export interface FileRouteTypes {
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
+    | '/work/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -166,6 +176,7 @@ export interface FileRouteTypes {
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
+    | '/work/$slug'
   id:
     | '__root__'
     | '/'
@@ -181,6 +192,7 @@ export interface FileRouteTypes {
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
+    | '/work_/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -195,6 +207,7 @@ export interface RootRouteChildren {
   StoryRoute: typeof StoryRoute
   WorkRoute: typeof WorkRoute
   MediaAssetIdRoute: typeof MediaAssetIdRoute
+  WorkSlugRoute: typeof WorkSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -290,6 +303,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ResumeEditRouteImport
       parentRoute: typeof ResumeRoute
     }
+    '/work_/$slug': {
+      id: '/work_/$slug'
+      path: '/work/$slug'
+      fullPath: '/work/$slug'
+      preLoaderRoute: typeof WorkSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoryRoute: StoryRoute,
   WorkRoute: WorkRoute,
   MediaAssetIdRoute: MediaAssetIdRoute,
+  WorkSlugRoute: WorkSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

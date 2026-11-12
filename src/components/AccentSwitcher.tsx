@@ -1,36 +1,50 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { useReducedMotion } from "motion/react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { Popover, PopoverContent, PopoverHeader, PopoverTitle, PopoverTrigger } from "./ui/popover";
 import { MenuIndicator, MenuSurface } from "./ui/portfolio";
+import { cn } from "../lib/utils";
 
+/**
+ * Appearance: theme mode + accent.
+ *
+ * Contract (do not change without updating the boot script):
+ * - `localStorage["portfolio-accent"]` holds an accent id, `["portfolio-theme"]` a mode.
+ * - `<html>` carries `data-accent`, `data-theme` (mode), `data-theme-resolved`
+ *   (light | dark) and the `.dark` class. `accentBootScript` sets them before paint.
+ * - `meta[name="theme-color"]` mirrors the resolved paper color.
+ */
 export const accentOptions = [
-	{ id: "cobalt", name: "Cobalt", color: "#2f5cff" },
-	{ id: "sky", name: "Sky", color: "#0f78b3" },
-	{ id: "azure", name: "Azure", color: "#0873aa" },
-	{ id: "tangerine", name: "Tangerine", color: "#c94f31" },
-	{ id: "violet", name: "Violet", color: "#7044e8" },
-	{ id: "mint", name: "Mint", color: "#087a68" },
+	{ id: "cobalt", name: "Cobalt", color: "#0066d6", darkColor: "#4c9aff" },
+	{ id: "sky", name: "Sky", color: "#00739e", darkColor: "#3fbde8" },
+	{ id: "azure", name: "Azure", color: "#4b55e0", darkColor: "#8e96ff" },
+	{ id: "tangerine", name: "Tangerine", color: "#c2410c", darkColor: "#ff9257" },
+	{ id: "violet", name: "Violet", color: "#7c3aed", darkColor: "#b69aff" },
+	{ id: "mint", name: "Mint", color: "#047857", darkColor: "#34d399" },
 ] as const;
 
-const themeModes = ["light", "dark", "auto"] as const;
+export const themeModes = ["light", "dark", "auto"] as const;
 export type AccentId = (typeof accentOptions)[number]["id"];
 export type ThemeMode = (typeof themeModes)[number];
+export type ResolvedTheme = "light" | "dark";
+
+/** Browser chrome colors; keep equal to `--theme-paper` in each theme. */
+export const themeColors = { light: "#fbfbfd", dark: "#0a0a0c" } as const;
 
 const accentIds = accentOptions.map(({ id }) => id);
 const accentStorageKey = "portfolio-accent";
 const themeStorageKey = "portfolio-theme";
+const defaultAccent: AccentId = "cobalt";
 
-export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto",d=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;if(${JSON.stringify(accentIds)}.includes(a))r.dataset.accent=a;r.dataset.theme=t;r.dataset.themeResolved=d;r.classList.toggle("dark",d==="dark");document.querySelector('meta[name="theme-color"]')?.setAttribute("content",d==="dark"?"#08111f":"#f7f9fc")}catch{}})()`;
+export const accentBootScript = `(()=>{try{const r=document.documentElement,a=localStorage.getItem("${accentStorageKey}"),m=localStorage.getItem("${themeStorageKey}"),t=${JSON.stringify(themeModes)}.includes(m)?m:"auto",d=t==="auto"?(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light"):t;if(${JSON.stringify(accentIds)}.includes(a))r.dataset.accent=a;r.dataset.theme=t;r.dataset.themeResolved=d;r.classList.toggle("dark",d==="dark");document.querySelector('meta[name="theme-color"]')?.setAttribute("content",d==="dark"?"${themeColors.dark}":"${themeColors.light}")}catch{}})()`;
 
-function isAccent(value: string | undefined): value is AccentId {
+export function isAccent(value: string | null | undefined): value is AccentId {
 	return accentIds.some((accent) => accent === value);
 }
 
-function isThemeMode(value: string | undefined): value is ThemeMode {
+export function isThemeMode(value: string | null | undefined): value is ThemeMode {
 	return themeModes.some((mode) => mode === value);
 }
 
-function resolvedTheme(mode: ThemeMode): "light" | "dark" {
+function resolveTheme(mode: ThemeMode): ResolvedTheme {
 	return mode === "auto"
 		? window.matchMedia("(prefers-color-scheme: dark)").matches
 			? "dark"
@@ -38,17 +52,16 @@ function resolvedTheme(mode: ThemeMode): "light" | "dark" {
 		: mode;
 }
 
-function syncThemeColor(theme: "light" | "dark") {
-	document
-		.querySelector('meta[name="theme-color"]')
-		?.setAttribute("content", theme === "dark" ? "#08111f" : "#f7f9fc");
+function syncThemeColor(theme: ResolvedTheme) {
+	document.querySelector('meta[name="theme-color"]')?.setAttribute("content", themeColors[theme]);
 }
 
-function updateTheme(mode: ThemeMode) {
-	const nextResolvedTheme = resolvedTheme(mode);
-	document.documentElement.dataset.theme = mode;
-	document.documentElement.dataset.themeResolved = nextResolvedTheme;
-	document.documentElement.classList.toggle("dark", nextResolvedTheme === "dark");
+function writeTheme(mode: ThemeMode) {
+	const nextResolvedTheme = resolveTheme(mode);
+	const root = document.documentElement;
+	root.dataset.theme = mode;
+	root.dataset.themeResolved = nextResolvedTheme;
+	root.classList.toggle("dark", nextResolvedTheme === "dark");
 	syncThemeColor(nextResolvedTheme);
 	try {
 		localStorage.setItem(themeStorageKey, mode);
@@ -57,7 +70,7 @@ function updateTheme(mode: ThemeMode) {
 	}
 }
 
-function applyAccent(accent: AccentId) {
+function writeAccent(accent: AccentId) {
 	document.documentElement.dataset.accent = accent;
 	try {
 		localStorage.setItem(accentStorageKey, accent);
@@ -73,14 +86,179 @@ type ViewTransitionDocument = Document & {
 	};
 };
 
-function ModeIcon({ mode }: { mode: ThemeMode }) {
+let activeTransition: ReturnType<
+	NonNullable<ViewTransitionDocument["startViewTransition"]>
+> | null = null;
+let fallbackTimer: number | null = null;
+
+/**
+ * Runs an appearance change (theme or accent) as a circular reveal growing
+ * from `origin` (View Transitions), a short color wash where unsupported, or
+ * instantly under reduced motion. Resolves once the visual change has finished.
+ */
+function runAppearanceTransition(update: () => void, origin?: Element | null): Promise<void> {
+	const root = document.documentElement;
+	const documentWithViewTransition = document as ViewTransitionDocument;
+	const clearFallback = () => {
+		if (fallbackTimer !== null) {
+			window.clearTimeout(fallbackTimer);
+			fallbackTimer = null;
+		}
+		if (root.dataset.themeTransitioning === "fallback") delete root.dataset.themeTransitioning;
+		root.style.removeProperty("--theme-transition-from");
+	};
+	if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+		clearFallback();
+		update();
+		return Promise.resolve();
+	}
+	if (!documentWithViewTransition.startViewTransition) {
+		clearFallback();
+		root.style.setProperty(
+			"--theme-transition-from",
+			getComputedStyle(document.body).backgroundColor,
+		);
+		root.dataset.themeTransitioning = "fallback";
+		update();
+		return new Promise((resolve) => {
+			fallbackTimer = window.setTimeout(() => {
+				clearFallback();
+				resolve();
+			}, 420);
+		});
+	}
+	activeTransition?.skipTransition();
+	activeTransition = null;
+	clearFallback();
+	// A route transition names the dock; the reveal must capture the page whole.
+	delete root.dataset.routeVt;
+	const rect = origin?.isConnected ? origin.getBoundingClientRect() : undefined;
+	root.style.setProperty(
+		"--theme-toggle-x",
+		rect ? `${rect.left + rect.width / 2}px` : `${window.innerWidth / 2}px`,
+	);
+	root.style.setProperty("--theme-toggle-y", rect ? `${rect.top + rect.height / 2}px` : "0px");
+	root.dataset.themeTransitioning = "view";
+	const clear = () => {
+		delete root.dataset.themeTransitioning;
+		root.style.removeProperty("--theme-toggle-x");
+		root.style.removeProperty("--theme-toggle-y");
+	};
+	try {
+		const transition = documentWithViewTransition.startViewTransition(update);
+		activeTransition = transition;
+		const settle = () => {
+			if (activeTransition === transition) {
+				activeTransition = null;
+				clear();
+			}
+		};
+		return transition.finished.then(settle, settle);
+	} catch {
+		clear();
+		update();
+		return Promise.resolve();
+	}
+}
+
+/**
+ * Sets the accent. With `origin`, the new accent is revealed in a circle
+ * growing from that control; without it the colors interpolate in place.
+ */
+export function applyAccent(accent: AccentId, origin?: Element | null): Promise<void> {
+	if (document.documentElement.dataset.accent === accent) return Promise.resolve();
+	if (!origin) {
+		writeAccent(accent);
+		return Promise.resolve();
+	}
+	return runAppearanceTransition(() => writeAccent(accent), origin);
+}
+
+/**
+ * Switches the theme mode with a circular reveal from `origin` (View
+ * Transitions), a color wash where unsupported, or instantly under reduced
+ * motion. Resolves once the visual transition has finished.
+ */
+export function applyThemeMode(mode: ThemeMode, origin?: Element | null): Promise<void> {
+	if (document.documentElement.dataset.theme === mode) return Promise.resolve();
+	return runAppearanceTransition(() => writeTheme(mode), origin);
+}
+
+export interface Appearance {
+	theme: ThemeMode;
+	resolvedTheme: ResolvedTheme;
+	accent: AccentId;
+	/** True while a theme reveal is running; controls should ignore input. */
+	transitioning: boolean;
+}
+
+const serverSnapshot = `auto|light|${defaultAccent}|0`;
+
+function readSnapshot(): string {
+	const data = document.documentElement.dataset;
+	const theme = isThemeMode(data.theme) ? data.theme : "auto";
+	const resolved = data.themeResolved === "dark" ? "dark" : "light";
+	const accent = isAccent(data.accent) ? data.accent : defaultAccent;
+	return `${theme}|${resolved}|${accent}|${data.themeTransitioning ? 1 : 0}`;
+}
+
+function subscribe(onChange: () => void) {
+	const observer = new MutationObserver(onChange);
+	observer.observe(document.documentElement, {
+		attributes: true,
+		attributeFilter: [
+			"data-theme",
+			"data-theme-resolved",
+			"data-accent",
+			"data-theme-transitioning",
+		],
+	});
+	return () => observer.disconnect();
+}
+
+/**
+ * Live appearance state read from `<html>`. Hydration-safe: the first client
+ * render uses the server defaults, then updates to the stored preference.
+ */
+export function useAppearance(): Appearance {
+	const snapshot = useSyncExternalStore(subscribe, readSnapshot, () => serverSnapshot);
+	return useMemo(() => {
+		const [theme, resolvedTheme, accent, transitioning] = snapshot.split("|");
+		return {
+			theme: theme as ThemeMode,
+			resolvedTheme: resolvedTheme as ResolvedTheme,
+			accent: accent as AccentId,
+			transitioning: transitioning === "1",
+		};
+	}, [snapshot]);
+}
+
+/** Keeps `auto` mode in step with the OS setting. Mount once (the nav dock does). */
+export function useSystemThemeSync() {
+	useEffect(() => {
+		const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
+		const sync = () => {
+			if (document.documentElement.dataset.theme === "auto") writeTheme("auto");
+		};
+		colorScheme.addEventListener("change", sync);
+		return () => colorScheme.removeEventListener("change", sync);
+	}, []);
+}
+
+export const themeModeLabels: Record<ThemeMode, string> = {
+	light: "Light",
+	dark: "Dark",
+	auto: "Auto",
+};
+
+export function ThemeModeIcon({ mode, className }: { mode: ThemeMode; className?: string }) {
+	const iconClassName = cn(
+		"size-4 fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round]",
+		className,
+	);
 	if (mode === "light") {
 		return (
-			<svg
-				className="size-4 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-				viewBox="0 0 20 20"
-				aria-hidden="true"
-			>
+			<svg className={iconClassName} viewBox="0 0 20 20" aria-hidden="true">
 				<circle cx="10" cy="10" r="3.25" />
 				<path d="M10 1.75v2M10 16.25v2M1.75 10h2M16.25 10h2M4.17 4.17l1.42 1.42M14.41 14.41l1.42 1.42M15.83 4.17l-1.42 1.42M5.59 14.41l-1.42 1.42" />
 			</svg>
@@ -88,250 +266,159 @@ function ModeIcon({ mode }: { mode: ThemeMode }) {
 	}
 	if (mode === "dark") {
 		return (
-			<svg
-				className="size-4 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-				viewBox="0 0 20 20"
-				aria-hidden="true"
-			>
+			<svg className={iconClassName} viewBox="0 0 20 20" aria-hidden="true">
 				<path d="M16.75 12.44A7 7 0 0 1 7.56 3.25a7 7 0 1 0 9.19 9.19Z" />
 			</svg>
 		);
 	}
 	return (
-		<svg
-			className="size-4 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-			viewBox="0 0 20 20"
-			aria-hidden="true"
-		>
-			<rect x="2.25" y="3.25" width="15.5" height="11" rx="2" />
-			<path d="M7 17h6M10 14.25V17M10 5.25v7" />
+		<svg className={iconClassName} viewBox="0 0 20 20" aria-hidden="true">
+			<circle cx="10" cy="10" r="7.25" />
+			<path d="M10 2.75v14.5" />
+			<path d="M10 2.75a7.25 7.25 0 0 1 0 14.5Z" className="fill-current stroke-none" />
 		</svg>
 	);
 }
 
 interface AccentSwitcherProps {
-	open: boolean;
-	onOpenChange: (open: boolean) => void;
+	open?: boolean;
+	onOpenChange?: (open: boolean) => void;
+	className?: string;
 }
 
-export function AccentSwitcher({ open, onOpenChange }: AccentSwitcherProps) {
-	const [accent, setAccent] = useState<AccentId>("cobalt");
-	const [theme, setTheme] = useState<ThemeMode>("auto");
-	const themeRef = useRef<ThemeMode>("auto");
-	const themeFocusRef = useRef<HTMLButtonElement | null>(null);
-	const activeTransitionRef = useRef<ReturnType<
-		NonNullable<ViewTransitionDocument["startViewTransition"]>
-	> | null>(null);
-	const fallbackTimerRef = useRef<number | null>(null);
-	const [themeTransitioning, setThemeTransitioning] = useState(false);
-	const reducedMotion = useReducedMotion();
+/**
+ * Appearance popover: theme mode (light / dark / auto) and accent. Sits in the
+ * nav dock; the command palette offers the same actions.
+ */
+export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcherProps) {
+	const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+	const isOpen = open ?? uncontrolledOpen;
+	const setOpen = (next: boolean) => {
+		setUncontrolledOpen(next);
+		onOpenChange?.(next);
+	};
+	const { theme, resolvedTheme, accent, transitioning } = useAppearance();
+	useSystemThemeSync();
 
-	useEffect(() => {
-		const savedAccent = document.documentElement.dataset.accent;
-		const savedTheme = document.documentElement.dataset.theme;
-		if (isAccent(savedAccent)) setAccent(savedAccent);
-		if (isThemeMode(savedTheme)) {
-			themeRef.current = savedTheme;
-			setTheme(savedTheme);
-		}
-	}, []);
-
-	useEffect(() => {
-		return () => {
-			activeTransitionRef.current?.skipTransition();
-			if (fallbackTimerRef.current !== null) window.clearTimeout(fallbackTimerRef.current);
-		};
-	}, []);
-
-	useEffect(() => {
-		if (themeTransitioning) return;
-		const control = themeFocusRef.current;
-		if (!control) return;
-		themeFocusRef.current = null;
-		if (control.isConnected && !control.disabled) control.focus({ preventScroll: true });
-	}, [themeTransitioning]);
-
-	useEffect(() => {
-		const colorScheme = window.matchMedia("(prefers-color-scheme: dark)");
-		const syncAutoTheme = () => {
-			if (document.documentElement.dataset.theme === "auto") {
-				themeRef.current = "auto";
-				setTheme("auto");
-				updateTheme("auto");
-			}
-		};
-		colorScheme.addEventListener("change", syncAutoTheme);
-		return () => colorScheme.removeEventListener("change", syncAutoTheme);
-	}, []);
-
+	// The popover trigger may move focus during the reveal; hand it back after.
 	const selectTheme = (mode: ThemeMode, source: HTMLButtonElement) => {
-		if (themeTransitioning) return;
-		if (mode === themeRef.current) return;
-		themeFocusRef.current = source;
-		themeRef.current = mode;
-		const apply = () => {
-			setTheme(mode);
-			updateTheme(mode);
-		};
-		const documentWithViewTransition = document as ViewTransitionDocument;
-		const root = document.documentElement;
-		const clearFallbackTransition = () => {
-			if (fallbackTimerRef.current !== null) {
-				window.clearTimeout(fallbackTimerRef.current);
-				fallbackTimerRef.current = null;
+		if (transitioning || mode === theme) return;
+		void applyThemeMode(mode, source).then(() => {
+			if (source.isConnected && document.activeElement !== source) {
+				source.focus({ preventScroll: true });
 			}
-			if (root.dataset.themeTransitioning === "fallback") delete root.dataset.themeTransitioning;
-			root.style.removeProperty("--theme-transition-from");
-			setThemeTransitioning(false);
-		};
-		if (reducedMotion || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-			clearFallbackTransition();
-			themeFocusRef.current = null;
-			apply();
-			return;
-		}
-		if (!documentWithViewTransition.startViewTransition) {
-			clearFallbackTransition();
-			root.style.setProperty(
-				"--theme-transition-from",
-				getComputedStyle(document.body).backgroundColor,
-			);
-			root.dataset.themeTransitioning = "fallback";
-			setThemeTransitioning(true);
-			apply();
-			fallbackTimerRef.current = window.setTimeout(clearFallbackTransition, 420);
-			return;
-		}
-		activeTransitionRef.current?.skipTransition();
-		activeTransitionRef.current = null;
-		clearFallbackTransition();
-		const rect = source.getBoundingClientRect();
-		root.style.setProperty("--theme-toggle-x", `${rect.left + rect.width / 2}px`);
-		root.style.setProperty("--theme-toggle-y", `${rect.top + rect.height / 2}px`);
-		root.dataset.themeTransitioning = "view";
-		setThemeTransitioning(true);
-		try {
-			const transition = documentWithViewTransition.startViewTransition(apply);
-			activeTransitionRef.current = transition;
-			const clearTransition = () => {
-				if (activeTransitionRef.current !== transition) return;
-				activeTransitionRef.current = null;
-				if (root.dataset.themeTransitioning === "view") delete root.dataset.themeTransitioning;
-				root.style.removeProperty("--theme-toggle-x");
-				root.style.removeProperty("--theme-toggle-y");
-				setThemeTransitioning(false);
-			};
-			void transition.finished.then(clearTransition, clearTransition);
-		} catch {
-			delete root.dataset.themeTransitioning;
-			root.style.removeProperty("--theme-toggle-x");
-			root.style.removeProperty("--theme-toggle-y");
-			setThemeTransitioning(false);
-			apply();
-		}
+		});
 	};
 
 	const currentAccent = accentOptions.find(({ id }) => id === accent) ?? accentOptions[0];
+	const swatch = (option: (typeof accentOptions)[number]) =>
+		resolvedTheme === "dark" ? option.darkColor : option.color;
 
 	return (
-		<>
-			<Popover open={open} onOpenChange={onOpenChange}>
-				<PopoverTrigger
-					className="relative grid size-11 min-h-11 min-w-11 place-items-center rounded-[13px] border border-control-border bg-surface-solid p-0 text-foreground shadow-[0_8px_20px_var(--theme-accent-shadow),inset_0_1px_var(--theme-highlight)] transition-[border-color,box-shadow,transform,translate,scale,rotate,background-color] duration-200 ease-route hover:border-primary/40 hover:bg-muted hover:shadow-accent focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100"
-					aria-label={`Appearance. ${theme === "auto" ? "Automatic" : `${theme[0].toUpperCase()}${theme.slice(1)}`} mode, ${currentAccent.name} accent`}
-					aria-haspopup="dialog"
-				>
-					<svg className="size-[19px]" viewBox="0 0 24 24" aria-hidden="true">
-						<path
-							d="M12 3.25 19.5 8v8L12 20.75 4.5 16V8L12 3.25Z"
-							fill="none"
-							stroke="currentColor"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="1.45"
-						/>
-						<path
-							d="m4.8 8.15 7.2 4.6 7.2-4.6M12 12.75v8"
-							fill="none"
-							stroke="currentColor"
-							strokeLinecap="round"
-							strokeLinejoin="round"
-							strokeWidth="1.45"
-						/>
-					</svg>
-					<span
-						className="absolute bottom-1 right-1 size-[9px] rounded-full border-2 border-surface-solid shadow-[0_1px_5px_var(--theme-accent-shadow)]"
-						style={{ background: currentAccent.color } as CSSProperties}
-						aria-hidden="true"
-					/>
-				</PopoverTrigger>
-				<PopoverContent
-					align="end"
-					sideOffset={10}
-					className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none"
-				>
-					<MenuSurface className="flex w-[min(288px,calc(100vw-32px))] flex-col gap-2.5 p-2.5">
-						<PopoverHeader className="sr-only">
-							<PopoverTitle>Appearance</PopoverTitle>
-						</PopoverHeader>
-						<div
-							className="grid grid-cols-3 gap-1 rounded-[13px] border-0 bg-muted/55 p-1 shadow-[inset_0_1px_var(--theme-highlight)]"
-							role="group"
-							aria-label="Theme mode"
-						>
-							{themeModes.map((mode) => (
-								<button
-									key={mode}
-									type="button"
-									aria-label={`${mode[0].toUpperCase()}${mode.slice(1)} appearance`}
-									aria-pressed={theme === mode}
-									aria-disabled={themeTransitioning || undefined}
-									className="relative grid min-h-11 place-items-center gap-0.5 rounded-[10px] border-0 bg-transparent px-1 py-1 text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-200 ease-route hover:text-foreground focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100 aria-pressed:text-foreground aria-disabled:pointer-events-none"
-									onClick={(event) => selectTheme(mode, event.currentTarget)}
-								>
-									{theme === mode ? (
-										<MenuIndicator
-											className="rounded-[10px] shadow-[0_3px_10px_var(--theme-accent-shadow),inset_0_1px_var(--theme-highlight)]"
-											layoutId="appearance-mode-indicator"
-											transition={{ type: "spring", duration: 0.28, bounce: 0.04 }}
-										/>
-									) : null}
-									<span className="relative z-[1]">
-										<ModeIcon mode={mode} />
-									</span>
-									<span className="relative z-[1] text-[9px] font-bold capitalize leading-none">
-										{mode}
-									</span>
-								</button>
-							))}
-						</div>
-						<div className="mt-2 grid grid-cols-3 gap-1 p-1" role="group" aria-label="Accent color">
-							{accentOptions.map((option) => (
-								<button
-									key={option.id}
-									type="button"
-									aria-label={`${option.name} accent`}
-									aria-pressed={accent === option.id}
-									aria-disabled={themeTransitioning || undefined}
-									className="grid size-11 min-h-11 min-w-11 shrink-0 place-items-center rounded-full border-0 p-0 transition-[transform,translate,scale,rotate,box-shadow] duration-200 ease-route motion-safe:pointer-fine:hover:scale-110 focus-visible:scale-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring motion-safe:active:scale-[.94] motion-reduce:scale-100 aria-pressed:ring-2 aria-pressed:ring-primary aria-pressed:ring-offset-2 aria-pressed:ring-offset-surface-solid aria-disabled:pointer-events-none"
-									style={{ color: option.color } as CSSProperties}
-									onClick={() => {
-										if (themeTransitioning) return;
-										setAccent(option.id);
-										applyAccent(option.id);
-									}}
-								>
-									<span
-										className="size-[18px] rounded-full border-2 border-surface-solid shadow-[0_2px_6px_var(--theme-accent-shadow)]"
-										style={{ background: option.color }}
-										aria-hidden="true"
+		<Popover open={isOpen} onOpenChange={setOpen}>
+			<PopoverTrigger
+				className={cn(
+					"pressable relative grid size-11 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-ink-soft outline-none hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)] aria-expanded:text-foreground",
+					className,
+				)}
+				aria-label={`Appearance: ${themeModeLabels[theme]} theme, ${currentAccent.name} accent`}
+				aria-haspopup="dialog"
+			>
+				<ThemeModeIcon mode={theme} className="size-[18px]" />
+				<span
+					className="absolute bottom-[9px] right-[9px] size-2 rounded-full ring-2 ring-paper"
+					style={{ background: "var(--theme-accent)" } as CSSProperties}
+					aria-hidden="true"
+				/>
+			</PopoverTrigger>
+			<PopoverContent
+				align="end"
+				sideOffset={12}
+				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
+			>
+				<MenuSurface className="flex w-[min(300px,calc(100vw-24px))] flex-col gap-3 p-3">
+					<PopoverHeader className="sr-only">
+						<PopoverTitle>Appearance</PopoverTitle>
+					</PopoverHeader>
+					<p className="mono-label px-1 pt-0.5 text-muted-foreground" aria-hidden="true">
+						Theme
+					</p>
+					<div
+						className="grid grid-cols-3 gap-1 rounded-[18px] bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] p-1"
+						role="group"
+						aria-label="Theme"
+					>
+						{themeModes.map((mode) => (
+							<button
+								key={mode}
+								type="button"
+								aria-pressed={theme === mode}
+								aria-disabled={transitioning || undefined}
+								className="pressable relative flex min-h-11 items-center justify-center gap-1.5 rounded-[14px] border-0 bg-transparent px-2 text-[13px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:text-foreground aria-disabled:pointer-events-none"
+								onClick={(event) => selectTheme(mode, event.currentTarget)}
+							>
+								{theme === mode ? (
+									<MenuIndicator
+										className="rounded-[14px] bg-surface-raised shadow-raised"
+										layoutId="appearance-mode-indicator"
+										transition={{ type: "spring", duration: 0.3, bounce: 0 }}
 									/>
-								</button>
-							))}
-						</div>
-					</MenuSurface>
-				</PopoverContent>
-			</Popover>
-		</>
+								) : null}
+								<span className="relative z-[1]">
+									<ThemeModeIcon mode={mode} />
+								</span>
+								<span className="relative z-[1]">{themeModeLabels[mode]}</span>
+							</button>
+						))}
+					</div>
+					<p className="mono-label flex items-baseline justify-between px-1 pt-1 text-muted-foreground">
+						<span aria-hidden="true">Accent</span>
+						<span className="normal-case tracking-normal text-foreground" aria-hidden="true">
+							{currentAccent.name}
+						</span>
+					</p>
+					<div
+						className="grid grid-cols-6 justify-items-center"
+						role="group"
+						aria-label="Accent color"
+					>
+						{accentOptions.map((option) => (
+							<button
+								key={option.id}
+								type="button"
+								aria-label={option.name}
+								aria-pressed={accent === option.id}
+								aria-disabled={transitioning || undefined}
+								className="pressable group/swatch grid size-11 place-items-center rounded-full border-0 bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring aria-disabled:pointer-events-none"
+								onClick={(event) => {
+									if (transitioning || accent === option.id) return;
+									const source = event.currentTarget;
+									void applyAccent(option.id, source).then(() => {
+										if (source.isConnected && document.activeElement !== source) {
+											source.focus({ preventScroll: true });
+										}
+									});
+								}}
+							>
+								<span
+									className="grid size-[26px] place-items-center rounded-full shadow-[inset_0_0_0_1px_rgb(0_0_0/0.12)] transition-[scale,box-shadow] duration-200 ease-trace group-hover/swatch:scale-110 group-aria-pressed/swatch:shadow-[0_0_0_2px_var(--theme-surface-solid),0_0_0_3.5px_currentColor]"
+									style={{ background: swatch(option), color: swatch(option) }}
+									aria-hidden="true"
+								>
+									{accent === option.id ? (
+										<svg
+											viewBox="0 0 16 16"
+											className="size-3 fill-none stroke-white stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round] dark:stroke-[#0a0a0c]"
+										>
+											<path d="m4 8.4 2.6 2.4L12 5.4" />
+										</svg>
+									) : null}
+								</span>
+							</button>
+						))}
+					</div>
+				</MenuSurface>
+			</PopoverContent>
+		</Popover>
 	);
 }

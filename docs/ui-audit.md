@@ -12,6 +12,7 @@ The following sections describe the model to verify, not a completed browser acc
 | --- | --- |
 | `/` | Published home content: hero, two public metrics, selected work, career timeline, capabilities, background, and contact. |
 | `/work` | Work index with the URL-backed `group` filter: `all`, `product`, `open-source`, or `experiment`. |
+| `/work/:slug` | Project case study built from published project fields: poster, role/period/status facts, overview, highlights, dated metrics, tools, links, and previous/next navigation. An unknown slug returns `notFound()`. Detail paths are listed in the sitemap. |
 | `/story` | Published story header, chapter anchors, progress navigation, source link, and empty-state recovery. |
 | `/field-notes` | Public travel entries only. Private and unlisted entries are removed before content crosses the public boundary. |
 | `/resume` | Published résumé with profile, experience, proof, credentials, availability, and print output. |

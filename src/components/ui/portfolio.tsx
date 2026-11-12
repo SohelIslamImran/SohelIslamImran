@@ -15,18 +15,25 @@ import {
 import { Separator } from "./separator";
 import { buttonVariants } from "./button";
 
+/*
+ * Portfolio layout and typography primitives. Every export here is shared by
+ * all pages; see docs/design/primitives.md for usage.
+ */
+
 const pageShellVariants = cva(
-	"mx-auto w-full min-w-0 max-w-full pl-[max(1.25rem,env(safe-area-inset-left))] pr-[max(1.25rem,env(safe-area-inset-right))] sm:pl-[max(2rem,env(safe-area-inset-left))] sm:pr-[max(2rem,env(safe-area-inset-right))]",
+	"mx-auto w-full min-w-0 max-w-full pl-[max(var(--page-gutter),env(safe-area-inset-left))] pr-[max(var(--page-gutter),env(safe-area-inset-right))]",
 	{
 		variants: {
 			width: {
-				default: "max-w-[1200px]",
-				wide: "max-w-[1280px]",
-				narrow: "max-w-[820px]",
+				default: "max-w-[calc(var(--page-max)+2*var(--page-gutter))]",
+				wide: "max-w-[calc(var(--page-max-wide)+2*var(--page-gutter))]",
+				narrow: "max-w-[calc(820px+2*var(--page-gutter))]",
+				reading: "max-w-[calc(var(--reading-max)+2*var(--page-gutter))]",
 			},
 			spacing: {
-				default: "py-[clamp(58px,8vw,112px)]",
-				compact: "py-[clamp(42px,6vw,80px)]",
+				default: "pt-[clamp(40px,7vw,96px)] pb-section-sm",
+				compact: "pt-[clamp(28px,5vw,64px)] pb-[clamp(48px,7vw,88px)]",
+				none: "",
 			},
 		},
 		defaultVariants: {
@@ -41,27 +48,26 @@ function hasRenderableContent(value: React.ReactNode) {
 	return value !== null && value !== undefined && value !== false;
 }
 
+/** Floating glass panel for menus, popovers, and chrome. Not for content. */
 export function MenuSurface({ className, ...props }: React.ComponentProps<"div">) {
 	return (
 		<div
 			data-slot="menu-surface"
 			data-material="glass"
-			className={cn(
-				"rounded-surface border-0 bg-[color-mix(in_srgb,var(--theme-surface-solid)_96%,transparent)] shadow-float backdrop-blur-2xl backdrop-saturate-150",
-				className,
-			)}
+			className={cn("glass rounded-card text-foreground", className)}
 			{...props}
 		/>
 	);
 }
 
+/** Sliding selection pill. Give siblings a shared `layoutId` so it glides between them. */
 export function MenuIndicator({ className, ...props }: React.ComponentProps<typeof motion.span>) {
 	return (
 		<motion.span
 			data-slot="menu-indicator"
 			aria-hidden="true"
 			className={cn(
-				"pointer-events-none absolute inset-0 z-0 rounded-full bg-surface-solid shadow-[0_5px_16px_var(--theme-accent-shadow)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--theme-highlight)_32%,transparent)]",
+				"pointer-events-none absolute inset-0 z-0 rounded-full bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)]",
 				className,
 			)}
 			{...props}
@@ -69,6 +75,10 @@ export function MenuIndicator({ className, ...props }: React.ComponentProps<type
 	);
 }
 
+/**
+ * The page's `<main id="main-content" tabIndex={-1}>`. Exactly one per route.
+ * The root frame already clears the nav dock, so `spacing` only adds rhythm.
+ */
 export function PageShell({
 	id = "main-content",
 	tabIndex = -1,
@@ -90,12 +100,20 @@ export function PageShell({
 	);
 }
 
-export function Eyebrow({ className, ...props }: React.ComponentProps<"p">) {
+/** Monospace coordinate label (`UTC+6`, `v0.12.0`, `23.81°N`). */
+export function MonoLabel({
+	className,
+	tone = "muted",
+	...props
+}: React.ComponentProps<"span"> & { tone?: "muted" | "accent" | "ink" }) {
 	return (
-		<p
-			data-slot="eyebrow"
+		<span
+			data-slot="mono-label"
 			className={cn(
-				"mb-3.5 min-w-0 max-w-full break-words text-xs font-extrabold uppercase tracking-[0.11em] leading-tight text-primary-text [overflow-wrap:anywhere]",
+				"mono-label",
+				tone === "muted" && "text-muted-foreground",
+				tone === "accent" && "text-primary-text",
+				tone === "ink" && "text-foreground",
 				className,
 			)}
 			{...props}
@@ -103,6 +121,64 @@ export function Eyebrow({ className, ...props }: React.ComponentProps<"p">) {
 	);
 }
 
+/** Small mono eyebrow above a heading. */
+export function Eyebrow({ className, ...props }: React.ComponentProps<"p">) {
+	return (
+		<p
+			data-slot="eyebrow"
+			className={cn(
+				"mono-label mb-4 min-w-0 max-w-full break-words text-primary-text [overflow-wrap:anywhere]",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
+/** A live status dot (availability, "now", online). Pulses unless reduced motion. */
+export function StatusDot({
+	className,
+	tone = "success",
+	pulse = true,
+	...props
+}: React.ComponentProps<"span"> & { tone?: "success" | "accent" | "muted"; pulse?: boolean }) {
+	const color =
+		tone === "success" ? "bg-success" : tone === "accent" ? "bg-primary" : "bg-muted-foreground";
+	return (
+		<span
+			data-slot="status-dot"
+			aria-hidden="true"
+			className={cn("relative inline-grid size-2 shrink-0 place-items-center", className)}
+			{...props}
+		>
+			{pulse ? (
+				<span
+					className={cn(
+						"absolute inset-0 rounded-full motion-safe:animate-ping-soft motion-reduce:hidden",
+						color,
+					)}
+				/>
+			) : null}
+			<span className={cn("relative size-2 rounded-full", color)} />
+		</span>
+	);
+}
+
+/** Keyboard key cap, e.g. <Kbd>⌘</Kbd><Kbd>K</Kbd>. */
+export function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
+	return (
+		<kbd
+			data-slot="kbd"
+			className={cn(
+				"inline-grid h-5 min-w-5 place-items-center rounded-[6px] border border-line-strong bg-surface-solid px-1 font-mono text-[11px] leading-none font-medium text-muted-foreground shadow-[0_1px_0_var(--theme-line)]",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
+/** Page-level title block (h1 by default). */
 export function PageHeader({
 	eyebrow,
 	title,
@@ -125,22 +201,20 @@ export function PageHeader({
 	return (
 		<header
 			data-slot="page-header"
-			className={cn("mb-[clamp(42px,6vw,72px)] min-w-0 max-w-[920px]", className)}
+			className={cn("mb-[clamp(40px,6vw,72px)] min-w-0 max-w-[920px]", className)}
 			{...props}
 		>
 			{eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : null}
 			<Heading
 				className={cn(
-					"min-w-0 max-w-[920px] break-words font-[760] text-balance [overflow-wrap:anywhere]",
-					level === 1
-						? "text-[clamp(2.8rem,6.4vw,5.4rem)] leading-[0.94] tracking-[-0.065em]"
-						: "text-[clamp(1.65rem,3vw,2.4rem)] leading-none tracking-[-0.055em]",
+					"m-0 min-w-0 max-w-[920px] break-words text-balance [overflow-wrap:anywhere]",
+					level === 1 ? "text-display" : "text-title",
 				)}
 			>
 				{resolvedTitle}
 			</Heading>
 			{resolvedDescription ? (
-				<p className="mt-5 min-w-0 max-w-[680px] break-words text-[clamp(1.05rem,2vw,1.3rem)] leading-[1.55] text-muted-foreground [overflow-wrap:anywhere]">
+				<p className="mt-6 min-w-0 max-w-[62ch] break-words text-lead text-muted-foreground [overflow-wrap:anywhere]">
 					{resolvedDescription}
 				</p>
 			) : null}
@@ -149,6 +223,116 @@ export function PageHeader({
 	);
 }
 
+/**
+ * Section heading with a mono coordinate eyebrow: `01 — Work`.
+ * Pass `id` to label the surrounding `<section aria-labelledby>`.
+ */
+export function SectionHeading({
+	index,
+	eyebrow,
+	title,
+	description,
+	actions,
+	level = 2,
+	align = "start",
+	id,
+	className,
+	titleClassName,
+	...props
+}: {
+	/** Section number, rendered in accent, e.g. "01". */
+	index?: React.ReactNode;
+	/** Short section name after the dash, e.g. "Work". */
+	eyebrow?: React.ReactNode;
+	title: React.ReactNode;
+	description?: React.ReactNode;
+	/** Trailing slot (a "View all" link, a filter). Aligns to the baseline on wide screens. */
+	actions?: React.ReactNode;
+	level?: 2 | 3;
+	align?: "start" | "center";
+	/** Id for the heading element. */
+	id?: string;
+	className?: string;
+	titleClassName?: string;
+} & Omit<React.ComponentProps<"header">, "children" | "title" | "id">) {
+	const Heading = level === 2 ? "h2" : "h3";
+	const resolvedTitle = hasRenderableContent(title) ? title : "Untitled section";
+	const resolvedDescription = hasRenderableContent(description) ? description : undefined;
+	const hasEyebrow = hasRenderableContent(index) || hasRenderableContent(eyebrow);
+	const centered = align === "center";
+	return (
+		<header
+			data-slot="section-heading"
+			className={cn(
+				"mb-[clamp(40px,6vw,72px)] grid min-w-0 gap-x-10 gap-y-6",
+				actions && !centered && "md:grid-cols-[minmax(0,1fr)_auto] md:items-end",
+				centered && "justify-items-center text-center",
+				className,
+			)}
+			{...props}
+		>
+			<div className={cn("min-w-0", centered && "flex flex-col items-center")}>
+				{hasEyebrow ? (
+					<p className="mono-label m-0 mb-5 flex items-center gap-2.5 text-muted-foreground">
+						{hasRenderableContent(index) ? (
+							<span className="text-primary-text">{index}</span>
+						) : null}
+						{hasRenderableContent(index) && hasRenderableContent(eyebrow) ? (
+							<span aria-hidden="true" className="h-px w-5 bg-line-strong" />
+						) : null}
+						{hasRenderableContent(eyebrow) ? <span>{eyebrow}</span> : null}
+					</p>
+				) : null}
+				<Heading
+					id={id}
+					className={cn(
+						"m-0 min-w-0 max-w-[22ch] break-words text-title text-balance [overflow-wrap:anywhere]",
+						centered && "mx-auto",
+						titleClassName,
+					)}
+				>
+					{resolvedTitle}
+				</Heading>
+				{resolvedDescription ? (
+					<p
+						className={cn(
+							"mt-5 mb-0 min-w-0 max-w-[58ch] break-words text-lead text-muted-foreground [overflow-wrap:anywhere]",
+							centered && "mx-auto",
+						)}
+					>
+						{resolvedDescription}
+					</p>
+				) : null}
+			</div>
+			{actions ? <div className="flex min-w-0 flex-wrap gap-2.5">{actions}</div> : null}
+		</header>
+	);
+}
+
+/**
+ * A major page section with the standard vertical rhythm. Pair with
+ * `SectionHeading id` + `aria-labelledby`.
+ */
+export function Section({
+	className,
+	spacing = "default",
+	...props
+}: React.ComponentProps<"section"> & { spacing?: "default" | "compact" | "none" }) {
+	return (
+		<section
+			data-slot="section"
+			className={cn(
+				"min-w-0",
+				spacing === "default" && "py-[calc(var(--section-space)/2)]",
+				spacing === "compact" && "py-[calc(var(--section-space-sm)/2)]",
+				className,
+			)}
+			{...props}
+		/>
+	);
+}
+
+/** Legacy two-column section intro. Prefer `SectionHeading` in new code. */
 export function SectionIntro({
 	eyebrow,
 	title,
@@ -167,18 +351,18 @@ export function SectionIntro({
 		<div
 			data-slot="section-intro"
 			className={cn(
-				"mb-[clamp(42px,6vw,64px)] grid min-w-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-x-[clamp(28px,6vw,72px)] gap-y-4 max-[800px]:block",
+				"mb-[clamp(40px,6vw,64px)] grid min-w-0 grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-x-[clamp(28px,6vw,72px)] gap-y-4 max-md:block",
 				className,
 			)}
 			{...props}
 		>
-			{eyebrow ? <Eyebrow>{eyebrow}</Eyebrow> : <span aria-hidden="true" />}
+			{eyebrow ? <Eyebrow className="pt-3">{eyebrow}</Eyebrow> : <span aria-hidden="true" />}
 			<div className="min-w-0">
-				<h2 className="m-0 min-w-0 break-words text-[clamp(2.25rem,4.6vw,4.3rem)] font-[760] leading-[0.96] tracking-[-0.06em] text-balance [overflow-wrap:anywhere] max-[800px]:mt-3.5">
+				<h2 className="m-0 min-w-0 break-words text-title text-balance [overflow-wrap:anywhere]">
 					{resolvedTitle}
 				</h2>
 				{resolvedDescription ? (
-					<p className="mt-4 min-w-0 max-w-[540px] break-words text-lg leading-[1.55] text-muted-foreground [overflow-wrap:anywhere] max-[800px]:text-base">
+					<p className="mt-5 min-w-0 max-w-[54ch] break-words text-lead text-muted-foreground [overflow-wrap:anywhere]">
 						{resolvedDescription}
 					</p>
 				) : null}
@@ -188,20 +372,21 @@ export function SectionIntro({
 }
 
 const surfaceVariants = cva(
-	"min-w-0 rounded-surface border shadow-surface transition-[background-color,border-color,box-shadow,transform,translate,scale,rotate] duration-200 ease-route",
+	"min-w-0 rounded-card border transition-[background-color,border-color,box-shadow,transform,translate,scale,rotate] duration-300 ease-trace",
 	{
 		variants: {
 			variant: {
-				glass:
-					"border-border/60 bg-[linear-gradient(135deg,color-mix(in_srgb,var(--theme-surface-solid)_98%,transparent),color-mix(in_srgb,var(--theme-surface-solid)_88%,var(--theme-accent-soft)))] backdrop-blur-2xl backdrop-saturate-150",
-				solid: "border-border/70 bg-surface-solid",
-				quiet: "border-border/60 bg-background/80",
+				/** Kept for compatibility; content stays solid, so this is a raised solid card. */
+				glass: "border-line bg-surface-solid shadow-surface",
+				solid: "border-line bg-surface-solid shadow-raised",
+				quiet: "border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] shadow-none",
 			},
 		},
 		defaultVariants: { variant: "solid" },
 	},
 );
 
+/** Content card: hairline, 28px radius, soft shadow, inset highlight. */
 export function Surface({
 	className,
 	variant,
@@ -209,19 +394,20 @@ export function Surface({
 }: React.ComponentProps<typeof Card> & VariantProps<typeof surfaceVariants>) {
 	return (
 		<Card
-			data-material={variant === "glass" ? "glass" : undefined}
-			className={cn(surfaceVariants({ variant }), className)}
+			data-variant={variant ?? "solid"}
+			className={cn(surfaceVariants({ variant }), "ring-0", className)}
 			{...props}
 		/>
 	);
 }
 
+/** Neutral pill tag for tools and topics. */
 export function Tag({ className, ...props }: React.ComponentProps<typeof Badge>) {
 	return (
 		<Badge
 			variant="outline"
 			className={cn(
-				"inline-flex h-auto min-w-0 max-w-full shrink flex-wrap items-center justify-center gap-1 whitespace-normal break-words border-border px-2 py-1 text-left text-xs font-medium text-muted-foreground [overflow-wrap:anywhere]",
+				"inline-flex h-auto min-h-7 min-w-0 max-w-full shrink flex-wrap items-center justify-center gap-1 whitespace-normal break-words border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-left text-[12.5px] font-medium text-ink-soft [overflow-wrap:anywhere]",
 				className,
 			)}
 			{...props}
@@ -249,12 +435,13 @@ export function ActionRow({ className, ...props }: React.ComponentProps<"div">) 
 	return (
 		<div
 			data-slot="action-row"
-			className={cn("mt-7 flex min-w-0 max-w-full flex-wrap gap-2.5", className)}
+			className={cn("mt-8 flex min-w-0 max-w-full flex-wrap items-center gap-3", className)}
 			{...props}
 		/>
 	);
 }
 
+/** An `<a>` styled as a button. For internal routes use `<Link className={buttonVariants()}>`. */
 export function ButtonLink({
 	className,
 	variant,
@@ -274,7 +461,7 @@ export function ButtonLink({
 }
 
 type StatusBadgeProps = React.ComponentProps<typeof Badge> & {
-	tone?: "neutral" | "signal";
+	tone?: "neutral" | "signal" | "accent" | "success";
 };
 
 export function StatusBadge({ className, tone = "neutral", ...props }: StatusBadgeProps) {
@@ -282,8 +469,12 @@ export function StatusBadge({ className, tone = "neutral", ...props }: StatusBad
 		<Badge
 			variant="secondary"
 			className={cn(
-				"inline-flex h-auto min-w-0 max-w-full shrink flex-wrap items-center justify-center gap-1 whitespace-normal break-words border-0 bg-muted px-2 py-1 text-left text-xs font-bold text-foreground [overflow-wrap:anywhere]",
-				tone === "signal" && "bg-signal/15 text-signal",
+				"inline-flex h-auto min-h-6 min-w-0 max-w-full shrink flex-wrap items-center justify-center gap-1.5 whitespace-normal break-words border-0 bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] px-2.5 py-0.5 text-left text-xs font-medium text-foreground [overflow-wrap:anywhere]",
+				tone === "signal" &&
+					"bg-[color-mix(in_srgb,var(--theme-signal)_13%,transparent)] text-signal",
+				tone === "accent" && "bg-primary-soft text-primary-text",
+				tone === "success" &&
+					"bg-[color-mix(in_srgb,var(--theme-success)_13%,transparent)] text-success",
 				className,
 			)}
 			{...props}
@@ -292,7 +483,7 @@ export function StatusBadge({ className, tone = "neutral", ...props }: StatusBad
 }
 
 export function Rule({ className, ...props }: React.ComponentProps<typeof Separator>) {
-	return <Separator data-slot="section-rule" className={cn("bg-border", className)} {...props} />;
+	return <Separator data-slot="section-rule" className={cn("bg-line", className)} {...props} />;
 }
 
 export function EmptyState({
@@ -316,7 +507,7 @@ export function EmptyState({
 	return (
 		<Empty
 			className={cn(
-				"min-h-48 min-w-0 max-w-full border border-dashed border-border bg-muted/45",
+				"min-h-48 min-w-0 max-w-full border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]",
 				className,
 			)}
 			{...props}

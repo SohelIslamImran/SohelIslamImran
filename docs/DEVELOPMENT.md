@@ -8,6 +8,7 @@
 | --- | --- |
 | `/` | Home page with the published hero, selected work, career timeline, capabilities, background, and contact sections. |
 | `/work` | Work index with the `group` search parameter set to `all`, `product`, `open-source`, or `experiment`. |
+| `/work/$slug` | Project detail page for a published project slug (file `src/routes/work_.$slug.tsx`, not nested under `/work`). Unknown slugs return `notFound()`. |
 | `/story` | Long-form story with chapter anchors, progress navigation, and the published source link. |
 | `/field-notes` | Public travel journal. Only entries with `visibility: "public"` are shown. |
 | `/resume` | Web résumé and print/PDF view. |
