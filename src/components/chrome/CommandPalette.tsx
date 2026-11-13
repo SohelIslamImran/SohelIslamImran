@@ -72,6 +72,7 @@ interface TerminalEntry {
 	id: number;
 	kind: TerminalLineKind | "cmd";
 	text: string;
+	description?: string;
 }
 let terminalEntryId = 0;
 const entry = (kind: TerminalEntry["kind"], text: string): TerminalEntry => ({
@@ -313,7 +314,10 @@ function CommandPalette({
 		});
 		const printed = [
 			entry("cmd", input),
-			...result.lines.map((line) => entry(line.kind, line.text)),
+			...result.lines.map((line) => ({
+				...entry(line.kind, line.text),
+				description: line.description,
+			})),
 		];
 		const effect = result.effect;
 		if (effect?.type === "clear") {
@@ -776,7 +780,7 @@ function CommandPalette({
 						return target?.isConnected ? target : true;
 					}}
 					className={cn(
-						"glass fixed z-(--z-palette) flex flex-col overflow-hidden bg-[color-mix(in_srgb,var(--theme-surface-solid)_86%,transparent)]! text-foreground outline-none",
+						"glass fixed z-(--z-palette) flex flex-col overflow-hidden bg-[color-mix(in_srgb,var(--theme-surface-solid)_86%,transparent)]! text-foreground outline-hidden",
 						"transition-[opacity,translate,scale,filter] ease-trace",
 						// Mobile: bottom sheet.
 						"inset-x-0 bottom-0 max-h-[min(86dvh,680px)] rounded-t-[28px] pb-[env(safe-area-inset-bottom)] duration-[360ms]",
@@ -837,7 +841,7 @@ function CommandPalette({
 							onChange={(event) => onChange(event.target.value)}
 							onKeyDown={onKeyDown}
 							className={cn(
-								"h-14 min-w-0 flex-1 border-0 bg-transparent text-[17px] text-foreground outline-none placeholder:text-muted-foreground",
+								"h-14 min-w-0 flex-1 border-0 bg-transparent text-[17px] text-foreground outline-hidden placeholder:text-muted-foreground",
 								terminal
 									? "font-mono text-[16px] caret-[var(--theme-accent-line)] md:text-[15px]"
 									: "tracking-[-0.01em]",
@@ -853,7 +857,7 @@ function CommandPalette({
 								<span>terminal</span>
 							</span>
 						)}
-						<Dialog.Close className="pressable -mr-2 inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-medium text-primary-text outline-none focus-visible:outline-2 focus-visible:outline-ring md:hidden">
+						<Dialog.Close className="pressable -mr-2 inline-flex min-h-11 items-center rounded-full px-3 text-[15px] font-medium text-primary-text outline-hidden focus-visible:outline-2 focus-visible:outline-ring md:hidden">
 							Cancel
 						</Dialog.Close>
 					</div>
@@ -878,7 +882,14 @@ function CommandPalette({
 												❯{" "}
 											</span>
 											<span className="sr-only">Command: </span>
-											{line.text}
+											{line.description ? (
+												<span className="grid grid-cols-[auto_1fr] gap-x-4 max-[480px]:grid-cols-1">
+													<span>{line.text}</span>
+													<span>{line.description}</span>
+												</span>
+											) : (
+												line.text
+											)}
 										</p>
 									) : (
 										<p
@@ -891,7 +902,14 @@ function CommandPalette({
 												line.kind === "accent" && "text-primary-text",
 											)}
 										>
-											{line.text}
+											{line.description ? (
+												<span className="grid grid-cols-[auto_1fr] gap-x-4 max-[480px]:grid-cols-1">
+													<span>{line.text}</span>
+													<span>{line.description}</span>
+												</span>
+											) : (
+												line.text
+											)}
 										</p>
 									),
 								)}
@@ -905,7 +923,7 @@ function CommandPalette({
 											executeTerminal(command);
 											inputRef.current?.focus({ preventScroll: true });
 										}}
-										className="pressable min-h-9 rounded-full border-0 bg-transparent px-3 font-mono text-[12px] text-muted-foreground outline-none transition-[background-color,color,scale] duration-200 focus-visible:outline-2 focus-visible:outline-ring pointer-fine:hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] pointer-fine:hover:text-foreground max-md:min-h-11"
+										className="pressable min-h-9 rounded-full border-0 bg-transparent px-3 font-mono text-[12px] text-muted-foreground outline-hidden transition-[background-color,color,scale] duration-200 focus-visible:outline-2 focus-visible:outline-ring pointer-fine:hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] pointer-fine:hover:text-foreground max-md:min-h-11"
 									>
 										<span className="sr-only">Run </span>
 										{command}

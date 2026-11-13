@@ -75,8 +75,8 @@ function Story() {
 							/>
 						</div>
 						<div ref={trackRef} className="sd-chapters">
-							{chapters.map((chapter, index) => (
-								<ChapterPlane key={chapter.domId} chapter={chapter} index={index} />
+							{chapters.map((chapter) => (
+								<ChapterPlane key={chapter.domId} chapter={chapter} />
 							))}
 						</div>
 					</div>

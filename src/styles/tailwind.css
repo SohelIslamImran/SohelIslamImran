@@ -1119,6 +1119,9 @@ main#main-content[data-bleed]:not([data-slot="page-shell"]) {
  * `:focus-visible` rule, so filter pills would otherwise give keyboard users no
  * ring at all. This rule sits outside `@layer` on purpose so it wins.
  */
+[data-slot="button"]:focus-visible,
+[data-slot="popover-trigger"]:focus-visible,
+[data-slot="nav-dock"] :focus-visible,
 [data-slot="toggle"]:focus-visible,
 [data-slot="toggle-group-item"]:focus-visible {
 	outline: 2px solid var(--theme-focus);
@@ -1943,24 +1946,59 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		transform: scaleX(1);
 	}
 
-	/* Contact: the card is the front layer; planes behind fan out on view. */
-	.contact-plane {
-		position: absolute;
-		inset: 40px 0 0;
-		z-index: -1;
-		border-radius: var(--radius-tile, 32px);
-		border: 1px solid var(--theme-line);
-		background: color-mix(
-			in srgb,
-			var(--theme-surface-solid) calc(100% - var(--n) * 14%),
-			var(--theme-paper)
-		);
-		transform: translateY(calc(var(--n) * -5px)) scale(calc(1 - var(--n) * 0.025));
-		transform-origin: 50% 0;
-		transition: transform 1100ms var(--theme-ease);
+	/* How I work: the shipped change. The heading word gains the accent and an
+	   underline that draws in; rollback wipes it out. Color and transform only,
+	   so nothing reflows. */
+	.how-change {
+		position: relative;
+		display: inline-block;
+		color: inherit;
+		transition: color 500ms var(--theme-ease);
 	}
-	.contact-stack[data-open] .contact-plane {
-		transform: translateY(calc(var(--n) * -13px)) scale(calc(1 - var(--n) * 0.035));
+	.how-change::after {
+		position: absolute;
+		right: 0.02em;
+		bottom: 0.02em;
+		left: 0.02em;
+		height: 0.08em;
+		border-radius: 999px;
+		background: var(--theme-accent-line);
+		content: "";
+		transform: scaleX(0);
+		transform-origin: right;
+		transition: transform 600ms var(--theme-ease);
+	}
+	.how-change[data-shipped] {
+		color: var(--theme-accent-text);
+	}
+	.how-change[data-shipped]::after {
+		transform: scaleX(1);
+		transform-origin: left;
+	}
+	/* The delivery note's release record: both rows share one cell and crossfade. */
+	.how-release-row {
+		grid-area: 1 / 1;
+		opacity: 0;
+		translate: 0 6px;
+		transition:
+			opacity 360ms var(--theme-ease),
+			translate 360ms var(--theme-ease);
+	}
+	.how-release-row[data-on] {
+		opacity: 1;
+		translate: 0 0;
+		transition-delay: 120ms;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.how-change,
+		.how-change::after,
+		.how-release-row {
+			transition-duration: 1ms;
+			transition-delay: 0ms;
+		}
+		.how-release-row {
+			translate: none;
+		}
 	}
 	.contact-copy {
 		transition: box-shadow 260ms var(--theme-ease);
@@ -1974,162 +2012,6 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	}
 }
 @media screen {
-	/* Now tile: a browser window with the layers of the product fanned out behind it. */
-	.webstack {
-		display: grid;
-		place-items: center;
-		height: clamp(220px, 26vw, 290px);
-		perspective: 1300px;
-	}
-	.webstack-rig {
-		--gap: 34px;
-		--shift: 24px;
-		position: relative;
-		width: min(78%, 330px);
-		aspect-ratio: 16 / 10.5;
-		transform-style: preserve-3d;
-		transform: translateX(calc(var(--count) * var(--shift) * -0.45)) rotateY(-30deg) rotateX(9deg);
-		transition: transform 900ms var(--theme-ease);
-	}
-	@media (max-width: 639px) {
-		.webstack-rig {
-			--gap: 24px;
-			--shift: 17px;
-			width: 64%;
-		}
-	}
-	.depth-tile[data-tilting] .webstack-rig {
-		--gap: 44px;
-		--shift: 28px;
-		transform: translateX(calc(var(--count) * var(--shift) * -0.45))
-			rotateY(calc(-30deg + var(--tilt-y, 0deg) * 3)) rotateX(calc(9deg + var(--tilt-x, 0deg) * 2));
-		transition-duration: 300ms;
-	}
-	.webstack-window,
-	.webstack-plane {
-		position: absolute;
-		inset: 0;
-		border-radius: 16px;
-		transform: translateX(calc(var(--i) * var(--shift)))
-			translateZ(calc(var(--i) * var(--gap) * -1));
-		transition:
-			transform 800ms var(--theme-ease),
-			background-color 300ms var(--theme-ease),
-			border-color 300ms var(--theme-ease),
-			color 300ms var(--theme-ease);
-	}
-	.webstack-window {
-		overflow: hidden;
-		border: 1px solid var(--theme-line-strong);
-		background: var(--theme-surface-solid);
-		box-shadow: 0 24px 50px -24px color-mix(in srgb, var(--theme-ink) 40%, transparent);
-	}
-	.webstack-window[data-on] {
-		border-color: color-mix(in srgb, var(--theme-accent-line) 70%, transparent);
-	}
-	.webstack-plane {
-		display: flex;
-		justify-content: flex-end;
-		padding: 12px 6px;
-		border: 1px solid var(--theme-line-strong);
-		background: color-mix(in srgb, var(--theme-surface-raised) 88%, transparent);
-		color: var(--theme-muted);
-	}
-	.webstack-plane > span {
-		font-size: 9.5px;
-		writing-mode: vertical-rl;
-	}
-	.webstack-plane[data-on] {
-		border-color: color-mix(in srgb, var(--theme-accent-line) 75%, transparent);
-		background: color-mix(in srgb, var(--theme-accent-soft) 92%, transparent);
-		color: var(--theme-accent-text);
-		transform: translateX(calc(var(--i) * var(--shift) + 18px))
-			translateZ(calc(var(--i) * var(--gap) * -1));
-	}
-	.webstack-chrome {
-		display: flex;
-		align-items: center;
-		gap: 5px;
-		height: 26px;
-		padding: 0 10px;
-		border-bottom: 1px solid var(--theme-line);
-		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
-	}
-	.webstack-chrome > span:not(.webstack-url) {
-		width: 7px;
-		height: 7px;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 18%, transparent);
-	}
-	.webstack-url {
-		flex: 1;
-		margin-left: 10px;
-		overflow: hidden;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
-		padding: 2px 10px;
-		font-family: var(--font-mono);
-		font-size: 9px;
-		line-height: 1.4;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-		color: var(--theme-muted);
-	}
-	.webstack-page {
-		display: grid;
-		gap: 7px;
-		padding: 10px 12px;
-	}
-	.webstack-page > span {
-		display: block;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 9%, transparent);
-	}
-	.webstack-nav {
-		width: 34%;
-		height: 6px;
-	}
-	.webstack-hero {
-		height: 40px;
-		border-radius: 10px !important;
-		background: var(--theme-accent-soft) !important;
-	}
-	.webstack-line {
-		height: 6px;
-	}
-	.webstack-page > .webstack-cards {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 6px;
-		background: none;
-	}
-	.webstack-cards > span {
-		height: 26px;
-		border-radius: 8px;
-		background: color-mix(in srgb, var(--theme-ink) 5%, transparent);
-	}
-	/* A request leaves the window and travels to the back layer. */
-	.webstack-pulse {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		width: 10px;
-		height: 10px;
-		margin: -5px 0 0 -5px;
-		border-radius: 999px;
-		background: var(--theme-accent-line);
-		box-shadow: 0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
-		opacity: 0;
-	}
-	@media (prefers-reduced-motion: no-preference) {
-		.webstack-pulse {
-			animation: webstack-pulse 3.2s var(--theme-ease) infinite;
-		}
-		.webstack[data-paused] .webstack-pulse {
-			animation-play-state: paused;
-		}
-	}
-
 	/* Compact phone inside the open-source tile. */
 	.phone-stage[data-size="sm"] {
 		align-items: start;
@@ -2161,25 +2043,6 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		height: 5px;
 		border-radius: 999px;
 		background: currentColor;
-	}
-}
-@keyframes webstack-pulse {
-	0% {
-		opacity: 0;
-		transform: translateZ(2px);
-	}
-	12% {
-		opacity: 1;
-	}
-	80% {
-		opacity: 1;
-		transform: translateX(calc((var(--count) - 1) * var(--shift)))
-			translateZ(calc((var(--count) - 1) * var(--gap) * -1 + 2px));
-	}
-	100% {
-		opacity: 0;
-		transform: translateX(calc((var(--count) - 1) * var(--shift)))
-			translateZ(calc((var(--count) - 1) * var(--gap) * -1 + 2px));
 	}
 }
 @keyframes home-rise {
@@ -2254,10 +2117,10 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	transition: translate var(--motion-control) var(--theme-ease);
 }
 .sd-stack {
-	--dy: 40px;
+	--dy: 46px;
 	justify-self: end;
-	width: min(100%, 380px);
-	margin-right: 24px;
+	width: min(100%, 272px);
+	margin-right: 40px;
 	padding-top: calc(var(--n) * var(--dy) * 0.78 + 8px);
 	perspective: 1400px;
 }
@@ -2277,7 +2140,7 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	inset: 0;
 	border-radius: 28px;
 	transform: translate3d(
-		calc(var(--d) * 3px * var(--spread)),
+		calc(var(--d) * 7px * var(--spread)),
 		calc(var(--d) * var(--dy) * -1 * var(--spread)),
 		calc(var(--d) * -70px * var(--spread))
 	);
@@ -2325,6 +2188,10 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	border: 1px solid var(--theme-line);
 	background: var(--theme-surface-solid);
 	box-shadow: var(--shadow-surface);
+}
+/* A white studio backdrop would be the brightest thing on a dark page. */
+html[data-theme-resolved="dark"] .sd-plate-front img {
+	filter: brightness(0.82) contrast(1.04);
 }
 .sd-plate-caption {
 	position: absolute;
@@ -2481,51 +2348,191 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
 	}
 }
-.sd-rail-gauge {
-	margin-top: 24px;
-	padding-top: 20px;
+.sd-rail-list {
+	display: grid;
+	gap: 2px;
+	margin: 20px 0 0;
+	padding: 16px 0 0;
+	list-style: none;
 	border-top: 1px solid var(--theme-line);
 }
-.sd-gauge {
+/* The one layer stack: six isometric planes, a trace dot falling through them. */
+.sd-depth {
+	margin-top: 18px;
+}
+.sd-depth-stack {
+	position: relative;
+}
+.sd-depth-list {
 	display: grid;
-	gap: 5px;
-	perspective: 520px;
-	perspective-origin: 0% 0%;
+	margin: 0;
+	padding: 0;
+	list-style: none;
 }
-.sd-gauge-cell {
-	display: flex;
+.sd-depth-row {
+	position: relative;
+	z-index: calc(6 - var(--i));
+}
+.sd-depth-link {
+	display: grid;
+	grid-template-columns: 76px minmax(0, 1fr) auto;
 	align-items: center;
-	height: 24px;
-	padding: 0 10px;
-	border: 1px solid var(--theme-line-strong);
-	border-radius: 8px;
-	background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
+	gap: 10px;
+	min-height: 34px;
+	padding-right: 8px;
+	border-radius: 10px;
+	font-size: 13.5px;
 	color: var(--theme-muted);
-	transform: rotateX(32deg) translateZ(calc(var(--i) * -5px));
-	transform-origin: 50% 100%;
+	transition: color 300ms var(--theme-ease);
+}
+.sd-depth-plane-box {
+	position: relative;
+	align-self: stretch;
+}
+.sd-depth-plane {
+	position: absolute;
+	top: calc(50% - 22px);
+	left: calc(50% - 22px);
+	width: 44px;
+	height: 44px;
+	border: 1px solid var(--theme-line-strong);
+	border-radius: 7px;
+	background: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
+	transform: rotateX(60deg) rotateZ(45deg);
 	transition:
-		transform 600ms var(--theme-ease),
-		background-color 400ms var(--theme-ease),
-		border-color 400ms var(--theme-ease),
-		color 400ms var(--theme-ease);
+		translate 450ms var(--theme-ease),
+		background-color 450ms var(--theme-ease),
+		border-color 450ms var(--theme-ease),
+		box-shadow 450ms var(--theme-ease);
 }
-.sd-gauge-label {
-	font-family: var(--font-mono);
-	font-size: 10px;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
+.sd-depth-row[data-state] .sd-depth-plane {
+	border-color: var(--theme-accent-line);
+	background: color-mix(in srgb, var(--theme-accent-soft) 85%, var(--theme-surface-solid));
 }
-.sd-gauge-cell[data-state="reached"] {
-	border-color: var(--theme-line-strong);
-	background: color-mix(in srgb, var(--theme-accent-soft) 40%, transparent);
+.sd-depth-row[data-state="here"] .sd-depth-plane {
+	border-color: var(--theme-accent);
+	background: color-mix(in srgb, var(--theme-accent) 72%, var(--theme-surface-solid));
+	box-shadow: 0 0 0 4px var(--theme-accent-soft);
+	translate: 8px 0;
+}
+.sd-depth-row[data-state] .sd-depth-link {
 	color: var(--theme-ink-soft);
 }
-.sd-gauge-cell[data-state="here"] {
+.sd-depth-row[data-state="here"] .sd-depth-link {
+	color: var(--theme-accent-text);
+	font-weight: 600;
+}
+.sd-depth-chapter {
+	font-family: var(--font-mono);
+	font-size: 11px;
+	font-variant-numeric: tabular-nums;
+	color: var(--theme-muted);
+	opacity: 0;
+	transition: opacity 200ms var(--theme-ease);
+}
+a.sd-depth-link:hover .sd-depth-chapter,
+a.sd-depth-link:focus-visible .sd-depth-chapter {
+	opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+	a.sd-depth-link:hover {
+		color: var(--theme-ink);
+	}
+	a.sd-depth-link:hover .sd-depth-plane {
+		translate: 0 -4px;
+	}
+	.sd-depth-row[data-state="here"] a.sd-depth-link:hover .sd-depth-plane {
+		translate: 8px -4px;
+	}
+}
+.sd-depth-line {
+	position: absolute;
+	top: 17px;
+	bottom: 17px;
+	left: 37.5px;
+	width: 1px;
+	background: var(--theme-line-strong);
+}
+.sd-depth-dot-track {
+	position: absolute;
+	top: 17px;
+	left: 38px;
+	z-index: 10;
+	width: 0;
+	height: calc(100% - 34px);
+	pointer-events: none;
+}
+.sd-depth-dot {
+	position: absolute;
+	top: -5px;
+	left: -5px;
+	width: 10px;
+	height: 10px;
+	border: 2px solid var(--theme-surface-solid);
+	border-radius: 999px;
+	background: var(--theme-accent);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-accent) 22%, transparent);
+}
+.sd-mini-stack {
+	flex-shrink: 0;
+	width: 20px;
+	height: 26px;
+	overflow: visible;
+}
+.sd-mini-stack path {
+	fill: var(--theme-surface-solid);
+	stroke: var(--theme-line-strong);
+	stroke-width: 0.8;
+	stroke-linejoin: round;
+}
+.sd-mini-stack path[data-state] {
+	fill: var(--theme-accent-soft);
+	stroke: var(--theme-accent-line);
+}
+.sd-mini-stack path[data-state="here"] {
+	fill: var(--theme-accent);
+	stroke: var(--theme-accent);
+}
+.sd-bar-layers {
+	display: grid;
+	gap: 10px;
+	padding: 12px 16px 16px;
+	border-top: 1px solid var(--theme-line);
+}
+.sd-bar-layers ul {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+.sd-bar-layers li > * {
+	display: inline-flex;
+	align-items: center;
+	min-height: 36px;
+	padding: 0 12px;
+	border: 1px solid var(--theme-line);
+	border-radius: 999px;
+	font-size: 13px;
+	color: var(--theme-muted);
+}
+.sd-bar-layers li[data-state] > * {
 	border-color: var(--theme-accent-line);
 	background: var(--theme-accent-soft);
 	color: var(--theme-accent-text);
-	transform: rotateX(0deg) translate3d(4px, 0, 10px);
-	box-shadow: 0 8px 18px -10px var(--theme-accent-shadow);
+}
+.sd-bar-layers li[data-state="here"] > * {
+	background: var(--theme-accent);
+	border-color: var(--theme-accent);
+	color: var(--theme-accent-foreground);
+}
+@media (prefers-reduced-motion: reduce) {
+	.sd-depth-plane,
+	.sd-depth-link,
+	.sd-depth-chapter {
+		transition: none;
+	}
 }
 
 .sd-bar {
@@ -2571,7 +2578,7 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	transition: transform 300ms var(--theme-ease);
 }
 .sd-bar-list {
-	max-height: 60vh;
+	max-height: 46vh;
 	margin: 0;
 	padding: 6px;
 	overflow: auto;
@@ -2606,20 +2613,8 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 .sd-plane-wrap {
 	position: relative;
 	isolation: isolate;
-	margin-top: calc(var(--sheets) * 9px);
 	perspective: 1200px;
 	perspective-origin: 50% 0%;
-}
-.sd-sheet {
-	position: absolute;
-	inset: 0;
-	z-index: calc(6 - var(--k));
-	border: 1px solid var(--theme-line);
-	border-radius: 28px;
-	background: var(--theme-surface-solid);
-	opacity: calc(1 - var(--k) * 0.16);
-	transform: translateY(calc(var(--k) * -9px)) scale(calc(1 - var(--k) * 0.035));
-	transform-origin: 50% 0%;
 }
 .sd-plane {
 	position: relative;
@@ -2652,35 +2647,14 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	background-clip: text;
 }
 .sd-layers {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: 10px 14px;
-	margin-top: 18px;
+	margin: 16px 0 0;
+	color: var(--theme-muted);
 }
-.sd-cells {
-	display: inline-flex;
-	gap: 3px;
-}
-.sd-cells > span {
-	width: 6px;
-	height: 14px;
-	border-radius: 2px;
-	background: color-mix(in srgb, var(--theme-ink) 12%, transparent);
-}
-.sd-cells > span[data-state="reached"] {
-	background: color-mix(in srgb, var(--theme-accent) 38%, transparent);
-}
-.sd-cells > span[data-state="here"] {
-	background: var(--theme-accent);
-}
-.sd-cells-lg {
-	gap: 5px;
-}
-.sd-cells-lg > span {
-	width: 12px;
-	height: 28px;
-	border-radius: 4px;
+@media (min-width: 1024px) {
+	/* The rail's stack says this already. */
+	.sd-layers {
+		display: none;
+	}
 }
 .sd-body {
 	max-width: 680px;
@@ -2730,17 +2704,11 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 }
 @keyframes sd-plane-forward {
 	from {
-		opacity: 0.25;
-		transform: translateZ(-240px) rotateX(16deg);
+		opacity: 0.3;
+		transform: translateZ(-150px);
 	}
 	to {
 		opacity: 1;
-		transform: none;
-	}
-}
-@keyframes sd-sheet-settle {
-	from {
-		opacity: 0;
 		transform: none;
 	}
 }
@@ -2749,12 +2717,7 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		.sd-plane {
 			animation: sd-plane-forward linear both;
 			animation-timeline: view();
-			animation-range: entry 0% entry 100%;
-		}
-		.sd-sheet {
-			animation: sd-sheet-settle linear both;
-			animation-timeline: view();
-			animation-range: entry 40% cover 30%;
+			animation-range: entry 0% entry 70%;
 		}
 	}
 }
@@ -2881,7 +2844,8 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	.sd-stack {
 		--dy: 32px;
 		justify-self: center;
-		width: min(78%, 300px);
+		width: min(70%, 240px);
+		margin-right: 32px;
 	}
 	.sd-plate-eyebrow {
 		display: none;
@@ -3429,26 +3393,151 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	[data-slot="resume-skill"] > button {
 		display: inline-flex;
 		align-items: center;
-		gap: 6px;
-		min-height: 32px;
-		padding: 0 11px;
+		gap: 5px;
+		min-height: 28px;
+		padding: 0 9px;
 		border: 1px solid var(--theme-line);
 		border-radius: 999px;
 		background: var(--theme-surface-solid);
 		color: var(--theme-ink-soft);
-		font-size: 13px;
+		font-size: 12.5px;
 		font-weight: 500;
 		cursor: pointer;
 		transition:
 			color 200ms var(--theme-ease),
 			background-color 200ms var(--theme-ease),
 			border-color 200ms var(--theme-ease),
+			opacity 260ms var(--theme-ease),
 			translate 200ms var(--theme-ease),
 			scale 160ms var(--theme-ease);
 	}
-	[data-slot="resume-skill"] > button[data-unused] {
+	[data-slot="resume-skill"] > button[data-unused],
+	[data-slot="resume-skill"] > button[data-later] {
 		border-style: dashed;
 		color: var(--theme-muted);
+	}
+	[data-slot="resume-skill"] > button[data-later]:not([aria-pressed="true"]) {
+		opacity: 0.5;
+	}
+	[data-slot="resume-skill-layer"] h3 {
+		transition: color 260ms var(--theme-ease);
+	}
+	[data-slot="resume-skill-layer"][data-later] h3 {
+		color: var(--theme-muted);
+	}
+	[data-slot="resume-skill-layer"] path {
+		transition:
+			fill 260ms var(--theme-ease),
+			stroke 260ms var(--theme-ease);
+	}
+
+	/* The year scrubber: a real range input, styled as a trace. */
+	[data-slot="resume-years"] input[type="range"] {
+		--thumb: 18px;
+		display: block;
+		width: 100%;
+		height: 28px;
+		margin: 2px 0 0;
+		background: transparent;
+		cursor: pointer;
+		appearance: none;
+		-webkit-appearance: none;
+	}
+	[data-slot="resume-years"] input[type="range"]::-webkit-slider-runnable-track {
+		height: 4px;
+		border-radius: 999px;
+		background: linear-gradient(
+			90deg,
+			var(--theme-accent) calc(var(--fill) * 100%),
+			var(--theme-line-strong) calc(var(--fill) * 100%)
+		);
+	}
+	[data-slot="resume-years"] input[type="range"]::-moz-range-track {
+		height: 4px;
+		border-radius: 999px;
+		background: linear-gradient(
+			90deg,
+			var(--theme-accent) calc(var(--fill) * 100%),
+			var(--theme-line-strong) calc(var(--fill) * 100%)
+		);
+	}
+	[data-slot="resume-years"] input[type="range"]::-webkit-slider-thumb {
+		width: var(--thumb);
+		height: var(--thumb);
+		margin-top: calc((4px - var(--thumb)) / 2);
+		border: 2px solid var(--theme-surface-solid);
+		border-radius: 999px;
+		background: var(--theme-accent);
+		box-shadow:
+			0 0 0 1px var(--theme-accent-line),
+			0 4px 10px -4px var(--theme-accent-shadow);
+		appearance: none;
+		-webkit-appearance: none;
+		transition: scale 160ms var(--theme-ease);
+	}
+	[data-slot="resume-years"] input[type="range"]::-moz-range-thumb {
+		width: var(--thumb);
+		height: var(--thumb);
+		border: 2px solid var(--theme-surface-solid);
+		border-radius: 999px;
+		background: var(--theme-accent);
+		box-shadow: 0 0 0 1px var(--theme-accent-line);
+	}
+	[data-slot="resume-years"] input[type="range"]:active::-webkit-slider-thumb {
+		scale: 1.15;
+	}
+	[data-slot="resume-years"] input[type="range"]:focus-visible {
+		outline: 2px solid var(--theme-focus);
+		outline-offset: 1px;
+		border-radius: 8px;
+	}
+	[data-slot="resume-years-ticks"] {
+		position: relative;
+		height: 14px;
+		margin: 0 calc(var(--thumb, 18px) / 2);
+		font-family: var(--font-mono);
+		font-size: 10px;
+		line-height: 14px;
+		font-variant-numeric: tabular-nums;
+		color: var(--theme-muted);
+	}
+	[data-slot="resume-years-ticks"] > span {
+		position: absolute;
+		left: calc(var(--at) * 100%);
+		translate: -50% 0;
+		transition: color 200ms var(--theme-ease);
+	}
+	[data-slot="resume-years-ticks"] > span[data-on] {
+		color: var(--theme-ink-soft);
+	}
+	@media (pointer: coarse) {
+		[data-slot="resume-years"] input[type="range"] {
+			--thumb: 24px;
+			height: 40px;
+		}
+	}
+	/* Roles and projects against the chosen year. */
+	[data-page="resume"] [data-era="later"] {
+		opacity: 0.32;
+	}
+	[data-page="resume"] [data-era="past"] {
+		opacity: 0.62;
+	}
+	[data-page="resume"] [data-era="now"]:not([data-skill-state]) {
+		background: color-mix(in srgb, var(--theme-accent) 5%, transparent);
+		box-shadow: 0 0 0 12px color-mix(in srgb, var(--theme-accent) 5%, transparent);
+	}
+	@media (min-width: 1024px) {
+		/* When the skills column is taller than the viewport it scrolls, and the
+		   one-line readout stays pinned under the dock so a hovered skill is explained. */
+		[data-slot="resume-skills"][data-unpinned] [data-slot="resume-skill-readout-slot"] {
+			position: sticky;
+			top: calc(var(--dock-space-top) + 12px);
+			z-index: 2;
+			margin-block: -6px;
+			padding-block: 6px;
+			background: var(--theme-surface-solid);
+		}
 	}
 	[data-slot="resume-skill"] > button:active {
 		scale: 0.96;
@@ -3492,6 +3581,15 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	@media (prefers-reduced-motion: reduce) {
 		[data-slot="resume-sheet"] {
 			animation: none;
+		}
+		[data-page="resume"] [data-slot="resume-entry"],
+		[data-page="resume"] [data-slot="resume-side-entry"],
+		[data-slot="resume-skill"] > button,
+		[data-slot="resume-skill-layer"] h3,
+		[data-slot="resume-skill-layer"] path,
+		[data-slot="resume-years-ticks"] > span,
+		[data-slot="resume-years"] input[type="range"]::-webkit-slider-thumb {
+			transition: none;
 		}
 		[data-slot="resume-desk"] > [data-sheet],
 		[data-slot="resume-sheet"],
@@ -3579,7 +3677,13 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		border-radius: 2mm !important;
 		break-inside: avoid;
 	}
+	[data-page="resume"] [data-slot="resume-glance"] {
+		gap: 0 !important;
+		background: none !important;
+	}
 	[data-page="resume"] [data-slot="resume-glance"] > div {
+		grid-column: auto !important;
+		background: none !important;
 		padding: 1.6mm 2.6mm !important;
 		border-top: 0 !important;
 		border-left: 0.3mm solid #9ca3af !important;
@@ -3598,11 +3702,24 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		display: grid !important;
 		grid-template-columns: minmax(0, 1fr) 52mm !important;
 		column-gap: 6.5mm !important;
+		row-gap: 4.5mm !important;
 		margin-top: 4.5mm !important;
 		padding-top: 0 !important;
 	}
-	[data-page="resume"] [data-slot="resume-main"] {
-		gap: 4.5mm !important;
+	[data-page="resume"] [data-slot="resume-layout"] > * {
+		grid-column: 1 !important;
+	}
+	[data-page="resume"] [data-slot="resume-layout"] > [data-slot="resume-side"] {
+		grid-column: 2 !important;
+		grid-row: 1 / span var(--rows) !important;
+	}
+	[data-page="resume"] [data-era] {
+		opacity: 1 !important;
+		background: none !important;
+		box-shadow: none !important;
+	}
+	[data-page="resume"] [data-slot="resume-skill"] > button[data-later] {
+		opacity: 1 !important;
 	}
 	[data-page="resume"] [data-slot="resume-side"] {
 		gap: 4.5mm !important;
@@ -3674,6 +3791,7 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 		display: none !important;
 	}
 	[data-page="resume"] [data-slot="resume-bullet"] {
+		position: relative !important;
 		padding-left: 3mm !important;
 	}
 	[data-page="resume"] [data-slot="resume-bullet"]::before {
@@ -4211,6 +4329,7 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 	}
 }
 .trace-stack--status {
+	overflow-x: clip;
 	--plane-w: 290px;
 	--plane-h: 180px;
 	--gap: 30px;
@@ -4226,6 +4345,12 @@ html[data-work-vt] [data-vt-hero]:not([data-vt-skip]) {
 }
 .trace-stack--footer[data-open] {
 	--gap: 38px;
+}
+@media (min-width: 768px) and (max-width: 1023px) {
+	.trace-stack--status {
+		--plane-w: 210px;
+		--lost-x: 120px;
+	}
 }
 @media (max-width: 767px) {
 	.trace-stack,

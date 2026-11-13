@@ -118,15 +118,15 @@ function DepthGauge({ role, layers }: { role?: ExperienceContent; layers: Career
 }
 
 /**
- * The path, read as a descent: the oldest role first, each one reaching
- * further behind the interface. Every role is a disclosure that animates in all
+ * The path, oldest role first. Every role is a disclosure that animates in all
  * browsers (and still works without JavaScript); the current role starts
- * open. On wide screens a 3D depth gauge follows the role in view.
+ * open. On wide screens a 3D depth gauge shows the role you opened or
+ * focused; while nothing was opened by hand, it follows the role in view.
  */
 export function CareerTimeline({
 	experience,
 	title = "From the interface to the whole stack.",
-	description = "I started on the interface. Each role took me one layer further behind it.",
+	description = "I started on the interface. The bars show which layers each role reached.",
 	className,
 }: CareerTimelineProps) {
 	const titleId = useId();
@@ -140,6 +140,9 @@ export function CareerTimeline({
 	const roles = groups.flatMap((group) => group.roles);
 	const currentId = (roles.find((role) => role.current) ?? roles.at(-1))?.id;
 	const [activeId, setActiveId] = useState(currentId);
+	// A role opened by hand holds the gauge; scroll only moves it when none is.
+	const pinnedId = useRef<string | null>(null);
+	const pressedId = useRef<string | null>(null);
 	const active = roles.find((role) => role.id === activeId) ?? roles.at(-1);
 	const { scrollYProgress } = useScroll({
 		target: railRef,
@@ -153,10 +156,10 @@ export function CareerTimeline({
 				for (const entry of entries) {
 					if (!entry.isIntersecting) continue;
 					const id = (entry.target as HTMLElement).dataset.roleId;
-					if (id) setActiveId(id);
+					if (id && !pinnedId.current) setActiveId(id);
 				}
 			},
-			{ rootMargin: "-40% 0px -55% 0px" },
+			{ rootMargin: "-35% 0px -45% 0px" },
 		);
 		for (const element of roleRefs.current.values()) observer.observe(element);
 		return () => observer.disconnect();
@@ -239,10 +242,29 @@ export function CareerTimeline({
 														else roleRefs.current.delete(role.id);
 													}}
 													className="relative min-w-0"
+													onClickCapture={(event) => {
+														if ((event.target as HTMLElement).closest("summary")) {
+															pressedId.current = role.id;
+														}
+													}}
+													onFocus={(event) => {
+														if ((event.target as HTMLElement).closest("summary")) {
+															setActiveId(role.id);
+														}
+													}}
 												>
 													<SmoothDetails
 														group={accordion}
 														defaultOpen={role.id === currentId}
+														onOpenChange={(open) => {
+															if (open && pressedId.current === role.id) {
+																pinnedId.current = role.id;
+																setActiveId(role.id);
+															} else if (!open && pinnedId.current === role.id) {
+																pinnedId.current = null;
+															}
+															if (pressedId.current === role.id) pressedId.current = null;
+														}}
 														className="group/role min-w-0 rounded-[20px] transition-[background-color,box-shadow] duration-300 ease-trace open:bg-surface-solid open:shadow-raised"
 														summaryClassName="relative flex min-h-14 cursor-pointer items-center gap-x-4 gap-y-1 rounded-[20px] px-4 py-3 select-none transition-[background-color,scale] duration-200 ease-trace active:scale-[0.99] pointer-fine:hover:bg-[color-mix(in_srgb,var(--theme-ink)_4%,transparent)] group-open/role:pointer-fine:hover:bg-transparent sm:px-5"
 														summary={
@@ -310,9 +332,7 @@ export function CareerTimeline({
 							<span aria-hidden="true">
 								<CoreSample layers={CAREER_LAYERS.map((layer) => layer.id)} />
 							</span>
-							<span>
-								Layers, front to back: {CAREER_LAYERS.map((layer) => layer.label).join(" → ")}
-							</span>
+							<span>Front to back: {CAREER_LAYERS.map((layer) => layer.label).join(" → ")}</span>
 						</p>
 					</div>
 				) : (

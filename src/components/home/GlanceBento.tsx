@@ -42,26 +42,16 @@ function mentions(metric: MetricContent, project?: ProjectContent) {
 	return label.includes(project.id.toLowerCase()) || label.includes(project.title.toLowerCase());
 }
 
-function hostOf(href?: string) {
-	if (!href) return undefined;
-	try {
-		return new URL(href).hostname.replace(/^www\./u, "");
-	} catch {
-		return undefined;
-	}
-}
-
 /**
- * The lead tile: the current role, told as one web product taken apart from
- * the interface to the release, with the promotions at the company below.
+ * The lead tile: the current role, shown as a small living web product (one
+ * save runs through the stack), its published highlights, and the promotions
+ * at the company below.
  */
 function NowTile({
 	experience,
-	projects,
 	className,
 }: {
 	experience: ExperienceContent[];
-	projects: ProjectContent[];
 	className?: string;
 }) {
 	const groups = groupExperienceByCompany(experience);
@@ -70,9 +60,6 @@ function NowTile({
 	if (!group || !lead) return null;
 	const role = lead.role.trim() || "Engineer";
 	const company = lead.company.trim();
-	const product = projects.find(
-		(item) => company && item.title.trim().toLowerCase() === company.toLowerCase(),
-	);
 	const path = [...group.roles].reverse();
 	return (
 		<TiltTile
@@ -108,7 +95,7 @@ function NowTile({
 					{lead.summary.trim()}
 				</p>
 			) : null}
-			<WebStack role={lead} host={hostOf(product?.href)} className="mt-6 flex-1 content-end" />
+			<WebStack role={lead} className="mt-7 flex-1 content-between" />
 			{path.length > 1 ? (
 				<ol
 					aria-label={`Roles at ${company || "this company"}, oldest first`}
@@ -140,26 +127,42 @@ function NowTile({
 	);
 }
 
+/** "people reached … · Sep 3, 2026" → the claim and its date, shown apart. */
+function splitDated(label: string) {
+	const match = label.match(/^(.*?)\s*·\s*([^·]*\d{4})\s*$/u);
+	return match ? { text: match[1]?.trim() ?? label, date: match[2]?.trim() } : { text: label };
+}
+
+/**
+ * A single number. The figure and its label sit together at the foot of the
+ * tile; a dated metric keeps its date as a quiet stamp at the top.
+ */
 function MetricTile({ metric, className }: { metric: MetricContent; className?: string }) {
 	const value = metric.value.trim() || "—";
-	const label = metric.label.trim();
+	const { text, date } = splitDated(metric.label.trim());
 	return (
 		<TiltTile
 			as="div"
 			frameClassName={className}
-			className="flex min-h-[150px] flex-col justify-between gap-5 p-[clamp(18px,2.4vw,28px)]"
+			className="flex min-h-[150px] flex-col justify-between gap-6 p-[clamp(18px,2.4vw,28px)]"
 		>
-			<p
-				data-par="3"
-				className="m-0 text-[clamp(2rem,3.6vw,3rem)] leading-none font-[620] tracking-[-0.045em] text-foreground"
-			>
-				<CountUp value={value} />
+			<p className="mono-label m-0 flex items-center gap-2 text-muted-foreground">
+				<span aria-hidden="true" className="h-px w-4 bg-[var(--theme-accent-line)]" />
+				{date ? <span>As of {date}</span> : <span>So far</span>}
 			</p>
-			{label ? (
-				<p className="m-0 max-w-[30ch] text-[13.5px] leading-[1.45] text-muted-foreground">
-					{label}
+			<div>
+				<p
+					data-par="3"
+					className="m-0 text-[clamp(2rem,3.6vw,3rem)] leading-none font-[620] tracking-[-0.045em] text-foreground"
+				>
+					<CountUp value={value} />
 				</p>
-			) : null}
+				{text ? (
+					<p className="mt-2.5 mb-0 max-w-[30ch] text-[13.5px] leading-[1.45] text-muted-foreground">
+						{text}
+					</p>
+				) : null}
+			</div>
 		</TiltTile>
 	);
 }
@@ -182,7 +185,7 @@ function OpenSourceTile({
 			max={3}
 			frameClassName={className}
 			className={cn(
-				"relative grid min-w-0 gap-6 overflow-hidden sm:grid-cols-[minmax(0,1fr)_200px] sm:gap-6",
+				"relative grid min-w-0 gap-6 overflow-hidden sm:grid-cols-[minmax(0,1fr)_208px] sm:gap-6",
 				TILE_PAD,
 			)}
 		>
@@ -388,11 +391,7 @@ export function GlanceBento({
 			/>
 			<Stagger className="depth-bento grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
 				{hasNow ? (
-					<NowTile
-						experience={experience}
-						projects={projects}
-						className="md:col-span-2 lg:col-span-7 lg:row-span-2"
-					/>
+					<NowTile experience={experience} className="md:col-span-2 lg:col-span-7 lg:row-span-2" />
 				) : null}
 				{otherMetrics.length > 0 ? (
 					<div

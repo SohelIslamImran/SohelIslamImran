@@ -54,6 +54,17 @@ describe("projectAnatomy", () => {
 		expect(touched(seed("android-mac-display"))).toEqual(["infrastructure"]);
 	});
 
+	it("does not file a third-party lookup or a library surface under API", () => {
+		const anatomy = projectAnatomy(seed("expo-in-app-updates"));
+		const api = anatomy.layers.find((layer) => layer.id === "api");
+		expect(api?.touched).toBe(false);
+		expect(anatomy.highlightLayers[1]).toEqual([]);
+		expect(touched(seed("expo-in-app-updates"))).toEqual(["interface", "release"]);
+		expect(markTerms("Built on iTunes Search API lookups.", "api")).toEqual([
+			{ text: "Built on iTunes Search API lookups.", marked: false },
+		]);
+	});
+
 	it("keeps a small tool small", () => {
 		expect(touched(seed("ghosttime"))).toEqual(["interface", "release"]);
 	});

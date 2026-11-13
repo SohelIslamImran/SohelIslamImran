@@ -19,7 +19,8 @@ const WORD_STEP_MS = 60;
  * The CMS headline, word by word, for a CSS-only rise. The text is final in
  * the server HTML; the animation only plays as styles arrive and is skipped
  * under reduced motion. The clause after the last comma (or the last word)
- * takes the accent ink and starts its own line.
+ * takes the accent ink and starts its own line. Both clauses balance their
+ * own breaks, so no width leaves an orphan ("of a / product,").
  */
 function Headline({ title }: { title: string }) {
 	const { lead, accent } = splitHeadline(title);
@@ -36,7 +37,7 @@ function Headline({ title }: { title: string }) {
 		words.flatMap((text, index) => [index > 0 ? " " : null, word(text, offset + index, accented)]);
 	return (
 		<>
-			{join(lead, 0, false)}
+			<span className="hero-lead">{join(lead, 0, false)}</span>
 			{accent.length > 0 ? (
 				<>
 					{" "}
@@ -122,7 +123,7 @@ export function HomeHero({ identity, hero, portraitSrc, portraitAlt }: HomeHeroP
 
 					<h1
 						id="hero-title"
-						className="mt-6 mb-0 min-w-0 text-display [text-wrap:wrap] lg:text-[clamp(3.25rem,5vw,5.25rem)]"
+						className="mt-6 mb-0 min-w-0 text-display lg:text-[clamp(3.25rem,5vw,5.25rem)]"
 					>
 						<Headline title={hero.title} />
 					</h1>

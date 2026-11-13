@@ -97,6 +97,7 @@ function Home() {
 				responseTime={content.contact.responseTime?.trim()}
 				email={email}
 				links={contactLinks}
+				timeZone={identity.timezone.trim() || undefined}
 			/>
 		</PageShell>
 	);

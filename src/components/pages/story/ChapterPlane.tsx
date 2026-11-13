@@ -1,18 +1,16 @@
-import type { CSSProperties } from "react";
-import { layerLabels, STORY_LAYERS, type StoryChapterItem } from "./chapters";
+import { layerLabels, type StoryChapterItem } from "./chapters";
 
 /**
- * One chapter. Its heading sits on a plane that comes forward out of the page
- * as it scrolls in (CSS scroll-driven 3D; static where unsupported or under
- * reduced motion). The sheets stacked behind the plane grow with each
- * chapter: the further you read, the more layers sit above you. The reading
- * copy itself never moves.
+ * One chapter. Its heading sits on a plane that is pushed in from a little
+ * further back as it scrolls into view (CSS scroll-driven 3D; static where
+ * unsupported or under reduced motion), so reading on reads as going deeper.
+ * The layer stack lives once, in the rail; on narrow screens the plane names
+ * the layers this chapter reaches, in words. The reading copy never moves.
  */
-export function ChapterPlane({ chapter, index }: { chapter: StoryChapterItem; index: number }) {
+export function ChapterPlane({ chapter }: { chapter: StoryChapterItem }) {
 	const eyebrow = chapter.eyebrow.trim();
 	const title = chapter.title.trim();
 	const artifact = chapter.artifact?.trim();
-	const sheets = Math.min(index, 5);
 	const named = layerLabels(chapter.layers);
 
 	return (
@@ -21,17 +19,8 @@ export function ChapterPlane({ chapter, index }: { chapter: StoryChapterItem; in
 			tabIndex={-1}
 			aria-labelledby={chapter.titleId}
 			className="sd-chapter"
-			style={{ "--sheets": sheets } as CSSProperties}
 		>
 			<div className="sd-plane-wrap">
-				{Array.from({ length: sheets }, (_, k) => (
-					<span
-						key={k}
-						aria-hidden="true"
-						className="sd-sheet"
-						style={{ "--k": k + 1 } as CSSProperties}
-					/>
-				))}
 				<header className="sd-plane">
 					<span aria-hidden="true" className="sd-numeral">
 						{chapter.numeral}
@@ -47,25 +36,12 @@ export function ChapterPlane({ chapter, index }: { chapter: StoryChapterItem; in
 							<span className="sr-only">Chapter {chapter.numeral}: </span>
 							{chapter.label}
 						</h2>
-						<div className="sd-layers">
-							<span className="sd-cells" aria-hidden="true">
-								{STORY_LAYERS.map((layer) => (
-									<span
-										key={layer.id}
-										data-state={
-											chapter.layers.includes(layer.id)
-												? "here"
-												: chapter.reached.includes(layer.id)
-													? "reached"
-													: undefined
-										}
-									/>
-								))}
-							</span>
-							<span className="mono-label text-muted-foreground">
-								{named.length > 0 ? named.join(" · ") : "Before the stack"}
-							</span>
-						</div>
+						{named.length > 0 ? (
+							<p className="sd-layers mono-label">
+								<span className="sr-only">Layers named in this chapter: </span>
+								{named.join(" · ")}
+							</p>
+						) : null}
 					</div>
 				</header>
 			</div>

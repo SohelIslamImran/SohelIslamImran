@@ -11,7 +11,9 @@ import { CountUp, Reveal } from "../components/motion";
 import { PageShell, TagList } from "../components/ui/portfolio";
 import { LayerStrip } from "../components/work/LayerStrip";
 import { ProjectPoster } from "../components/work/ProjectPoster";
+import { GhostReplay } from "../components/work/GhostReplay";
 import { StackAnatomy } from "../components/work/StackAnatomy";
+import { UpdateFlow, updateFlowModel } from "../components/work/UpdateFlow";
 import { primeWorkTransition } from "../components/work/view-transition";
 import {
 	adjacentProjects,
@@ -84,6 +86,41 @@ function position(projects: ProjectContent[], project: ProjectContent) {
 		: `${String(index + 1).padStart(2, "0")} / ${String(list.length).padStart(2, "0")}`;
 }
 
+/**
+ * The interactive middle of a case study. A project gets its own diagram when
+ * its content tells that story; everything else shows where it sits in the stack.
+ */
+function caseMoment(project: ProjectContent): {
+	id: string;
+	title: string;
+	lead?: string;
+	body: ReactNode;
+} {
+	const flow = project.id === "expo-in-app-updates" ? updateFlowModel(project) : null;
+	if (flow) {
+		return {
+			id: "how-it-works",
+			title: "One call, two platforms",
+			lead: "Your app talks to one TypeScript API. Underneath, Kotlin handles Android and Swift handles iOS. Pick a highlight to follow it.",
+			body: <UpdateFlow model={flow} />,
+		};
+	}
+	if (project.id === "ghosttime") {
+		return {
+			id: "try-it",
+			title: "Try it here",
+			lead: "A small replay in the browser. Type the command or press Replay. The real one runs in your terminal.",
+			body: <GhostReplay />,
+		};
+	}
+	return {
+		id: "anatomy",
+		title: "Where this project sits in the stack",
+		lead: "Six layers, from the interface people use down to how changes ship.",
+		body: <StackAnatomy project={project} />,
+	};
+}
+
 function ProjectDetail({
 	project,
 	projects,
@@ -124,12 +161,7 @@ function ProjectDetail({
 			),
 		});
 	}
-	blocks.push({
-		id: "anatomy",
-		title: "From the interface down",
-		lead: "Which layers of the stack this project's notes and tools mention, from the interface down to release.",
-		body: <StackAnatomy project={project} />,
-	});
+	blocks.push(caseMoment(project));
 	if (metrics.length > 0) {
 		blocks.push({
 			id: "numbers",

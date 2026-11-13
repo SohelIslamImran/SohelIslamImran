@@ -22,15 +22,19 @@ export const STACK_CSS = `
 }
 .st-body { --P: 31cqw; --g: 8.4; --L: 5; --rx: 57; --sin: 0.839; }
 .st[data-open] .st-body { --g: 11.6; }
-.st-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.st-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-width: 0; }
+.st-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .st-pull {
-	display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 36px; padding: 0 13px 0 11px;
+	display: inline-flex; flex: none; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px 0 12px;
 	border: 1px solid var(--theme-line); border-radius: 999px; background: transparent; color: var(--theme-muted);
 	font-size: 13px; font-weight: 540; cursor: pointer;
 	transition: color 220ms var(--ease), border-color 220ms var(--ease), background-color 220ms var(--ease), scale 220ms var(--ease);
 }
 .st-pull > svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
 .st-pull:active { scale: 0.96; }
+.st-send { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 38%, transparent); }
+.st-send[data-busy] { background: var(--theme-accent-soft); }
+@media (hover: hover) and (pointer: fine) { .st-send:hover { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 62%, transparent); } }
 .st-pull[aria-pressed="true"] { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 45%, transparent); background: var(--theme-accent-soft); }
 @media (hover: hover) and (pointer: fine) { .st-pull:hover { color: var(--theme-ink); border-color: var(--theme-line-strong); } }
 
@@ -70,6 +74,14 @@ export const STACK_CSS = `
 		translate 720ms var(--glide), opacity 420ms var(--ease), color 320ms var(--ease),
 		border-color 320ms var(--ease), background-color 320ms var(--ease), box-shadow 320ms var(--ease);
 }
+/* Light paper washes the glass out: rest the planes ~1.5x stronger so all six read at once. */
+html:not([data-theme-resolved="dark"]) .st-plane:not([data-active]) {
+	opacity: 0.97; color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-ink));
+	border-color: color-mix(in srgb, var(--theme-ink) 24%, transparent);
+	background: linear-gradient(135deg, color-mix(in srgb, var(--theme-surface-solid) 96%, transparent), color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid) 84%));
+	box-shadow: inset 0 1px 0 var(--theme-highlight), 0 1px 0 color-mix(in srgb, var(--theme-ink) 6%, transparent);
+}
+html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 .st-plane[data-lit] { opacity: 0.85; color: var(--theme-ink-soft); border-color: color-mix(in srgb, var(--theme-accent) 30%, var(--theme-line-strong)); }
 .st-plane[data-active] {
 	opacity: 1; color: var(--theme-accent-text);
@@ -182,6 +194,18 @@ export const STACK_CSS = `
 .st-panel-copy { margin-top: 8px; max-width: 48ch; font-size: 1.0625rem; line-height: 1.5; color: var(--theme-ink-soft); }
 .st-panel-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding: 0; list-style: none; }
 
+/* Request trace: one mono line per layer. Six rows always exist, so printing never moves anything. */
+.st-log {
+	display: grid; grid-template-rows: repeat(3, 20px); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px 18px;
+	margin: 16px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--theme-line-strong); list-style: none;
+	font-family: var(--font-mono); font-size: 12px; line-height: 20px; font-variant-numeric: tabular-nums;
+}
+.st-log-line { display: grid; grid-template-columns: 2.1em 4.6em minmax(0, 1fr); min-width: 0; height: 20px; white-space: nowrap; color: var(--theme-ink-soft); }
+.st-log-i { color: var(--theme-muted); opacity: 0.8; }
+.st-log-k { color: var(--theme-accent-text); }
+.st-log-d { overflow: hidden; text-overflow: ellipsis; }
+.st-log-line[data-now] .st-log-d { color: var(--theme-ink); }
+
 /* Narrow: the stack takes the full width; labels become a two-column grid */
 @container st (max-width: 480px) {
 	.st-body { grid-template-columns: minmax(0, 1fr); height: auto; }
@@ -199,6 +223,7 @@ export const STACK_CSS = `
 	.st-tab-lead { display: none; }
 	.st-tab-index { padding-left: 0; }
 	.st-tab-name { overflow: hidden; text-overflow: ellipsis; }
+	.st-log { grid-template-rows: none; grid-auto-flow: row; }
 }
 
 /* Motion: only with no reduced-motion preference */
@@ -210,9 +235,10 @@ export const STACK_CSS = `
 .mi-cursor { transform: translate(64px, 84px); }
 
 @media (prefers-reduced-motion: no-preference) {
-	.st[data-autoplay] .st-progress-fill { animation: st-fill ${AUTOPLAY_MS}ms linear forwards; }
-	.st[data-autoplay] .st-dot { animation: st-hop ${AUTOPLAY_MS}ms cubic-bezier(0.65, 0, 0.35, 1) both; }
-	.st[data-autoplay][data-landing] .st-dot { animation: st-dwell ${AUTOPLAY_MS}ms linear both; }
+	.st[data-autoplay] .st-progress-fill { animation: st-fill var(--step, ${AUTOPLAY_MS}ms) linear forwards; }
+	.st[data-autoplay] .st-dot { animation: st-hop var(--step, ${AUTOPLAY_MS}ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+	.st[data-autoplay][data-landing] .st-dot { animation: st-dwell var(--step, ${AUTOPLAY_MS}ms) linear both; }
+	.st-log-line[data-now] { animation: st-print 320ms var(--ease) both; }
 	.st[data-autoplay][data-landing] .st-land::before { animation: st-ring 1400ms var(--ease) 250ms both; }
 	.st[data-autoplay][data-first] .st-dot-core { animation: st-dot-in 360ms var(--ease) both; }
 	.st:is([data-hold], [data-paused]) :is(.st-progress-fill, .st-dot, .st-dot-core),
@@ -251,6 +277,7 @@ export const STACK_CSS = `
 	from { opacity: 0.9; scale: 0.4; }
 	to { opacity: 0; scale: 1.8; }
 }
+@keyframes st-print { from { opacity: 0; translate: -6px 0; } }
 @keyframes st-dot-in { from { opacity: 0; scale: 0.4; } }
 
 @keyframes mi-cursor {

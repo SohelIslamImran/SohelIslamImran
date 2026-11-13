@@ -245,11 +245,16 @@ export function UpdatePhone({
 			</div>
 
 			<div className={cn("grid min-w-0", compact ? "justify-items-center gap-2" : "gap-4")}>
-				<div className={cn("flex flex-wrap items-center gap-1", compact && "justify-center")}>
+				<div
+					className={cn(
+						"flex items-center gap-1",
+						compact ? "flex-nowrap justify-center" : "flex-wrap",
+					)}
+				>
 					<div
 						role="group"
 						aria-label="Platform"
-						className="inline-flex rounded-full border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] p-1"
+						className="inline-flex rounded-full border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] p-0.5"
 					>
 						{(["android", "ios"] as const).map((item) => (
 							<button
@@ -258,7 +263,7 @@ export function UpdatePhone({
 								aria-pressed={platform === item}
 								onClick={() => choosePlatform(item)}
 								className={cn(
-									"pressable min-h-9 rounded-full px-3.5 text-[13.5px] font-medium transition-[background-color,color,scale] duration-200",
+									"pressable min-h-11 rounded-full px-4 text-[13.5px] font-medium transition-[background-color,color,scale] duration-200",
 									platform === item
 										? "bg-surface-solid text-foreground shadow-[0_1px_3px_rgb(0_0_0/0.12)]"
 										: "text-muted-foreground pointer-fine:hover:text-foreground",
@@ -271,25 +276,34 @@ export function UpdatePhone({
 					<button
 						type="button"
 						onClick={reduceMotion ? stepForward : replay}
-						className="pressable inline-flex min-h-11 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium text-primary-text transition-[background-color,scale] duration-200 pointer-fine:hover:bg-primary-soft"
+						title={compact ? (reduceMotion ? "Next step" : "Replay") : undefined}
+						className={cn(
+							"pressable inline-flex min-h-11 shrink-0 items-center justify-center gap-1.5 rounded-full text-[13.5px] font-medium text-primary-text transition-[background-color,scale] duration-200 pointer-fine:hover:bg-primary-soft",
+							compact ? "min-w-11 text-[16px]" : "px-3.5",
+						)}
 					>
 						<span aria-hidden="true">{reduceMotion ? "→" : "↻"}</span>
-						{reduceMotion ? "Next step" : "Replay"}
+						<span className={compact ? "sr-only" : undefined}>
+							{reduceMotion ? "Next step" : "Replay"}
+						</span>
 					</button>
 				</div>
+				{/* One line for both platforms, so switching never changes the height. */}
 				<ol
 					className={cn(
-						"m-0 flex list-none flex-wrap items-center gap-x-2 gap-y-1 p-0",
-						compact && "justify-center",
+						"m-0 flex min-h-5 max-w-full list-none flex-nowrap items-center p-0 whitespace-nowrap",
+						compact ? "justify-center gap-x-2.5" : "gap-x-1.5",
 					)}
 				>
 					{STAGES[platform].map((stage, index) => (
-						<li key={stage.id} className="flex items-center gap-2">
-							{index > 0 ? <span aria-hidden="true" className="h-px w-4 bg-line-strong" /> : null}
+						<li key={stage.id} className="flex items-center gap-1.5">
+							{index > 0 && !compact ? (
+								<span aria-hidden="true" className="h-px w-3 bg-line-strong" />
+							) : null}
 							<span
 								aria-current={index === current ? "step" : undefined}
 								className={cn(
-									"mono-label inline-flex items-center gap-1.5 transition-colors duration-300",
+									"mono-label inline-flex items-center gap-1 transition-colors duration-300",
 									index < current || (index === current && (step === "done" || step === "store"))
 										? "text-success"
 										: index === current

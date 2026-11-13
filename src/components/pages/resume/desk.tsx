@@ -78,11 +78,16 @@ export function PrintButton() {
 		>
 			<PrinterGlyph done={status === "done"} />
 			<span aria-live="polite">
-				{status === "lifting"
-					? "Opening print…"
-					: status === "done"
-						? "Ready again"
-						: "Print / Save as PDF"}
+				{status === "lifting" ? (
+					"Opening print…"
+				) : status === "done" ? (
+					"Ready again"
+				) : (
+					<>
+						<span className="sm:hidden">Save as PDF</span>
+						<span className="max-sm:hidden">Print / Save as PDF</span>
+					</>
+				)}
 			</span>
 		</Button>
 	);

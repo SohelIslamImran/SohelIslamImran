@@ -1,11 +1,14 @@
-import { useRef, useState, type CSSProperties } from "react";
+import { useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { LinkContent } from "../../types/content";
-import { Magnetic, TraceLine, useCopyToClipboard, useSpotlight } from "@/components/motion";
-import { buttonVariants } from "@/components/ui/button";
+import {
+	LocalTime,
+	Magnetic,
+	TraceLine,
+	useCopyToClipboard,
+	useSpotlight,
+} from "@/components/motion";
 import { MonoLabel, Section, StatusDot } from "@/components/ui/portfolio";
-import { cn } from "@/lib/utils";
-import { useOnScreen } from "./sections/hooks";
 import { SmartLink } from "./links";
 
 interface ContactSectionProps {
@@ -15,6 +18,10 @@ interface ContactSectionProps {
 	responseTime?: string;
 	email: string;
 	links: LinkContent[];
+	/** IANA zone for the live clock. */
+	timeZone?: string;
+	/** City shown with the clock. */
+	city?: string;
 }
 
 const SPRING = { type: "spring", stiffness: 420, damping: 26, mass: 0.7 } as const;
@@ -114,9 +121,9 @@ function CopyEmail({ email }: { email: string }) {
 }
 
 /**
- * The closing block. The card is the front layer; three planes sit behind
- * it and fan out when it scrolls into view. One clear action: copy the
- * address. The mail link and profiles sit beside it.
+ * The closing block. Left: the question and the one clear action, copy the
+ * address. Right: everything else you need to decide to write, the local
+ * time and availability, and the other ways to reach me.
  */
 export function ContactSection({
 	title,
@@ -125,83 +132,97 @@ export function ContactSection({
 	responseTime,
 	email,
 	links,
+	timeZone = "Asia/Dhaka",
+	city = "Dhaka",
 }: ContactSectionProps) {
-	const stackRef = useRef<HTMLDivElement>(null);
-	const onScreen = useOnScreen(stackRef, "-20% 0px");
 	const spotlight = useSpotlight<HTMLDivElement>({ size: 640 });
+	const rowClass =
+		"group/row flex min-h-14 w-full min-w-0 items-center justify-between gap-4 border-b border-line py-3 text-[15.5px] font-medium text-foreground no-underline transition-colors duration-200 pointer-fine:hover:text-primary-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
 	return (
 		<Section aria-labelledby="contact-title" id="contact">
 			<div
-				ref={stackRef}
-				className="contact-stack relative isolate min-w-0 pt-10"
-				data-open={onScreen ? "" : undefined}
+				{...spotlight}
+				className="relative isolate min-w-0 overflow-hidden rounded-tile border border-line bg-surface-solid px-[clamp(24px,6vw,88px)] pt-[clamp(40px,6vw,88px)] pb-[clamp(32px,5vw,72px)] shadow-surface"
 			>
-				<span aria-hidden="true" className="contact-plane" style={{ "--n": 3 } as CSSProperties} />
-				<span aria-hidden="true" className="contact-plane" style={{ "--n": 2 } as CSSProperties} />
-				<span aria-hidden="true" className="contact-plane" style={{ "--n": 1 } as CSSProperties} />
 				<div
-					{...spotlight}
-					className="relative min-w-0 overflow-hidden rounded-tile border border-line bg-surface-solid px-[clamp(24px,6vw,88px)] pt-[clamp(40px,7vw,96px)] pb-[clamp(32px,6vw,72px)] shadow-surface"
-				>
-					<div
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70%] bg-[radial-gradient(60%_80%_at_85%_0%,color-mix(in_srgb,var(--theme-accent)_10%,transparent),transparent_70%)]"
-					/>
-					<TraceLine
-						orientation="horizontal"
-						duration={6}
-						restAt={0.62}
-						className="absolute inset-x-[clamp(24px,6vw,88px)] top-0 w-auto"
-					/>
-					<p className="mono-label m-0 flex items-center gap-2.5 text-muted-foreground">
-						<span className="text-primary-text">05</span>
-						<span aria-hidden="true" className="h-px w-5 bg-line-strong" />
-						<span>Contact</span>
-					</p>
-					<h2
-						id="contact-title"
-						className="mt-6 mb-0 max-w-[13ch] text-[clamp(2.75rem,7.4vw,6.5rem)] leading-[0.96] font-[620] tracking-[-0.05em] text-balance [overflow-wrap:anywhere]"
-					>
-						{title}
-					</h2>
-					<p className="mt-7 mb-0 max-w-[48ch] text-lead text-ink-soft">{intro}</p>
-					{availability || responseTime ? (
-						<MonoLabel className="mt-6 flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
-							<StatusDot />
-							{availability ? <span className="text-ink-soft">{availability}</span> : null}
-							{availability && responseTime ? <span aria-hidden="true">·</span> : null}
-							{responseTime ? <span>{responseTime}</span> : null}
-						</MonoLabel>
-					) : null}
+					aria-hidden="true"
+					className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[70%] bg-[radial-gradient(60%_80%_at_85%_0%,color-mix(in_srgb,var(--theme-accent)_10%,transparent),transparent_70%)]"
+				/>
+				<TraceLine
+					orientation="horizontal"
+					duration={6}
+					restAt={0.62}
+					className="absolute inset-x-[clamp(24px,6vw,88px)] top-0 w-auto"
+				/>
+				<div className="grid min-w-0 gap-x-[clamp(48px,6vw,96px)] gap-y-12 lg:grid-cols-[minmax(0,7fr)_minmax(0,4fr)]">
+					<div className="min-w-0">
+						<p className="mono-label m-0 flex items-center gap-2.5 text-muted-foreground">
+							<span className="text-primary-text">05</span>
+							<span aria-hidden="true" className="h-px w-5 bg-line-strong" />
+							<span>Contact</span>
+						</p>
+						<h2
+							id="contact-title"
+							className="mt-6 mb-0 max-w-[13ch] text-[clamp(2.75rem,6.4vw,6rem)] leading-[0.96] font-[620] tracking-[-0.05em] text-balance [overflow-wrap:anywhere]"
+						>
+							{title}
+						</h2>
+						<p className="mt-7 mb-0 max-w-[46ch] text-lead text-ink-soft">{intro}</p>
+						{email ? (
+							<div className="mt-10 grid min-w-0 justify-items-start gap-3 md:mt-12">
+								<CopyEmail email={email} />
+							</div>
+						) : null}
+					</div>
 
-					{email ? (
-						<div className="mt-12 grid min-w-0 justify-items-start gap-3 md:mt-16">
-							<CopyEmail email={email} />
-						</div>
-					) : null}
-
-					<div className="mt-8 border-t border-line pt-5">
-						<ul className="m-0 -ml-4 flex list-none flex-wrap gap-1 p-0">
-							{email ? (
-								<li className="min-w-0 max-w-full">
-									<a
-										href={`mailto:${email}`}
-										className={cn(buttonVariants({ variant: "ghost" }), "gap-1.5 text-foreground")}
-									>
-										Open in your mail app <span aria-hidden="true">@</span>
-									</a>
-								</li>
-							) : null}
-							{links.map((link, index) => (
-								<li key={`${link.href}-${index}`} className="min-w-0 max-w-full">
-									<SmartLink
-										link={link}
-										describe
-										className={cn(buttonVariants({ variant: "ghost" }), "gap-1.5 text-foreground")}
+					<div className="flex min-w-0 flex-col border-t border-line pt-8 lg:mt-[calc(var(--text-mono-label,12px)+2.25rem)] lg:justify-between lg:border-t-0 lg:border-l lg:pt-0 lg:pl-[clamp(32px,4vw,56px)]">
+						<dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-1">
+							<div className="min-w-0">
+								<dt className="mono-label text-muted-foreground">{city} time</dt>
+								<dd className="m-0 mt-2 text-[1.75rem] leading-none font-[600] tracking-[-0.03em] text-foreground">
+									<LocalTime
+										timeZone={timeZone}
+										showOffset
+										className="[&>span]:ml-[0.6ch] [&>span]:font-mono [&>span]:text-[13px] [&>span]:font-normal [&>span]:tracking-normal"
 									/>
-								</li>
-							))}
-						</ul>
+								</dd>
+							</div>
+							{availability || responseTime ? (
+								<div className="min-w-0">
+									<dt className="mono-label text-muted-foreground">Availability</dt>
+									<dd className="m-0 mt-2 flex items-start gap-2.5 text-[15.5px] leading-snug text-ink-soft">
+										<StatusDot className="mt-[0.45em]" />
+										<span>
+											{availability}
+											{availability && responseTime ? <br /> : null}
+											{responseTime ? (
+												<span className="text-muted-foreground">{responseTime}</span>
+											) : null}
+										</span>
+									</dd>
+								</div>
+							) : null}
+						</dl>
+						<div className="mt-10 min-w-0">
+							<MonoLabel className="block">Or reach me</MonoLabel>
+							<ul className="m-0 mt-2 grid list-none border-t border-line p-0">
+								{email ? (
+									<li className="min-w-0">
+										<a href={`mailto:${email}`} className={rowClass}>
+											<span>Open in your mail app</span>
+											<span aria-hidden="true" className="text-muted-foreground">
+												@
+											</span>
+										</a>
+									</li>
+								) : null}
+								{links.map((link, index) => (
+									<li key={`${link.href}-${index}`} className="min-w-0">
+										<SmartLink link={link} describe className={rowClass} />
+									</li>
+								))}
+							</ul>
+						</div>
 					</div>
 				</div>
 			</div>

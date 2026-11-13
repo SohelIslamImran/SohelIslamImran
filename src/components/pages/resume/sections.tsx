@@ -7,6 +7,7 @@ import type {
 	TestimonialContent,
 } from "@/types/content";
 import { EmptyState, StatusDot } from "@/components/ui/portfolio";
+import { cn } from "@/lib/utils";
 import { Marked, TokenLine, useSkillTarget } from "./skills";
 
 export function SectionTitle({
@@ -58,7 +59,7 @@ function companySpan(roles: ExperienceContent[]) {
 
 function Role({ role }: { role: ExperienceContent }) {
 	const targetId = `role-${role.id}`;
-	const { state } = useSkillTarget(targetId);
+	const { state, era } = useSkillTarget(targetId);
 	const highlights = role.highlights.map((item) => item.trim()).filter(Boolean);
 	return (
 		<li data-slot="resume-role" className="relative min-w-0">
@@ -67,6 +68,7 @@ function Role({ role }: { role: ExperienceContent }) {
 				id={targetId}
 				data-slot="resume-entry"
 				data-skill-state={state}
+				data-era={era}
 				className="min-w-0 rounded-inner"
 			>
 				<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
@@ -103,11 +105,24 @@ function Role({ role }: { role: ExperienceContent }) {
 	);
 }
 
-export function ExperienceSection({ experience }: { experience: ExperienceContent[] }) {
+export function ExperienceSection({
+	experience,
+	number,
+	className,
+}: {
+	experience: ExperienceContent[];
+	number: string;
+	className?: string;
+}) {
 	const groups = groupByCompany(experience);
 	return (
-		<section aria-labelledby="resume-experience-title" data-slot="resume-section" id="experience">
-			<SectionTitle id="resume-experience-title" index="01">
+		<section
+			aria-labelledby="resume-experience-title"
+			data-slot="resume-section"
+			id="experience"
+			className={className}
+		>
+			<SectionTitle id="resume-experience-title" index={number}>
 				Experience
 			</SectionTitle>
 			{groups.length ? (
@@ -183,7 +198,7 @@ function ExternalLink({ href, children }: { href: string; children: string }) {
 
 function Project({ project }: { project: ProjectContent }) {
 	const targetId = `project-${project.id}`;
-	const { state } = useSkillTarget(targetId);
+	const { state, era } = useSkillTarget(targetId);
 	const title = project.title.trim() || "Untitled project";
 	const metrics = (project.metrics ?? []).filter((metric) => metric.value.trim());
 	return (
@@ -191,6 +206,7 @@ function Project({ project }: { project: ProjectContent }) {
 			id={targetId}
 			data-slot="resume-side-entry"
 			data-skill-state={state}
+			data-era={era}
 			className="min-w-0 rounded-inner [overflow-wrap:anywhere]"
 		>
 			<div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
@@ -242,11 +258,24 @@ function Project({ project }: { project: ProjectContent }) {
 	);
 }
 
-export function ProjectsSection({ projects }: { projects: ProjectContent[] }) {
+export function ProjectsSection({
+	projects,
+	number,
+	className,
+}: {
+	projects: ProjectContent[];
+	number: string;
+	className?: string;
+}) {
 	if (!projects.length) return null;
 	return (
-		<section aria-labelledby="resume-projects-title" data-slot="resume-section" id="projects">
-			<SectionTitle id="resume-projects-title" index="02">
+		<section
+			aria-labelledby="resume-projects-title"
+			data-slot="resume-section"
+			id="projects"
+			className={className}
+		>
+			<SectionTitle id="resume-projects-title" index={number}>
 				Selected projects
 			</SectionTitle>
 			<div className="grid gap-5 print:gap-[2.4mm]">
@@ -258,15 +287,23 @@ export function ProjectsSection({ projects }: { projects: ProjectContent[] }) {
 	);
 }
 
-export function ReferenceSection({ testimonial }: { testimonial: TestimonialContent }) {
+export function ReferenceSection({
+	testimonial,
+	number,
+	className,
+}: {
+	testimonial: TestimonialContent;
+	number: string;
+	className?: string;
+}) {
 	const meta = [testimonial.role.trim(), testimonial.date?.trim()].filter(Boolean).join(" · ");
 	return (
 		<section
 			data-slot="resume-reference"
 			aria-labelledby="resume-reference-title"
-			className="min-w-0"
+			className={cn("min-w-0", className)}
 		>
-			<SectionTitle id="resume-reference-title" index="03">
+			<SectionTitle id="resume-reference-title" index={number}>
 				Reference
 			</SectionTitle>
 			<figure className="m-0 grid gap-2 border-l-2 border-primary-line pl-4">
@@ -296,15 +333,23 @@ export function ReferenceSection({ testimonial }: { testimonial: TestimonialCont
 	);
 }
 
-export function CoursesSection({ credentials }: { credentials: CredentialContent[] }) {
+export function CoursesSection({
+	credentials,
+	number,
+	className,
+}: {
+	credentials: CredentialContent[];
+	number: string;
+	className?: string;
+}) {
 	if (!credentials.length) return null;
 	return (
 		<section
 			aria-labelledby="resume-credentials-title"
 			data-slot="resume-courses"
-			className="min-w-0"
+			className={cn("min-w-0", className)}
 		>
-			<SectionTitle id="resume-credentials-title" index="05">
+			<SectionTitle id="resume-credentials-title" index={number}>
 				Courses
 			</SectionTitle>
 			<ul className="m-0 grid list-none gap-3 p-0 print:gap-[1.4mm]">

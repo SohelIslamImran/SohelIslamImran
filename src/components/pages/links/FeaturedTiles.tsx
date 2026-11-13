@@ -24,7 +24,7 @@ function Tile({ link, kind }: { link: ProfileLinkContent; kind: LinkKind }) {
 					{destinationArrows[destination]}
 				</span>
 			</div>
-			<h3 className="m-0 mt-auto min-w-0 pt-5 text-[17px] font-semibold leading-tight tracking-[-0.015em] sm:text-[19px]">
+			<h3 className="m-0 min-w-0 pt-6 sm:pt-8 text-[17px] font-semibold leading-tight tracking-[-0.015em] sm:text-[19px]">
 				<Link
 					to="/links/$linkId"
 					params={{ linkId: link.id }}
@@ -44,7 +44,7 @@ function Tile({ link, kind }: { link: ProfileLinkContent; kind: LinkKind }) {
 			{description ? (
 				<p
 					id={`${link.id}-tile-description`}
-					className="m-0 mt-2.5 text-caption leading-snug text-ink-soft max-sm:sr-only"
+					className="m-0 mt-2.5 text-caption leading-snug text-ink-soft max-sm:sr-only sm:min-h-[2lh]"
 				>
 					{description}
 				</p>

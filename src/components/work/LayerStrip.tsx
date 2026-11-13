@@ -2,19 +2,23 @@ import type { ProjectContent } from "../../types/content";
 import { cn } from "../../lib/utils";
 import { projectAnatomy } from "./anatomy";
 
+export type LayerStripCaption = "names" | "count" | "none";
+
 /**
  * A compact "how deep did this go" reading for a card: six ticks, one per
  * layer from Interface down to Release, lit where the project's own notes
- * or tools mention it. The names of the lit layers follow, so it reads without colour.
+ * or tools mention it. `caption` picks what follows the ticks: the lit
+ * layer names (reads without colour), a short count, or nothing visible
+ * (the names stay in screen-reader text either way).
  */
 export function LayerStrip({
 	project,
 	className,
-	showNames = true,
+	caption = "names",
 }: {
 	project: ProjectContent;
 	className?: string;
-	showNames?: boolean;
+	caption?: LayerStripCaption;
 }) {
 	const { layers, touchedCount } = projectAnatomy(project);
 	if (touchedCount === 0) return null;
@@ -38,16 +42,20 @@ export function LayerStrip({
 					/>
 				))}
 			</span>
-			<p className="mono-label m-0 min-w-0 text-muted-foreground">
-				<span className="sr-only">Layers mentioned in this project: </span>
-				{showNames ? (
-					touched.join(" · ")
-				) : (
-					<>
-						{touchedCount}/6 layers<span className="sr-only">: {touched.join(", ")}</span>
-					</>
-				)}
-			</p>
+			{caption === "none" ? (
+				<p className="sr-only">Layers of the stack in this project: {touched.join(", ")}.</p>
+			) : (
+				<p className="mono-label m-0 min-w-0 text-muted-foreground">
+					<span className="sr-only">Layers of the stack in this project: </span>
+					{caption === "names" ? (
+						touched.join(" · ")
+					) : (
+						<>
+							{touchedCount}/6 layers<span className="sr-only">: {touched.join(", ")}</span>
+						</>
+					)}
+				</p>
+			)}
 		</div>
 	);
 }

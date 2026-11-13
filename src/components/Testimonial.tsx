@@ -125,9 +125,9 @@ export function Testimonial({
 }
 
 /**
- * The home page quote, set big. A giant quote mark sits on a plane behind
- * the words and drifts slower than the page as you scroll, so the quote reads
- * as the front layer of a small stack. Still under reduced motion.
+ * The home page quote, set big. A large quote mark hangs above the first line
+ * (never behind the letters) and drifts a little slower than the words as you
+ * scroll. Still under reduced motion.
  */
 function FeatureQuote({
 	className,
@@ -153,7 +153,7 @@ function FeatureQuote({
 	// Server HTML and the hydration render carry no transform, so they always match.
 	const animate = useHydrated() && !reduceMotion;
 	const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-	const markY = useTransform(scrollYProgress, [0, 1], [-30, 60]);
+	const markY = useTransform(scrollYProgress, [0, 1], [16, -16]);
 	const quoteY = useTransform(scrollYProgress, [0, 1], [24, -24]);
 	return (
 		<figure
@@ -161,22 +161,22 @@ function FeatureQuote({
 			data-slot="testimonial"
 			className={cn("relative isolate m-0 min-w-0 pt-[clamp(24px,5vw,64px)]", className)}
 		>
-			<motion.span
-				aria-hidden="true"
-				style={animate ? { y: markY } : undefined}
-				className="pointer-events-none absolute top-[clamp(64px,9vw,128px)] left-[-0.04em] -z-10 block h-[0.5em] font-serif text-[clamp(12rem,30vw,26rem)] leading-[0.75] text-primary-text opacity-[0.12] select-none"
-			>
-				“
-			</motion.span>
 			{label ? (
 				<p className="mono-label m-0 flex items-center gap-2.5 text-muted-foreground">
 					<span aria-hidden="true" className="h-px w-5 bg-line-strong" />
 					{label}
 				</p>
 			) : null}
+			<motion.span
+				aria-hidden="true"
+				style={animate ? { y: markY } : undefined}
+				className="pointer-events-none mt-[clamp(16px,2.4vw,28px)] block h-[0.42em] overflow-visible font-serif text-[clamp(5.5rem,11vw,9rem)] leading-[0.82] text-primary-text opacity-40 select-none"
+			>
+				“
+			</motion.span>
 			<motion.blockquote
 				style={animate ? { y: quoteY } : undefined}
-				className="m-0 mt-6 min-w-0 max-w-[18ch] text-[clamp(2.5rem,6.6vw,5.75rem)] leading-[1] font-[620] tracking-[-0.045em] text-balance text-foreground [overflow-wrap:anywhere]"
+				className="m-0 mt-0 min-w-0 max-w-[18ch] text-[clamp(2.5rem,6.6vw,5.75rem)] leading-[1] font-[620] tracking-[-0.045em] text-balance text-foreground [overflow-wrap:anywhere]"
 			>
 				{quote}
 			</motion.blockquote>

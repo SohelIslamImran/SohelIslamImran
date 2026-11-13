@@ -179,3 +179,9 @@ describe("resolveOpenTarget", () => {
 		expect(resolveOpenTarget("", context)).toBeNull();
 	});
 });
+
+it("help returns separate command and description cells", () => {
+	const rows = runTerminalCommand("help", context).lines;
+	expect(rows[0]?.text).toBe("help");
+	expect(rows[0]?.description).toBe("List what this terminal understands");
+});

@@ -145,6 +145,7 @@ export function SelectedWork({
 								project={project}
 								variant="split"
 								reverse={index % 2 === 1}
+								layerCaption="none"
 								className="shadow-surface"
 							/>
 						</li>

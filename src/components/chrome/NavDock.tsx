@@ -132,7 +132,7 @@ export function NavDock() {
 
 	const linkClassName = (key: DockKey) =>
 		cn(
-			"pressable group/link relative isolate flex min-h-11 min-w-0 items-center justify-center rounded-full whitespace-nowrap text-ink-soft no-underline [overflow-wrap:normal] outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-[current=page]:text-foreground",
+			"pressable group/link relative isolate flex min-h-11 min-w-0 items-center justify-center rounded-full whitespace-nowrap text-ink-soft no-underline [overflow-wrap:normal] outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-[current=page]:text-foreground",
 			"max-md:min-h-[52px] max-md:w-full max-md:flex-col max-md:gap-[3px] max-md:rounded-[18px] max-md:px-1",
 			"md:px-4 md:text-[14px] md:font-medium md:tracking-[-0.01em]",
 			key === current && "max-md:text-primary-text",
@@ -286,7 +286,7 @@ export function NavDock() {
 					aria-label="Search"
 					onClick={() => palette?.open()}
 					className={cn(
-						"pressable relative flex min-h-11 min-w-0 shrink-0 items-center justify-center rounded-full whitespace-nowrap border-0 bg-transparent text-ink-soft outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+						"pressable relative flex min-h-11 min-w-0 shrink-0 items-center justify-center rounded-full whitespace-nowrap border-0 bg-transparent text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
 						"max-md:min-h-[52px] max-md:flex-1 max-md:flex-col max-md:gap-[3px] max-md:rounded-[18px] max-md:px-1",
 						"md:gap-2 md:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] md:pr-2 md:pl-3 md:hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)]",
 					)}

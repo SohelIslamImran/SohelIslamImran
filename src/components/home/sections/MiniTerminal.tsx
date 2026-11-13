@@ -267,70 +267,70 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 				<span className="size-2.5 rounded-full bg-[color-mix(in_srgb,var(--theme-ink)_16%,transparent)]" />
 				<span className="mono-label ml-auto text-muted-foreground">~/sohel — zsh</span>
 			</div>
-			{/* Clicking anywhere in the log focuses the prompt, like a real terminal. */}
+			{/*
+			 * One fixed-height scroller holds the output and the prompt, so the prompt
+			 * always sits on the line after the last output, like a real terminal.
+			 * Clicking anywhere in it focuses the prompt.
+			 */}
 			<div
 				ref={logRef}
-				role="log"
-				aria-live="polite"
-				aria-label="Terminal output"
 				onClick={() => inputRef.current?.focus({ preventScroll: true })}
-				className="h-[208px] min-w-0 overflow-y-auto overscroll-contain px-4 pt-3 font-mono text-[12.5px] leading-[1.6]"
+				className="h-[244px] min-w-0 overflow-y-auto overscroll-contain px-4 pt-3 pb-2 font-mono text-[12.5px] leading-[1.6]"
 			>
-				{lines.map((item) =>
-					item.kind === "cmd" ? (
-						<p key={item.id} className="m-0 text-foreground [overflow-wrap:anywhere]">
-							<span aria-hidden="true" className="text-primary-text">
-								❯{" "}
-							</span>
-							<span className="sr-only">Command: </span>
-							{item.text}
-						</p>
-					) : item.kind === "ghost" ? (
-						<div key={item.id}>
-							<pre aria-hidden="true" className="m-0 my-1 font-mono text-primary-text">
+				<div role="log" aria-live="polite" aria-label="Terminal output" className="min-w-0">
+					{lines.map((item) =>
+						item.kind === "cmd" ? (
+							<p key={item.id} className="m-0 text-foreground [overflow-wrap:anywhere]">
+								<span aria-hidden="true" className="text-primary-text">
+									❯{" "}
+								</span>
+								<span className="sr-only">Command: </span>
 								{item.text}
-							</pre>
-							<span className="sr-only">A small ASCII ghost drifts by.</span>
-						</div>
-					) : (
-						<p
-							key={item.id}
-							className={cn(
-								"m-0 [overflow-wrap:anywhere]",
-								item.kind === "out" && "text-ink-soft",
-								item.kind === "muted" && "text-muted-foreground",
-								item.kind === "error" && "text-destructive",
-							)}
-						>
-							{item.text}
-						</p>
-					),
-				)}
+							</p>
+						) : item.kind === "ghost" ? (
+							<div key={item.id}>
+								<pre aria-hidden="true" className="m-0 my-1 font-mono text-primary-text">
+									{item.text}
+								</pre>
+								<span className="sr-only">A small ASCII ghost drifts by.</span>
+							</div>
+						) : (
+							<p
+								key={item.id}
+								className={cn(
+									"m-0 [overflow-wrap:anywhere] whitespace-pre-wrap",
+									item.kind === "out" && "text-ink-soft",
+									item.kind === "muted" && "text-muted-foreground",
+									item.kind === "error" && "text-destructive",
+								)}
+							>
+								{item.text}
+							</p>
+						),
+					)}
+				</div>
+				<form onSubmit={onSubmit} className="flex items-center gap-2 font-mono text-[12.5px]">
+					<label htmlFor={inputId} className="text-primary-text">
+						<span aria-hidden="true">❯</span>
+						<span className="sr-only">Terminal command</span>
+					</label>
+					<input
+						ref={inputRef}
+						id={inputId}
+						value={value}
+						onChange={(event) => setValue(event.target.value)}
+						onKeyDown={onKeyDown}
+						readOnly={typing}
+						autoComplete="off"
+						autoCapitalize="off"
+						autoCorrect="off"
+						spellCheck={false}
+						enterKeyHint="send"
+						placeholder={typing ? "" : "help"}
+						className="terminal-input min-h-7 min-w-0 flex-1 bg-transparent text-[16px] text-foreground caret-[var(--theme-accent-line)] outline-none placeholder:text-muted-foreground/70 sm:text-[12.5px]"
+					/>
+				</form>
 			</div>
-			<form
-				onSubmit={onSubmit}
-				className="flex items-center gap-2 px-4 pt-1 pb-3 font-mono text-[12.5px]"
-			>
-				<label htmlFor={inputId} className="text-primary-text">
-					<span aria-hidden="true">❯</span>
-					<span className="sr-only">Terminal command</span>
-				</label>
-				<input
-					ref={inputRef}
-					id={inputId}
-					value={value}
-					onChange={(event) => setValue(event.target.value)}
-					onKeyDown={onKeyDown}
-					readOnly={typing}
-					autoComplete="off"
-					autoCapitalize="off"
-					autoCorrect="off"
-					spellCheck={false}
-					enterKeyHint="send"
-					placeholder={typing ? "" : "help"}
-					className="terminal-input min-h-9 min-w-0 flex-1 bg-transparent text-[16px] text-foreground caret-[var(--theme-accent-line)] outline-none placeholder:text-muted-foreground/70 sm:text-[12.5px]"
-				/>
-			</form>
 			<div className="mt-auto flex flex-wrap gap-1.5 border-t border-line px-3 py-2.5">
 				{QUICK.map((command) => (
 					<button
@@ -339,7 +339,7 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 						onClick={() => {
 							if (!typing) execute(command);
 						}}
-						className="pressable min-h-9 rounded-full px-3 font-mono text-[12px] text-muted-foreground transition-[background-color,color,scale] duration-200 pointer-fine:hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] pointer-fine:hover:text-foreground"
+						className="pressable min-h-11 rounded-full px-3.5 font-mono text-[12px] text-muted-foreground transition-[background-color,color,scale] duration-200 pointer-fine:hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] pointer-fine:hover:text-foreground"
 					>
 						<span className="sr-only">Run </span>
 						{command}

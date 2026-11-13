@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouterState } from "@tanstack/react-router";
 import { CopyButton } from "../motion/CopyButton";
 import { useLocalTime } from "../motion/LocalTime";
 import { TraceLine } from "../motion/TraceLine";
@@ -37,6 +37,8 @@ function isExternal(href: string) {
  * outline layer behind it, and a meta row with live local time.
  */
 export function SiteFooter() {
+	const pathname = useRouterState({ select: (state) => state.location.pathname });
+	const compact = pathname === "/" || pathname === "/story";
 	const content = useRoutePublicContent();
 	const palette = useCommandPalette();
 	const [spread, setSpread] = useState(false);
@@ -57,70 +59,73 @@ export function SiteFooter() {
 		>
 			<div className="shell">
 				<TraceLine orientation="horizontal" duration={5.5} restAt={0.18} className="w-full" />
-				<div
-					className="grid min-w-0 items-center gap-x-10 gap-y-6 pt-[clamp(40px,6vw,80px)] md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
-					onPointerEnter={(event) => {
-						if (event.pointerType === "mouse") setSpread(true);
-					}}
-					onPointerLeave={() => setSpread(false)}
-					onFocus={() => setSpread(true)}
-					onBlur={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setSpread(false);
-					}}
-				>
-					<div className="min-w-0">
-						<MonoLabel tone="muted" className="flex items-center gap-2.5">
-							<StatusDot />
-							<span>{availability || "Contact"}</span>
-						</MonoLabel>
-						<h2 className="mt-5 mb-0 max-w-[16ch] text-title text-balance">
-							Let’s talk about what comes next.
-						</h2>
-						<p className="mt-4 mb-0 max-w-[44ch] text-lead text-muted-foreground">
-							Send me an email, or pick any profile on the links page.
-						</p>
-						<div className="mt-8 flex min-w-0 flex-wrap items-center gap-3">
-							{email ? (
-								<CopyButton
-									value={email}
-									label={email}
-									copiedLabel="Email copied. Talk soon."
-									variant="ink"
-									announcement="Email copied. Talk soon."
-									className="max-w-full"
-								/>
-							) : null}
-							{elsewhere.map((link) =>
-								isExternal(link.href) ? (
-									<a
-										key={link.href}
-										href={link.href}
-										target="_blank"
-										rel="noreferrer"
-										className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
-									>
-										{link.label}
-										<span aria-hidden="true">↗</span>
-										<span className="sr-only">, opens in a new tab</span>
-									</a>
-								) : null,
-							)}
+				{!compact && (
+					<div
+						className="grid min-w-0 items-center gap-x-10 gap-y-6 pt-[clamp(40px,6vw,80px)] md:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]"
+						onPointerEnter={(event) => {
+							if (event.pointerType === "mouse") setSpread(true);
+						}}
+						onPointerLeave={() => setSpread(false)}
+						onFocus={() => setSpread(true)}
+						onBlur={(event) => {
+							if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+								setSpread(false);
+						}}
+					>
+						<div className="min-w-0">
+							<MonoLabel tone="muted" className="flex items-center gap-2.5">
+								<StatusDot />
+								<span>{availability || "Contact"}</span>
+							</MonoLabel>
+							<h2 className="mt-5 mb-0 max-w-[16ch] text-title text-balance">
+								Let’s talk about what comes next.
+							</h2>
+							<p className="mt-4 mb-0 max-w-[44ch] text-lead text-muted-foreground">
+								Send me an email, or pick any profile on the links page.
+							</p>
+							<div className="mt-8 flex min-w-0 flex-wrap items-center gap-3">
+								{email ? (
+									<CopyButton
+										value={email}
+										label={email}
+										copiedLabel="Email copied. Talk soon."
+										variant="ink"
+										announcement="Email copied. Talk soon."
+										className="max-w-full"
+									/>
+								) : null}
+								{elsewhere.map((link) =>
+									isExternal(link.href) ? (
+										<a
+											key={link.href}
+											href={link.href}
+											target="_blank"
+											rel="noreferrer"
+											className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}
+										>
+											{link.label}
+											<span aria-hidden="true">↗</span>
+											<span className="sr-only">, opens in a new tab</span>
+										</a>
+									) : null,
+								)}
+							</div>
+						</div>
+						<div className="relative min-w-0 max-md:-mx-4 max-md:-mb-4">
+							<TraceStack
+								layers={END_LAYERS}
+								open={spread}
+								className="trace-stack--footer h-[300px] w-full md:h-[380px]"
+							/>
+							<p
+								aria-hidden="true"
+								className="mono-label m-0 -mt-3 text-center text-muted-foreground md:-mt-6"
+							>
+								6 layers · trace complete
+							</p>
 						</div>
 					</div>
-					<div className="relative min-w-0 max-md:-mx-4 max-md:-mb-4">
-						<TraceStack
-							layers={END_LAYERS}
-							open={spread}
-							className="trace-stack--footer h-[300px] w-full md:h-[380px]"
-						/>
-						<p
-							aria-hidden="true"
-							className="mono-label m-0 -mt-3 text-center text-muted-foreground md:-mt-6"
-						>
-							6 layers · trace complete
-						</p>
-					</div>
-				</div>
+				)}
 				<nav
 					aria-label="Footer"
 					className="mt-[clamp(48px,7vw,88px)] grid min-w-0 grid-cols-2 gap-x-8 gap-y-8 sm:grid-cols-3"
@@ -198,7 +203,7 @@ export function SiteFooter() {
 							<button
 								type="button"
 								onClick={() => palette.open()}
-								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
+								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
 							>
 								<span>Search, or type</span>
 								<Kbd>&gt;</Kbd>
@@ -216,7 +221,7 @@ export function SiteFooter() {
 					<span className="footer-wordmark__back absolute inset-0 block text-[clamp(2rem,12.8cqi,14rem)] leading-[0.9] font-[640] tracking-[-0.055em] whitespace-nowrap">
 						{name}
 					</span>
-					<span className="footer-wordmark__front relative block bg-[linear-gradient(180deg,var(--theme-ink)_10%,color-mix(in_srgb,var(--theme-ink)_8%,transparent)_92%)] bg-clip-text text-[clamp(2rem,12.8cqi,14rem)] leading-[0.9] font-[640] tracking-[-0.055em] whitespace-nowrap text-transparent">
+					<span className="footer-wordmark__front relative block bg-[linear-gradient(180deg,var(--theme-ink)_10%,var(--theme-paper)_92%)] bg-clip-text text-[clamp(2rem,12.8cqi,14rem)] leading-[0.9] font-[640] tracking-[-0.055em] whitespace-nowrap text-transparent">
 						{name}
 					</span>
 				</p>

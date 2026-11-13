@@ -1,4 +1,5 @@
 import {
+	useEffect,
 	useId,
 	useRef,
 	useState,
@@ -15,7 +16,8 @@ import {
 import { Tag } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { LayerMini } from "./hero/LayerMinis";
-import { STACK_CSS } from "./hero/stack-css";
+import { AUTOPLAY_MS, STACK_CSS } from "./hero/stack-css";
+import { traceLineFor } from "./request-trace";
 import { STACK_LAYERS, type StackLayer } from "./stack-layers";
 
 interface StackTraceProps {
@@ -25,6 +27,12 @@ interface StackTraceProps {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
+/** "Send a request": one hop per layer, then a longer beat to land. */
+const SEND_STEP_MS = 720;
+const SEND_LAND_MS = 1700;
+/** Reduced motion: lines print on this beat with nothing travelling. */
+const STILL_PRINT_MS = 260;
+
 /**
  * The Stack Trace: six isometric glass planes, one per layer of his work,
  * stacked in real CSS 3D with a trace line through their centres.
@@ -32,10 +40,12 @@ const pad = (value: number) => String(value).padStart(2, "0");
  * - The labels beside the stack are a vertical tablist (arrows, Home, End);
  *   planes are clickable and tappable too. The selected plane lifts, lights,
  *   and its miniature comes alive; the card below says what he does there.
- * - Autoplay walks the layers. A request pulse travels down the trace line
- *   in step with the progress bar and lands at Release. It pauses on hover,
- *   focus, off-screen, and for good once the visitor picks a layer; it never
- *   runs with reduced motion.
+ * - One request run: a pulse travels down the trace line, layer by layer,
+ *   and the card's trace log prints one line per layer as it passes.
+ *   Autoplay is that run at a slow, readable pace (pauses on hover, focus,
+ *   off-screen, and for good once the visitor picks a layer). "Send a
+ *   request" plays it once, quickly, on demand. With reduced motion nothing
+ *   travels; the lines print on a short beat instead.
  * - The stack tilts with the pointer and pulls apart on hover, on a sideways
  *   drag (touch too), or with the "Pull apart" control.
  * - Every label and panel is in the server HTML; with JS off or reduced
@@ -50,6 +60,11 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const [hovering, setHovering] = useState(false);
 	const [focusWithin, setFocusWithin] = useState(false);
 	const [dragging, setDragging] = useState(false);
+	/** "tour" is the slow autoplay; "send" is one quick run the visitor asked for. */
+	const [mode, setMode] = useState<"tour" | "send">("tour");
+	const [runKey, setRunKey] = useState(0);
+	/** Lines printed by a reduced-motion send; null when not printing that way. */
+	const [stillPrinted, setStillPrinted] = useState<number | null>(null);
 	const hydrated = useHydrated();
 	const reducedMotion = usePrefersReducedMotion();
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -59,22 +74,59 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const suppressClick = useRef(false);
 	useOffscreenPause(rootRef);
 
+	useEffect(() => {
+		if (stillPrinted === null || stillPrinted >= count) return;
+		const timer = window.setTimeout(() => {
+			setActive(stillPrinted);
+			setStillPrinted(stillPrinted + 1);
+		}, STILL_PRINT_MS);
+		return () => window.clearTimeout(timer);
+	}, [stillPrinted, count]);
+
 	if (count === 0) return null;
 
 	const last = count - 1;
 	const running = hydrated && autoplay && !reducedMotion && count > 1;
 	const open = pinned || hovering || dragging;
+	const sending = running && mode === "send";
+	const stepMs = sending ? (active === last ? SEND_LAND_MS : SEND_STEP_MS) : AUTOPLAY_MS;
+	// While a run plays, the log holds the lines up to the pulse; at rest it is the whole trace.
+	const printed = running ? active + 1 : (stillPrinted ?? count);
+	const printing = running || (stillPrinted !== null && stillPrinted < count);
 
 	const select = (index: number, { focus = false } = {}) => {
 		const next = Math.max(0, Math.min(count - 1, index));
 		setAutoplay(false);
+		setMode("tour");
+		setStillPrinted(null);
 		setActive(next);
 		if (focus) tabRefs.current[next]?.focus();
 	};
 
 	const advance = () => {
 		if (prefersReducedMotion()) return;
-		setActive((current) => (current + 1) % count);
+		if (active < last) {
+			setActive(active + 1);
+		} else if (mode === "send") {
+			setAutoplay(false);
+			setMode("tour");
+		} else {
+			setActive(0);
+		}
+	};
+
+	const sendRequest = () => {
+		setActive(0);
+		setRunKey((value) => value + 1);
+		if (reducedMotion || prefersReducedMotion()) {
+			setAutoplay(false);
+			setMode("tour");
+			setStillPrinted(1);
+			return;
+		}
+		setStillPrinted(null);
+		setMode("send");
+		setAutoplay(true);
 	};
 
 	const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -160,7 +212,8 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			className={cn("st relative min-w-0", className)}
 			data-open={open ? "" : undefined}
 			data-autoplay={running ? "" : undefined}
-			data-hold={hovering || focusWithin ? "" : undefined}
+			data-hold={(hovering || focusWithin) && !sending ? "" : undefined}
+			data-sending={sending ? "" : undefined}
 			data-landing={running && active === last ? "" : undefined}
 			data-first={running && active === 0 ? "" : undefined}
 			style={
@@ -169,6 +222,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					"--mid": last / 2,
 					"--active": active,
 					"--to": Math.min(active + 1, last),
+					"--step": `${stepMs}ms`,
 				} as CSSProperties
 			}
 			onPointerEnter={(event) => {
@@ -195,19 +249,34 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 						One request, {count === 6 ? "six" : count} layers
 					</span>
 				</p>
-				<button
-					type="button"
-					className="st-pull"
-					aria-pressed={pinned}
-					onClick={() => setPinned((value) => !value)}
-				>
-					<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-						<path d="M8 1.8 13.5 5 8 8.2 2.5 5Z" />
-						<path d="m2.5 8.4 5.5 3.2 5.5-3.2" opacity="0.7" />
-						<path d="m2.5 11.6 5.5 3.2 5.5-3.2" opacity="0.45" />
-					</svg>
-					<span>Pull apart</span>
-				</button>
+				<div className="st-actions">
+					<button
+						type="button"
+						className="st-pull st-send"
+						data-busy={sending || printing ? "" : undefined}
+						onClick={sendRequest}
+					>
+						<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+							<path d="M8 2.2v9.2" />
+							<path d="m4.4 8 3.6 3.6L11.6 8" />
+							<path d="M3 14.2h10" opacity="0.6" />
+						</svg>
+						<span>Send a request</span>
+					</button>
+					<button
+						type="button"
+						className="st-pull"
+						aria-pressed={pinned}
+						onClick={() => setPinned((value) => !value)}
+					>
+						<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+							<path d="M8 1.8 13.5 5 8 8.2 2.5 5Z" />
+							<path d="m2.5 8.4 5.5 3.2 5.5-3.2" opacity="0.7" />
+							<path d="m2.5 11.6 5.5 3.2 5.5-3.2" opacity="0.45" />
+						</svg>
+						<span>Pull apart</span>
+					</button>
+				</div>
 			</div>
 
 			<div className="st-body">
@@ -250,7 +319,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								</svg>
 							</div>
 						))}
-						<span key={`dot-${active}-${running}`} className="st-dot">
+						<span key={`dot-${runKey}-${active}-${running}`} className="st-dot">
 							<span className="st-dot-core" />
 						</span>
 						<span key={`land-${active}`} className="st-land" />
@@ -302,14 +371,22 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					</span>
 					<span className="st-progress" aria-hidden="true">
 						{running ? (
-							<span key={active} className="st-progress-fill" onAnimationEnd={advance} />
+							<span
+								key={`${runKey}-${active}`}
+								className="st-progress-fill"
+								onAnimationEnd={advance}
+							/>
 						) : null}
 					</span>
 					{count > 1 ? (
 						<button
 							type="button"
 							className="st-play"
-							onClick={() => setAutoplay((value) => !value)}
+							onClick={() => {
+								setMode("tour");
+								setStillPrinted(null);
+								setAutoplay(!running);
+							}}
 							disabled={hydrated && reducedMotion}
 						>
 							{running ? (
@@ -358,6 +435,34 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 						);
 					})}
 				</div>
+				<ol
+					className="st-log"
+					aria-label="Request trace"
+					aria-live={mode === "send" || stillPrinted !== null ? "polite" : "off"}
+				>
+					{layers.map((layer, index) => {
+						const trace = traceLineFor(layer.id, layer.name);
+						const shown = index < printed;
+						return (
+							<li
+								key={layer.id}
+								className="st-log-line"
+								data-on={shown ? "" : undefined}
+								data-now={shown && printing && index === printed - 1 ? "" : undefined}
+							>
+								{shown ? (
+									<>
+										<span className="st-log-i" aria-hidden="true">
+											{pad(index + 1)}
+										</span>
+										<span className="st-log-k">{trace.verb}</span>{" "}
+										<span className="st-log-d">{trace.detail}</span>
+									</>
+								) : null}
+							</li>
+						);
+					})}
+				</ol>
 			</div>
 		</div>
 	);

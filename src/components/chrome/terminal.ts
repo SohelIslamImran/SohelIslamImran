@@ -32,6 +32,7 @@ export type TerminalLineKind = "out" | "muted" | "error" | "accent";
 export interface TerminalLine {
 	kind: TerminalLineKind;
 	text: string;
+	description?: string;
 }
 
 export type TerminalEffect =
@@ -264,9 +265,12 @@ const accent = (text: string): TerminalLine => ({ kind: "accent", text });
 
 function helpLines(): TerminalLine[] {
 	const visible = TERMINAL_COMMANDS.filter((command) => !command.hidden);
-	const width = Math.max(...visible.map((command) => command.usage.length));
 	return [
-		...visible.map((command) => out(`${column(command.usage, width)}${command.description}`)),
+		...visible.map((command) => ({
+			kind: "out" as const,
+			text: command.usage,
+			description: command.description,
+		})),
 		muted("Plain words still search. Psst: type xray anywhere on the page."),
 	];
 }

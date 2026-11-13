@@ -129,7 +129,7 @@ export function StoryOpening({
 							height={800}
 							loading="eager"
 							fetchPriority="high"
-							sizes="(max-width: 860px) 300px, 400px"
+							sizes="(max-width: 899px) 240px, 270px"
 							srcSet={
 								identity.avatar
 									? undefined

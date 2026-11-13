@@ -590,7 +590,8 @@ function PortfolioArt({ uid }: PosterArtProps): PosterLayers {
 /* ghosttime — an ASCII ghost in a terminal, shimmering like ANSI art  */
 /* ------------------------------------------------------------------ */
 
-const ghostRows = [
+/** The ghost's silhouette; also used by the case study's replay. */
+export const ghostRows = [
 	"......####......",
 	"...##########...",
 	"..############..",
@@ -606,19 +607,29 @@ const ghostRows = [
 ];
 const ghostInk = "@%#*";
 
+/** The ASCII character drawn at one cell of the ghost, or null for empty space. */
+export function ghostChar(rowIndex: number, column: number): string | null {
+	const row = ghostRows[rowIndex] ?? "";
+	if (row[column] !== "#") return null;
+	const left = row[column - 1] === "#";
+	const right = row[column + 1] === "#";
+	const above = ghostRows[rowIndex - 1]?.[column] === "#";
+	const below = ghostRows[rowIndex + 1]?.[column] === "#";
+	const edge = !(left && right && above && below);
+	return edge
+		? above
+			? "+"
+			: ":"
+		: (ghostInk[(rowIndex * 3 + column * 5) % ghostInk.length] ?? "#");
+}
+
 function ghostLine(row: string, rowIndex: number, x0: number) {
 	const chars: string[] = [];
 	const xs: number[] = [];
-	[...row].forEach((cell, column) => {
-		if (cell !== "#") return;
-		const left = row[column - 1] === "#";
-		const right = row[column + 1] === "#";
-		const above = ghostRows[rowIndex - 1]?.[column] === "#";
-		const below = ghostRows[rowIndex + 1]?.[column] === "#";
-		const edge = !(left && right && above && below);
-		chars.push(
-			edge ? (above ? "+" : ":") : (ghostInk[(rowIndex * 3 + column * 5) % ghostInk.length] ?? "#"),
-		);
+	[...row].forEach((_cell, column) => {
+		const char = ghostChar(rowIndex, column);
+		if (!char) return;
+		chars.push(char);
 		xs.push(x0 + column * 8);
 	});
 	return { text: chars.join(""), x: xs.join(" ") };

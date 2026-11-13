@@ -5,7 +5,7 @@ import { ArrowRightIcon, ExternalIcon } from "./chrome/icons";
 import { CountUp, SpotlightCard } from "./motion";
 import { buttonVariants } from "./ui/button";
 import { StatusBadge, Tag } from "./ui/portfolio";
-import { LayerStrip } from "./work/LayerStrip";
+import { LayerStrip, type LayerStripCaption } from "./work/LayerStrip";
 import { ProjectPoster } from "./work/ProjectPoster";
 import { primeWorkTransition } from "./work/view-transition";
 import {
@@ -154,6 +154,7 @@ export function ProjectCard({
 	variant = "feature",
 	headingLevel = 3,
 	reverse = false,
+	layerCaption,
 	className,
 }: {
 	project: ProjectContent;
@@ -161,6 +162,8 @@ export function ProjectCard({
 	headingLevel?: 2 | 3 | 4;
 	/** `split` only: put the poster on the right on large screens. */
 	reverse?: boolean;
+	/** What follows the layer ticks. Defaults to names, or a count on compact cards. */
+	layerCaption?: LayerStripCaption;
 	className?: string;
 }) {
 	const Heading = `h${headingLevel}` as "h3";
@@ -259,7 +262,7 @@ export function ProjectCard({
 						<p className="mono-label m-0 mt-1 min-w-0 text-muted-foreground">{meta}</p>
 					) : null}
 				</div>
-				<LayerStrip project={project} showNames={!compact} />
+				<LayerStrip project={project} caption={layerCaption ?? (compact ? "count" : "names")} />
 				<CardMetrics project={project} compact={compact} />
 				{compact ? null : <CardTags tags={tags} max={split ? 6 : 4} />}
 				<div

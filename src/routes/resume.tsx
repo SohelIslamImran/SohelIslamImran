@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
@@ -9,7 +9,7 @@ import { CopyButton } from "../components/motion/CopyButton";
 import { PageShell, StatusDot } from "../components/ui/portfolio";
 import { buttonVariants } from "../components/ui/button";
 import { cn } from "../lib/utils";
-import { buildSkillIndex } from "../components/pages/resume/skill-map";
+import { buildSkillIndex, buildSkillTimeline } from "../components/pages/resume/skill-map";
 import { SkillLayers, SkillProvider } from "../components/pages/resume/skills";
 import { PrintButton, ResumeDesk } from "../components/pages/resume/desk";
 import { FitSticky } from "../components/pages/resume/FitSticky";
@@ -109,6 +109,22 @@ function Resume() {
 		() => buildSkillIndex(content.capabilities, content.experience, projects),
 		[content.capabilities, content.experience, projects],
 	);
+	const timeline = useMemo(
+		() => buildSkillTimeline(index, content.experience, projects),
+		[index, content.experience, projects],
+	);
+	const hasSkills = index.groups.length > 0;
+	// Sections are numbered in reading order: the skills sit beside (and on
+	// narrow screens, right after) the experience they summarise.
+	const order = [
+		"experience",
+		hasSkills ? "skills" : null,
+		projects.length ? "projects" : null,
+		testimonial ? "reference" : null,
+		content.credentials.length ? "courses" : null,
+	].filter((item) => item !== null);
+	const number = (key: string) => String(order.indexOf(key) + 1).padStart(2, "0");
+	const leftCount = order.length - (hasSkills ? 1 : 0);
 
 	const glance = [
 		current ? { label: "Now", value: current.role.trim(), detail: current.company.trim() } : null,
@@ -124,6 +140,9 @@ function Resume() {
 			: null,
 		availability ? { label: "Status", value: availability, detail: null } : null,
 	].filter((item) => item !== null);
+	// Two columns on narrow screens: the status line gets a full row, and so
+	// does the first cell when the rest would otherwise leave a hole.
+	const glanceOdd = glance.filter((item) => item.label !== "Status").length % 2 === 1;
 
 	return (
 		<PageShell
@@ -185,35 +204,52 @@ function Resume() {
 						<p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">{summary}</p>
 						<ul
 							data-slot="resume-contact"
-							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-1 p-0 text-small"
+							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small"
 						>
-							{email ? (
-								<li>
-									<a
-										href={`mailto:${email}`}
-										className="pressable inline-flex min-h-11 items-center rounded-full px-2 -ml-2 font-semibold text-primary-text print:ml-0 print:min-h-0 print:px-0"
-									>
-										{email}
-									</a>
-								</li>
-							) : null}
-							{profiles.map((link) => (
-								<li key={link.platform} className="flex items-center">
-									<span aria-hidden="true" className="px-1 text-line-strong">
-										·
-									</span>
-									<a
-										href={link.href.trim()}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="pressable inline-flex min-h-11 items-center rounded-full px-2 text-ink-soft hover:text-foreground print:min-h-0 print:px-0"
-									>
-										<span className="print:hidden">{link.platform}</span>
-										<span className="hidden print:inline">{shortUrl(link.href)}</span>
-										<span className="sr-only">, opens in a new tab</span>
-									</a>
-								</li>
-							))}
+							{[
+								email
+									? {
+											key: "email",
+											href: `mailto:${email}`,
+											external: false,
+											screen: email,
+											print: email,
+										}
+									: null,
+								...profiles.map((link) => ({
+									key: link.platform,
+									href: link.href.trim(),
+									external: true,
+									screen: link.platform,
+									print: shortUrl(link.href),
+								})),
+							]
+								.filter((item) => item !== null)
+								.map((item, position, all) => (
+									<li key={item.key} className="flex items-center whitespace-nowrap">
+										<a
+											href={item.href}
+											target={item.external ? "_blank" : undefined}
+											rel={item.external ? "noopener noreferrer" : undefined}
+											className={cn(
+												"pressable inline-flex min-h-11 items-center rounded-full px-2 print:min-h-0 print:px-0",
+												position === 0 && "-ml-2 print:ml-0",
+												item.external
+													? "text-ink-soft hover:text-foreground"
+													: "font-semibold text-primary-text",
+											)}
+										>
+											<span className="print:hidden">{item.screen}</span>
+											<span className="hidden print:inline">{item.print}</span>
+											{item.external ? <span className="sr-only">, opens in a new tab</span> : null}
+										</a>
+										{position < all.length - 1 ? (
+											<span aria-hidden="true" className="pl-1 text-line-strong print:px-[1.2mm]">
+												·
+											</span>
+										) : null}
+									</li>
+								))}
 						</ul>
 					</div>
 					<div
@@ -241,12 +277,15 @@ function Resume() {
 				{glance.length ? (
 					<dl
 						data-slot="resume-glance"
-						className="m-0 mt-8 grid grid-cols-2 overflow-hidden rounded-inner border border-line lg:grid-cols-4"
+						className="m-0 mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-inner border border-line bg-line lg:grid-cols-4"
 					>
-						{glance.map((item) => (
+						{glance.map((item, position) => (
 							<div
 								key={item.label}
-								className="min-w-0 border-line p-4 [overflow-wrap:anywhere] max-lg:nth-[n+3]:border-t lg:not-first:border-l max-lg:even:border-l"
+								data-wide={
+									item.label === "Status" || (glanceOdd && position === 0) ? "" : undefined
+								}
+								className="min-w-0 bg-surface-solid p-4 break-words max-lg:data-wide:col-span-2"
 							>
 								<dt className="mono-label text-muted-foreground">{item.label}</dt>
 								<dd className="m-0 mt-1.5 text-[15px] font-semibold leading-snug text-foreground">
@@ -273,8 +312,8 @@ function Resume() {
 				>
 					{[
 						["#experience", "Experience"],
+						hasSkills ? ["#skills", "Skills"] : null,
 						projects.length ? ["#projects", "Projects"] : null,
-						content.capabilities.length ? ["#skills", "Skills"] : null,
 					]
 						.filter((item) => item !== null)
 						.map(([href, label]) => (
@@ -288,36 +327,53 @@ function Resume() {
 						))}
 				</nav>
 
-				<SkillProvider index={index}>
+				<SkillProvider index={index} timeline={timeline}>
 					<div
 						data-slot="resume-layout"
-						className="mt-10 grid min-w-0 grid-cols-1 gap-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-14"
+						className="mt-10 grid min-w-0 grid-cols-1 content-start gap-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-14 xl:grid-cols-[minmax(0,1fr)_324px] xl:gap-x-12"
+						style={{ "--rows": Math.max(1, leftCount) } as CSSProperties}
 					>
-						<div data-slot="resume-main" className="grid min-w-0 content-start gap-12">
-							<ExperienceSection experience={content.experience} />
-							<ProjectsSection projects={projects} />
-							{testimonial ? <ReferenceSection testimonial={testimonial} /> : null}
-							<CoursesSection credentials={content.credentials} />
-						</div>
-						<aside
-							aria-label="Skills"
-							data-slot="resume-side"
-							className="grid min-w-0 content-start"
-						>
-							{index.groups.length ? (
+						<ExperienceSection
+							experience={content.experience}
+							number={number("experience")}
+							className="min-w-0 lg:col-start-1"
+						/>
+						{hasSkills ? (
+							<aside
+								aria-label="Skills"
+								data-slot="resume-side"
+								className="grid min-w-0 content-start lg:col-start-2 lg:row-start-1 lg:[grid-row-end:span_var(--rows)]"
+							>
 								<FitSticky
 									aria-labelledby="resume-skills-title"
 									id="skills"
 									data-slot="resume-skills"
-									className="min-w-0 lg:sticky lg:top-[var(--fit-top,calc(var(--dock-space-top)+16px))]"
+									className="min-w-0 lg:sticky lg:top-[var(--fit-top,calc(var(--dock-space-top)+16px))] lg:data-unpinned:static"
 								>
-									<SectionTitle id="resume-skills-title" index="04">
+									<SectionTitle id="resume-skills-title" index={number("skills")}>
 										Skills by layer
 									</SectionTitle>
 									<SkillLayers titleId="resume-skills" />
 								</FitSticky>
-							) : null}
-						</aside>
+							</aside>
+						) : null}
+						<ProjectsSection
+							projects={projects}
+							number={number("projects")}
+							className="min-w-0 lg:col-start-1"
+						/>
+						{testimonial ? (
+							<ReferenceSection
+								testimonial={testimonial}
+								number={number("reference")}
+								className="lg:col-start-1"
+							/>
+						) : null}
+						<CoursesSection
+							credentials={content.credentials}
+							number={number("courses")}
+							className="lg:col-start-1"
+						/>
 					</div>
 				</SkillProvider>
 			</ResumeDesk>

@@ -293,3 +293,68 @@ export function markSkill(
 	if (cursor < text.length) parts.push({ text: text.slice(cursor), marked: false });
 	return parts;
 }
+
+/* ── Years: when each skill first shows up, read from role and project dates ── */
+
+const YEAR = /\b(?:19|20)\d{2}\b/gu;
+const ONGOING = /\b(?:present|now|current)\b/iu;
+
+/**
+ * "Dec 2023 — Jan 2025" → [2023, 2025]; "Mar 2026 — present" → [2026, latest];
+ * "2024" → [2024, 2024]. Null when the text carries no year.
+ */
+export function periodYears(period: string, latest: number): [number, number] | null {
+	const years = (period.match(YEAR) ?? []).map(Number);
+	if (!years.length) return null;
+	const start = years[0];
+	const end = years.length > 1 ? years[years.length - 1] : ONGOING.test(period) ? latest : start;
+	return [start, Math.max(start, end)];
+}
+
+export interface SkillTimeline {
+	/** First and last year any role covers. */
+	min: number;
+	max: number;
+	/** Role or project target id → the years it covers. */
+	spans: Record<string, [number, number]>;
+	/** Skill name → the first year a dated role or project used it (null when none did). */
+	firstYear: Record<string, number | null>;
+}
+
+export function buildSkillTimeline(
+	index: SkillIndex,
+	experience: ExperienceContent[],
+	projects: ProjectContent[],
+): SkillTimeline | null {
+	const roleYears = experience.flatMap((role) => (role.period.match(YEAR) ?? []).map(Number));
+	if (!roleYears.length) return null;
+	const min = Math.min(...roleYears);
+	const max = Math.max(...roleYears);
+	const spans: Record<string, [number, number]> = {};
+	for (const role of experience) {
+		const span = periodYears(role.period, max);
+		if (span) spans[`role-${role.id}`] = span;
+	}
+	for (const project of projects) {
+		const span = periodYears(project.year, max);
+		if (span) spans[`project-${project.id}`] = span;
+	}
+	const firstYear: Record<string, number | null> = {};
+	for (const group of index.groups) {
+		for (const skill of group.skills) {
+			const starts = (index.uses[skill.name] ?? [])
+				.map((use) => spans[use.targetId]?.[0])
+				.filter((year): year is number => year !== undefined);
+			firstYear[skill.name] = starts.length ? Math.min(...starts) : null;
+		}
+	}
+	return { min, max, spans, firstYear };
+}
+
+/** Where a role or project sits relative to the chosen year. */
+export function eraAt(span: [number, number] | undefined, year: number) {
+	if (!span) return undefined;
+	if (span[0] > year) return "later" as const;
+	if (span[1] < year) return "past" as const;
+	return "now" as const;
+}

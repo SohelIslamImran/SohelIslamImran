@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { usePrefersReducedMotion } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import { isAbort, useOnScreen, wait } from "./hooks";
@@ -10,6 +11,16 @@ export interface PipelineStage {
 	id: string;
 	title: string;
 	check: string;
+}
+
+/** The change the pipeline ships: a real, visible edit to the page around it. */
+export interface PipelineRelease {
+	/** Version live before the change, e.g. "v1.4". */
+	from: string;
+	/** Version the change ships as, e.g. "v1.5". */
+	to: string;
+	/** What the change does, in a few words. */
+	change: string;
 }
 
 const STATUS_TEXT: Record<PipelineStatus, string> = {
@@ -39,20 +50,45 @@ function StageIcon({ state }: { state: StageState }) {
 	);
 }
 
+/** The live version, crossfading when it changes. Fixed width, so nothing moves. */
+function VersionTag({ version, reduceMotion }: { version: string; reduceMotion: boolean }) {
+	return (
+		<span className="relative inline-grid min-w-[4.5ch] overflow-hidden text-foreground">
+			<AnimatePresence initial={false} mode="popLayout">
+				<motion.span
+					key={version}
+					initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: "80%" }}
+					animate={{ opacity: 1, y: 0 }}
+					exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: "-80%" }}
+					transition={{ duration: reduceMotion ? 0.12 : 0.42, ease: [0.22, 1, 0.36, 1] }}
+					className="[grid-area:1/1]"
+				>
+					{version}
+				</motion.span>
+			</AnimatePresence>
+		</span>
+	);
+}
+
 /**
  * A small release pipeline. Each stage is one way I work, and its check is
- * the principle I hold there. "Ship a change" runs the checks in order; once
- * released, a rollback switch takes the change back out. It runs once by
+ * the principle I hold there. "Ship a change" runs the checks in order and
+ * then really ships `release`: `onShippedChange` lets the section show the
+ * change on the page. The rollback switch takes it back out. It runs once by
  * itself when first seen (not under reduced motion). Announces each result
  * politely. `onStatesChange` lets the page light the matching notes below.
  */
 export function ReleasePipeline({
 	stages,
+	release,
 	onStatesChange,
+	onShippedChange,
 	className,
 }: {
 	stages: PipelineStage[];
+	release: PipelineRelease;
 	onStatesChange?: (states: StageState[]) => void;
+	onShippedChange?: (shipped: boolean) => void;
 	className?: string;
 }) {
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -61,6 +97,7 @@ export function ReleasePipeline({
 	const [states, setStates] = useState<StageState[]>(() => stages.map(() => "idle"));
 	const [status, setStatus] = useState<PipelineStatus>("idle");
 	const [announce, setAnnounce] = useState("");
+	const [shipped, setShipped] = useState(false);
 	const controller = useRef<AbortController | null>(null);
 	const autoRan = useRef(false);
 	const count = stages.length;
@@ -68,6 +105,10 @@ export function ReleasePipeline({
 	useEffect(() => {
 		onStatesChange?.(states);
 	}, [states, onStatesChange]);
+
+	useEffect(() => {
+		onShippedChange?.(shipped);
+	}, [shipped, onShippedChange]);
 
 	useEffect(() => () => controller.current?.abort(), []);
 
@@ -78,7 +119,7 @@ export function ReleasePipeline({
 		controller.current = abort;
 		const fast = reduceMotion;
 		setStatus("running");
-		setAnnounce("Shipping a change. Checks running.");
+		setAnnounce(`Shipping ${release.to}. Checks running.`);
 		let next: StageState[] = stages.map(() => "idle");
 		setStates(next);
 		try {
@@ -91,7 +132,8 @@ export function ReleasePipeline({
 				await wait(fast ? 0 : 140, abort.signal);
 			}
 			setStatus("released");
-			setAnnounce("All checks passed. Released.");
+			setShipped(true);
+			setAnnounce(`All checks passed. ${release.to} is live. ${release.change}.`);
 		} catch (error) {
 			if (!isAbort(error)) throw error;
 		}
@@ -111,7 +153,8 @@ export function ReleasePipeline({
 					await wait(fast ? 0 : 110, abort.signal);
 				}
 				setStatus("rolled-back");
-				setAnnounce("Rolled back. The previous release is live again.");
+				setShipped(false);
+				setAnnounce(`Rolled back. ${release.from} is live again and the change is gone.`);
 			} else {
 				let next = [...states];
 				for (let index = 0; index < count; index += 1) {
@@ -120,7 +163,8 @@ export function ReleasePipeline({
 					await wait(fast ? 0 : 110, abort.signal);
 				}
 				setStatus("released");
-				setAnnounce("Released again.");
+				setShipped(true);
+				setAnnounce(`${release.to} is live again.`);
 			}
 		} catch (error) {
 			if (!isAbort(error)) throw error;
@@ -144,6 +188,7 @@ export function ReleasePipeline({
 	const progress = count ? passed / count : 0;
 	const rolledBack = status === "rolled-back";
 	const canRollback = status === "released" || rolledBack;
+	const live = shipped ? release.to : release.from;
 
 	return (
 		<div
@@ -155,21 +200,30 @@ export function ReleasePipeline({
 			data-status={status}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-[clamp(20px,3vw,32px)] py-4">
-				<p className="mono-label m-0 flex items-center gap-2.5 text-muted-foreground">
-					<span
-						aria-hidden="true"
-						className={cn(
-							"size-2 rounded-full transition-colors duration-300",
-							status === "released" && "bg-success",
-							status === "running" && "bg-primary motion-safe:animate-ping-soft",
-							status === "idle" && "bg-line-strong",
-							rolledBack && "bg-signal",
-						)}
-					/>
-					Release pipeline
-					<span aria-hidden="true">·</span>
-					<span className="text-foreground">{STATUS_TEXT[status]}</span>
-				</p>
+				<div className="grid min-w-0 gap-1.5">
+					<p className="mono-label m-0 flex items-center gap-2.5 text-muted-foreground">
+						<span
+							aria-hidden="true"
+							className={cn(
+								"size-2 rounded-full transition-colors duration-300",
+								status === "released" && "bg-success",
+								status === "running" && "bg-primary motion-safe:animate-ping-soft",
+								status === "idle" && "bg-line-strong",
+								rolledBack && "bg-signal",
+							)}
+						/>
+						<span>Live</span>
+						<span className="normal-case">
+							<VersionTag version={live} reduceMotion={reduceMotion} />
+						</span>
+						<span aria-hidden="true">·</span>
+						<span className="text-foreground">{STATUS_TEXT[status]}</span>
+					</p>
+					<p className="m-0 min-w-0 pl-[18px] text-[14px] leading-snug text-muted-foreground">
+						<span className="font-mono text-[12.5px] text-primary-text">{release.to}</span>{" "}
+						{release.change}
+					</p>
+				</div>
 				<div className="flex flex-wrap items-center gap-2">
 					<label
 						className={cn(
@@ -216,17 +270,17 @@ export function ReleasePipeline({
 							<StageIcon state={state} />
 							<div className="min-w-0">
 								<p className="mono-label m-0 text-muted-foreground">
+									Stage{" "}
 									<span className="text-primary-text">{String(index + 1).padStart(2, "0")}</span>
-									{" — "}
-									{stage.title}
+									<span className="sr-only">, {stage.title}</span>
 								</p>
 								<p
 									className={cn(
 										"mt-1.5 mb-0 text-[15px] leading-snug font-medium transition-colors duration-300",
 										state === "passed" ? "text-foreground" : "text-muted-foreground",
-										state === "reverted" && "line-through decoration-line-strong",
 									)}
 								>
+									<span className="sr-only">Check: </span>
 									{stage.check}
 								</p>
 							</div>

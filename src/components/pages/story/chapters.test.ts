@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { INITIAL_PORTFOLIO_CONTENT } from "../../../content/initial";
-import { chapterItems, classifySource, splitStoryTitle } from "./chapters";
+import { chapterItems, classifySource, layerEntries, splitStoryTitle } from "./chapters";
 
 describe("story chapters", () => {
 	it("keeps stable, unique chapter anchors", () => {
@@ -21,6 +21,16 @@ describe("story chapters", () => {
 		// Layers reached only ever grow.
 		for (let i = 1; i < items.length; i++) {
 			expect(items[i].reached.length).toBeGreaterThanOrEqual(items[i - 1].reached.length);
+		}
+	});
+
+	it("points each layer at the first chapter that names it", () => {
+		const items = chapterItems(INITIAL_PORTFOLIO_CONTENT.story.chapters);
+		for (const entry of layerEntries(items)) {
+			if (!entry.chapter) continue;
+			const index = items.indexOf(entry.chapter);
+			expect(entry.chapter.layers).toContain(entry.id);
+			for (const earlier of items.slice(0, index)) expect(earlier.layers).not.toContain(entry.id);
 		}
 	});
 

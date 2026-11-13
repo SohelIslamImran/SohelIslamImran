@@ -110,10 +110,7 @@ export function FilterStrip<T extends string>({
 						Selected: {labels[value]}. Use the left and right arrow keys to change the filter.
 					</span>
 					{edges.overflows ? (
-						<span
-							aria-hidden="true"
-							className="mono-label inline-flex items-center gap-1 md:hidden"
-						>
+						<span aria-hidden="true" className="mono-label inline-flex items-center gap-1">
 							Swipe for more <span>→</span>
 						</span>
 					) : null}

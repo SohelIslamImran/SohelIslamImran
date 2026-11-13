@@ -36,8 +36,13 @@ export const ANATOMY_LAYERS: readonly AnatomyLayerDefinition[] = [
 		id: "api",
 		name: "API",
 		meaning: "The services between the interface and the data.",
+		/*
+		 * A bare "API" counts only as the project's own service layer. A third-party
+		 * lookup ("iTunes Search API") or a library's surface ("one TypeScript API")
+		 * is not a service this project runs.
+		 */
 		pattern:
-			/\b(?:api|elysia|cloud functions|peerapi|server rendering|webhooks?|stripe|revenuecat)\b/gi,
+			/\b(?:(?<!(?:search|typescript|one) )api|elysia|cloud functions|peerapi|server rendering|webhooks?|stripe|revenuecat)\b/gi,
 	},
 	{
 		id: "data",

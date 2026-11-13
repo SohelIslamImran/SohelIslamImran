@@ -317,13 +317,6 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			],
 		},
 		{
-			id: "mobile",
-			title: "Mobile apps and native tools",
-			description:
-				"I build apps with React Native and Expo. When a feature needs direct access to Android or iOS, I use Kotlin or Swift.",
-			tools: ["React Native", "Expo", "EAS", "Kotlin", "Swift", "Android Play Core", "Firebase"],
-		},
-		{
 			id: "access",
 			title: "Access rules that hold up",
 			description:
@@ -342,6 +335,13 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			description:
 				"I help teams release changes with AWS, Terraform, automated checks, and a clear way to roll back.",
 			tools: ["Terraform", "AWS", "GitHub Actions", "Docker", "Playwright", "Bun Test", "EAS"],
+		},
+		{
+			id: "mobile",
+			title: "Native code when the web is not enough",
+			description:
+				"When a product needs an app, I build it with React Native and Expo. When a feature needs direct access to Android or iOS, I write Kotlin or Swift.",
+			tools: ["React Native", "Expo", "EAS", "Kotlin", "Swift", "Android Play Core", "Firebase"],
 		},
 	],
 	testimonials: [

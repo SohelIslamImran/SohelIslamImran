@@ -3,11 +3,11 @@ import { CopyButton } from "../../motion/CopyButton";
 import { SpotlightCard } from "../../motion/SpotlightCard";
 import { buttonVariants } from "../../ui/button";
 import type { PortfolioContent } from "../../../types/content";
-import { classifySource, formatVisibleDate, STORY_LAYERS } from "./chapters";
+import { classifySource, formatVisibleDate } from "./chapters";
 
 /**
- * The bottom of the descent. The site's own line sits on the deepest plane
- * (all six layers lit), then the story hands the reader on: to the work, the
+ * The bottom of the descent. The site's own line closes the story, then it
+ * hands the reader on: to the work, the
  * résumé, or a conversation. Nothing here is a new claim; the counts and
  * dates are read from content.
  */
@@ -25,14 +25,7 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 	return (
 		<section className="sd-end" aria-labelledby="story-end-title">
 			<div className="sd-end-plane">
-				<span className="sd-cells sd-cells-lg" aria-hidden="true">
-					{STORY_LAYERS.map((layer) => (
-						<span key={layer.id} data-state="here" />
-					))}
-				</span>
-				<p className="mono-label m-0 mt-6 text-muted-foreground">
-					End of the descent · {STORY_LAYERS.map((layer) => layer.label).join(" → ")}
-				</p>
+				<p className="mono-label m-0 text-muted-foreground">End of the story</p>
 				<h2 id="story-end-title" className="mt-5 mb-0 max-w-[18ch] text-title">
 					{line || "Thanks for reading."}
 				</h2>

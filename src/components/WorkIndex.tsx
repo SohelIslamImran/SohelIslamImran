@@ -148,7 +148,7 @@ export function WorkIndex({
 
 	return (
 		<div className="min-w-0">
-			<div className="mb-[clamp(48px,7vw,88px)] grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+			<div className="mb-[clamp(48px,7vw,88px)] grid min-w-0 gap-x-10 gap-y-5 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)] xl:items-end">
 				<FilterStrip
 					className="w-full min-w-0 max-w-[560px]"
 					labelId="work-filter-label"
@@ -160,18 +160,18 @@ export function WorkIndex({
 					onChange={onGroupChange}
 					resultsId="work-results"
 				/>
-				<div className="grid min-w-0 gap-2 px-1 md:justify-items-end md:pb-3 md:text-right">
+				<div className="grid min-w-0 gap-2 px-1 xl:justify-items-end xl:pb-3 xl:text-right">
 					<p className="m-0 text-small text-muted-foreground">
 						<span className="mono-label mr-2 text-foreground">
 							{String(countFor(group)).padStart(2, "0")}
 						</span>
 						{workGroupDescriptions[group]}
 					</p>
-					<p className="mono-label m-0 flex min-w-0 items-center gap-2.5 text-muted-foreground">
+					<p className="mono-label m-0 flex min-w-0 items-start gap-2.5 text-muted-foreground xl:justify-end">
 						<svg
 							aria-hidden="true"
 							viewBox="0 0 20 16"
-							className="size-[18px] shrink-0 text-primary-text"
+							className="-mt-0.5 size-[18px] shrink-0 text-primary-text"
 							fill="none"
 							stroke="currentColor"
 							strokeWidth={1.5}

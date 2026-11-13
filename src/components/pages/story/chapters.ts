@@ -88,6 +88,14 @@ export function chapterItems(chapters: StoryContent["chapters"]): StoryChapterIt
 	});
 }
 
+/** For each layer, the first chapter whose own words name it (or undefined). */
+export function layerEntries(chapters: readonly StoryChapterItem[]) {
+	return STORY_LAYERS.map((layer) => ({
+		...layer,
+		chapter: chapters.find((chapter) => chapter.layers.includes(layer.id)),
+	}));
+}
+
 /** "From first computer to lead engineer." → lead + optional second sentence. */
 export function splitStoryTitle(title: string) {
 	const dot = title.indexOf(". ");

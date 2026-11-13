@@ -14,6 +14,7 @@ import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/
 import { NavDock } from "../components/chrome/NavDock";
 import { RouteProgress } from "../components/chrome/RouteProgress";
 import { SiteFooter } from "../components/chrome/SiteFooter";
+import { resolvePage } from "../components/chrome/terminal";
 import { suggestDestinations } from "../components/chrome/lost-routes";
 import { usePublicContent } from "../components/chrome/public-content";
 import { TraceStack, type TraceStackLayer } from "../components/chrome/StatusScene";
@@ -254,7 +255,7 @@ function StatusPage({
 				data-page="status"
 				className="shell grid min-h-[calc(100svh-var(--dock-space-top)-var(--dock-space-bottom))] content-center items-center gap-x-[clamp(32px,6vw,96px)] gap-y-6 py-[clamp(40px,8vw,112px)] md:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]"
 			>
-				<div className="order-2 min-w-0">
+				<div className="order-2 min-w-0 overflow-x-clip">
 					<TraceStack
 						layers={layers}
 						lostAt={lostAt}
@@ -322,6 +323,8 @@ function NotFoundPage() {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
 	const { content } = usePublicContent(true);
 	const [target, setTarget] = useState<string | null>(null);
+	const [command, setCommand] = useState("open ");
+	const [message, setMessage] = useState("");
 	const destinations = suggestDestinations(
 		pathname,
 		(content?.projects ?? []).map((project) => ({ slug: project.slug, title: project.title })),
@@ -352,6 +355,43 @@ function NotFoundPage() {
 			aside={
 				destinations.length ? (
 					<nav aria-labelledby={listId} className="mt-10 max-w-[440px]">
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								const argument = command.replace(/^open\s+/u, "").trim();
+								const destination = destinations.find((item) => item.path === argument);
+								const path = destination?.path ?? resolvePage(argument)?.path;
+								if (path) router.history.push(path);
+								else setMessage("Choose a destination below, or type open work.");
+							}}
+						>
+							<label htmlFor={`${listId}-prompt`} className="mono-label">
+								Send the request somewhere real
+							</label>
+							<input
+								id={`${listId}-prompt`}
+								aria-describedby={`${listId}-hint`}
+								value={command}
+								onChange={(event) => setCommand(event.target.value)}
+								onKeyDown={(event) => {
+									if (event.key !== "Tab" || event.shiftKey) return;
+									const prefix = command.replace(/^open\s*/u, "").toLowerCase();
+									const match = destinations.find(
+										(item) =>
+											item.path.startsWith(prefix) || item.label.toLowerCase().startsWith(prefix),
+									);
+									if (match) {
+										event.preventDefault();
+										setCommand(`open ${match.path}`);
+									}
+								}}
+								className="mt-2 min-h-11 w-full min-w-0 rounded-inner border border-line bg-surface-solid px-3 font-mono focus-visible:outline-2 focus-visible:outline-ring"
+							/>
+							<p id={`${listId}-hint`} className="text-sm text-muted-foreground">
+								Tab completes a suggested route. Enter opens it. Links below also work.
+							</p>
+							<p role="status">{message}</p>
+						</form>
 						<p id={listId} className="mono-label m-0 mb-2 text-muted-foreground">
 							Reroute to
 						</p>

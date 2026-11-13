@@ -94,7 +94,7 @@ export function XrayEasterEgg() {
 					<button
 						type="button"
 						onClick={() => setXray(false)}
-						className="pressable inline-flex min-h-8 items-center gap-1.5 rounded-full border-0 pointer-coarse:min-h-11 bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] px-2.5 text-[12px] font-medium text-foreground outline-none hover:bg-[color-mix(in_srgb,var(--theme-ink)_10%,transparent)] focus-visible:outline-2 focus-visible:outline-ring"
+						className="pressable inline-flex min-h-8 items-center gap-1.5 rounded-full border-0 pointer-coarse:min-h-11 bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] px-2.5 text-[12px] font-medium text-foreground outline-hidden hover:bg-[color-mix(in_srgb,var(--theme-ink)_10%,transparent)] focus-visible:outline-2 focus-visible:outline-ring"
 					>
 						Turn off <Kbd className="max-md:hidden">esc</Kbd>
 					</button>
