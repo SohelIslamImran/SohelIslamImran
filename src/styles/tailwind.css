@@ -3036,6 +3036,19 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 .fn-empty:focus-within .fn-sheet {
 	--spread: 1.35;
 }
+/* Below wide desktop the stack sits at the viewport edge; the spread sheets
+   and their shadow need room or the page grows a horizontal scroll. */
+@media (min-width: 900px) and (max-width: 1439px) {
+	.fn-stack {
+		padding-right: 84px;
+	}
+}
+@media (max-width: 599px) {
+	.fn-empty:hover .fn-sheet,
+	.fn-empty:focus-within .fn-sheet {
+		--spread: 1;
+	}
+}
 .fn-sheet-blank {
 	background:
 		repeating-linear-gradient(

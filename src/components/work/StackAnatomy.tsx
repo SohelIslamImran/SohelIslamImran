@@ -128,7 +128,7 @@ function plural(count: number, word: string) {
 
 /** The short line under a layer's name: what in this project puts it there. */
 function layerEvidence(layer: AnatomyLayer) {
-	if (!layer.touched) return "Not part of this project";
+	if (!layer.touched) return "Not described here";
 	if (layer.notes.length > 0) return plural(layer.notes.length, "highlight");
 	if (layer.tags.length > 0) return `Built with ${layer.tags[0]}`;
 	return "In the overview";
@@ -164,9 +164,9 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 		? `${activeLayer.name}: ${activeLayer.meaning.charAt(0).toLowerCase()}${activeLayer.meaning.slice(1)}`
 		: "";
 	if (!activeLayer) {
-		caption = `Touches ${anatomy.touchedCount} of 6 layers. Pick one to see the work.`;
+		caption = `${anatomy.touchedCount} of 6 layers documented. Pick one to see the work.`;
 	} else if (!activeLayer.touched) {
-		caption = `${lead} Not part of this project.`;
+		caption = `${lead} Not described for this project.`;
 	} else if (activeLayer.notes.length > 0) {
 		caption = `${lead} ${activeLayer.notes.length} of ${plural(highlights.length, "highlight")} below.`;
 	} else if (activeLayer.tags.length > 0) {

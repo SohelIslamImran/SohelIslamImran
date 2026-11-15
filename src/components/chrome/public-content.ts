@@ -11,7 +11,7 @@ import type { PortfolioContent } from "../../types/content";
 const PUBLIC_CONTENT_ROUTE_IDS: ReadonlySet<string> = new Set([
 	"/",
 	"/work",
-	"/work/$slug",
+	"/work_/$slug",
 	"/story",
 	"/resume",
 	"/links",
