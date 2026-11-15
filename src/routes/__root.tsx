@@ -221,6 +221,7 @@ function StatusPage({
 	rerouting = false,
 	children,
 	aside,
+	prompt,
 }: {
 	documentTitle: string;
 	eyebrow: string;
@@ -233,6 +234,7 @@ function StatusPage({
 	rerouting?: boolean;
 	children: ReactNode;
 	aside?: ReactNode;
+	prompt?: ReactNode;
 }) {
 	const mainRef = useFocusOnMount<HTMLElement>();
 	const titleId = useId();
@@ -288,6 +290,7 @@ function StatusPage({
 								<span className="min-w-0 truncate text-ink-soft">{line.text}</span>
 							</p>
 						))}
+						{prompt}
 					</div>
 				</div>
 				<div className="order-1 min-w-0">
@@ -352,46 +355,51 @@ function NotFoundPage() {
 					? { mark: "→", layer: "reroute", text: target, tone: "accent" }
 					: { mark: "…", layer: "reroute", text: "waiting for a destination" },
 			]}
+			prompt={
+				<form
+					onSubmit={(event) => {
+						event.preventDefault();
+						const argument = command.replace(/^open\s+/u, "").trim();
+						const destination = destinations.find((item) => item.path === argument);
+						const path = destination?.path ?? resolvePage(argument)?.path;
+						if (path) {
+							setTarget(path);
+							window.setTimeout(() => router.history.push(path), 360);
+						} else setMessage("Choose a destination below, or type open work.");
+					}}
+				>
+					<label htmlFor={`${listId}-prompt`} className="mono-label">
+						Send the request somewhere real
+					</label>
+					<input
+						id={`${listId}-prompt`}
+						aria-describedby={`${listId}-hint`}
+						value={command}
+						onChange={(event) => setCommand(event.target.value)}
+						onKeyDown={(event) => {
+							if (event.key !== "Tab" || event.shiftKey) return;
+							const prefix = command.replace(/^open\s*/u, "").toLowerCase();
+							const match = destinations.find(
+								(item) =>
+									item.path.startsWith(prefix) || item.label.toLowerCase().startsWith(prefix),
+							);
+							if (match && command !== `open ${match.path}`) {
+								event.preventDefault();
+								setCommand(`open ${match.path}`);
+							}
+						}}
+						className="mt-2 min-h-11 w-full min-w-0 rounded-inner border border-line bg-surface-solid px-3 font-mono focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-ring"
+					/>
+					<p id={`${listId}-hint`} className="text-sm text-muted-foreground">
+						Tab completes a suggested route. Enter opens it. Links below also work.
+					</p>
+					<p role="status">{message}</p>
+				</form>
+			}
+
 			aside={
 				destinations.length ? (
 					<nav aria-labelledby={listId} className="mt-10 max-w-[440px]">
-						<form
-							onSubmit={(event) => {
-								event.preventDefault();
-								const argument = command.replace(/^open\s+/u, "").trim();
-								const destination = destinations.find((item) => item.path === argument);
-								const path = destination?.path ?? resolvePage(argument)?.path;
-								if (path) router.history.push(path);
-								else setMessage("Choose a destination below, or type open work.");
-							}}
-						>
-							<label htmlFor={`${listId}-prompt`} className="mono-label">
-								Send the request somewhere real
-							</label>
-							<input
-								id={`${listId}-prompt`}
-								aria-describedby={`${listId}-hint`}
-								value={command}
-								onChange={(event) => setCommand(event.target.value)}
-								onKeyDown={(event) => {
-									if (event.key !== "Tab" || event.shiftKey) return;
-									const prefix = command.replace(/^open\s*/u, "").toLowerCase();
-									const match = destinations.find(
-										(item) =>
-											item.path.startsWith(prefix) || item.label.toLowerCase().startsWith(prefix),
-									);
-									if (match) {
-										event.preventDefault();
-										setCommand(`open ${match.path}`);
-									}
-								}}
-								className="mt-2 min-h-11 w-full min-w-0 rounded-inner border border-line bg-surface-solid px-3 font-mono focus-visible:outline-2 focus-visible:outline-ring"
-							/>
-							<p id={`${listId}-hint`} className="text-sm text-muted-foreground">
-								Tab completes a suggested route. Enter opens it. Links below also work.
-							</p>
-							<p role="status">{message}</p>
-						</form>
 						<p id={listId} className="mono-label m-0 mb-2 text-muted-foreground">
 							Reroute to
 						</p>

@@ -178,7 +178,7 @@ export function GhostReplay() {
 				</div>
 				<form
 					onSubmit={submit}
-					className="flex min-w-0 items-center gap-2 border-t border-line px-4 py-2 font-mono text-[14px] sm:px-6"
+					className="focus-within:outline-2 focus-within:outline-solid focus-within:outline-ring focus-within:outline-offset-2 flex min-w-0 items-center gap-2 border-t border-line px-4 py-2 font-mono text-[14px] sm:px-6"
 				>
 					<label htmlFor={inputId} className="text-primary-text">
 						<span aria-hidden="true">$</span>
@@ -193,7 +193,7 @@ export function GhostReplay() {
 						autoCapitalize="off"
 						spellCheck={false}
 						enterKeyHint="go"
-						className="min-h-11 min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-none placeholder:text-muted-foreground sm:text-[14px]"
+						className="min-h-11 min-w-0 flex-1 bg-transparent text-[16px] text-foreground outline-hidden placeholder:text-muted-foreground sm:text-[14px]"
 					/>
 				</form>
 			</div>

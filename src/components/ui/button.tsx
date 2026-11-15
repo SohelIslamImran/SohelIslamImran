@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
  * secondary, `ghost` for toolbars, `link` for inline text actions.
  */
 const buttonVariants = cva(
-	"group/button relative inline-flex min-w-0 max-w-full shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding font-medium tracking-[-0.01em] whitespace-normal select-none outline-hidden transition-[transform,translate,scale,rotate,background-color,border-color,box-shadow,color,opacity] duration-200 ease-trace focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ring active:scale-[.97] disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 aria-invalid:border-destructive aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [overflow-wrap:anywhere]",
+	"group/button relative inline-flex min-w-0 max-w-full shrink-0 items-center justify-center rounded-full border border-transparent bg-clip-padding font-medium tracking-[-0.01em] whitespace-normal select-none outline-hidden transition-[transform,translate,scale,rotate,background-color,border-color,box-shadow,color,opacity] duration-200 ease-trace focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-[3px] focus-visible:outline-ring active:scale-[.97] disabled:pointer-events-none disabled:opacity-45 aria-disabled:pointer-events-none aria-disabled:opacity-45 aria-invalid:border-destructive aria-invalid:outline-destructive [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [overflow-wrap:anywhere]",
 	{
 		variants: {
 			variant: {

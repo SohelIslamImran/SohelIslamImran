@@ -237,7 +237,7 @@ export function ProjectCard({
 								data-card-link=""
 								viewTransition
 								onClick={primeWorkTransition}
-								className="text-inherit no-underline outline-none after:absolute after:inset-0 after:z-[1] after:rounded-[inherit] after:content-[''] focus-visible:outline-none"
+								className="text-inherit no-underline outline-hidden after:absolute after:inset-0 after:z-[1] after:rounded-[inherit] after:content-[''] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 							>
 								{title}
 							</Link>

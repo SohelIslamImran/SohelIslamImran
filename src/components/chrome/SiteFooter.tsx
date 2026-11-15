@@ -12,7 +12,7 @@ import { useRoutePublicContent } from "./public-content";
 import { TraceStack } from "./StatusScene";
 
 const footerLinkClassName =
-	"inline-flex min-h-11 items-center text-[15px] text-ink-soft no-underline transition-colors duration-200 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9";
+	"inline-flex min-h-11 items-center text-[15px] text-ink-soft no-underline transition-colors duration-200 hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9";
 
 /** The layers the site's hero names, front to back. UI copy, not facts. */
 const END_LAYERS = [
@@ -203,7 +203,7 @@ export function SiteFooter() {
 							<button
 								type="button"
 								onClick={() => palette.open()}
-								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
+								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
 							>
 								<span>Search, or type</span>
 								<Kbd>&gt;</Kbd>

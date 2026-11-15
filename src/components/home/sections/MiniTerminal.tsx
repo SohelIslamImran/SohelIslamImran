@@ -309,7 +309,10 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 						),
 					)}
 				</div>
-				<form onSubmit={onSubmit} className="flex items-center gap-2 font-mono text-[12.5px]">
+				<form
+					onSubmit={onSubmit}
+					className="focus-within:outline-2 focus-within:outline-solid focus-within:outline-ring focus-within:outline-offset-2 flex items-center gap-2 font-mono text-[12.5px]"
+				>
 					<label htmlFor={inputId} className="text-primary-text">
 						<span aria-hidden="true">❯</span>
 						<span className="sr-only">Terminal command</span>
@@ -327,7 +330,7 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 						spellCheck={false}
 						enterKeyHint="send"
 						placeholder={typing ? "" : "help"}
-						className="terminal-input min-h-7 min-w-0 flex-1 bg-transparent text-[16px] text-foreground caret-[var(--theme-accent-line)] outline-none placeholder:text-muted-foreground/70 sm:text-[12.5px]"
+						className="terminal-input min-h-7 min-w-0 flex-1 bg-transparent text-[16px] text-foreground caret-[var(--theme-accent-line)] outline-hidden placeholder:text-muted-foreground/70 sm:text-[12.5px]"
 					/>
 				</form>
 			</div>

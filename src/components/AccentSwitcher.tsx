@@ -318,7 +318,7 @@ export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcher
 		<Popover open={isOpen} onOpenChange={setOpen}>
 			<PopoverTrigger
 				className={cn(
-					"pressable relative grid size-11 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-ink-soft outline-none hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)] aria-expanded:text-foreground",
+					"pressable relative grid size-11 shrink-0 place-items-center rounded-full border-0 bg-transparent p-0 text-ink-soft outline-hidden hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-expanded:bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)] aria-expanded:text-foreground",
 					className,
 				)}
 				aria-label={`Appearance: ${themeModeLabels[theme]} theme, ${currentAccent.name} accent`}
@@ -354,7 +354,7 @@ export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcher
 								type="button"
 								aria-pressed={theme === mode}
 								aria-disabled={transitioning || undefined}
-								className="pressable relative flex min-h-11 items-center justify-center gap-1.5 rounded-[14px] border-0 bg-transparent px-2 text-[13px] font-medium text-muted-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:text-foreground aria-disabled:pointer-events-none"
+								className="pressable relative flex min-h-11 items-center justify-center gap-1.5 rounded-[14px] border-0 bg-transparent px-2 text-[13px] font-medium text-muted-foreground outline-hidden hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-pressed:text-foreground aria-disabled:pointer-events-none"
 								onClick={(event) => selectTheme(mode, event.currentTarget)}
 							>
 								{theme === mode ? (
@@ -389,7 +389,7 @@ export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcher
 								aria-label={option.name}
 								aria-pressed={accent === option.id}
 								aria-disabled={transitioning || undefined}
-								className="pressable group/swatch grid size-11 place-items-center rounded-full border-0 bg-transparent p-0 outline-none focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring aria-disabled:pointer-events-none"
+								className="pressable group/swatch grid size-11 place-items-center rounded-full border-0 bg-transparent p-0 outline-hidden focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-ring aria-disabled:pointer-events-none"
 								onClick={(event) => {
 									if (transitioning || accent === option.id) return;
 									const source = event.currentTarget;

@@ -83,7 +83,7 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 								The short version
 							</Link>
 						</h3>
-						<p>Roles, tools, and dates on one page you can print.</p>
+						<p>A printable résumé with roles, tools, and dates.</p>
 						<span aria-hidden="true" className="sd-handoff-arrow">
 							→
 						</span>

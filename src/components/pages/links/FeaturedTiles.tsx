@@ -32,7 +32,7 @@ function Tile({ link, kind }: { link: ProfileLinkContent; kind: LinkKind }) {
 					target={opensNewTab ? "_blank" : undefined}
 					rel={opensNewTab ? "noopener noreferrer" : undefined}
 					aria-describedby={description ? `${link.id}-tile-description` : undefined}
-					className="rounded-[inherit] after:absolute after:inset-0 after:z-[3] after:rounded-[inherit] focus-visible:outline-none"
+					className="rounded-[inherit] after:absolute after:inset-0 after:z-[3] after:rounded-[inherit] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 				>
 					{title}
 					{opensNewTab ? <span className="sr-only">, opens in a new tab</span> : null}
