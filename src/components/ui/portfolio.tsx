@@ -121,6 +121,20 @@ export function MonoLabel({
 	);
 }
 
+/**
+ * A metric label whose trailing date ("… · Oct 19–25, 2026") never breaks
+ * across lines. Labels without a date render unchanged.
+ */
+export function DatedLabel({ label }: { label: string }) {
+	const match = label.match(/^(.*?)\s*·\s*([^·]*\d{4})\s*$/u);
+	if (!match) return <>{label}</>;
+	return (
+		<>
+			{match[1]?.trim()} · <span className="whitespace-nowrap">{match[2]?.trim()}</span>
+		</>
+	);
+}
+
 /** Small mono eyebrow above a heading. */
 export function Eyebrow({ className, ...props }: React.ComponentProps<"p">) {
 	return (

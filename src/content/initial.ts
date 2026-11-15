@@ -652,7 +652,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				title: "A small team, a real codebase.",
 				paragraphs: [
 					"In 2021 a referral from that community led to an unpaid React Native internship at Tilleli, a US events startup. For the first time I was inside a real codebase and a real product conversation.",
-					"I also took a short role at Bugfixers from July to September 2021 while Tilleli continued. At Tilleli my work grew from screens to Firebase services, integrations, and app store releases, and I stayed responsible for the mobile app through January 2024.",
+					"I also took a short role at Bugfixers from July to September 2021 while Tilleli continued. At Tilleli my work grew from app interfaces to Firebase services, integrations, and app store releases, and I stayed responsible for the mobile app through January 2024.",
 				],
 				artifact: "Ownership came from careful work, repeated.",
 			},

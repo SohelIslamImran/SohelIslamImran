@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { articleJsonLd, pageHead } from "../lib/seo";
@@ -31,7 +31,6 @@ function Story() {
 	const chapters = useMemo(() => chapterItems(content.story.chapters), [content.story.chapters]);
 	const chapterIds = useMemo(() => chapters.map((chapter) => chapter.domId), [chapters]);
 	const [activeId, setActiveId] = useStoryProgress(chapterIds);
-	const trackRef = useRef<HTMLDivElement>(null);
 	const writing = content.writing.find((item) => item.href === "/story");
 	const quote = content.story.quote.trim();
 
@@ -67,14 +66,9 @@ function Story() {
 					<div className="sd-layout">
 						<DepthBar chapters={chapters} activeId={activeId} onSelect={setActiveId} />
 						<div className="sd-rail-col">
-							<DepthRail
-								chapters={chapters}
-								activeId={activeId}
-								onSelect={setActiveId}
-								trackRef={trackRef}
-							/>
+							<DepthRail chapters={chapters} activeId={activeId} onSelect={setActiveId} />
 						</div>
-						<div ref={trackRef} className="sd-chapters">
+						<div className="sd-chapters">
 							{chapters.map((chapter) => (
 								<ChapterPlane key={chapter.domId} chapter={chapter} />
 							))}

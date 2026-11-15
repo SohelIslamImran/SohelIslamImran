@@ -138,8 +138,8 @@ export function StoryOpening({
 							className="block size-full object-cover object-[center_18%]"
 						/>
 						<span className="sd-plate-caption mono-label" aria-hidden="true">
-							<span>Surface</span>
-							<span>{location || "Now"}</span>
+							<span className="sd-plate-caption-layer">Surface</span>
+							<span className="sd-plate-caption-place">{location || "Now"}</span>
 						</span>
 					</div>
 				</div>

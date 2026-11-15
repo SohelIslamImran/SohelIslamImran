@@ -66,7 +66,7 @@ describe("runTerminalCommand", () => {
 
 	it("lists projects with ls work", () => {
 		const { lines } = runTerminalCommand("ls work", context);
-		expect(lines[0]?.text).toMatch(/^kuno\s+A learning product\.$/u);
+		expect(lines[0]).toEqual({ kind: "out", text: "kuno", description: "A learning product." });
 		expect(lines.at(-1)?.text).toBe("Try: open kuno");
 	});
 

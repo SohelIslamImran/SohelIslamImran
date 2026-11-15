@@ -254,10 +254,6 @@ function timeLines(context: TerminalContext): TerminalLine[] {
 	return lines;
 }
 
-function column(value: string, width: number): string {
-	return value.length >= width ? `${value}  ` : value.padEnd(width + 2, " ");
-}
-
 const out = (text: string): TerminalLine => ({ kind: "out", text });
 const muted = (text: string): TerminalLine => ({ kind: "muted", text });
 const error = (text: string): TerminalLine => ({ kind: "error", text });
@@ -290,19 +286,25 @@ function lsLines(argument: string, context: TerminalContext): TerminalLine[] {
 	if (target === "work" || target === "projects") {
 		const projects = context.projects.filter((project) => project.slug && project.title.trim());
 		if (!projects.length) return [muted("No published projects yet.")];
-		const width = Math.max(...projects.map((project) => project.slug.length));
+		// Name and description travel separately so the output can lay them out
+		// as two columns, or stack them on a narrow interface.
 		return [
-			...projects.map((project) =>
-				out(`${column(project.slug, width)}${project.summary.trim() || project.title.trim()}`),
-			),
+			...projects.map((project) => ({
+				kind: "out" as const,
+				text: project.slug,
+				description: project.summary.trim() || project.title.trim(),
+			})),
 			muted(`Try: open ${projects[0]?.slug ?? "<project>"}`),
 		];
 	}
 	if (target === "links" || target === "profiles") {
 		const links = context.links.filter((link) => link.href.trim() && link.label.trim());
 		if (!links.length) return [muted("No published profiles yet.")];
-		const width = Math.max(...links.map((link) => link.label.trim().length));
-		return links.map((link) => out(`${column(link.label.trim(), width)}${link.platform.trim()}`));
+		return links.map((link) => ({
+			kind: "out" as const,
+			text: link.label.trim(),
+			description: link.platform.trim(),
+		}));
 	}
 	return [error(`ls: ${argument}: No such directory. Try ls, ls work, or ls links.`)];
 }

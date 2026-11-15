@@ -124,7 +124,9 @@ export function CopyButton({
 				aria-label={ariaLabel}
 				className={cn(
 					buttonVariants({ variant, size }),
-					status === "copied" && "text-success",
+					// Success green only reads on neutral fills; on the filled accent button
+					// the label stays primary-foreground and the check icon carries state.
+					status === "copied" && (variant === "outline" || variant === "ghost") && "text-success",
 					className,
 				)}
 				onClick={async () => {

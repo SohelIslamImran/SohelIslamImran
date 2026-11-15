@@ -1,5 +1,5 @@
-import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
-import { motion, useScroll, useTransform } from "motion/react";
+import { useEffect, useRef, type CSSProperties } from "react";
+import { useStuckAttribute } from "../../motion/hooks";
 import { layerEntries, layerLabels, STORY_LAYERS, type StoryChapterItem } from "./chapters";
 
 interface RailProps {
@@ -31,35 +31,52 @@ function layerState(
 	return undefined;
 }
 
+/** Index (0 = Interface) of the deepest layer this chapter has lit, or -1 before the stack. */
+export function deepestReached(chapter: StoryChapterItem | undefined) {
+	if (!chapter) return -1;
+	let deepest = -1;
+	STORY_LAYERS.forEach((layer, index) => {
+		if (chapter.reached.includes(layer.id)) deepest = index;
+	});
+	return deepest;
+}
+
 /**
  * The one stack on the page: six planes, interface in front, release at the
  * back. Planes light cumulatively as chapters reach them (the ones the
- * current chapter names are pulled forward). A trace dot follows real scroll
- * progress down through the stack. Each reached plane is a link to the
- * chapter where that layer first appears.
+ * current chapter names are pulled forward). The trace dot rests on the
+ * deepest lit plane; each chapter change sends one pulse from the interface
+ * down to it. Each reached plane is a link to the chapter where that layer
+ * first appears.
  */
 function LayerStack({
 	chapters,
 	active,
 	onSelect,
-	trackRef,
 }: {
 	chapters: StoryChapterItem[];
 	active: StoryChapterItem | undefined;
 	onSelect: (id: string) => void;
-	trackRef: RefObject<HTMLElement | null>;
 }) {
-	const { scrollYProgress } = useScroll({ target: trackRef, offset: ["start 40%", "end 70%"] });
-	const y = useTransform(scrollYProgress, (value) => `${Math.min(1, Math.max(0, value)) * 100}%`);
 	const entries = layerEntries(chapters);
+	const deepest = deepestReached(active);
+	const depth = STORY_LAYERS.length > 1 ? deepest / (STORY_LAYERS.length - 1) : 0;
 
 	return (
 		<div className="sd-depth">
 			<div className="sd-depth-stack">
 				<span aria-hidden="true" className="sd-depth-line" />
-				<motion.span aria-hidden="true" className="sd-depth-dot-track" style={{ y }}>
-					<span className="sd-depth-dot" />
-				</motion.span>
+				{deepest >= 0 ? (
+					// Keyed by chapter so the pulse replays once per chapter change.
+					<span
+						key={active?.domId}
+						aria-hidden="true"
+						className="sd-depth-dot-track"
+						style={{ "--depth": depth } as CSSProperties}
+					>
+						<span className="sd-depth-dot" />
+					</span>
+				) : null}
 				<ol className="sd-depth-list" aria-label="Layers of the stack">
 					{entries.map((entry, index) => {
 						const state = layerState(active, entry.id);
@@ -122,12 +139,7 @@ function LayerStack({
  * top carries the depth; the chapter list under it is plain anchor links
  * (they work without JavaScript).
  */
-export function DepthRail({
-	chapters,
-	activeId,
-	onSelect,
-	trackRef,
-}: RailProps & { trackRef: RefObject<HTMLElement | null> }) {
+export function DepthRail({ chapters, activeId, onSelect }: RailProps) {
 	const { index: activeIndex, chapter: active } = activeChapter(chapters, activeId);
 	const progress = chapters.length > 0 ? ((activeIndex + 1) / chapters.length) * 100 : 0;
 
@@ -140,7 +152,7 @@ export function DepthRail({
 					<span className="text-muted-foreground"> / {chapters.at(-1)?.numeral ?? "00"}</span>
 				</span>
 			</div>
-			<LayerStack chapters={chapters} active={active} onSelect={onSelect} trackRef={trackRef} />
+			<LayerStack chapters={chapters} active={active} onSelect={onSelect} />
 			<ol className="sd-rail-list">
 				{chapters.map((chapter, index) => {
 					const isActive = chapter.domId === activeId;
@@ -154,12 +166,7 @@ export function DepthRail({
 								className="sd-rail-link"
 							>
 								<span className="sd-rail-num">{chapter.numeral}</span>
-								<span className="min-w-0">
-									<span className="sd-rail-title">{chapter.label}</span>
-									{chapter.eyebrow.trim() ? (
-										<span className="sd-rail-eyebrow">{chapter.eyebrow.trim()}</span>
-									) : null}
-								</span>
+								<span className="sd-rail-title min-w-0">{chapter.label}</span>
 							</a>
 						</li>
 					);
@@ -203,6 +210,7 @@ function MiniStack({ chapter }: { chapter: StoryChapterItem | undefined }) {
  * <details>, so it works without JS.
  */
 export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
+	const navRef = useRef<HTMLElement>(null);
 	const detailsRef = useRef<HTMLDetailsElement>(null);
 	const { index: activeIndex, chapter: active } = activeChapter(chapters, activeId);
 	const fill = chapters.length > 0 ? (activeIndex + 1) / chapters.length : 0;
@@ -216,8 +224,11 @@ export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
 		if (detailsRef.current) detailsRef.current.open = false;
 	}, [activeId]);
 
+	// Marks the bar while it is stuck so CSS can fade the page out above it.
+	useStuckAttribute(navRef);
+
 	return (
-		<nav className="sd-bar" aria-label="Story chapters">
+		<nav ref={navRef} className="sd-bar" aria-label="Story chapters">
 			<details ref={detailsRef} className="sd-bar-details group/bar">
 				<summary className="sd-bar-summary">
 					<span className="sd-bar-num" data-numeric="">

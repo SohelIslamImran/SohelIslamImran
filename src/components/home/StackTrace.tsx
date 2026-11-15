@@ -46,8 +46,9 @@ const STILL_PRINT_MS = 260;
  *   off-screen, and for good once the visitor picks a layer). "Send a
  *   request" plays it once, quickly, on demand. With reduced motion nothing
  *   travels; the lines print on a short beat instead.
- * - The stack tilts with the pointer and pulls apart on hover, on a sideways
- *   drag (touch too), or with the "Pull apart" control.
+ * - The stack tilts with the pointer and eases apart while the pointer is
+ *   over it or on a sideways drag (touch too). "Pull apart" pins it wider
+ *   still, with each layer's name written on its plane.
  * - Every label and panel is in the server HTML; with JS off or reduced
  *   motion it is a still, complete composition. Sizes never change.
  */
@@ -57,7 +58,10 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const [active, setActive] = useState(0);
 	const [autoplay, setAutoplay] = useState(true);
 	const [pinned, setPinned] = useState(false);
+	/** Mouse over the 3D scene: eases the stack apart. */
 	const [hovering, setHovering] = useState(false);
+	/** Mouse anywhere over the component: holds the tour while someone reads. */
+	const [pointerInside, setPointerInside] = useState(false);
 	const [focusWithin, setFocusWithin] = useState(false);
 	const [dragging, setDragging] = useState(false);
 	/** "tour" is the slow autoplay; "send" is one quick run the visitor asked for. */
@@ -211,8 +215,9 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			data-slot="stack-trace"
 			className={cn("st relative min-w-0", className)}
 			data-open={open ? "" : undefined}
+			data-pinned={pinned ? "" : undefined}
 			data-autoplay={running ? "" : undefined}
-			data-hold={(hovering || focusWithin) && !sending ? "" : undefined}
+			data-hold={(pointerInside || focusWithin) && !sending ? "" : undefined}
 			data-sending={sending ? "" : undefined}
 			data-landing={running && active === last ? "" : undefined}
 			data-first={running && active === 0 ? "" : undefined}
@@ -226,14 +231,21 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 				} as CSSProperties
 			}
 			onPointerEnter={(event) => {
-				if (event.pointerType === "mouse") setHovering(true);
+				if (event.pointerType === "mouse") setPointerInside(true);
 			}}
 			onPointerLeave={() => {
-				setHovering(false);
+				setPointerInside(false);
 				resetTilt();
+				// A mouse click leaves focus on a button without :focus-visible; don't let it hold the tour.
+				const focused = document.activeElement;
+				if (!(focused instanceof HTMLElement && focused.matches(":focus-visible")))
+					setFocusWithin(false);
 			}}
 			onPointerMove={onRootPointerMove}
-			onFocus={() => setFocusWithin(true)}
+			onFocus={(event) => {
+				if (event.target instanceof HTMLElement && event.target.matches(":focus-visible"))
+					setFocusWithin(true);
+			}}
 			onBlur={(event) => {
 				if (!event.currentTarget.contains(event.relatedTarget as Node | null))
 					setFocusWithin(false);
@@ -284,6 +296,10 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 				<div
 					className="st-scene"
 					aria-hidden="true"
+					onPointerEnter={(event) => {
+						if (event.pointerType === "mouse") setHovering(true);
+					}}
+					onPointerLeave={() => setHovering(false)}
 					onPointerDown={onScenePointerDown}
 					onPointerMove={onScenePointerMove}
 					onPointerUp={endDrag}
@@ -314,6 +330,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								}}
 							>
 								<span className="st-plane-index">{pad(index + 1)}</span>
+								<span className="st-plane-name">{layer.name}</span>
 								<svg viewBox="0 0 100 100" className="st-mini" focusable="false">
 									<LayerMini id={layer.id} />
 								</svg>

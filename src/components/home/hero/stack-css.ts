@@ -22,6 +22,8 @@ export const STACK_CSS = `
 }
 .st-body { --P: 31cqw; --g: 8.4; --L: 5; --rx: 57; --sin: 0.839; }
 .st[data-open] .st-body { --g: 11.6; }
+/* Pinned apart: a clearly wider spread than hover, on slightly smaller planes (--s) so it stays inside the scene. */
+.st[data-pinned] .st-body { --g: 14; --L: 3; --s: 0.76; }
 .st-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; min-width: 0; }
 .st-actions { display: flex; flex: none; align-items: center; gap: 8px; }
 .st-pull {
@@ -70,8 +72,9 @@ export const STACK_CSS = `
 	box-shadow: inset 0 1px 0 var(--theme-highlight);
 	color: var(--theme-muted); opacity: 0.66;
 	translate: 0 0 calc(((var(--mid) - var(--i)) * var(--g) + var(--up) * var(--L) * 0.5) * 1cqw);
+	scale: var(--s, 1);
 	transition:
-		translate 720ms var(--glide), opacity 420ms var(--ease), color 320ms var(--ease),
+		translate 720ms var(--glide), scale 720ms var(--glide), opacity 420ms var(--ease), color 320ms var(--ease),
 		border-color 320ms var(--ease), background-color 320ms var(--ease), box-shadow 320ms var(--ease);
 }
 /* Light paper washes the glass out: rest the planes ~1.5x stronger so all six read at once. */
@@ -99,15 +102,23 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	letter-spacing: 0.08em; font-variant-numeric: tabular-nums;
 }
 .st-mini { position: absolute; left: 21%; top: 21%; width: 58%; height: 58%; overflow: visible; }
+/* Pinned only: the layer's name on the plane's near edge, like the other tilted stacks on the site. */
+.st-plane-name {
+	position: absolute; left: 9%; bottom: 8%; max-width: 84%; overflow: hidden;
+	font-family: var(--font-mono); font-size: calc(var(--P) * 0.078); line-height: 1.2; letter-spacing: 0.06em;
+	text-transform: uppercase; white-space: nowrap; text-overflow: ellipsis;
+	opacity: 0; transition: opacity 360ms var(--ease);
+}
+.st[data-pinned] .st-plane-name { opacity: 1; transition-delay: 220ms; }
 
 .st-shadow {
 	position: absolute; left: calc(var(--P) * -0.46); top: calc(var(--P) * -0.46); width: calc(var(--P) * 0.92); height: calc(var(--P) * 0.92);
 	border-radius: calc(var(--P) * 0.2); pointer-events: none;
 	background: radial-gradient(closest-side, color-mix(in srgb, var(--theme-shadow-strong) 85%, transparent), transparent);
 	translate: 0 0 calc(((var(--mid) - var(--i)) * var(--g) + var(--up) * var(--L) * 0.5 - var(--g) * 0.5) * 1cqw);
-	opacity: 0.75; transition: translate 720ms var(--glide);
+	scale: var(--s, 1); opacity: 0.75; transition: translate 720ms var(--glide), scale 720ms var(--glide);
 }
-.st-shadow[data-floor] { scale: 1.25; opacity: 1; }
+.st-shadow[data-floor] { scale: calc(var(--s, 1) * 1.25); opacity: 1; }
 
 .st-wire {
 	position: absolute; left: -0.75px; top: 0; width: 1.5px; height: 1cqw; transform-origin: 50% 0; pointer-events: none;
@@ -212,6 +223,7 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	.st-scene { height: 84cqw; }
 	.st-body { --P: 46cqw; --g: 8.6; --L: 5.5; }
 	.st[data-open] .st-body { --g: 10.8; }
+	.st[data-pinned] .st-body { --g: 12.8; --L: 3; --s: 0.76; }
 	.st-head-sub { display: none; }
 	.st-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; height: auto; margin-top: 4px; }
 	.st-tab {

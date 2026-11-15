@@ -77,13 +77,13 @@ export function LinksFilter({
 					<ToggleGroupItem
 						key={kind}
 						value={kind}
-						className="relative isolate h-auto min-h-11 min-w-0 flex-1 basis-0 rounded-full border-0 bg-transparent !px-3.5 text-center text-[13px] font-medium text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-220 ease-route hover:bg-transparent hover:text-foreground focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring active:scale-[.98] aria-pressed:bg-transparent aria-pressed:text-primary-foreground data-[pressed]:bg-transparent data-[pressed]:text-primary-foreground max-[639px]:flex-auto max-[639px]:basis-auto max-[639px]:!px-2.5"
+						className="relative isolate h-auto min-h-11 min-w-0 flex-1 basis-0 rounded-full! border-0 bg-transparent !px-3.5 text-center text-[13px] font-medium text-muted-foreground transition-[color,transform,translate,scale,rotate] duration-220 ease-route hover:bg-transparent hover:text-foreground focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring active:scale-[.98] aria-pressed:bg-transparent aria-pressed:text-primary-foreground aria-pressed:shadow-none! data-[pressed]:bg-transparent data-[pressed]:text-primary-foreground max-[639px]:flex-auto max-[639px]:basis-auto max-[639px]:!px-2.5"
 						aria-controls="link-results"
 						onKeyDown={(event) => moveFocus(event, kinds.indexOf(kind))}
 					>
 						{value === kind ? (
 							<motion.span
-								className="pointer-events-none absolute inset-0 z-0 rounded-full bg-primary shadow-[0_8px_18px_var(--theme-accent-glow)]"
+								className="pointer-events-none absolute inset-0 -z-1 rounded-full bg-primary shadow-[0_8px_18px_var(--theme-accent-glow)]"
 								aria-hidden="true"
 								layoutId="links-filter-indicator"
 								transition={{ type: "spring", duration: 0.32, bounce: 0.06 }}

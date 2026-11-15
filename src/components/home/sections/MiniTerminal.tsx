@@ -311,7 +311,7 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 				</div>
 				<form
 					onSubmit={onSubmit}
-					className="focus-within:outline-2 focus-within:outline-solid focus-within:outline-ring focus-within:outline-offset-2 flex items-center gap-2 font-mono text-[12.5px]"
+					className="-mx-1.5 mt-1.5 flex items-center gap-2 rounded-md px-1.5 font-mono text-[12.5px] focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring focus-within:outline-solid"
 				>
 					<label htmlFor={inputId} className="text-primary-text">
 						<span aria-hidden="true">❯</span>

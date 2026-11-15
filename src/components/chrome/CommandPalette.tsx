@@ -36,6 +36,8 @@ import {
 	type TerminalContext,
 	type TerminalLineKind,
 } from "./terminal";
+import { terminalContextFromContent, withCurrentClock } from "./terminal-context";
+import { TerminalLineText } from "./TerminalLineText";
 import { toggleXray, XrayEasterEgg } from "./xray";
 import {
 	CheckIcon,
@@ -240,43 +242,15 @@ function CommandPalette({
 
 	const email = (content?.identity.email || content?.contact.email || "").trim();
 
-	const terminalContext = useMemo<TerminalContext>(() => {
-		const current = content?.experience.find((item) => item.current);
-		return {
-			name: content?.identity.name.trim() ?? "",
-			role: content?.identity.role.trim() ?? "",
-			location: content?.identity.location.trim() ?? "",
-			timeZone: content?.identity.timezone.trim() || "Asia/Dhaka",
-			availability: content?.identity.availability.trim() ?? "",
-			email,
-			now: current
-				? {
-						role: current.role.trim(),
-						company: current.company.trim(),
-						period: current.period.trim(),
-					}
-				: undefined,
-			projects: (content?.projects ?? []).map((project) => ({
-				slug: project.slug.trim(),
-				title: project.title.trim(),
-				summary: project.summary.trim(),
-			})),
-			links: (content?.profileLinks ?? [])
-				.filter((link) => link.href.trim() && !link.href.trim().startsWith("#"))
-				.map((link) => ({
-					id: link.id,
-					label: link.label.trim() || link.platform.trim(),
-					platform: link.platform.trim(),
-					href: link.href.trim(),
-				})),
-			theme: appearance.theme,
-			accent: appearance.accent,
-			accents: accentOptions.map(({ id, name }) => ({ id, name })),
-			// Replaced with the real clock at run time (never read during render).
-			date: new Date(0),
-			visitorOffsetMinutes: 0,
-		};
-	}, [appearance.accent, appearance.theme, content, email]);
+	const terminalContext = useMemo<TerminalContext>(
+		() =>
+			terminalContextFromContent(content, {
+				theme: appearance.theme,
+				accent: appearance.accent,
+				accents: accentOptions,
+			}),
+		[appearance.accent, appearance.theme, content],
+	);
 
 	const enterTerminal = useCallback((initial = "") => {
 		setMode("terminal");
@@ -306,12 +280,7 @@ function CommandPalette({
 			return;
 		}
 		history.current = [input, ...history.current.filter((item) => item !== input)].slice(0, 30);
-		const now = new Date();
-		const result = runTerminalCommand(input, {
-			...terminalContext,
-			date: now,
-			visitorOffsetMinutes: -now.getTimezoneOffset(),
-		});
+		const result = runTerminalCommand(input, withCurrentClock(terminalContext));
 		const printed = [
 			entry("cmd", input),
 			...result.lines.map((line) => ({
@@ -882,14 +851,7 @@ function CommandPalette({
 												❯{" "}
 											</span>
 											<span className="sr-only">Command: </span>
-											{line.description ? (
-												<span className="grid grid-cols-[auto_1fr] gap-x-4 max-[480px]:grid-cols-1">
-													<span>{line.text}</span>
-													<span>{line.description}</span>
-												</span>
-											) : (
-												line.text
-											)}
+											<TerminalLineText text={line.text} description={line.description} />
 										</p>
 									) : (
 										<p
@@ -902,14 +864,7 @@ function CommandPalette({
 												line.kind === "accent" && "text-primary-text",
 											)}
 										>
-											{line.description ? (
-												<span className="grid grid-cols-[auto_1fr] gap-x-4 max-[480px]:grid-cols-1">
-													<span>{line.text}</span>
-													<span>{line.description}</span>
-												</span>
-											) : (
-												line.text
-											)}
+											<TerminalLineText text={line.text} description={line.description} />
 										</p>
 									),
 								)}
@@ -960,7 +915,7 @@ function CommandPalette({
 								<div className="grid justify-items-center gap-1.5 px-6 py-12 text-center">
 									<p className="m-0 text-[15px] font-medium">No matches for “{trimmedQuery}”</p>
 									<p className="m-0 text-sm text-muted-foreground">
-										No matches yet. Try a shorter search, or type &gt; for the terminal.
+										Try a shorter search, or type &gt; for the terminal.
 									</p>
 								</div>
 							) : null}

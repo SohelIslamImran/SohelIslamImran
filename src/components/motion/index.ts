@@ -9,6 +9,7 @@ export {
 	useOffscreenPause,
 	usePointerFine,
 	usePrefersReducedMotion,
+	useStuckAttribute,
 } from "./hooks";
 export { LocalTime, useLocalTime, type LocalTimeState } from "./LocalTime";
 export { Magnetic } from "./Magnetic";

@@ -4,7 +4,7 @@ import { cn } from "../lib/utils";
 import { ArrowRightIcon, ExternalIcon } from "./chrome/icons";
 import { CountUp, SpotlightCard } from "./motion";
 import { buttonVariants } from "./ui/button";
-import { StatusBadge, Tag } from "./ui/portfolio";
+import { DatedLabel, StatusBadge, Tag } from "./ui/portfolio";
 import { LayerStrip, type LayerStripCaption } from "./work/LayerStrip";
 import { ProjectPoster } from "./work/ProjectPoster";
 import { primeWorkTransition } from "./work/view-transition";
@@ -110,7 +110,9 @@ function CardMetrics({ project, compact }: { project: ProjectContent; compact: b
 		return (
 			<p className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-2 text-caption text-muted-foreground">
 				<CountUp value={first.value} className="text-[15px] font-semibold text-foreground" />
-				<span className="min-w-0">{first.label}</span>
+				<span className="min-w-0">
+					<DatedLabel label={first.label} />
+				</span>
 			</p>
 		);
 	}
@@ -127,7 +129,7 @@ function CardMetrics({ project, compact }: { project: ProjectContent; compact: b
 					className="flex min-w-0 flex-col gap-1 max-[419px]:flex-row max-[419px]:items-baseline max-[419px]:gap-2"
 				>
 					<dt className="order-2 min-w-0 text-[12px] leading-[1.35] text-muted-foreground">
-						{metric.label}
+						<DatedLabel label={metric.label} />
 					</dt>
 					<dd className="order-1 m-0 text-[1.375rem] leading-none font-semibold tracking-[-0.03em] text-foreground">
 						<CountUp value={metric.value} />

@@ -175,7 +175,7 @@ export function ContactSection({
 						) : null}
 					</div>
 
-					<div className="flex min-w-0 flex-col border-t border-line pt-8 lg:mt-[calc(var(--text-mono-label,12px)+2.25rem)] lg:justify-between lg:border-t-0 lg:border-l lg:pt-0 lg:pl-[clamp(32px,4vw,56px)]">
+					<div className="flex min-w-0 flex-col justify-start gap-10 border-t border-line pt-8 lg:mt-[calc(var(--text-mono-label,12px)+2.25rem)] lg:border-t-0 lg:border-l lg:pt-0 lg:pl-[clamp(32px,4vw,56px)]">
 						<dl className="m-0 grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-1">
 							<div className="min-w-0">
 								<dt className="mono-label text-muted-foreground">{city} time</dt>
@@ -203,7 +203,7 @@ export function ContactSection({
 								</div>
 							) : null}
 						</dl>
-						<div className="mt-10 min-w-0">
+						<div className="min-w-0">
 							<MonoLabel className="block">Or reach me</MonoLabel>
 							<ul className="m-0 mt-2 grid list-none border-t border-line p-0">
 								{email ? (

@@ -220,8 +220,18 @@ export function ReleasePipeline({
 						<span className="text-foreground">{STATUS_TEXT[status]}</span>
 					</p>
 					<p className="m-0 min-w-0 pl-[18px] text-[14px] leading-snug text-muted-foreground">
-						<span className="font-mono text-[12.5px] text-primary-text">{release.to}</span>{" "}
-						{release.change}
+						{rolledBack ? <span className="text-foreground">Reverted: </span> : null}
+						<span className={cn(rolledBack && "line-through decoration-1 opacity-75")}>
+							<span
+								className={cn(
+									"font-mono text-[12.5px]",
+									rolledBack ? "text-muted-foreground" : "text-primary-text",
+								)}
+							>
+								{release.to}
+							</span>{" "}
+							{release.change}
+						</span>
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
@@ -248,7 +258,11 @@ export function ReleasePipeline({
 						className="pressable inline-flex min-h-11 items-center gap-2 rounded-full bg-primary px-5 text-[15px] font-medium text-primary-foreground transition-[scale,opacity,box-shadow] duration-200 disabled:opacity-60 pointer-fine:hover:shadow-accent"
 					>
 						<span aria-hidden="true">↑</span>
-						{status === "idle" ? "Ship a change" : "Ship again"}
+						{status === "idle"
+							? "Ship a change"
+							: rolledBack
+								? `Ship ${release.to} again`
+								: "Ship again"}
 					</button>
 				</div>
 			</div>

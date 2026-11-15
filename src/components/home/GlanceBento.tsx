@@ -8,7 +8,13 @@ import type {
 	TestimonialContent,
 } from "../../types/content";
 import { CopyButton, CountUp, LocalTime, Stagger, useLocalTime } from "@/components/motion";
-import { MonoLabel, Section, SectionHeading, StatusDot } from "@/components/ui/portfolio";
+import {
+	DatedLabel,
+	MonoLabel,
+	Section,
+	SectionHeading,
+	StatusDot,
+} from "@/components/ui/portfolio";
 import { groupExperienceByCompany } from "@/lib/experience";
 import { cn } from "@/lib/utils";
 import { ENGINEERING_PRINCIPLES } from "../EngineeringPrinciples";
@@ -167,6 +173,20 @@ function MetricTile({ metric, className }: { metric: MetricContent; className?: 
 	);
 }
 
+/** Inside the project's own tile, "npm downloads of expo-in-app-updates" reads as "npm downloads". */
+function withoutProjectName(label: string, project?: ProjectContent) {
+	if (!project) return label;
+	const names = [project.id, project.title]
+		.map((name) => name.trim())
+		.filter(Boolean)
+		.map((name) => name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"));
+	if (names.length === 0) return label;
+	return label.replace(
+		new RegExp(`\\s+(?:of|on|for)\\s+(?:${names.join("|")})(?=\\s|$)`, "iu"),
+		"",
+	);
+}
+
 function OpenSourceTile({
 	project,
 	metrics,
@@ -213,14 +233,14 @@ function OpenSourceTile({
 									<CountUp value={metric.value.trim() || "—"} />
 								</dd>
 								<dt className="mt-2 text-[13px] leading-[1.4] text-muted-foreground">
-									{metric.label.trim()}
+									<DatedLabel label={withoutProjectName(metric.label.trim(), project)} />
 								</dt>
 							</div>
 						))}
 					</dl>
 				) : null}
 				<div className="mt-6 flex min-w-0 items-center gap-2 rounded-[18px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] py-1 pr-1 pl-4">
-					<code className="min-w-0 flex-1 py-2 font-mono text-[13px] leading-[1.45] text-foreground [overflow-wrap:anywhere]">
+					<code className="min-w-0 flex-1 overflow-x-auto py-2 font-mono text-[13px] leading-[1.45] whitespace-nowrap text-foreground [scrollbar-width:thin]">
 						<span aria-hidden="true" className="mr-2 text-muted-foreground select-none">
 							$
 						</span>

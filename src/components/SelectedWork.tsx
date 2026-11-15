@@ -131,13 +131,13 @@ export function SelectedWork({
 							key={project.id}
 							data-deck-card=""
 							className={cn(
-								"relative min-w-0 origin-top [@media(min-width:1024px)_and_(min-height:760px)]:sticky",
+								"relative min-w-0 origin-top [@media(min-width:1024px)_and_(min-height:760px)]:sticky [@media(min-width:1024px)_and_(min-height:760px)]:top-[var(--deck-top)]",
 								"[scale:calc(1-var(--cover,0)*0.06)] motion-reduce:[scale:1]",
 								"after:pointer-events-none after:absolute after:inset-0 after:z-[4] after:rounded-card after:bg-paper after:opacity-[calc(var(--cover,0)*0.45)] after:content-['']",
 							)}
 							style={
 								{
-									top: `calc(var(--dock-space-top) + 28px + ${index * 18}px)`,
+									"--deck-top": `calc(var(--dock-space-top) + 28px + ${index * 18}px)`,
 								} as CSSProperties
 							}
 						>

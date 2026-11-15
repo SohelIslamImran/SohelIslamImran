@@ -203,9 +203,12 @@ export function SiteFooter() {
 							<button
 								type="button"
 								onClick={() => palette.open()}
-								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
+								className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-full whitespace-nowrap border-0 bg-transparent px-0 text-[14px] text-ink-soft outline-hidden hover:text-foreground focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring md:min-h-9"
 							>
-								<span>Search, or type</span>
+								<span>
+									<span className="max-lg:hidden">Search, or type</span>
+									<span className="lg:hidden">Type</span>
+								</span>
 								<Kbd>&gt;</Kbd>
 								<span>for a terminal</span>
 								<ArrowRightIcon className="size-4" />

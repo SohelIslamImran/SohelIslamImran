@@ -120,3 +120,37 @@ export function useEnterViewportOnce(
 		// `onEnter` is read once per mount on purpose; callers pass inline closures.
 	}, [ref, rootMargin, threshold]);
 }
+
+/**
+ * Sets `data-stuck` on a `position: sticky` element while it is pinned at its
+ * `top` offset, so CSS can paint a backdrop above it only while stuck.
+ */
+export function useStuckAttribute(ref: RefObject<HTMLElement | null>) {
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+		let frame = 0;
+		const update = () => {
+			frame = 0;
+			const style = getComputedStyle(element);
+			const top = Number.parseFloat(style.top);
+			const stuck =
+				style.position === "sticky" &&
+				Number.isFinite(top) &&
+				Math.abs(element.getBoundingClientRect().top - top) < 1 &&
+				window.scrollY > 0;
+			element.toggleAttribute("data-stuck", stuck);
+		};
+		const schedule = () => {
+			if (!frame) frame = window.requestAnimationFrame(update);
+		};
+		update();
+		window.addEventListener("scroll", schedule, { passive: true });
+		window.addEventListener("resize", schedule);
+		return () => {
+			window.cancelAnimationFrame(frame);
+			window.removeEventListener("scroll", schedule);
+			window.removeEventListener("resize", schedule);
+		};
+	}, [ref]);
+}

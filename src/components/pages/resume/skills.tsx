@@ -4,11 +4,13 @@ import {
 	useContext,
 	useMemo,
 	useId,
+	useRef,
 	useState,
 	type CSSProperties,
 	type KeyboardEvent,
 	type ReactNode,
 } from "react";
+import { useStuckAttribute } from "@/components/motion";
 import { cn } from "@/lib/utils";
 import {
 	eraAt,
@@ -205,6 +207,8 @@ function pluralize(count: number, word: string) {
 
 function Readout() {
 	const state = useSkills();
+	const slotRef = useRef<HTMLDivElement>(null);
+	useStuckAttribute(slotRef);
 	if (!state) return null;
 	const { active, pinned, index, clear } = state;
 	const uses = active ? (index.uses[active.name] ?? []) : [];
@@ -217,7 +221,7 @@ function Readout() {
 		// One line, always the same height, so the chips below never move. Wide
 		// screens keep it pinned under the dock while the chips scroll; on narrow
 		// screens an active readout floats above the dock, with jump links.
-		<div data-slot="resume-skill-readout-slot" className="min-w-0 print:hidden">
+		<div ref={slotRef} data-slot="resume-skill-readout-slot" className="min-w-0 print:hidden">
 			<div
 				data-slot="resume-skill-readout"
 				data-active={active ? "" : undefined}
@@ -230,7 +234,7 @@ function Readout() {
 								<strong className="font-semibold text-foreground">{active.name}</strong>{" "}
 								{targets.length
 									? `· ${[roles ? pluralize(roles, "role") : "", projects ? pluralize(projects, "project") : ""].filter(Boolean).join(", ")}`
-									: "· listed, not named in a role or project"}
+									: "· listed only"}
 							</p>
 						) : (
 							<p className="m-0 truncate text-small text-muted-foreground">

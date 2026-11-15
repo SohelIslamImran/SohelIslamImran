@@ -120,7 +120,9 @@ export function NavDock() {
 			<MenuIndicator
 				layoutId="dock-indicator"
 				className={cn(
-					"max-md:rounded-[18px]",
+					// Behind every label in the dock (the surface isolates), so the pill
+					// never paints over a link it passes on its way.
+					"-z-1! max-md:rounded-[18px]",
 					key === "home" && "md:hidden",
 					key === current
 						? "bg-[color-mix(in_srgb,var(--theme-surface-solid)_80%,transparent)] shadow-[0_1px_2px_var(--theme-shadow-soft),0_4px_14px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight),inset_0_0_0_0.5px_var(--theme-line-strong)] dark:bg-[color-mix(in_srgb,var(--theme-ink)_10%,transparent)]"
@@ -132,7 +134,7 @@ export function NavDock() {
 
 	const linkClassName = (key: DockKey) =>
 		cn(
-			"pressable group/link relative isolate flex min-h-11 min-w-0 items-center justify-center rounded-full whitespace-nowrap text-ink-soft no-underline [overflow-wrap:normal] outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-[current=page]:text-foreground",
+			"pressable group/link relative flex min-h-11 min-w-0 items-center justify-center rounded-full whitespace-nowrap text-ink-soft no-underline [overflow-wrap:normal] outline-hidden hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring aria-[current=page]:text-foreground",
 			"max-md:min-h-[52px] max-md:w-full max-md:flex-col max-md:gap-[3px] max-md:rounded-[18px] max-md:px-1",
 			"md:px-4 md:text-[14px] md:font-medium md:tracking-[-0.01em]",
 			key === current && "max-md:text-primary-text",
@@ -183,7 +185,7 @@ export function NavDock() {
 					event.currentTarget.style.setProperty("--dock-x", `${event.clientX - rect.left}px`);
 				}}
 				className={cn(
-					"glass relative flex items-center rounded-full p-1 transition-[box-shadow,background-color,scale,translate] duration-300 ease-trace",
+					"glass relative isolate flex items-center rounded-full p-1 transition-[box-shadow,background-color,scale,translate] duration-300 ease-trace",
 					"max-md:h-(--dock-height-mobile) max-md:gap-0.5 max-md:rounded-[24px] max-md:p-[5px]",
 					"max-md:group-data-[scroll-dir=down]/dock:translate-y-1 max-md:group-data-[scroll-dir=down]/dock:scale-[.96]",
 					"md:h-(--dock-height) md:gap-0.5",

@@ -285,7 +285,8 @@ export function CareerTimeline({
 																	</span>
 																	<span className="flex shrink-0 items-center gap-3">
 																		<CoreSample layers={layers} />
-																		<MonoLabel>
+																		{/* Fixed width so the core samples line up down the column. */}
+																		<MonoLabel className="tabular-nums whitespace-nowrap sm:min-w-[23ch] sm:text-right">
 																			<time dateTime={dateTimeFromPeriod(role.period)}>
 																				{role.period}
 																			</time>

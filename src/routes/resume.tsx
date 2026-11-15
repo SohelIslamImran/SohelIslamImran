@@ -244,7 +244,10 @@ function Resume() {
 											{item.external ? <span className="sr-only">, opens in a new tab</span> : null}
 										</a>
 										{position < all.length - 1 ? (
-											<span aria-hidden="true" className="pl-1 text-line-strong print:px-[1.2mm]">
+											<span
+												aria-hidden="true"
+												className="pl-1 text-line-strong max-sm:hidden print:inline print:px-[1.2mm]"
+											>
 												·
 											</span>
 										) : null}
