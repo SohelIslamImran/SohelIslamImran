@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { Link, createFileRoute, notFound } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { jsonLd, pageHead } from "../lib/seo";
@@ -213,8 +213,14 @@ function ProjectDetail({
 						</>
 					) : null}
 				</p>
-				<h1 className="m-0 max-w-[16ch] min-w-0 break-words text-display [overflow-wrap:anywhere]">
-					{title}
+				<h1 className="m-0 max-w-[16ch] min-w-0 text-display [overflow-wrap:break-word]">
+					{/* A domain-style title ("name.com") may only break before a dot. */}
+					{title.split(/(?=\.\S)/u).map((part, index) => (
+						<Fragment key={index}>
+							{index > 0 ? <wbr /> : null}
+							{part}
+						</Fragment>
+					))}
 				</h1>
 				{summary ? (
 					<p className="m-0 max-w-[40ch] text-lead text-ink-soft md:text-[1.5rem] md:leading-[1.4]">

@@ -307,9 +307,9 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 							<li
 								key={highlight}
 								className={cn(
-									"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[opacity,border-color,translate] duration-300 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
+									"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[background-color,border-color,translate] duration-300 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
 									lit && "border-primary-line motion-safe:translate-x-1",
-									dim && "opacity-45",
+									dim && "border-transparent bg-transparent",
 								)}
 							>
 								<span

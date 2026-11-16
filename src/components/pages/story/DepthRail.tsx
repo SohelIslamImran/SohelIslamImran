@@ -229,7 +229,17 @@ export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
 
 	return (
 		<nav ref={navRef} className="sd-bar" aria-label="Story chapters">
-			<details ref={detailsRef} className="sd-bar-details group/bar">
+			<details
+				ref={detailsRef}
+				className="sd-bar-details group/bar"
+				onKeyDown={(event) => {
+					const details = detailsRef.current;
+					if (event.key !== "Escape" || !details?.open) return;
+					event.preventDefault();
+					details.open = false;
+					details.querySelector("summary")?.focus();
+				}}
+			>
 				<summary className="sd-bar-summary">
 					<span className="sd-bar-num" data-numeric="">
 						{active?.numeral ?? "00"}

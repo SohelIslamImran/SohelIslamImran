@@ -101,7 +101,14 @@ export function NotFoundPrompt({
 				? [{ kind: "error", text: "No such route. Try open work." }]
 				: effect?.type === "exit"
 					? [{ kind: "muted", text: "Nothing to exit here. Try open home." }]
-					: result.lines;
+					: // The palette's help mentions search and exit, which this prompt lacks.
+						result.lines
+							.filter((item) => !("description" in item && item.text === "exit"))
+							.map((item) =>
+								item.text.startsWith("Plain words still search.")
+									? { ...item, text: "A bare destination works too: try work." }
+									: item,
+							);
 		print([{ kind: "cmd", text: line } as PromptEntry, ...lines]);
 		switch (effect?.type) {
 			case "navigate":

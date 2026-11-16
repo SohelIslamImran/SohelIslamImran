@@ -892,6 +892,8 @@ function CommandPalette({
 							id={listboxId}
 							role="listbox"
 							aria-label="Results"
+							// Scrollable regions are tabbable by default; arrows and Enter live on the input.
+							tabIndex={-1}
 							className="min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-py-2 p-2"
 						>
 							{grouped.map((section) => (

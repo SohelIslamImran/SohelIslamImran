@@ -2670,6 +2670,12 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 .sd-chapter {
 	padding-block: clamp(48px, 7vw, 104px);
 }
+/* Below the rail breakpoint the sticky chapter bar sits over the page top. */
+@media (max-width: 1023px) {
+	.sd-chapter[id] {
+		scroll-margin-top: calc(var(--dock-space-top) + 76px) !important;
+	}
+}
 .sd-chapter:first-child {
 	padding-top: 0;
 }
