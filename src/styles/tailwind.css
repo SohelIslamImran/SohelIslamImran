@@ -3448,16 +3448,14 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 		background: var(--theme-line-strong);
 	}
 
-	/* Skill highlight: matches glow softly, everything else steps back. */
+	/* Skill highlight: matches glow softly. Everything else keeps full text
+	   contrast; fading it would drop body text below AA. */
 	[data-page="resume"] [data-slot="resume-entry"],
 	[data-page="resume"] [data-slot="resume-side-entry"] {
 		transition:
 			opacity 260ms var(--theme-ease),
 			background-color 260ms var(--theme-ease),
 			box-shadow 260ms var(--theme-ease);
-	}
-	[data-page="resume"] [data-skill-state="dim"] {
-		opacity: 0.4;
 	}
 	[data-page="resume"] [data-skill-state="match"] {
 		background: color-mix(in srgb, var(--theme-accent) 6%, transparent);
@@ -3501,9 +3499,6 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	[data-slot="resume-skill"] > button[data-later] {
 		border-style: dashed;
 		color: var(--theme-muted);
-	}
-	[data-slot="resume-skill"] > button[data-later]:not([aria-pressed="true"]) {
-		opacity: 0.5;
 	}
 	[data-slot="resume-skill-layer"] h3 {
 		transition: color 260ms var(--theme-ease);
@@ -3603,11 +3598,12 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 		}
 	}
 	/* Roles and projects against the chosen year. */
+	/* Not yet started at the chosen year: a dashed frame, like the dashed
+	   skills above, with the text left at full contrast. */
 	[data-page="resume"] [data-era="later"] {
-		opacity: 0.32;
-	}
-	[data-page="resume"] [data-era="past"] {
-		opacity: 0.62;
+		border-radius: 6px;
+		outline: 1px dashed var(--theme-line-strong);
+		outline-offset: 11px;
 	}
 	[data-page="resume"] [data-era="now"]:not([data-skill-state]) {
 		background: color-mix(in srgb, var(--theme-accent) 5%, transparent);
