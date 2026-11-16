@@ -204,7 +204,7 @@ function Resume() {
 						<p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">{summary}</p>
 						<ul
 							data-slot="resume-contact"
-							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small"
+							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small print:gap-x-[3.6mm]"
 						>
 							{[
 								email
@@ -246,7 +246,7 @@ function Resume() {
 										{position < all.length - 1 ? (
 											<span
 												aria-hidden="true"
-												className="pl-1 text-line-strong max-sm:hidden print:inline print:px-[1.2mm]"
+												className="pl-1 text-line-strong max-sm:hidden print:hidden"
 											>
 												·
 											</span>

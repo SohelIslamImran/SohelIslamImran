@@ -62,6 +62,8 @@ export function NotFoundPrompt({
 	useEffect(() => {
 		const element = outputRef.current;
 		if (element) element.scrollTop = element.scrollHeight;
+		// The card grows with its first output; keep the field in view.
+		if (output.length > 0) inputRef.current?.scrollIntoView({ block: "nearest" });
 	}, [output]);
 
 	const print = (lines: readonly (TerminalLine | PromptEntry)[]) =>
@@ -168,7 +170,7 @@ export function NotFoundPrompt({
 				aria-live="polite"
 				aria-label="Prompt output"
 				className={cn(
-					"max-h-[11.9em] overflow-y-auto overscroll-contain [overflow-wrap:anywhere]",
+					"max-h-[11.9em] overflow-y-auto lg:max-h-[6.6em] overscroll-contain [overflow-wrap:anywhere]",
 					output.length > 0 && "mt-1",
 				)}
 			>
