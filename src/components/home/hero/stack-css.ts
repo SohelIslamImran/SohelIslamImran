@@ -227,6 +227,8 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	/* The planes sit closer here, so each name would cross the drawing below it. */
 	.st-mini { transition: opacity 260ms var(--theme-ease); }
 	.st[data-pinned] .st-plane:not([data-active]) .st-mini { opacity: 0.22; }
+	/* The plane just above the active one would write its name across the lit drawing. */
+	.st[data-pinned] .st-plane:has(+ .st-plane[data-active]) .st-plane-name { opacity: 0.3; }
 	.st-head-sub { display: none; }
 	.st-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; height: auto; margin-top: 4px; }
 	.st-tab {

@@ -130,7 +130,15 @@ function plural(count: number, word: string) {
 function layerEvidence(layer: AnatomyLayer) {
 	if (!layer.touched) return "Not described here";
 	if (layer.notes.length > 0) return plural(layer.notes.length, "highlight");
-	if (layer.tags.length > 0) return `Built with ${layer.tags[0]}`;
+	if (layer.tags.length > 0) {
+		// On the narrowest phones the tool name alone keeps the label to two lines.
+		return (
+			<>
+				<span className="max-[359px]:hidden">Built with </span>
+				{layer.tags[0]}
+			</>
+		);
+	}
 	return "In the overview";
 }
 
