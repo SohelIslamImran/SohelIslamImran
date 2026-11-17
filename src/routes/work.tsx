@@ -13,7 +13,8 @@ export const Route = createFileRoute("/work")({
 	head: ({ loaderData }) => {
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
-		const description = `Products, open-source tools, and experiments by ${name}.`;
+		const description =
+			"Products I've worked on, open-source tools I maintain, and smaller experiments.";
 		return pageHead(c, `${name} — Work`, description, "/work", "/images/social-work.png", [
 			{
 				"@context": "https://schema.org",
@@ -44,8 +45,8 @@ function Work() {
 		<PageShell data-page="work">
 			<PageHeader
 				eyebrow="Work"
-				title="Products, tools, and questions worth exploring."
-				description="Here is what I have built, helped ship, and tried along the way."
+				title="Shipped, maintained, and still experimenting."
+				description="Open any project to see what it does and the part I played."
 			/>
 			<WorkIndex
 				projects={content.projects}

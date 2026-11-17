@@ -38,7 +38,7 @@ timeline
 
 ## Pre-career learning
 
-- 2020: passed SSC from a small school, by self-report.
+- 2020: passed SSC from a small school, by self-report. Sohel confirmed on 2026-11-17 that he sat the SSC exams in Dhaka.
 - November 2020: began using his first computer and chose web development.
 - December 2020: enrolled in Programming Hero's six-month web-development course.
 - January to April 2021: the restricted 2021 resume lists the Programming Hero course in this period. LinkedIn records the certificate in April 2021.

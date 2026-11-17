@@ -125,7 +125,7 @@ export function MiniTerminal({ facts, className }: { facts: TerminalFacts; class
 				print(echo, line("out", COMMANDS.join("   ")));
 				return;
 			case "whoami":
-				print(echo, line("out", `${facts.name} · ${facts.role}`), line("muted", facts.location));
+				print(echo, line("out", `${facts.name} · ${facts.role}`));
 				return;
 			case "now":
 				print(echo, line("out", facts.now || facts.role));

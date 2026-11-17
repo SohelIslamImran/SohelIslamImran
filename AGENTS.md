@@ -13,6 +13,21 @@ full-document SSR, streaming, and a Cloudflare Workers runtime.
 - Use Bun as the canonical package manager and keep `bun.lock` in sync with
   exact dependency versions.
 
+## Copy
+
+- Location is a fact, not a selling point. Never describe Sohel as "based in
+  Dhaka", "Dhaka-based", "an engineer in Dhaka", or "from Bangladesh" to
+  introduce or position him. Keep the city and country out of headlines,
+  eyebrows, taglines, role lines, bio openings, page titles, meta descriptions,
+  project copy, and the README intro.
+- Mention Dhaka or Bangladesh only where the passage is about his origin or
+  where he lives (the story of how he started, a sentence such as "I live in
+  Dhaka and work remotely"), or where a reader needs it as plain logistics: a
+  résumé location field, a time zone, or a local-time clock. In those places
+  state it without framing it as part of his professional identity.
+- The same rule applies to any profile, bio, résumé, or social copy written
+  from `docs/sohel-profile/`.
+
 ## Animation
 
 - Tailwind v4 `translate-*`, `scale-*`, and `rotate-*` utilities emit the CSS

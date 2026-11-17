@@ -10,7 +10,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	site: {
 		title: "Sohel Islam Imran — Lead Full Stack Engineer",
 		description:
-			"I am Sohel, a full-stack engineer in Dhaka. I build products through every layer, from the interface people use to the services, data, and releases behind it.",
+			"I'm Sohel, a lead full-stack engineer at Kuno. I build product features from interface to release, and I created the open-source expo-in-app-updates module.",
 		url: "https://sohelislamimran.com",
 		locale: "en",
 		theme: "systems-atlas",
@@ -26,12 +26,12 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		avatar: null,
 	},
 	hero: {
-		eyebrow: "Lead Full Stack Engineer · Dhaka",
+		eyebrow: "Lead Full Stack Engineer",
 		title: "I build every layer of a product, from interface to release.",
 		intro:
-			"I'm Sohel, a lead full-stack engineer at Kuno. I take a feature the whole way: the interface people use, the API, the data, the access rules, the cloud, and the release.",
+			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform, and I created expo-in-app-updates, an open-source module that lets Expo apps prompt people to update.",
 		actions: [
-			{ label: "See selected work", href: "/work" },
+			{ label: "See my work", href: "/work" },
 			{ label: "Email me", href: "mailto:sohelislamimran@gmail.com", external: true },
 		],
 		metrics: [
@@ -44,12 +44,12 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	about: {
 		title: "Self-taught, and still curious about the layer below.",
 		paragraphs: [
-			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production React Native app. Since then I have kept going one layer deeper: from interfaces, to the services behind them, to the infrastructure and releases that get them to people.",
-			"What I care about most is where the layers meet. If the interface shows a rule, the server should enforce it. A release should be easy to roll back. The next engineer should be able to see why something works. That is the engineering I try to do, and what I try to help my teammates do.",
+			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production React Native app. Since then I've kept going one layer deeper, from mobile screens at Tilleli to the services, access rules, and releases behind Kuno.",
+			"Most of my attention goes to where the layers meet. If the interface shows a rule, the server should enforce it. A release should be easy to roll back. The next engineer should be able to see why something works. I hold my own work to that, and I help my teammates do the same.",
 		],
 		facts: [
-			{ value: "Dhaka", label: "home base" },
-			{ value: "UTC+6", label: "timezone" },
+			{ value: "2020", label: "first line of code" },
+			{ value: "UTC+6", label: "time zone" },
 		],
 	},
 	experience: [
@@ -60,12 +60,12 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			period: "Mar 2026 — present",
 			location: "Remote",
 			summary:
-				"I lead full-stack work on Kuno's B2B learning platform, connecting what people see to the services, data, and releases behind it.",
+				"I build features across the product and help shape its architecture, security boundaries, testing, and release process.",
 			highlights: [
-				"Build across React and TanStack interfaces, Elysia services on Bun, and PostgreSQL data.",
-				"Work on permissions, trust between services, and privacy rules in the API and the database.",
-				"Help shape how we ship: Terraform deployment identity, CI checks, rollback safeguards, and release tools.",
-				"Grow our automated tests: Bun unit suites, API contract checks, route probes, and Playwright flows.",
+				"Build learner, company, and admin workflows across React and TanStack interfaces, Elysia services on Bun, and PostgreSQL.",
+				"Strengthen permissions, trust between services, and privacy rules in the API and the database.",
+				"Contribute to how we ship: Terraform deployment identity, CI checks, rollback safeguards, and release tools.",
+				"Expand automated test coverage with Bun unit suites, API contract checks, route probes, and Playwright flows.",
 			],
 			technologies: [
 				"TypeScript",
@@ -87,7 +87,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			summary:
 				"I moved from mobile into the whole product: learning workflows, services, data models, and company sign-in.",
 			highlights: [
-				"Worked on onboarding, diagnostic pathways, competency frameworks, and peer matching across the UI, API, and database.",
+				"Worked on onboarding, learning pathways, competency data, and peer matching across the UI, API, and database.",
 				"Implemented company sign-in, account linking, and role-based access for organizations that share one platform.",
 				"Delivered English and French across the apps, server-generated documents, and error messages.",
 			],
@@ -112,7 +112,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "React Native Developer",
 			period: "2021 — Jan 2024",
 			summary:
-				"I joined as an intern in 2021 and stayed for nearly three years of React Native product work.",
+				"I started as an intern and became responsible for Tilleli's React Native events app.",
 			highlights: [
 				"Connected the app to Firebase: sign-in, Firestore, Cloud Functions, Storage, and analytics.",
 				"Added Stripe and RevenueCat payments, Algolia search, Google Maps and Places, and real-time messaging.",
@@ -126,9 +126,9 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			role: "Frontend Developer",
 			period: "Jul 2021 — Sep 2021",
 			summary:
-				"A short role building web apps and admin dashboards from Figma designs with React and REST APIs.",
+				"I spent three months turning Figma designs into a React web app backed by REST APIs.",
 			highlights: [
-				"Built the Future Track Learning platform and its admin portal, including analytics charts.",
+				"Built the frontend and admin dashboard for Future Track Learning, including analytics charts.",
 			],
 			technologies: ["React", "JavaScript", "Sass", "Bootstrap"],
 		},
@@ -139,18 +139,18 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			title: "Kuno",
 			slug: "kuno",
 			summary:
-				"A learning platform that helps people grow at work through guided learning and peer conversations.",
+				"A B2B learning platform where people build workplace skills through guided peer conversations.",
 			description:
-				"Kuno helps people grow at work with diagnostics, guided conversations, learning pathways, and progress feedback. I work on the product experience and on the services, data, and release paths behind it.",
-			year: "2023 — now",
-			role: "Lead Full Stack Engineer",
+				"Kuno helps companies, education providers, and communities run professional development through diagnostics, learning pathways, peer matching, and guided conversations. I joined on the mobile app in late 2023 and now lead full-stack work on the product, its access rules, and its releases.",
+			year: "2023 — present",
+			role: "Mobile, then full-stack, now lead engineer",
 			status: "Current role",
 			tags: ["TypeScript", "React", "TanStack", "Bun", "Elysia", "PostgreSQL", "AWS"],
 			category: "product",
 			highlights: [
 				"Connected onboarding, learning pathways, matching, and company workflows across the UI, API, and database.",
-				"Worked on role-based access, trust between services, and privacy-aware data handling.",
-				"Supported English and French output, company sign-in, and account linking.",
+				"Strengthened role-based access, trust between services, and privacy-aware data handling.",
+				"Implemented company sign-in and account linking, and added English and French support across the apps.",
 				"Contributed to Terraform deployment identity, release coordination, rollback safeguards, and Playwright tests.",
 			],
 			href: "https://www.kuno-ai.com/",
@@ -163,8 +163,8 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			summary:
 				"An open-source module that lets Expo apps prompt for updates on Android and iOS through one API.",
 			description:
-				"Android and iOS handle in-app updates in completely different ways. I designed one small TypeScript API over Google Play Core, the iTunes Search API, and the App Store. I maintain the native modules, events, examples, and release tooling.",
-			year: "2024 — now",
+				"Android has a built-in update flow through Google Play Core. iOS has none, so an app has to check its App Store version and send people to the store. I designed one small TypeScript API over both, and I maintain the Kotlin and Swift modules, events, examples, and release tooling.",
+			year: "2024 — present",
 			role: "Creator and maintainer",
 			status: "Active · v0.12.0",
 			tags: ["Expo", "React Native", "Kotlin", "Swift", "Android Play Core"],
@@ -187,9 +187,10 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "tilleli",
 			title: "Tilleli",
 			slug: "tilleli",
-			summary: "An events app that helps people find events, buy tickets, and connect with others.",
+			summary:
+				"A social app for finding nearby events, buying tickets, and connecting with other attendees.",
 			description:
-				"Tilleli put event discovery, local search, tickets, payments, and social features into one React Native and Expo app. I joined in 2021 and worked on Firebase integrations, third-party services, and app store releases.",
+				"Discovery, tickets, payments, maps, and chat all had to work in one React Native and Expo app, on both iOS and Android. I joined as an intern in 2021 and stayed nearly three years, by the end responsible for the mobile app and its store releases.",
 			year: "2021 — Jan 2024",
 			role: "React Native Developer",
 			status: "Shipped to production",
@@ -209,14 +210,14 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			summary:
 				"This site: a fast portfolio with a private editor where I draft and publish updates.",
 			description:
-				"I rebuilt this site with TanStack Start and server rendering on Cloudflare Workers. Content is typed and saved as revisions in D1. Visitors only ever read the published version, and drafts stay behind an owner-only editor.",
+				"I rebuilt this site with TanStack Start and server rendering on Cloudflare Workers. Visitors only ever read the published version, and drafts stay behind an owner-only editor.",
 			year: "2026",
 			role: "Creator and maintainer",
 			status: "Live",
 			tags: ["TanStack Start", "Cloudflare Workers", "D1", "React 19"],
 			category: "open-source",
 			highlights: [
-				"Kept public reads separate from draft and publish actions, with revisioned content in D1.",
+				"Implemented typed content, D1 migrations, and draft and publish revisions.",
 				"Protected the editor with Cloudflare Access token checks, an owner allowlist, origin checks, and CSRF tokens.",
 				"Added reduced-motion support, a print-ready résumé, RSS, and a sitemap.",
 			],
@@ -227,19 +228,18 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "ghosttime",
 			title: "ghosttime",
 			slug: "ghosttime",
-			summary:
-				"A command-line tool for people who want the Ghostty startup animation in their terminal.",
+			summary: "Ghostty's startup animation, recreated as a command you run in your own terminal.",
 			description:
-				"I recreated the Ghostty startup animation as a Node and Bun command-line tool. It needs no extra packages. Users can change the colors and timing, and it pauses when the terminal loses focus.",
-			year: "2025 — now",
+				"It runs on Node and Bun with no dependencies. You can pick the colors and timing, and it pauses when the terminal loses focus, then resumes when you come back.",
+			year: "2025 — present",
 			role: "Creator and maintainer",
 			status: "Maintained",
 			tags: ["TypeScript", "CLI", "npm"],
 			category: "experiment",
 			metrics: [{ value: "87", label: "GitHub stars · Oct 27, 2026" }],
 			highlights: [
-				"Render terminal animation frames with low CPU use.",
-				"Pause the animation when the terminal loses focus and resume when it returns.",
+				"Built an efficient frame renderer for the terminal animation.",
+				"Paused the animation when the terminal loses focus, and resumed it when focus returns.",
 			],
 			href: "https://www.npmjs.com/package/ghosttime",
 			repository: "https://github.com/SohelIslamImran/ghosttime",
@@ -249,17 +249,17 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			title: "TailSync",
 			slug: "tailsync",
 			summary:
-				"An experimental iPhone app for people who want to send files to their devices through Tailscale.",
+				"A personal experiment that sends photos and files from an iPhone to my other devices over Tailscale.",
 			description:
-				"Sending files to several devices needs careful tracking. I built a Swift app around Taildrop that checks each destination and retries failed sends. It only deletes an original after every enabled destination confirms delivery.",
+				"I built it for my own use, not as a product. It sends files through Taildrop, checks each destination, and retries failed sends. Automatic deletion is off by default. When it is on, an original is deleted only after every enabled destination confirms delivery.",
 			year: "2026",
 			role: "Creator",
 			status: "Experimental",
 			tags: ["Swift", "iOS", "Tailscale", "PhotoKit"],
 			category: "experiment",
 			highlights: [
-				"Send files directly between devices through Tailscale’s local PeerAPI.",
-				"Check destinations and avoid sending the same file twice.",
+				"Sent files directly between devices through Tailscale's local PeerAPI.",
+				"Recorded delivery per device, so the same file is never sent twice.",
 			],
 			repository: "https://github.com/SohelIslamImran/TailSync",
 		},
@@ -267,18 +267,17 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "android-mac-display",
 			title: "Android Mac Display",
 			slug: "android-mac-display",
-			summary:
-				"A prototype for people who want to view a Mac screen on an Android device over USB.",
+			summary: "A prototype that mirrors a Mac screen to an Android phone over a USB cable.",
 			description:
-				"I explored sending a Mac screen to Android over USB, without a network or account. The Mac app captures video and the Android app plays it back. I built this prototype with an AI agent to explore what that approach could do.",
+				"The Mac app captures the screen and encodes it as H.264, and the Android app decodes and plays it. The video travels over the USB cable, with no network in between. I built it with Antigravity, an AI coding agent, to see how far that approach could go.",
 			year: "2025 — 2026",
 			role: "Creator",
 			status: "Prototype",
 			tags: ["Swift", "Kotlin", "ScreenCaptureKit", "ADB"],
 			category: "experiment",
 			highlights: [
-				"Capture the Mac screen with ScreenCaptureKit and stream H.264 video over USB.",
-				"Set up ADB port forwarding automatically without an external network.",
+				"Captured the Mac screen with ScreenCaptureKit and streamed it as H.264 video over USB.",
+				"Automated ADB port forwarding, so the stream needs no external network.",
 			],
 			repository: "https://github.com/SohelIslamImran/AndroidMacDisplay",
 		},
@@ -287,24 +286,23 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			title: "expo-import-cost",
 			slug: "expo-import-cost",
 			summary:
-				"An experimental VS Code tool that helps Expo developers see how much each import adds to their app.",
+				"A VS Code experiment that shows the size of each imported package and file, inline.",
 			description:
-				"Package size does not tell you how much an import adds to an app. I built a VS Code extension that reads Expo Atlas build output and shows the cost beside each import. It is still unstable and remains an experiment.",
+				"A side experiment, not a finished tool. It reads the sizes from Expo Atlas output. It is unstable, and I never took it past this stage.",
 			year: "2024",
 			role: "Creator",
 			status: "Experimental",
 			tags: ["VS Code", "Expo Atlas", "TypeScript"],
 			category: "experiment",
-			highlights: ["Measure each import from Expo Atlas build output."],
+			highlights: ["Showed imported package and file sizes inline, from Expo Atlas output."],
 			repository: "https://github.com/SohelIslamImran/expo-import-cost",
 		},
 	],
 	capabilities: [
 		{
 			id: "product",
-			title: "Features from interface to server",
-			description:
-				"I build the interface, the service behind it, and the data it needs. I keep those parts working together.",
+			title: "Full-stack product features",
+			description: "I build the interface, the service behind it, and the data it needs.",
 			tools: [
 				"TypeScript",
 				"React",
@@ -320,28 +318,26 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "access",
 			title: "Access rules that hold up",
 			description:
-				"I work on sign-in, permissions, and rules that keep each organization’s data separate.",
+				"I work on sign-in, permissions, and rules that keep each organization's data separate.",
 			tools: [
 				"Better Auth",
-				"Role-Aware RBAC",
+				"Role-based access (RBAC)",
 				"OIDC / SSO",
-				"Webhook Cryptography",
-				"Data Isolation",
+				"Webhook trust",
+				"Data isolation",
 			],
 		},
 		{
-			id: "delivery",
-			title: "Getting changes into production",
-			description:
-				"I help teams release changes with AWS, Terraform, automated checks, and a clear way to roll back.",
-			tools: ["Terraform", "AWS", "GitHub Actions", "Docker", "Playwright", "Bun Test", "EAS"],
+			id: "mobile",
+			title: "Mobile apps, down to native code",
+			description: "When a product needs an app, I build it with React Native and Expo.",
+			tools: ["React Native", "Expo", "EAS", "Kotlin", "Swift", "Android Play Core", "Firebase"],
 		},
 		{
-			id: "mobile",
-			title: "Native code when the web is not enough",
-			description:
-				"When a product needs an app, I build it with React Native and Expo. When a feature needs direct access to Android or iOS, I write Kotlin or Swift.",
-			tools: ["React Native", "Expo", "EAS", "Kotlin", "Swift", "Android Play Core", "Firebase"],
+			id: "delivery",
+			title: "Releases with a way back",
+			description: "I help get each change from code review to production on AWS.",
+			tools: ["Terraform", "AWS", "GitHub Actions", "Docker", "Playwright", "Bun Test", "EAS"],
 		},
 	],
 	testimonials: [
@@ -350,7 +346,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			quote: "The most creative and capable developer we had.",
 			author: "Gary Zlobinskiy",
 			role: "Client, Tilleli",
-			date: "November 2022",
+			date: "Nov 2022",
 			href: "https://www.linkedin.com/in/sohelislamimran/details/recommendations/",
 		},
 	],
@@ -359,13 +355,13 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "programming-hero",
 			title: "Complete Web Development Course",
 			issuer: "Programming Hero",
-			issuedAt: "April 2021",
+			issuedAt: "Apr 2021",
 		},
 		{
 			id: "zero-to-mastery",
-			title: "Complete React Native Developer",
+			title: "Complete React Native",
 			issuer: "Zero To Mastery",
-			issuedAt: "June 2021",
+			issuedAt: "Jun 2021",
 		},
 	],
 	writing: [
@@ -381,9 +377,9 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		},
 	],
 	contact: {
-		title: "Let's talk about the problem.",
+		title: "What are you building?",
 		intro:
-			"Tell me what you are building and where you are stuck. I enjoy full-stack product work, developer tools, and work that continues after launch.",
+			"Tell me about it and where it's stuck. I enjoy full-stack product work, developer tools, and software that needs care long after launch.",
 		email: "sohelislamimran@gmail.com",
 		links: [
 			{ label: "GitHub", href: "https://github.com/SohelIslamImran", external: true },
@@ -470,7 +466,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			label: "SohelIslamImran",
 			href: "https://github.com/SohelIslamImran",
 			handle: "SohelIslamImran",
-			description: "My open-source packages, native modules, and current code.",
+			description: "Source for expo-in-app-updates, ghosttime, and this site.",
 			kind: "work",
 			featured: true,
 		},
@@ -517,7 +513,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			platform: "Stack Overflow",
 			label: "Sohel Islam Imran",
 			href: "https://stackoverflow.com/users/17672428/sohel-islam-imran",
-			description: "1,707 reputation and 280,000 people reached · Sep 3, 2026.",
+			description: "Answers on React Native, Firebase, and Expo. 280k people reached · Sep 3, 2026",
 			kind: "work",
 		},
 		{
@@ -586,7 +582,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		{
 			id: "career-story",
 			platform: "Story",
-			label: "From First Computer to Lead Engineer",
+			label: "From first computer to lead engineer",
 			href: "/story",
 			description: "How I went from learning on a phone to leading full-stack work.",
 			kind: "story",
@@ -606,13 +602,13 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		href: "/resume",
 		updatedAt: "2026-10-27",
 		summary:
-			"I am a Lead Full Stack Engineer at Kuno. I build product features through every layer: interfaces, services, data, permissions, and releases.",
+			"At Kuno, a B2B learning platform, I went from mobile developer to lead full-stack engineer in just over two years. Before that I spent nearly three years as a React Native developer at Tilleli, a US events startup. I also created and maintain expo-in-app-updates, an open-source Expo module.",
 	},
 	story: {
 		eyebrow: "My story",
 		title: "From first computer to lead engineer.",
 		intro:
-			"I started learning web development in late 2020, first on a phone, then on my family's first computer. One course and a habit of rebuilding every example led to an internship. The internship led to product work across mobile, backend, and infrastructure.",
+			"I started learning web development on a phone in late 2020. Today I lead full-stack work at Kuno. This is what happened in between.",
 		quote:
 			"I watched each lesson twice: once to understand it, then again with the inputs changed until I could explain why it worked.",
 		chapters: [
@@ -621,20 +617,20 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				eyebrow: "2020 · Foundations",
 				title: "Starting with a phone.",
 				paragraphs: [
-					"I finished my SSC exams in Dhaka in 2020. We did not own a computer, so I started reading about web development on a phone.",
+					"I finished secondary school in Dhaka in 2020, after my SSC exams. We did not own a computer, so I started reading about web development on a phone.",
 					"My first goal was practical. Build small things, understand why they work, and find out whether software was worth committing to.",
 				],
-				artifact: "It started with a phone, a question, and a little free time.",
+				artifact: "I didn't wait for a computer to start.",
 			},
 			{
 				id: "01",
-				eyebrow: "November–December 2020",
+				eyebrow: "Nov — Dec 2020",
 				title: "Choosing a direction.",
 				paragraphs: [
-					"In November 2020 my family bought our first computer. I chose web development because it was the most direct way to turn an idea into something people could use.",
-					"That December I enrolled in Programming Hero's course and settled into a rhythm: watch, rebuild, change the inputs, look for what breaks.",
+					"In November 2020 my family used its savings to buy our first computer. I chose web development because it was the most direct way to turn an idea into something people could use.",
+					"That December I enrolled in Programming Hero's six-month web development course and settled into a routine.",
 				],
-				artifact: "My learning loop: understand, rebuild, test, explain.",
+				artifact: "That was when I decided software was worth committing to.",
 			},
 			{
 				id: "02",
@@ -642,24 +638,24 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				title: "Learning by changing the inputs.",
 				paragraphs: [
 					"I had never programmed before. So I rebuilt each lesson with different data, different requirements, and odd edge cases until I understood why it behaved the way it did.",
-					"Answering questions in the course communities taught me to read unfamiliar code, trace an error, and explain a fix in plain language. Those conversations also led to my first professional opportunity.",
+					"Answering questions in the course communities taught me to read unfamiliar code, trace an error, and explain a fix in plain language.",
 				],
 				artifact: "Repetition only helped once I changed the examples.",
 			},
 			{
 				id: "03",
-				eyebrow: "2021–Jan 2024 · Tilleli",
+				eyebrow: "2021 — Jan 2024 · Tilleli",
 				title: "A small team, a real codebase.",
 				paragraphs: [
-					"In 2021 a referral from that community led to an unpaid React Native internship at Tilleli, a US events startup. For the first time I was inside a real codebase and a real product conversation.",
-					"I also took a short role at Bugfixers from July to September 2021 while Tilleli continued. At Tilleli my work grew from app interfaces to Firebase services, integrations, and app store releases, and I stayed responsible for the mobile app through January 2024.",
+					"In 2021 a referral from that community led to an unpaid React Native internship at Tilleli, a US events startup. For the first time I was working in a production app and taking part in product conversations.",
+					"Because the internship was unpaid, I also took a short paid frontend role at Bugfixers from July to September 2021. At Tilleli my work grew from app screens to Firebase services, payment and search integrations, and app store releases. I stayed responsible for the mobile app until January 2024.",
 				],
 				artifact: "Ownership came from careful work, repeated.",
 			},
 			{
 				id: "04",
-				eyebrow: "Late 2023–present · Kuno",
-				title: "Following the change through the system.",
+				eyebrow: "Dec 2023 — present · Kuno",
+				title: "Behind the screen.",
 				paragraphs: [
 					"I joined Kuno in late 2023 as a mobile application developer. In January 2025 my role became full-stack: B2B learning workflows, Bun and Elysia services, PostgreSQL and Drizzle data, authorization, localization, and cloud delivery.",
 					"I became Lead Full Stack Engineer in March 2026. Today my work covers product architecture, security boundaries, testing, deployment identity, and release coordination.",
@@ -672,8 +668,8 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				eyebrow: "Now · Current practice",
 				title: "Keeping the work useful after launch.",
 				paragraphs: [
-					"I care about software that stays understandable and dependable after it ships. Outside Kuno I maintain expo-in-app-updates and a few smaller tools, because they keep me close to the people who use them.",
-					"I live in Dhaka and work remotely. The thread through all of it is responsibility: understand the system, make the trade-offs visible, and leave the code easier to work with.",
+					"I care about software that stays understandable and dependable after it ships. Outside Kuno I maintain expo-in-app-updates and ghosttime, because they keep me close to the people who use them.",
+					"I live in Dhaka and work remotely. The thread through all of it is the habit I started with: change the inputs, watch what breaks, and find out why.",
 				],
 				artifact: "Useful software is software someone keeps caring for.",
 			},
@@ -686,7 +682,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Field notes",
 		title: "A place for notes along the way.",
 		intro:
-			"I have not published any field notes yet. You can explore my work or read my story while this page waits for its first entry.",
+			"No field notes yet. The first one goes up when I have something worth saying. Until then, start with my work or my story.",
 		origin: "Dhaka, Bangladesh",
 		entries: [],
 	},

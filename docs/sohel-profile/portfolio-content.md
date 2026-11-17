@@ -7,17 +7,21 @@ last_verified: 2026-09-03
 
 Use these as starting points. Keep the source links in nearby case studies, and refresh dated metrics before publishing.
 
+## Location rule
+
+Location is a fact, not a selling point. Do not introduce or position Sohel with "based in Dhaka", "Dhaka-based", "an engineer in Dhaka", or similar. Keep the city and country out of headlines, taglines, role lines, bio openings, summaries, and meta descriptions. Mention Dhaka or Bangladesh only where the passage is about his origin or where he lives, such as the story of how he started or a sentence like "I live in Dhaka and work remotely", or as plain logistics: a résumé location field, a time zone, or a local-time clock. The verified location itself is recorded in [identity.md](identity.md).
+
 ## One-line position
 
 Lead full-stack engineer building B2B product systems across interfaces, services, data, security, and delivery.
 
 ## Short bio
 
-Sohel Islam Imran is a Lead Full Stack Engineer at Kuno, based in Dhaka, Bangladesh. He works across TypeScript product interfaces, Bun and Elysia services, PostgreSQL and Redis data systems, AWS infrastructure, and release tooling. His path began with web development in late 2020, moved through nearly three years of React Native product work, and now covers full-stack architecture and delivery.
+Sohel Islam Imran is a Lead Full Stack Engineer at Kuno. He works across TypeScript product interfaces, Bun and Elysia services, PostgreSQL and Redis data systems, AWS infrastructure, and release tooling. His path began with web development in late 2020, moved through nearly three years of React Native product work, and now covers full-stack architecture and delivery.
 
 ## Medium bio
 
-Sohel Islam Imran is a Dhaka-based Lead Full Stack Engineer at Kuno. He follows product problems through interface behavior, backend services, data, authorization, infrastructure, and release. His Kuno work spans B2B learning workflows, application security, testing, cloud deployment, and operational tooling. Before Kuno, he spent nearly three years building a React Native events product at Tilleli. He also created `expo-in-app-updates`, an open-source Expo module distributed through npm.
+Sohel Islam Imran is a Lead Full Stack Engineer at Kuno. He follows product problems through interface behavior, backend services, data, authorization, infrastructure, and release. His Kuno work spans B2B learning workflows, application security, testing, cloud deployment, and operational tooling. Before Kuno, he spent nearly three years building a React Native events product at Tilleli. He also created `expo-in-app-updates`, an open-source Expo module distributed through npm.
 
 ## Personal introduction
 
@@ -31,7 +35,7 @@ I tend to follow one product problem through the whole system. Recent work spans
 
 I began in 2021 with React and React Native. Before Kuno, I spent nearly three years on a Firebase-backed mobile events product and its app-store delivery. I also created `expo-in-app-updates`, a Kotlin, Swift, and TypeScript Expo module.
 
-I am based in Dhaka and work remotely.
+I live in Dhaka and work remotely.
 
 ## Case-study angles
 

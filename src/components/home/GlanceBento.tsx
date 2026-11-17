@@ -222,8 +222,7 @@ function OpenSourceTile({
 					App updates, one API.
 				</h3>
 				<p className="mt-3 mb-0 max-w-[44ch] text-[1rem] leading-[1.5] text-ink-soft">
-					{summary ||
-						"I maintain expo-in-app-updates for Expo developers building on Android and iOS."}
+					{summary || "My open-source Expo module for in-app update prompts on Android and iOS."}
 				</p>
 				{metrics.length > 0 ? (
 					<dl className="m-0 mt-6 grid grid-cols-2 gap-x-5 gap-y-5">
@@ -335,7 +334,7 @@ function LocationTile({ identity, className }: { identity: IdentityContent; clas
 			frameClassName={className}
 			className={cn("relative flex flex-col overflow-hidden", TILE_PAD)}
 		>
-			<TileLabel>Based in</TileLabel>
+			<TileLabel>Local time</TileLabel>
 			<h3 data-par="2" className="mt-5 mb-0 text-headline">
 				{place}
 			</h3>
@@ -411,8 +410,8 @@ export function GlanceBento({
 				id="glance-title"
 				index="00"
 				eyebrow="At a glance"
-				title="A little context."
-				description="Where I work, what I ship, and the tools I give away."
+				title="Where things stand."
+				description="What I'm working on, what I've shipped, and the tools I give away."
 			/>
 			<Stagger className="depth-bento grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
 				{hasNow ? (

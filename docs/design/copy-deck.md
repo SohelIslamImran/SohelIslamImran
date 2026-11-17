@@ -27,22 +27,22 @@ Use seed content for personal facts, project details, dates, and metrics. Keep m
 
 | Section key | Eyebrow | Title | Description |
 | --- | --- | --- | --- |
-| glance | 00 — At a glance | A little context. | Here is where I work, what I build, and what I share. |
-| work | 01 — Work | A few things I've helped build. | Explore products, open-source tools, and the problems behind them. |
+| glance | 00 — At a glance | Where things stand. | What I'm working on, what I've shipped, and the tools I give away. |
+| work | 01 — Work | Work I've shipped. | Products I've worked on for years, and open-source tools other developers install. |
 | career | 02 — Path | From mobile apps to the whole stack. | Each role brought me closer to another part of the product. |
-| approach | 03 — How I work | Follow the change through. | I connect what people see with the rules, data, and releases behind it. |
+| approach | 03 — How I work | Follow the change through. | Each card is a stage a change has to clear before it ships. Ship a change to watch the checks run, then roll it back. |
 | background | 04 — Background | I learned by building. | My path started with a phone and a question about making websites. |
-| contact | 05 — Contact | What are you working on? | Tell me about the product, the team, or the problem you want to solve. |
+| contact | 05 — Contact | What are you building? | Tell me about it and where it's stuck. |
 
 - tiles.now.label: Now
 - tiles.now.title: Lead Full Stack Engineer at Kuno
 - tiles.now.body: I work across the product, services, data, and releases.
-- tiles.location.label: Based in
+- tiles.location.label: Local time
 - tiles.location.title: Dhaka, Bangladesh
 - tiles.location.meta: UTC+6
 - tiles.openSource.label: Open source
 - tiles.openSource.title: App updates, one API.
-- tiles.openSource.body: I maintain expo-in-app-updates for Expo developers building on Android and iOS.
+- tiles.openSource.body: My open-source Expo module for in-app update prompts on Android and iOS.
 - tiles.openSource.command: `npx expo install expo-in-app-updates`
 - tiles.openSource.action: Copy install command
 - tiles.openSource.success: Install command copied.
@@ -53,31 +53,31 @@ Use seed content for personal facts, project details, dates, and metrics. Keep m
 
 | Layer | Sentence | Tools |
 | --- | --- | --- |
-| Interface | I build screens for web and mobile, then connect them to real product behavior. | React, React Native, Expo, TanStack Router |
+| Interface | I build the screens people use and connect each one to the API behind it. | React, React Native, Expo, TanStack Router |
 | API | I build services that turn a user action into a clear, checked response. | TypeScript, Bun, Elysia |
 | Data | I shape the data behind a feature and keep its rules close to the code. | PostgreSQL, Drizzle, Redis |
-| Access | I work on sign-in and permissions so people can reach the right data. | Better Auth, OIDC, SSO |
-| Infrastructure | I help define where services run and how deployments get access. | AWS, Terraform, Docker |
-| Release | I check changes before release and help keep a path back when something goes wrong. | GitHub Actions, Playwright, Bun Test, EAS |
+| Access | I work on sign-in and permissions so each person sees only the data they should. | Better Auth, OIDC, SSO |
+| Infrastructure | I help define where services run and what each deployment is allowed to touch. | AWS, Terraform, Docker |
+| Release | I run automated checks before each release and help make sure a bad one can be rolled back. | GitHub Actions, Playwright, Bun Test, EAS |
 
 ## Engineering principles
 
-- endToEnd.title: Follow the whole change.
-- endToEnd.body: I keep the screen, server rule, data change, test, and release in view together.
+- endToEnd.title: One change, every layer.
+- endToEnd.body: A feature isn't done until its server rule, data change, and tests ship with the screen.
 - boundaries.title: Put rules where they count.
 - boundaries.body: I check access and privacy in the services and data layer, as well as the screen.
 - native.title: Work with the platform.
-- native.body: I start with shared tools. When Android or iOS needs something native, I use Kotlin or Swift.
+- native.body: I start with shared code and write Kotlin or Swift only where Android and iOS differ, as they do for in-app updates.
 - delivery.title: Make releases easy to check.
-- delivery.body: I use infrastructure as code and automated checks. I also work on clear ways to recover or roll back.
+- delivery.body: If a change can't be checked automatically and rolled back, it isn't ready to ship.
 
 ## Work
 
 - page.eyebrow: Work
-- page.title: Products, tools, and questions worth exploring.
-- page.intro: Here is what I have built, helped ship, and tried along the way.
+- page.title: Shipped, maintained, and still experimenting.
+- page.intro: Open any project to see what it does and the part I played.
 - groups.all: All work — Products, tools, and experiments in one place.
-- groups.product: Products — Work built for people to use.
+- groups.product: Products — Products that shipped to real users.
 - groups.openSource: Open source — Tools you can inspect, use, and build on.
 - groups.experiment: Experiments — Small projects where I try an idea.
 - empty.title: No projects in this view yet.

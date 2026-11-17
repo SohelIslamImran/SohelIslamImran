@@ -61,7 +61,6 @@ export function HomeHero({ identity, hero, portraitSrc, portraitAlt }: HomeHeroP
 	const actions = hero.actions.filter((action) => action.href.trim()).slice(0, 2);
 	const availability = identity.availability.trim();
 	const timeZone = identity.timezone.trim() || "Asia/Dhaka";
-	const city = (identity.location.trim() || "Dhaka").split(",")[0]?.trim() || "Dhaka";
 	const wordCount = hero.title.split(/\s+/u).filter(Boolean).length;
 	const afterTitle = WORD_START_MS + wordCount * WORD_STEP_MS;
 	const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
@@ -117,7 +116,7 @@ export function HomeHero({ identity, hero, portraitSrc, portraitAlt }: HomeHeroP
 							<span aria-hidden="true" className="h-3 w-px bg-line-strong max-sm:hidden" />
 						) : null}
 						<span className="whitespace-nowrap">
-							{city} <LocalTime timeZone={timeZone} showOffset className="text-foreground" />
+							Local time <LocalTime timeZone={timeZone} showOffset className="text-foreground" />
 						</span>
 					</MonoLabel>
 

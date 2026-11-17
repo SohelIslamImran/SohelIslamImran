@@ -13,14 +13,14 @@ export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 	{
 		id: "end-to-end",
 		capabilityId: "product",
-		title: "Follow the whole change.",
-		body: "I keep the interface, server rule, data change, test, and release in view together.",
+		title: "One change, every layer.",
+		body: "A feature isn't done until its server rule, data change, and tests ship with the screen.",
 	},
 	{
 		id: "native",
 		capabilityId: "mobile",
 		title: "Work with the platform.",
-		body: "I start with shared tools. When Android or iOS needs something native, I use Kotlin or Swift.",
+		body: "I start with shared code and write Kotlin or Swift only where Android and iOS differ, as they do for in-app updates.",
 	},
 	{
 		id: "boundaries",
@@ -32,7 +32,7 @@ export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 		id: "delivery",
 		capabilityId: "delivery",
 		title: "Make releases easy to check.",
-		body: "I use infrastructure as code and automated checks. I also work on clear ways to recover or roll back.",
+		body: "If a change can't be checked automatically and rolled back, it isn't ready to ship.",
 	},
 ];
 

@@ -7,7 +7,7 @@ last_verified: 2026-09-03
 
 ## Overview
 
-Tilleli was a social-media-style events application. Users could create and manage events, join nearby events, and sell or buy tickets. LinkedIn associates the project with Tilleli Inc.
+Tilleli was a social-media-style events application. Users could create and manage events, join nearby events, and sell or buy tickets. LinkedIn associates the project with Tilleli Inc. Sohel confirmed on 2026-11-17 that Tilleli is a US startup; this is self-reported and may be published as "a US events startup".
 
 ## My role
 

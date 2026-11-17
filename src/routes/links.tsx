@@ -31,7 +31,7 @@ export const Route = createFileRoute("/links")({
 		return pageHead(
 			c,
 			`${name} — Links`,
-			"A curated set of public destinations for Sohel Islam Imran.",
+			"Where to find me: GitHub, LinkedIn, npm, Stack Overflow, and a direct email.",
 			"/links",
 			"/images/social-links.png",
 		);

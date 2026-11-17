@@ -71,7 +71,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 						through.
 					</>
 				}
-				description="Each way I work is a check a change has to pass. A change that clears them all lands in this section. Use the rollback to take it out, or ship it again."
+				description="Each card is a stage a change has to clear before it ships. Ship a change to watch the checks run, then roll it back."
 			/>
 			{stages.length > 0 ? (
 				<ReleasePipeline

@@ -6,7 +6,7 @@ was given.
 
 ## 1. Who the site is for, and what it must do
 
-Sohel Islam Imran is a Lead Full Stack Engineer in Dhaka. His line is: _"I build every layer of a product, from interface to release."_ Visitors are hiring managers,
+Sohel Islam Imran is a Lead Full Stack Engineer at Kuno. His line is: _"I build every layer of a product, from interface to release."_ Visitors are hiring managers,
 founders, engineers evaluating his open source, and people arriving from a social
 profile. In ten seconds they should know who he is, what he is good at, and feel
 that the site itself was made with unusual care. In two minutes they should be able
@@ -206,6 +206,12 @@ Applies to `src/content/initial.ts` and any hardcoded UI copy.
   background is told plainly, never as marketing.
 - No hype words (passionate, robust, seamless, cutting-edge, leverage,
   world-class). No em-dash pileups. No emoji in body copy.
+- **Location is a fact, not a selling point.** Never introduce or position
+  Sohel with "based in Dhaka", "Dhaka-based", or "an engineer in Dhaka". Keep
+  the city out of headlines, eyebrows, taglines, role lines, and meta
+  descriptions. Dhaka appears only where the passage is about his origin or
+  where he lives (the story and background), or as plain logistics (résumé
+  location field, time zone, local-time clock).
 - Do not edit `docs/sohel-profile/`.
 
 ## 8. Engineering constraints (all agents)

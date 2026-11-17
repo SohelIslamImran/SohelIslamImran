@@ -16,10 +16,10 @@ export const Route = createFileRoute("/")({
 	head: ({ loaderData }) => {
 		if (!loaderData) return {};
 		const name = loaderData.identity.name.trim() || "Sohel Islam Imran";
-		const role = loaderData.identity.role.trim() || "Product engineer";
+		const role = loaderData.identity.role.trim() || "Full-stack engineer";
 		const description =
 			loaderData.site.description.trim() ||
-			"Product engineering work, from interface behavior to cloud delivery.";
+			"Full-stack product engineering, from interface to release.";
 		return {
 			...pageHead(loaderData, `${name} — ${role}`, description, "/", "/images/social-home.png", [
 				{
@@ -41,28 +41,23 @@ function Home() {
 	const identity = {
 		...content.identity,
 		name: content.identity.name.trim() || "Sohel Islam Imran",
-		role: content.identity.role.trim() || "Product engineer",
+		role: content.identity.role.trim() || "Full-stack engineer",
 		availability: content.identity.availability.trim(),
 	};
 	const hero = {
 		...content.hero,
 		eyebrow: content.hero.eyebrow.trim() || identity.role,
 		title:
-			content.hero.title.trim() ||
-			"I build product systems from interface behavior to cloud delivery.",
-		intro:
-			content.hero.intro.trim() ||
-			"I work across product interfaces, services, data, and delivery.",
+			content.hero.title.trim() || "I build every layer of a product, from interface to release.",
+		intro: content.hero.intro.trim() || "I work on interfaces, services, data, and releases.",
 	};
 	const aboutParagraphs = content.about.paragraphs
 		.map((paragraph) => paragraph.trim())
 		.filter((paragraph) => paragraph.length > 0);
 	const aboutTitle = content.about.title.trim() || "I learned by building.";
 	const testimonial = content.testimonials.find((item) => item.quote.trim().length > 0);
-	const contactTitle = content.contact.title.trim() || "What are you working on?";
-	const contactIntro =
-		content.contact.intro.trim() ||
-		"Tell me about the product, the team, or the problem you want to solve.";
+	const contactTitle = content.contact.title.trim() || "What are you building?";
+	const contactIntro = content.contact.intro.trim() || "Tell me about it and where it's stuck.";
 	const email = (content.identity.email || content.contact.email || "").trim();
 	const contactLinks = content.contact.links.filter((link) => link.href.trim().length > 0);
 

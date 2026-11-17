@@ -111,7 +111,7 @@ function CopyEmail({ email }: { email: string }) {
 				{copied ? (
 					<span className="text-success">Copied. Talk soon.</span>
 				) : failed ? (
-					<span className="text-destructive">Could not copy. Use the mail link.</span>
+					<span className="text-destructive">Couldn't copy. Use the mail link.</span>
 				) : (
 					<span>Press to copy</span>
 				)}

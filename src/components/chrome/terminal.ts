@@ -341,8 +341,7 @@ export function runTerminalCommand(raw: string, context: TerminalContext): Termi
 			return { lines: helpLines() };
 		case "whoami": {
 			const lines = [accent(context.name || "Unknown")];
-			const detail = [context.role, context.location].filter(Boolean).join(" · ");
-			if (detail) lines.push(out(detail));
+			if (context.role) lines.push(out(context.role));
 			if (context.availability) lines.push(muted(context.availability));
 			return { lines };
 		}

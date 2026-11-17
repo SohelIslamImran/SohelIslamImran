@@ -30,7 +30,7 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 					{line || "Thanks for reading."}
 				</h2>
 				<p className="mt-5 mb-0 max-w-[48ch] text-lead text-ink-soft">
-					That is the path so far. The work shows the rest, layer by layer.
+					That is the path so far. The work shows the rest.
 				</p>
 				{hasSource ? (
 					<a
@@ -64,7 +64,7 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 								See what I built
 							</Link>
 						</h3>
-						<p>Interfaces, services, and the parts behind them, project by project.</p>
+						<p>The products and tools behind this story, and my part in each.</p>
 						<span aria-hidden="true" className="sd-handoff-arrow">
 							→
 						</span>
@@ -101,9 +101,9 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 								</a>
 								<CopyButton
 									value={email}
-									label="Copy address"
+									label="Copy email"
 									copiedLabel="Copied"
-									announcement="Email address copied"
+									announcement="Email copied. Talk soon."
 									variant="ghost"
 								/>
 							</div>

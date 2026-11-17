@@ -8,7 +8,7 @@ status: evidence-based working knowledge base
 
 This directory is the reusable evidence base for Sohel's portfolio, resume, LinkedIn, biographies, and case studies. It combines public sources with publishable conclusions corroborated through authorized private records. Private source contents and lookup keys are not stored here.
 
-The short version: Sohel is a Dhaka-based Lead Full Stack Engineer at Kuno. His record shows a progression from self-directed web development in late 2020, through React Native product work, into full-stack product architecture, security, infrastructure, and release operations. His strongest differentiator is evidence-backed breadth across product interfaces, services, data, delivery, and open-source native modules.
+The short version: Sohel is a Lead Full Stack Engineer at Kuno. His record shows a progression from self-directed web development in late 2020, through React Native product work, into full-stack product architecture, security, infrastructure, and release operations. His strongest differentiator is evidence-backed breadth across product interfaces, services, data, delivery, and open-source native modules.
 
 ## How future agents should use this directory
 
@@ -18,6 +18,7 @@ The short version: Sohel is a Dhaka-based Lead Full Stack Engineer at Kuno. His 
 4. Check [evidence-ledger.md](evidence-ledger.md) for claim status and [sources.md](sources.md) for provenance.
 5. Preserve conflicts. Do not turn a self-report or task title into a verified result.
 6. Refresh volatile counts such as stars, downloads, followers, and social engagement before publishing them.
+7. Do not position Sohel by location. Never write "based in Dhaka", "Dhaka-based", or similar in a headline, tagline, role line, bio opening, or summary. See the location rule in [portfolio-content.md](portfolio-content.md).
 7. Treat every restricted-source conclusion as non-public evidence. Re-verify it in the authorized source system; this directory intentionally contains no subject lines, task identifiers, private repository links, or internal implementation details.
 
 ## Evidence language

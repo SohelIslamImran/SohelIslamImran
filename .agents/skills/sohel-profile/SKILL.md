@@ -45,6 +45,7 @@ Ask for employer-approved material before producing a detailed public Kuno case 
 - Select the strongest relevant facts. Do not copy the entire knowledge base into one profile.
 - Start from `portfolio-content.md` or `resume-facts.md`, then adapt the wording to the audience and format.
 - Use concrete mechanisms and outcomes. Avoid inflated seniority, promotional claims, generic technology lists, and hardship-as-marketing language.
+- Do not position Sohel by location. Never write "based in Dhaka", "Dhaka-based", "an engineer in Dhaka", or similar in a headline, tagline, role line, bio opening, summary, or meta description. Mention Dhaka or Bangladesh only where the passage is about his origin or where he lives, or as plain logistics such as a résumé location field or a time zone.
 - For public-facing work, link material claims to public sources when the format allows it. Keep restricted-source labels inside internal notes, not public copy.
 - State meaningful evidence gaps plainly when they affect the deliverable.
 

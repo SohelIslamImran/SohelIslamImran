@@ -246,7 +246,7 @@ function Project({ project }: { project: ProjectContent }) {
 						to="/work/$slug"
 						params={{ slug: project.slug }}
 					>
-						Case study <span aria-hidden="true">→</span>
+						Project <span aria-hidden="true">→</span>
 					</Link>
 				) : null}
 				{project.href?.trim() ? <ExternalLink href={project.href}>Visit site</ExternalLink> : null}

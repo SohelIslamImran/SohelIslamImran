@@ -24,4 +24,5 @@ See [other-public-work.md](project-details/other-public-work.md) for `ghosttime`
 - Use `expo-in-app-updates` to show independent API design, native integration, maintenance, and adoption.
 - Use the Portfolio project for SSR, Cloudflare, access control, publishing architecture, and design-engineering work.
 - Use the experimental native tools as evidence of range. Do not present prototypes as production businesses.
+- `expo-import-cost` and TailSync are side experiments, by Sohel's own direction on 2026-11-17. `expo-import-cost` was never shipped as a finished tool. Neither is work to promote: keep both out of résumés, bios, LinkedIn copy, README "selected work" lists, and any featured or highlighted slot. On the portfolio they may appear only in the experiments group, described plainly as experiments.
 - Use early 2021 projects only when telling the learning journey or applying to roles that value visible progression.
