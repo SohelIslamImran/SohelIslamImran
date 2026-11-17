@@ -278,7 +278,7 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 										>
 											{layer.name}
 										</span>
-										<span className="truncate text-caption text-muted-foreground">
+										<span className="text-caption leading-[1.3] text-balance text-muted-foreground">
 											{layerEvidence(layer)}
 										</span>
 									</span>

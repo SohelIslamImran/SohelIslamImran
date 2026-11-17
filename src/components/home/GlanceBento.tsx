@@ -240,7 +240,12 @@ function OpenSourceTile({
 					</dl>
 				) : null}
 				<div className="mt-6 flex min-w-0 items-center gap-2 rounded-[18px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] py-1 pr-1 pl-4">
-					<code className="min-w-0 flex-1 overflow-x-auto py-2 font-mono text-[13px] leading-[1.45] whitespace-nowrap text-foreground [scrollbar-width:thin]">
+					<code
+						// Scrolls when the tile is narrow; the fade shows there is more.
+						tabIndex={0}
+						aria-label={`Install command: ${INSTALL_COMMAND}`}
+						className="min-w-0 flex-1 overflow-x-auto rounded-md py-2 pr-6 font-mono text-[13px] leading-[1.45] whitespace-nowrap text-foreground [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+					>
 						<span aria-hidden="true" className="mr-2 text-muted-foreground select-none">
 							$
 						</span>
