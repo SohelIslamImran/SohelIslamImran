@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ORIGIN } from "../lib/seo";
 import { readPublished } from "../server/cms.server";
+import { linkableProjects } from "../components/work/project-utils";
 export const Route = createFileRoute("/sitemap.xml")({
 	server: {
 		handlers: {
@@ -9,6 +10,9 @@ export const Route = createFileRoute("/sitemap.xml")({
 				const writingPaths = content.writing
 					.map((item) => item.href)
 					.filter((href) => href.startsWith("/") && !href.startsWith("//"));
+				const projectPaths = linkableProjects(content.projects).map(
+					(project) => `/work/${encodeURIComponent(project.slug.trim())}`,
+				);
 				const paths = [
 					...new Set([
 						"/",
@@ -17,6 +21,7 @@ export const Route = createFileRoute("/sitemap.xml")({
 						"/field-notes",
 						"/resume",
 						"/links",
+						...projectPaths,
 						...writingPaths,
 					]),
 				];

@@ -1,21 +1,25 @@
+import { useMemo, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { pageHead } from "../lib/seo";
-import { dateTimeFromPeriod } from "../lib/content-dates";
 import { mediaHref } from "../lib/media";
-import { EMPTY_PORTFOLIO_CONTENT, type ProjectContent } from "../types/content";
+import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { PortfolioImage } from "../components/PortfolioImage";
-import { Testimonial } from "../components/Testimonial";
-import {
-	EmptyState,
-	PageHeader,
-	PageShell,
-	StatusBadge,
-	Surface,
-	TagList,
-} from "../components/ui/portfolio";
-import { Button, buttonVariants } from "../components/ui/button";
+import { CopyButton } from "../components/motion/CopyButton";
+import { PageShell, StatusDot } from "../components/ui/portfolio";
+import { buttonVariants } from "../components/ui/button";
 import { cn } from "../lib/utils";
+import { buildSkillIndex, buildSkillTimeline } from "../components/pages/resume/skill-map";
+import { SkillLayers, SkillProvider } from "../components/pages/resume/skills";
+import { PrintButton, ResumeDesk } from "../components/pages/resume/desk";
+import { FitSticky } from "../components/pages/resume/FitSticky";
+import {
+	CoursesSection,
+	ExperienceSection,
+	ProjectsSection,
+	ReferenceSection,
+	SectionTitle,
+} from "../components/pages/resume/sections";
 
 const updatedDateFormatter = new Intl.DateTimeFormat("en-US", {
 	day: "numeric",
@@ -27,34 +31,6 @@ const updatedDateFormatter = new Intl.DateTimeFormat("en-US", {
 function formatUpdatedDate(value: string) {
 	const date = new Date(value);
 	return Number.isNaN(date.getTime()) ? value : updatedDateFormatter.format(date);
-}
-
-type DestinationKind = "repository" | "site" | "email";
-
-type ResumeDestination = {
-	arrow: string;
-	label: string;
-	opensNewTab: boolean;
-};
-
-function classifyDestination(href: string, kind: DestinationKind): ResumeDestination {
-	const value = href.trim();
-	const protocol = value.match(/^([a-z][a-z\d+.-]*):/i)?.[1].toLowerCase();
-	if (kind === "email" || protocol === "mailto") {
-		return { arrow: "@", label: "Email", opensNewTab: false };
-	}
-	if (protocol === "tel") return { arrow: "☎", label: "Phone", opensNewTab: false };
-	if (value.startsWith("#")) return { arrow: "↓", label: "Page section", opensNewTab: false };
-	const opensNewTab = /^(?:https?:)?\/\//iu.test(value) || Boolean(protocol);
-	const label =
-		kind === "repository"
-			? opensNewTab
-				? "View repository"
-				: "Open repository"
-			: opensNewTab
-				? "Visit project"
-				: "View project";
-	return { arrow: opensNewTab ? "↗" : "→", label, opensNewTab };
 }
 
 export const Route = createFileRoute("/resume")({
@@ -88,397 +64,322 @@ export const Route = createFileRoute("/resume")({
 	component: Resume,
 });
 
-function ResumeProjectLink({ project }: { project: ProjectContent }) {
-	const title = project.title.trim() || "Untitled project";
-	const role = project.role.trim() || "Project contributor";
-	const summary = project.summary.trim();
-	const repository = project.repository?.trim() || undefined;
-	const href = repository || project.href?.trim() || undefined;
-	const destinationKind = repository ? "repository" : "site";
-	const content = (
-		<>
-			<h3 className="m-0 min-w-0 max-w-full break-words text-sm font-bold text-foreground [overflow-wrap:anywhere]">
-				{title}
-			</h3>
-			<span className="min-w-0 max-w-full break-words text-xs leading-[1.45] text-muted-foreground [overflow-wrap:anywhere]">
-				{role}
-			</span>
-			{summary ? (
-				<span className="min-w-0 max-w-full break-words text-xs leading-[1.45] text-muted-foreground [overflow-wrap:anywhere]">
-					{summary}
-				</span>
-			) : null}
-		</>
-	);
-	const className =
-		"grid min-h-11 w-full min-w-0 max-w-full grid-cols-[minmax(0,1fr)] gap-1 border-t border-border py-3.5 text-primary-text no-underline [overflow-wrap:anywhere]";
-
-	if (!href) {
-		return (
-			<div className={className} data-slot="resume-side-entry">
-				{content}
-			</div>
-		);
-	}
-
-	const destination = classifyDestination(href, destinationKind);
-
-	return (
-		<a
-			data-slot="resume-side-entry"
-			aria-label={`${destination.label} for ${title}${destination.opensNewTab ? ", opens in a new tab" : ""}`}
-			className={cn(
-				className,
-				"transition-colors duration-200 ease-route hover:bg-muted/50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring",
-			)}
-			href={href}
-			target={destination.opensNewTab ? "_blank" : undefined}
-			rel={destination.opensNewTab ? "noopener noreferrer" : undefined}
-		>
-			{content}
-			<span className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-1 text-xs font-bold text-primary-text">
-				<span className="min-w-0 break-words [overflow-wrap:anywhere]">{destination.label}</span>
-				<span className="shrink-0" aria-hidden="true">
-					{destination.arrow}
-				</span>
-			</span>
-		</a>
-	);
+function shortUrl(href: string) {
+	return href
+		.trim()
+		.replace(/^[a-z]+:\/\//iu, "")
+		.replace(/^www\./iu, "")
+		.replace(/\/$/u, "");
 }
 
 function Resume() {
 	const content = Route.useLoaderData();
-	const identityName = content.identity.name.trim() || "Sohel Islam Imran";
-	const identityRole = content.identity.role.trim() || "Product engineer";
-	const professionalWork = content.projects.filter((project) => project.category === "product");
-	const publicWork = content.projects.filter(
-		(project) =>
-			project.category === "open-source" &&
-			Boolean(project.repository?.trim() || project.href?.trim()),
-	);
-	const employer = content.experience.find((item) => item.current)?.company.trim() || undefined;
+	const name = content.identity.name.trim() || "Sohel Islam Imran";
+	const role = content.identity.role.trim() || "Product engineer";
+	const current = content.experience.find((item) => item.current);
+	const employer = current?.company.trim() || undefined;
+	const projects = useMemo(() => {
+		const featured = content.projects.filter((project) => project.featured);
+		return featured.length
+			? featured
+			: content.projects.filter((project) => project.category !== "experiment");
+	}, [content.projects]);
 	const testimonial = content.testimonials.find((item) => item.quote.trim().length > 0);
-	const resumeDescription =
+	const summary =
 		content.resume.summary?.trim() ||
 		content.about.paragraphs.find((paragraph) => paragraph.trim()) ||
 		"Experience, selected projects, and how I work.";
 	const availability = content.identity.availability.trim();
 	const updatedAt = content.resume.updatedAt?.trim() || null;
 	const email = content.identity.email.trim();
-	const emailDestination = email ? classifyDestination(`mailto:${email}`, "email") : undefined;
+	const location = content.identity.location.trim();
+	const timezone = content.about.facts
+		.find((fact) => /time\s*zone/iu.test(fact.label))
+		?.value.trim();
+	const profiles = content.social.filter(
+		(link) => /github|linkedin|portfolio/iu.test(link.platform) && link.href.trim(),
+	);
+	const years = content.experience
+		.flatMap((item) => item.period.match(/\b(?:19|20)\d{2}\b/gu) ?? [])
+		.map(Number);
+	const since = years.length ? Math.min(...years) : null;
+	const companies = new Set(content.experience.map((item) => item.company.trim().toLowerCase()))
+		.size;
+	const index = useMemo(
+		() => buildSkillIndex(content.capabilities, content.experience, projects),
+		[content.capabilities, content.experience, projects],
+	);
+	const timeline = useMemo(
+		() => buildSkillTimeline(index, content.experience, projects),
+		[index, content.experience, projects],
+	);
+	const hasSkills = index.groups.length > 0;
+	// Sections are numbered in reading order: the skills sit beside (and on
+	// narrow screens, right after) the experience they summarise.
+	const order = [
+		"experience",
+		hasSkills ? "skills" : null,
+		projects.length ? "projects" : null,
+		testimonial ? "reference" : null,
+		content.credentials.length ? "courses" : null,
+	].filter((item) => item !== null);
+	const number = (key: string) => String(order.indexOf(key) + 1).padStart(2, "0");
+	const leftCount = order.length - (hasSkills ? 1 : 0);
+
+	const glance = [
+		current ? { label: "Now", value: current.role.trim(), detail: current.company.trim() } : null,
+		since
+			? {
+					label: "Shipping since",
+					value: String(since),
+					detail: `${content.experience.length} roles · ${companies} ${companies === 1 ? "company" : "companies"}`,
+				}
+			: null,
+		location
+			? { label: "Based in", value: location.split(",")[0], detail: timezone ?? location }
+			: null,
+		availability ? { label: "Status", value: availability, detail: null } : null,
+	].filter((item) => item !== null);
+	// Two columns on narrow screens: the status line gets a full row, and so
+	// does the first cell when the rest would otherwise leave a hole.
+	const glanceOdd = glance.filter((item) => item.label !== "Status").length % 2 === 1;
 
 	return (
-		<PageShell width="default" data-page="resume" className="w-full max-w-[1160px]">
-			<Surface
-				data-slot="resume-header"
-				className="grid min-w-0 max-w-full overflow-visible grid-cols-[minmax(0,1fr)_minmax(0,168px)] items-center gap-[clamp(30px,6vw,72px)] p-[clamp(28px,4vw,48px)] max-[960px]:grid-cols-1 max-[960px]:gap-6"
-			>
-				<PageHeader
-					eyebrow={
-						<span className="break-words">
-							{employer ? `${identityRole} · ${employer}` : identityRole}
-						</span>
-					}
-					title={
-						<span data-slot="resume-title" className="break-words">
-							{identityName}
-						</span>
-					}
-					description={
-						<span className="break-words [overflow-wrap:anywhere]">{resumeDescription}</span>
-					}
-					className="mb-0 min-w-0 [overflow-wrap:anywhere]"
-				>
-					<div className="mt-5 flex min-w-0 flex-wrap gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
-						{email && emailDestination ? (
-							<a
-								aria-label={`${emailDestination.label} ${email}`}
-								className="inline-flex min-h-11 min-w-0 max-w-full items-center gap-2 rounded-control px-2 font-bold text-primary-text no-underline transition-colors duration-200 ease-route hover:bg-muted/60 hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-								href={`mailto:${email}`}
-							>
-								<span className="min-w-0 break-all">{email}</span>
-								<span className="shrink-0 text-xs font-semibold uppercase tracking-[0.08em]">
-									{emailDestination.label} <span aria-hidden="true">{emailDestination.arrow}</span>
-								</span>
-							</a>
-						) : null}
-						{updatedAt ? (
-							<time
-								className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]"
-								dateTime={updatedAt}
-							>
-								Updated {formatUpdatedDate(updatedAt)}
-							</time>
-						) : null}
-					</div>
-					<div data-slot="resume-actions" className="mt-7 flex flex-wrap gap-2.5">
-						<Button size="lg" type="button" onClick={() => window.print()}>
-							Print / save PDF{" "}
-							<span data-icon="inline-end" aria-hidden="true">
-								↓
-							</span>
-						</Button>
-						<Link
-							className={cn(
-								buttonVariants({ variant: "outline", size: "lg" }),
-								"border-[color-mix(in_srgb,var(--theme-accent)_14%,var(--theme-line))]",
-							)}
-							to="/links"
-							search={{ kind: "all" }}
-						>
-							All links <span aria-hidden="true">→</span>
-						</Link>
-					</div>
-				</PageHeader>
-				<div
-					data-slot="resume-portrait"
-					className="block aspect-square h-auto w-full max-w-[168px] rotate-2 rounded-[24px] border-[7px] border-surface-solid shadow-float max-[960px]:max-w-[128px] print:order-none print:rotate-0"
-				>
-					<PortfolioImage
-						src={mediaHref(content.identity.avatar) ?? "/images/sohel-linkedin-800.webp"}
-						alt={content.identity.avatar?.alt ?? "Portrait of Sohel Islam Imran"}
-						width={800}
-						height={800}
-						loading="eager"
-						fetchPriority="high"
-						sizes="(max-width: 960px) 128px, 180px"
-						srcSet={
-							content.identity.avatar
-								? undefined
-								: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
-						}
-						className="block size-full rounded-[17px] object-cover object-[center_16%]"
-					/>
-				</div>
-			</Surface>
-
+		<PageShell
+			width="default"
+			data-page="resume"
+			className="min-w-0 max-w-[1140px] overflow-x-clip"
+		>
 			<div
-				data-slot="resume-layout"
-				className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)_minmax(0,clamp(220px,28%,310px))] gap-[clamp(40px,6vw,72px)] pt-16 max-[960px]:grid-cols-1 max-[960px]:gap-14"
+				data-slot="resume-actions"
+				className="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-4 md:mb-8"
 			>
-				<div
-					data-slot="resume-main"
-					className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] content-start gap-12 max-[800px]:contents print:grid print:grid-cols-[minmax(0,1fr)] print:gap-6"
-				>
-					<section
-						className="min-w-0 max-w-full max-[800px]:order-1"
-						aria-labelledby="resume-experience-title"
-					>
-						<PageHeader
-							eyebrow="Experience"
-							title={<span id="resume-experience-title">Professional Experience</span>}
-							level={2}
-							className="mb-5"
-						/>
-						{content.experience.length > 0 ? (
-							content.experience.map((item) => (
-								<article
-									data-slot="resume-entry"
-									className="grid min-w-0 max-w-full grid-cols-[minmax(120px,150px)_minmax(0,1fr)] gap-6 border-t border-border py-7 [overflow-wrap:anywhere] max-[800px]:grid-cols-1 max-[800px]:gap-2.5"
-									key={item.id}
-								>
-									<time
-										className="block min-w-0 max-w-[140px] break-words text-[13px] font-[750] leading-[1.4] text-primary-text max-[800px]:max-w-none"
-										dateTime={dateTimeFromPeriod(item.period)}
-									>
-										{item.period}
-									</time>
-									<div className="min-w-0 max-w-full">
-										<div className="flex min-w-0 flex-wrap items-center gap-2.5 text-[15px] text-foreground">
-											<strong className="min-w-0 break-words">{item.company}</strong>
-											{item.current ? <StatusBadge>Current</StatusBadge> : null}
-										</div>
-										<h3
-											aria-label={item.company ? `${item.role} at ${item.company}` : undefined}
-											className="mb-2.5 mt-2 min-w-0 max-w-full break-words text-[clamp(1.35rem,2.5vw,1.8rem)] font-[760] tracking-[-0.04em] [overflow-wrap:anywhere]"
-										>
-											{item.role}
-										</h3>
-										{item.summary ? (
-											<p className="m-0 min-w-0 max-w-full break-words text-[15px] leading-[1.55] text-muted-foreground [overflow-wrap:anywhere]">
-												{item.summary}
-											</p>
-										) : null}
-										{item.highlights.length > 0 ? (
-											<ul className="my-4 grid min-w-0 max-w-full gap-2 pl-[18px] text-[15px] leading-[1.55] text-muted-foreground">
-												{item.highlights.map((highlight) => (
-													<li
-														className="min-w-0 max-w-full break-words [overflow-wrap:anywhere]"
-														key={highlight}
-													>
-														{highlight}
-													</li>
-												))}
-											</ul>
-										) : null}
-										{item.technologies.length > 0 ? (
-											<TagList className="[overflow-wrap:anywhere]" items={item.technologies} />
-										) : null}
-									</div>
-								</article>
-							))
-						) : (
-							<EmptyState
-								level={2}
-								title="Experience is being updated."
-								description="The public résumé will return when there is a verified role to share."
-							/>
-						)}
-					</section>
-					{testimonial ? (
-						<section
-							data-slot="resume-reference"
-							aria-labelledby="resume-reference-title"
-							className="min-w-0 max-w-full max-[800px]:order-3"
-						>
-							<PageHeader
-								eyebrow="Reference"
-								title={<span id="resume-reference-title">Client Recommendation</span>}
-								level={2}
-								className="mb-5"
-							/>
-							<Testimonial
-								className="print:[break-inside:avoid] print:[page-break-inside:avoid]"
-								testimonial={testimonial}
-							/>
-						</section>
+				<div className="min-w-0">
+					<p className="mono-label m-0 text-primary-text">Résumé · A4</p>
+					{updatedAt ? (
+						<p className="m-0 mt-1 text-caption text-muted-foreground">
+							Updated <time dateTime={updatedAt}>{formatUpdatedDate(updatedAt)}</time>
+						</p>
 					) : null}
 				</div>
-
-				<aside
-					aria-label="Résumé sidebar"
-					data-slot="resume-side"
-					className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)] content-start gap-10 border-l border-border pl-8 max-[800px]:order-2 max-[960px]:border-l-0 max-[960px]:border-t max-[960px]:pl-0 max-[960px]:pt-8"
-				>
-					<section
-						aria-labelledby="resume-capabilities-title"
-						className="min-w-0 max-w-full print:[break-inside:avoid] print:[page-break-inside:avoid]"
-					>
-						<PageHeader
-							eyebrow="Core Competencies"
-							title={<span id="resume-capabilities-title">Architectural Scope</span>}
-							level={2}
-							className="mb-5"
+				<div className="flex flex-wrap items-center gap-2.5 max-sm:w-full max-sm:*:flex-1">
+					{email ? (
+						<CopyButton
+							value={email}
+							variant="outline"
+							size="lg"
+							label="Copy email"
+							announcement="Email copied. Talk soon."
 						/>
-						{content.capabilities.length > 0 ? (
-							content.capabilities.map((capability) => (
-								<article
-									data-slot="resume-side-entry"
-									className="min-w-0 max-w-full border-t border-border py-5 [overflow-wrap:anywhere]"
-									key={capability.id}
-								>
-									<h3 className="mb-1.5 mt-0 break-words text-base font-[760] tracking-[-0.02em]">
-										{capability.title}
-									</h3>
-									<p className="mb-3 mt-0 break-words text-sm leading-[1.55] text-muted-foreground">
-										{capability.description}
-									</p>
-									{capability.tools.length > 0 ? (
-										<TagList className="[overflow-wrap:anywhere]" items={capability.tools} />
-									) : null}
-								</article>
-							))
-						) : (
-							<EmptyState
-								level={2}
-								title="Capabilities are being updated."
-								description="The next version of the résumé will include the current systems I work on."
-							/>
-						)}
-					</section>
-					<section
-						aria-labelledby="resume-professional-title"
-						className="min-w-0 max-w-full print:[break-inside:avoid] print:[page-break-inside:avoid]"
-					>
-						<PageHeader
-							eyebrow="Professional work"
-							title={<span id="resume-professional-title">Product Systems</span>}
-							level={2}
-							className="mb-5"
-						/>
-						{professionalWork.length > 0 ? (
-							<div className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)]">
-								{professionalWork.map((project) => (
-									<ResumeProjectLink key={project.id} project={project} />
-								))}
-							</div>
-						) : (
-							<EmptyState
-								level={2}
-								title="Professional work is being updated."
-								description="Verified product roles will appear here when the public record is ready."
-							/>
-						)}
-					</section>
-					<section
-						aria-labelledby="resume-proof-title"
-						className="min-w-0 max-w-full print:[break-inside:avoid] print:[page-break-inside:avoid]"
-					>
-						<PageHeader
-							eyebrow="Public work"
-							title={<span id="resume-proof-title">Open Source & Packages</span>}
-							level={2}
-							className="mb-5"
-						/>
-						{publicWork.length > 0 ? (
-							<div className="grid min-w-0 max-w-full grid-cols-[minmax(0,1fr)]">
-								{publicWork.map((project) => (
-									<ResumeProjectLink key={project.id} project={project} />
-								))}
-							</div>
-						) : (
-							<EmptyState
-								level={2}
-								title="Public proof is being updated."
-								description="Selected builds will return when their public links are verified."
-							/>
-						)}
-					</section>
-					{content.credentials.length > 0 ? (
-						<section
-							aria-labelledby="resume-credentials-title"
-							className="min-w-0 max-w-full print:[break-inside:avoid] print:[page-break-inside:avoid]"
-						>
-							<PageHeader
-								eyebrow="Credentials"
-								title={<span id="resume-credentials-title">Training & Certifications</span>}
-								level={2}
-								className="mb-5"
-							/>
-							{content.credentials.map((credential) => (
-								<article
-									data-slot="resume-side-entry"
-									className="min-w-0 max-w-full border-t border-border py-4 [overflow-wrap:anywhere]"
-									key={credential.id}
-								>
-									<h3 className="m-0 break-words text-sm font-[760] tracking-[-0.02em]">
-										{credential.title}
-									</h3>
-									{credential.issuer || credential.issuedAt ? (
-										<p className="m-0 mt-1 break-words text-xs text-muted-foreground">
-											{credential.issuer}
-											{credential.issuer && credential.issuedAt ? " · " : null}
-											{credential.issuedAt}
-										</p>
-									) : null}
-								</article>
-							))}
-						</section>
 					) : null}
-					<section
-						aria-label="Availability"
-						className="min-w-0 max-w-full rounded-[18px] border border-signal/40 bg-signal/10 p-[18px] [overflow-wrap:anywhere] print:[break-inside:avoid] print:[page-break-inside:avoid]"
+					<Link
+						className={cn(buttonVariants({ variant: "ghost", size: "lg" }), "max-sm:hidden")}
+						to="/work"
+						search={{ group: "all" }}
 					>
-						<h2 className="mb-2 min-w-0 max-w-full break-words text-xs font-extrabold uppercase tracking-[0.11em] text-signal [overflow-wrap:anywhere]">
-							Career Direction
-						</h2>
-						<p className="m-0 min-w-0 max-w-full break-words text-sm leading-[1.55] text-muted-foreground [overflow-wrap:anywhere]">
-							{availability ? `${availability}. ` : ""}Focused on high-standard full-stack and
-							mobile systems with room for remote international collaboration.
-						</p>
-					</section>
-				</aside>
+						View work <span aria-hidden="true">→</span>
+					</Link>
+					<PrintButton />
+				</div>
+				<p id="resume-print-note" className="sr-only">
+					Opens the print dialog. Choose Save as PDF for a clean, black-on-white A4 copy.
+				</p>
 			</div>
+
+			<ResumeDesk>
+				<header
+					data-slot="resume-header"
+					className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-x-6 gap-y-5 max-sm:grid-cols-1"
+				>
+					<div className="min-w-0 [overflow-wrap:anywhere]">
+						<p data-slot="eyebrow" className="mono-label m-0 text-primary-text">
+							{employer ? `${role} · ${employer}` : role}
+						</p>
+						<h1
+							data-slot="resume-title"
+							className="m-0 mt-3 text-[clamp(2.4rem,5.4vw,4.25rem)] font-[640] leading-[0.98] tracking-[-0.045em]"
+						>
+							{name}
+						</h1>
+						<p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">{summary}</p>
+						<ul
+							data-slot="resume-contact"
+							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small print:gap-x-[3.6mm]"
+						>
+							{[
+								email
+									? {
+											key: "email",
+											href: `mailto:${email}`,
+											external: false,
+											screen: email,
+											print: email,
+										}
+									: null,
+								...profiles.map((link) => ({
+									key: link.platform,
+									href: link.href.trim(),
+									external: true,
+									screen: link.platform,
+									print: shortUrl(link.href),
+								})),
+							]
+								.filter((item) => item !== null)
+								.map((item, position, all) => (
+									<li key={item.key} className="flex items-center whitespace-nowrap">
+										<a
+											href={item.href}
+											target={item.external ? "_blank" : undefined}
+											rel={item.external ? "noopener noreferrer" : undefined}
+											className={cn(
+												"pressable inline-flex min-h-11 items-center rounded-full px-2 print:min-h-0 print:px-0",
+												position === 0 && "-ml-2 print:ml-0",
+												item.external
+													? "text-ink-soft hover:text-foreground"
+													: "font-semibold text-primary-text",
+											)}
+										>
+											<span className="print:hidden">{item.screen}</span>
+											<span className="hidden print:inline">{item.print}</span>
+											{item.external ? <span className="sr-only">, opens in a new tab</span> : null}
+										</a>
+										{position < all.length - 1 ? (
+											<span
+												aria-hidden="true"
+												className="pl-1 text-line-strong max-sm:hidden print:hidden"
+											>
+												·
+											</span>
+										) : null}
+									</li>
+								))}
+						</ul>
+					</div>
+					<div
+						data-slot="resume-portrait"
+						className="aspect-square w-[148px] overflow-hidden rounded-[22px] border border-line bg-muted max-lg:w-[120px] max-sm:row-start-1 max-sm:w-[84px] max-sm:rounded-[18px]"
+					>
+						<PortfolioImage
+							src={mediaHref(content.identity.avatar) ?? "/images/sohel-linkedin-800.webp"}
+							alt={content.identity.avatar?.alt ?? "Portrait of Sohel Islam Imran"}
+							width={800}
+							height={800}
+							loading="eager"
+							fetchPriority="high"
+							sizes="(max-width: 640px) 84px, 148px"
+							srcSet={
+								content.identity.avatar
+									? undefined
+									: "/images/sohel-linkedin-400.webp 400w, /images/sohel-linkedin-800.webp 800w"
+							}
+							className="block size-full object-cover object-[center_16%]"
+						/>
+					</div>
+				</header>
+
+				{glance.length ? (
+					<dl
+						data-slot="resume-glance"
+						className="m-0 mt-8 grid grid-cols-2 gap-px overflow-hidden rounded-inner border border-line bg-line lg:grid-cols-4"
+					>
+						{glance.map((item, position) => (
+							<div
+								key={item.label}
+								data-wide={
+									item.label === "Status" || (glanceOdd && position === 0) ? "" : undefined
+								}
+								className="min-w-0 bg-surface-solid p-4 break-words max-lg:data-wide:col-span-2"
+							>
+								<dt className="mono-label text-muted-foreground">{item.label}</dt>
+								<dd className="m-0 mt-1.5 text-[15px] font-semibold leading-snug text-foreground">
+									{item.label === "Status" ? (
+										<span className="inline-flex items-baseline gap-2">
+											<StatusDot className="translate-y-[-1px]" />
+											{item.value}
+										</span>
+									) : (
+										item.value
+									)}
+								</dd>
+								{item.detail ? (
+									<dd className="m-0 mt-0.5 text-caption text-muted-foreground">{item.detail}</dd>
+								) : null}
+							</div>
+						))}
+					</dl>
+				) : null}
+
+				<nav
+					aria-label="Résumé sections"
+					className="mt-5 flex flex-wrap gap-2 lg:hidden print:hidden"
+				>
+					{[
+						["#experience", "Experience"],
+						hasSkills ? ["#skills", "Skills"] : null,
+						projects.length ? ["#projects", "Projects"] : null,
+					]
+						.filter((item) => item !== null)
+						.map(([href, label]) => (
+							<a
+								key={href}
+								href={href}
+								className="pressable inline-flex min-h-11 items-center rounded-full border border-line px-4 text-small font-medium text-ink-soft"
+							>
+								{label}
+							</a>
+						))}
+				</nav>
+
+				<SkillProvider index={index} timeline={timeline}>
+					<div
+						data-slot="resume-layout"
+						className="mt-10 grid min-w-0 grid-cols-1 content-start gap-12 lg:grid-cols-[minmax(0,1fr)_300px] lg:gap-x-14 xl:grid-cols-[minmax(0,1fr)_324px] xl:gap-x-12"
+						style={{ "--rows": Math.max(1, leftCount) } as CSSProperties}
+					>
+						<ExperienceSection
+							experience={content.experience}
+							number={number("experience")}
+							className="min-w-0 lg:col-start-1"
+						/>
+						{hasSkills ? (
+							<aside
+								aria-label="Skills"
+								data-slot="resume-side"
+								className="grid min-w-0 content-start lg:col-start-2 lg:row-start-1 lg:[grid-row-end:span_var(--rows)]"
+							>
+								<FitSticky
+									aria-labelledby="resume-skills-title"
+									id="skills"
+									data-slot="resume-skills"
+									className="min-w-0 lg:sticky lg:top-[var(--fit-top,calc(var(--dock-space-top)+16px))] lg:data-unpinned:static"
+								>
+									<SectionTitle id="resume-skills-title" index={number("skills")}>
+										Skills by layer
+									</SectionTitle>
+									<SkillLayers titleId="resume-skills" />
+								</FitSticky>
+							</aside>
+						) : null}
+						<ProjectsSection
+							projects={projects}
+							number={number("projects")}
+							className="min-w-0 lg:col-start-1"
+						/>
+						{testimonial ? (
+							<ReferenceSection
+								testimonial={testimonial}
+								number={number("reference")}
+								className="lg:col-start-1"
+							/>
+						) : null}
+						<CoursesSection
+							credentials={content.credentials}
+							number={number("courses")}
+							className="lg:col-start-1"
+						/>
+					</div>
+				</SkillProvider>
+			</ResumeDesk>
 		</PageShell>
 	);
 }

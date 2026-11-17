@@ -1,11 +1,8 @@
-import { useEffect, useRef, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { motion, useReducedMotion } from "motion/react";
+import { cn } from "../lib/utils";
 import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 import { useScrollEdges } from "./useScrollEdges";
-
-const containerClassName =
-	"flex w-full min-w-0 max-w-full flex-wrap gap-1 max-[800px]:flex-nowrap max-[800px]:overflow-x-auto overscroll-x-contain scroll-px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
-const itemClassName =
-	"relative isolate flex min-h-11 min-w-0 max-w-full flex-1 basis-0 items-center justify-center rounded-[14px] border-0 bg-transparent !px-3.5 text-center text-[13px] font-medium whitespace-normal break-words text-muted-foreground [overflow-wrap:anywhere] transition-colors duration-200 ease-route hover:bg-muted/70 hover:text-foreground focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:transition-none data-[active=true]:z-10 data-[active=true]:text-primary-text aria-pressed:text-primary-text max-[800px]:min-w-[5.5rem] max-[800px]:flex-none max-[800px]:basis-auto max-[800px]:scroll-mx-3 max-[800px]:!px-3";
 
 interface FilterStripProps<T extends string> {
 	/** Stable ids so the label and hint can be wired with aria-labelledby/describedby. */
@@ -21,12 +18,12 @@ interface FilterStripProps<T extends string> {
 }
 
 /**
- * Single-select chip filter shared by /work and /links.
+ * Single-select segmented control shared by /work and /links: a pill track
+ * with a raised indicator that glides to the selected option.
  *
- * Owns the roving keyboard navigation, the scroll-into-view of the active chip,
- * and the edge fades that only appear when the strip genuinely overflows. Both
- * call sites previously carried near-verbatim copies of all of that, and had
- * drifted into two different selected-state treatments.
+ * Owns the roving keyboard navigation (arrows, Home, End), the scroll-into-view
+ * of the active option, and the edge fades that only appear when the strip
+ * genuinely overflows (narrow screens scroll it sideways).
  */
 export function FilterStrip<T extends string>({
 	labelId,
@@ -42,6 +39,8 @@ export function FilterStrip<T extends string>({
 	const stripRef = useRef<HTMLDivElement>(null);
 	const previousValueRef = useRef<T>(value);
 	const edges = useScrollEdges(stripRef);
+	const indicatorId = `filter-indicator-${useId()}`;
+	const reduceMotion = useReducedMotion() === true;
 
 	useEffect(() => {
 		const strip = stripRef.current;
@@ -98,47 +97,36 @@ export function FilterStrip<T extends string>({
 	};
 
 	return (
-		<div className={className}>
-			<div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
-				<p
-					className="m-0 min-w-0 max-w-full break-words text-xs font-extrabold uppercase tracking-[0.11em] text-primary-text [overflow-wrap:anywhere]"
-					id={labelId}
-				>
+		<div data-slot="filter-strip" className={cn("min-w-0", className)}>
+			<div className="mb-3 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+				<p className="mono-label m-0 min-w-0 text-muted-foreground" id={labelId}>
 					{label}
 				</p>
 				<p
-					className="m-0 flex min-w-0 max-w-full flex-wrap items-center gap-2 break-words text-[11px] font-medium text-muted-foreground [overflow-wrap:anywhere]"
+					className="m-0 flex min-w-0 items-center gap-2 text-caption text-muted-foreground"
 					id={hintId}
 				>
-					<span>
-						Selected: <span className="font-semibold text-foreground">{labels[value]}</span>
+					<span className="sr-only">
+						Selected: {labels[value]}. Use the left and right arrow keys to change the filter.
 					</span>
-					{/*
-						aria-describedby on the group is not inherited by its buttons, so
-						each item references the hint too — otherwise nothing announces
-						that the strip is arrow-key navigable.
-					*/}
-					<span className="sr-only">Use the left and right arrow keys to change the filter.</span>
 					{edges.overflows ? (
-						<span className="hidden items-center gap-1 font-semibold text-primary-text max-[800px]:inline-flex">
-							Scroll to see all <span aria-hidden="true">→</span>
+						<span aria-hidden="true" className="mono-label inline-flex items-center gap-1">
+							Swipe for more <span>→</span>
 						</span>
 					) : null}
 				</p>
 			</div>
-			<div className="relative w-full max-w-full overflow-hidden rounded-[20px] border border-border/60 bg-muted/35 p-1">
-				{edges.canScrollLeft ? (
-					<div
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-y-1 left-1 z-10 hidden w-4 bg-[linear-gradient(to_right,var(--theme-muted-surface),transparent)] max-[800px]:block"
-					/>
-				) : null}
-				{edges.canScrollRight ? (
-					<div
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-y-1 right-1 z-10 hidden w-4 bg-[linear-gradient(to_left,var(--theme-muted-surface),transparent)] max-[800px]:block"
-					/>
-				) : null}
+			<div className="relative w-full max-w-full overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] p-1 shadow-[inset_0_0_0_1px_var(--theme-line)]">
+				<div
+					aria-hidden="true"
+					data-visible={edges.canScrollLeft || undefined}
+					className="pointer-events-none absolute inset-y-1 left-1 z-[2] w-8 rounded-l-full bg-[linear-gradient(to_right,color-mix(in_srgb,var(--theme-ink)_5%,var(--theme-paper))_30%,transparent)] opacity-0 transition-opacity duration-200 data-[visible]:opacity-100"
+				/>
+				<div
+					aria-hidden="true"
+					data-visible={edges.canScrollRight || undefined}
+					className="pointer-events-none absolute inset-y-1 right-1 z-[2] w-8 rounded-r-full bg-[linear-gradient(to_left,color-mix(in_srgb,var(--theme-ink)_5%,var(--theme-paper))_30%,transparent)] opacity-0 transition-opacity duration-200 data-[visible]:opacity-100"
+				/>
 				<ToggleGroup
 					value={[value]}
 					onValueChange={(next) => {
@@ -150,7 +138,7 @@ export function FilterStrip<T extends string>({
 					aria-describedby={hintId}
 					aria-labelledby={labelId}
 					ref={stripRef}
-					className={containerClassName}
+					className="flex w-full min-w-0 max-w-full flex-nowrap gap-0.5 overflow-x-auto overscroll-x-contain rounded-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
 					spacing={0}
 				>
 					{options.map((option) => {
@@ -163,13 +151,24 @@ export function FilterStrip<T extends string>({
 								aria-pressed={selected}
 								aria-describedby={hintId}
 								aria-controls={resultsId}
-								className={itemClassName}
+								className={cn(
+									"relative isolate h-auto min-h-11 min-w-fit flex-1 basis-auto scroll-mx-6 rounded-full! border-0 bg-transparent px-4! text-center text-[14px] font-medium whitespace-nowrap text-muted-foreground shadow-none",
+									"transition-[color,transform,translate,scale] duration-200 ease-trace hover:bg-transparent hover:text-foreground active:scale-[.97]",
+									"aria-pressed:bg-transparent aria-pressed:text-foreground aria-pressed:shadow-none data-[pressed]:bg-transparent",
+									"focus-visible:z-10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
+								)}
 								onKeyDown={(event) => moveFocus(event, options.indexOf(option))}
 							>
 								{selected ? (
-									<span
+									<motion.span
 										aria-hidden="true"
-										className="pointer-events-none absolute inset-0 z-0 rounded-[14px] bg-primary/10 ring-1 ring-inset ring-primary/20"
+										layoutId={indicatorId}
+										className="pointer-events-none absolute inset-0 z-0 rounded-full bg-surface-solid shadow-[0_1px_2px_var(--theme-shadow-soft),0_4px_14px_var(--theme-shadow),inset_0_0_0_1px_var(--theme-line)] dark:bg-[color-mix(in_srgb,var(--theme-ink)_14%,var(--theme-surface-solid))]"
+										transition={
+											reduceMotion
+												? { duration: 0 }
+												: { type: "spring", duration: 0.34, bounce: 0.08 }
+										}
 									/>
 								) : null}
 								<span className="relative z-[1]">{labels[option]}</span>

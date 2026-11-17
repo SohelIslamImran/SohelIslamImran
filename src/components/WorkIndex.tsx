@@ -1,48 +1,108 @@
-import { PROJECT_CATEGORIES, type ProjectCategory, type ProjectContent } from "../types/content";
-import { ProjectCard, ProjectRow } from "./ProjectCard";
+import { forwardRef, useLayoutEffect, useRef, useState } from "react";
+import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import type { ProjectCategory, ProjectContent } from "../types/content";
+import { cn } from "../lib/utils";
+import { FilterStrip } from "./FilterStrip";
+import { ProjectCard } from "./ProjectCard";
+import { Stagger } from "./motion";
 import { Button } from "./ui/button";
 import { EmptyState } from "./ui/portfolio";
-import { FilterStrip } from "./FilterStrip";
+import {
+	linkableProjects,
+	workGroupDescriptions,
+	workGroupLabels,
+	workGroups,
+	type WorkGroup,
+} from "./work/project-utils";
 
-export const workGroups = ["all", ...PROJECT_CATEGORIES] as const;
-export type WorkGroup = (typeof workGroups)[number];
+export { workGroups, type WorkGroup } from "./work/project-utils";
 
-const groupLabels: Record<WorkGroup, string> = {
-	all: "Everything",
-	product: "Product Systems",
-	"open-source": "Open Source",
-	experiment: "Experiments",
-};
-
-const sections: {
-	category: ProjectCategory;
-	title: string;
-	description: string;
-	layout: "cards" | "rows";
-}[] = [
-	{
-		category: "product",
-		title: "Product systems",
-		description:
-			"Production software built for real-world users and organizational teams. Because enterprise codebases are proprietary, details emphasize architectural design, domain models, and delivered outcomes.",
-		layout: "cards",
-	},
-	{
-		category: "open-source",
-		title: "Open source",
-		description:
-			"Publicly published, versioned, and maintained modules with verifiable real-world adoption, community usage, and open codebases.",
-		layout: "cards",
-	},
-	{
-		category: "experiment",
-		title: "Experiments & prototypes",
-		description:
-			"Exploratory tools, platform experiments, and native utilities. Built to test specific OS capabilities, developer ergonomics, and system boundaries.",
-		layout: "rows",
-	},
+const sections: { category: ProjectCategory; index: string; layout: "feature" | "lab" }[] = [
+	{ category: "product", index: "01", layout: "feature" },
+	{ category: "open-source", index: "02", layout: "feature" },
+	{ category: "experiment", index: "03", layout: "lab" },
 ];
 
+const spring = { type: "spring", stiffness: 380, damping: 38, mass: 0.9 } as const;
+
+function countLabel(count: number) {
+	return `${String(count).padStart(2, "0")} ${count === 1 ? "project" : "projects"}`;
+}
+
+const WorkSection = forwardRef<
+	HTMLElement,
+	{
+		category: ProjectCategory;
+		index: string;
+		layout: "feature" | "lab";
+		items: ProjectContent[];
+		reduceMotion: boolean;
+	}
+>(function WorkSection({ category, index, layout, items, reduceMotion }, ref) {
+	const titleId = `work-${category}`;
+	return (
+		<motion.section
+			ref={ref}
+			layout="position"
+			aria-labelledby={titleId}
+			className="min-w-0"
+			initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
+			animate={{ opacity: 1, y: 0 }}
+			exit={{
+				opacity: 0,
+				y: reduceMotion ? 0 : -10,
+				transition: { duration: reduceMotion ? 0 : 0.18 },
+			}}
+			transition={{
+				layout: reduceMotion ? { duration: 0 } : spring,
+				y: reduceMotion ? { duration: 0 } : spring,
+				opacity: { duration: reduceMotion ? 0 : 0.28, ease: [0.22, 1, 0.36, 1] },
+			}}
+		>
+			<header className="mb-6 flex min-w-0 flex-wrap items-end justify-between gap-x-6 gap-y-2 border-t border-line pt-6 md:mb-8">
+				<div className="min-w-0">
+					<h2 id={titleId} className="m-0 flex items-baseline gap-3 text-headline">
+						<span aria-hidden="true" className="mono-label text-primary-text">
+							{index}
+						</span>
+						{workGroupLabels[category]}
+					</h2>
+					<p className="m-0 mt-1.5 text-small text-muted-foreground">
+						{workGroupDescriptions[category]}
+					</p>
+				</div>
+				<p className="mono-label m-0 text-muted-foreground">{countLabel(items.length)}</p>
+			</header>
+			{layout === "lab" ? (
+				<Stagger as="ul" className="m-0 grid min-w-0 list-none gap-4 p-0 sm:grid-cols-2 sm:gap-5">
+					{items.map((project) => (
+						<li key={project.id} className="min-w-0">
+							<ProjectCard project={project} variant="compact" />
+						</li>
+					))}
+				</Stagger>
+			) : (
+				<Stagger as="ul" className="m-0 grid min-w-0 list-none gap-4 p-0 md:grid-cols-2 md:gap-5">
+					{items.map((project, position) => {
+						// An odd count leads with one wide card so the grid never ends on a gap.
+						const wide = items.length % 2 === 1 && position === 0;
+						return (
+							<li key={project.id} className={cn("min-w-0", wide && "md:col-span-2")}>
+								<ProjectCard project={project} variant={wide ? "split" : "feature"} />
+							</li>
+						);
+					})}
+				</Stagger>
+			)}
+		</motion.section>
+	);
+});
+
+/**
+ * The /work index: a URL-backed group filter over products, open source, and
+ * experiments. Groups that leave fade out of the flow while the rest glide
+ * into place, and the list height follows smoothly.
+ */
 export function WorkIndex({
 	projects,
 	group,
@@ -52,101 +112,130 @@ export function WorkIndex({
 	group: WorkGroup;
 	onGroupChange: (group: WorkGroup) => void;
 }) {
+	const reduceMotion = useReducedMotion() === true;
+	const listed = linkableProjects(projects);
 	const visible = sections
 		.filter((section) => group === "all" || section.category === group)
 		.map((section) => ({
 			...section,
-			items: projects.filter((project) => project.category === section.category),
+			items: listed.filter((project) => project.category === section.category),
 		}))
 		.filter((section) => section.items.length > 0);
 	const total = visible.reduce((count, section) => count + section.items.length, 0);
+	const countFor = (option: WorkGroup) =>
+		option === "all"
+			? listed.length
+			: listed.filter((project) => project.category === option).length;
+
+	const listRef = useRef<HTMLDivElement>(null);
+	const [listHeight, setListHeight] = useState<number | null>(null);
+	useLayoutEffect(() => {
+		const list = listRef.current;
+		if (!list || typeof ResizeObserver === "undefined") return;
+		const update = () => {
+			const next = list.getBoundingClientRect().height;
+			setListHeight((current) => (current === next ? current : next));
+		};
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(list);
+		return () => observer.disconnect();
+	}, []);
+
+	const labels = Object.fromEntries(
+		workGroups.map((option) => [option, workGroupLabels[option]]),
+	) as Record<WorkGroup, string>;
 
 	return (
-		<div>
-			<FilterStrip
-				className="mb-[clamp(32px,5vw,48px)] w-full max-w-[560px]"
-				labelId="work-filter-label"
-				hintId="work-filter-hint"
-				label="Filter by project type"
-				options={workGroups}
-				labels={groupLabels}
-				value={group}
-				onChange={onGroupChange}
-				resultsId="work-results"
-			/>
-			<p className="sr-only" role="status">
-				Showing {total} {total === 1 ? "project" : "projects"} in {groupLabels[group]}.
+		<div className="min-w-0">
+			<div className="mb-[clamp(48px,7vw,88px)] grid min-w-0 gap-x-10 gap-y-5 xl:grid-cols-[minmax(0,560px)_minmax(0,1fr)] xl:items-end">
+				<FilterStrip
+					className="w-full min-w-0 max-w-[560px]"
+					labelId="work-filter-label"
+					hintId="work-filter-hint"
+					label="Filter by project type"
+					options={workGroups}
+					labels={labels}
+					value={group}
+					onChange={onGroupChange}
+					resultsId="work-results"
+				/>
+				<div className="grid min-w-0 gap-2 px-1 xl:justify-items-end xl:pb-3 xl:text-right">
+					<p className="m-0 text-small text-muted-foreground">
+						<span className="mono-label mr-2 text-foreground">
+							{String(countFor(group)).padStart(2, "0")}
+						</span>
+						{workGroupDescriptions[group]}
+					</p>
+					<p className="mono-label m-0 flex min-w-0 items-start gap-2.5 text-muted-foreground xl:justify-end">
+						<svg
+							aria-hidden="true"
+							viewBox="0 0 20 16"
+							className="-mt-0.5 size-[18px] shrink-0 text-primary-text"
+							fill="none"
+							stroke="currentColor"
+							strokeWidth={1.5}
+						>
+							<rect x={1.5} y={1.5} width={17} height={13} rx={2.5} />
+							<path d="M1.5 5.5h17" />
+							<circle cx={4.5} cy={3.5} r={0.6} fill="currentColor" />
+							<circle cx={6.8} cy={3.5} r={0.6} fill="currentColor" />
+						</svg>
+						<span className="min-w-0">
+							Layers: Interface → API → Data → Access → Infrastructure → Release
+						</span>
+					</p>
+				</div>
+			</div>
+			<p className="sr-only" role="status" aria-live="polite">
+				Showing {total} {total === 1 ? "project" : "projects"} in {workGroupLabels[group]}.
 			</p>
-			<section
-				className="grid gap-[clamp(48px,7vw,80px)]"
+			<motion.div
 				id="work-results"
-				aria-label="Project results"
+				className="min-w-0"
+				initial={false}
+				animate={{ height: listHeight ?? "auto" }}
+				transition={{ height: reduceMotion ? { duration: 0 } : spring }}
 			>
-				{visible.length > 0 ? (
-					visible.map((section) => (
-						<section key={section.category} aria-labelledby={`work-${section.category}`}>
-							<header className="mb-7 grid gap-2">
-								<div className="flex items-baseline justify-between gap-4">
-									<h2
-										className="m-0 min-w-0 break-words text-sm font-semibold leading-tight tracking-[-0.01em] text-muted-foreground [overflow-wrap:anywhere]"
-										id={`work-${section.category}`}
-									>
-										{section.title}
-									</h2>
-									<span className="shrink-0 text-xs font-bold text-muted-foreground [font-variant-numeric:tabular-nums]">
-										{String(section.items.length).padStart(2, "0")}
-										<span className="sr-only"> {section.items.length} projects</span>
-									</span>
-								</div>
-								<p className="m-0 min-w-0 max-w-[60ch] break-words text-pretty text-[15px] leading-[1.55] text-muted-foreground [overflow-wrap:anywhere]">
-									{section.description}
-								</p>
-							</header>
-							{section.layout === "rows" ? (
-								<ul
-									aria-label={`${section.title} projects`}
-									className="m-0 grid list-none border-t border-border p-0"
-								>
-									{section.items.map((project) => (
-										<li key={project.id} className="min-w-0">
-											<ProjectRow project={project} />
-										</li>
-									))}
-								</ul>
+				<div ref={listRef} className="relative grid min-w-0 gap-[clamp(64px,9vw,120px)]">
+					<LayoutGroup id="work-results">
+						<AnimatePresence mode="popLayout" initial={false}>
+							{visible.length > 0 ? (
+								visible.map((section) => (
+									<WorkSection
+										key={section.category}
+										category={section.category}
+										index={section.index}
+										layout={section.layout}
+										items={section.items}
+										reduceMotion={reduceMotion}
+									/>
+								))
 							) : (
-								<ul className="m-0 grid list-none grid-cols-2 gap-4 p-0 max-[900px]:grid-cols-1">
-									{section.items.map((project, index) => (
-										<li
-											key={project.id}
-											className={
-												index === 0 || (index === section.items.length - 1 && index % 2 === 1)
-													? "col-span-2 min-w-0 max-[900px]:col-span-1"
-													: "min-w-0"
-											}
-										>
-											<ProjectCard
-												project={project}
-												variant={index === 0 ? "featured" : "compact"}
-											/>
-										</li>
-									))}
-								</ul>
+								<motion.div
+									key="empty"
+									layout="position"
+									transition={reduceMotion ? { duration: 0 } : undefined}
+									initial={{ opacity: 0 }}
+									animate={{ opacity: 1 }}
+									exit={{ opacity: 0 }}
+								>
+									<EmptyState
+										title="No projects in this view yet."
+										description="Try another group to see more of my work."
+									>
+										{group !== "all" ? (
+											<Button type="button" size="lg" onClick={() => onGroupChange("all")}>
+												Show all work
+											</Button>
+										) : null}
+									</EmptyState>
+								</motion.div>
 							)}
-						</section>
-					))
-				) : (
-					<EmptyState
-						title={group === "all" ? "No projects yet." : `No ${groupLabels[group]} projects yet.`}
-						description="Choose another category or view the full work index."
-					>
-						{group !== "all" ? (
-							<Button type="button" size="lg" onClick={() => onGroupChange("all")}>
-								Show all projects <span aria-hidden="true">→</span>
-							</Button>
-						) : null}
-					</EmptyState>
-				)}
-			</section>
+						</AnimatePresence>
+					</LayoutGroup>
+				</div>
+			</motion.div>
 		</div>
 	);
 }

@@ -7,7 +7,7 @@ function Empty({ className, ...props }: React.ComponentProps<"div">) {
 		<div
 			data-slot="empty"
 			className={cn(
-				"flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-surface border-dashed p-6 text-center text-balance",
+				"flex w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-card border-dashed p-8 text-center text-balance",
 				className,
 			)}
 			{...props}
@@ -74,7 +74,7 @@ function EmptyTitle({ className, children, level = 3, ...props }: EmptyTitleProp
 			data-slot="empty-title"
 			{...props}
 			className={cn(
-				"m-0 min-w-0 max-w-full break-words font-heading text-sm font-medium tracking-tight [overflow-wrap:anywhere]",
+				"m-0 min-w-0 max-w-full break-words font-heading text-[17px] font-semibold tracking-[-0.015em] [overflow-wrap:anywhere]",
 				className,
 			)}
 		>
@@ -88,7 +88,7 @@ function EmptyDescription({ className, ...props }: React.ComponentProps<"p">) {
 		<p
 			data-slot="empty-description"
 			className={cn(
-				"m-0 min-w-0 max-w-full break-words text-sm/relaxed text-muted-foreground [overflow-wrap:anywhere] [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary-text",
+				"m-0 min-w-0 max-w-[48ch] break-words text-[15px]/relaxed text-muted-foreground [overflow-wrap:anywhere] [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary-text",
 				className,
 			)}
 			{...props}
