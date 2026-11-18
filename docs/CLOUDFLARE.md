@@ -10,7 +10,7 @@ This guide describes the deployment shape represented by `wrangler.jsonc` and th
 | --- | --- |
 | `sohelislamimran.com` | Canonical public origin. |
 | `www.sohelislamimran.com` | Redirect to the configured public origin. |
-| `cms.sohelislamimran.com` | Rewrite the root to `/cms` and redirect other public paths to the public origin. |
+| `cms.sohelislamimran.com` | Redirect the root to `/cms` and redirect other public paths to the public origin. |
 
 The Worker also keeps `workers.dev` and preview URLs disabled. The `DB` binding targets the D1 database named `portfolio-content-production`. The R2 binding is commented out, so media uploads are unavailable in this configuration.
 
