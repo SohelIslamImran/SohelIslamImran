@@ -22,6 +22,8 @@ The public origin variables are:
 | `CMS_ORIGIN` | `https://cms.sohelislamimran.com` |
 | `OWNER_EMAIL` | `sohelislamimran@gmail.com` |
 | `ENVIRONMENT` | `production` |
+| `ACCESS_TEAM_DOMAIN` | `https://bitter-breeze-2001.cloudflareaccess.com` |
+| `ACCESS_AUDIENCE` | Application Audience (AUD) tag of the CMS Access application |
 
 These values are configuration, not proof of remote deployment.
 
@@ -38,14 +40,7 @@ Production CMS access has two application-level checks:
 1. Cloudflare Access must protect the CMS hostname. The application expects the owner email allowlist to match the Access identity.
 2. The Worker verifies the Access assertion issuer, audience, token type, and owner email. Mutations additionally require the configured origin and matching CSRF cookie and submitted token.
 
-Set the Access configuration as Worker secrets after the Access application exists:
-
-```sh
-bunx wrangler secret put ACCESS_TEAM_DOMAIN
-bunx wrangler secret put ACCESS_AUDIENCE
-```
-
-The source does not prove that the Access application, policy, audience, team domain, or secrets are currently present in the Cloudflare account. The local loopback exception in `auth.server.ts` applies only when `ENVIRONMENT=development`, `OWNER_EMAIL` is set, and the request uses a loopback hostname.
+`ACCESS_TEAM_DOMAIN` and `ACCESS_AUDIENCE` live in `wrangler.jsonc` `vars`. Both are public: they appear in the Access login redirect. If either is missing, the CMS shows "The editor is not ready." If the Access application is recreated, copy its new Application Audience (AUD) tag from Zero Trust → Access → Applications into `ACCESS_AUDIENCE`. Do not also set them as Worker secrets; a secret and a var cannot share a name. The local loopback exception in `auth.server.ts` applies only when `ENVIRONMENT=development`, `OWNER_EMAIL` is set, and the request uses a loopback hostname.
 
 Do not paste Access JWTs, cookies, draft JSON, private media keys, or personal contract data into logs, commits, or issue reports.
 
