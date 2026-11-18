@@ -8,7 +8,7 @@ scope: public web plus sanitized conclusions from authorized private evidence
 
 ## Direct answer
 
-Sohel Islam Imran is a product-minded full-stack engineer based in Dhaka, Bangladesh. His current public title is Lead Full Stack Engineer at Kuno, effective March 2026. A restricted business record places the service relationship in January 2024 under the broader label Full Stack Engineer. LinkedIn shows an initial Kuno mobile role from December 2023, then Full Stack Engineer from January 2025, and Lead Full Stack Engineer from March 2026. These records describe different role labels, so the dates should not be flattened into one title.
+Sohel Islam Imran is a product-minded full-stack engineer. His current public title is Lead Full Stack Engineer at Kuno, effective March 2026. A restricted business record places the service relationship in January 2024 under the broader label Full Stack Engineer. LinkedIn shows an initial Kuno mobile role from December 2023, then Full Stack Engineer from January 2025, and Lead Full Stack Engineer from March 2026. These records describe different role labels, so the dates should not be flattened into one title.
 
 The public record supports five years of professional work beginning in 2021. It also supports a clear expansion in scope:
 

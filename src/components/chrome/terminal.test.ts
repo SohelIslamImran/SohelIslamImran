@@ -57,11 +57,7 @@ describe("matchTerminalCommand", () => {
 describe("runTerminalCommand", () => {
 	it("answers whoami from content", () => {
 		const { lines } = runTerminalCommand("whoami", context);
-		expect(lines.map((line) => line.text)).toEqual([
-			"Test Person",
-			"Engineer · Dhaka, Bangladesh",
-			"Open to work",
-		]);
+		expect(lines.map((line) => line.text)).toEqual(["Test Person", "Engineer", "Open to work"]);
 	});
 
 	it("lists projects with ls work", () => {

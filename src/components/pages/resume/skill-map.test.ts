@@ -30,7 +30,7 @@ describe("skill map", () => {
 		expect(skill("PostgreSQL")?.layer).toBe("data");
 		expect(skill("Terraform")?.layer).toBe("infrastructure");
 		expect(skill("Playwright")?.layer).toBe("release");
-		expect(skill("Data Isolation")?.layer).toBe("access");
+		expect(skill("Data isolation")?.layer).toBe("access");
 	});
 
 	it("never lets a shorter name light a longer one", () => {
@@ -47,7 +47,7 @@ describe("skill map", () => {
 		expect(usedIn("Firebase")).toEqual(expect.arrayContaining(["role-tilleli", "project-tilleli"]));
 		expect(usedIn("Kotlin")).toContain("project-expo-in-app-updates");
 		expect(usedIn("Kotlin").some((id) => id.startsWith("role-"))).toBe(false);
-		expect(usedIn("Webhook Cryptography")).toEqual([]);
+		expect(usedIn("Webhook trust")).toEqual([]);
 	});
 
 	it("marks matched words", () => {

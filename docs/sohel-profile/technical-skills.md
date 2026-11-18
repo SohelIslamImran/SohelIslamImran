@@ -39,7 +39,7 @@ The 2021 resume and public projects show JavaScript, HTML, CSS, Sass, Bootstrap,
 
 ## Evidence limits
 
-- Kuno uses AI-assisted product features and Sohel has authored integration, localization, access-control, and service-auth changes. The evidence does not support "machine-learning engineer" or model-training claims.
+- Kuno uses AI-assisted product features and Sohel has authored integration, localization, access-control, and service-auth changes. The evidence does not support "machine-learning engineer" or model-training claims. Sohel confirmed on 2026-11-17 that he has done no machine-learning work yet.
 - AWS and Terraform work is substantial enough to support cloud and infrastructure experience. Use "contributed to" or name the shipped change unless formal infrastructure ownership is needed.
 - The current Lead title and cross-repository work support technical leadership. The evidence does not establish line management.
 

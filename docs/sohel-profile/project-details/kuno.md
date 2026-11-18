@@ -17,6 +17,7 @@ Public sources: [Kuno company site](https://www.kuno-ai.com/), [Kuno LinkedIn](h
 - Mobile Application Developer, December 2023 to January 2025, according to LinkedIn.
 - Full Stack Engineer, January 2025 to March 2026, according to LinkedIn.
 - Lead Full Stack Engineer, March 2026 to present, verified on September 3, 2026.
+- Kuno's team is in Paris, France, and Sohel works with it remotely. Self-reported on 2026-11-18.
 - A restricted business record places the service relationship in January 2024 under the broader label Full Stack Engineer. Keep the public title progression as the main chronology.
 
 ## Problem

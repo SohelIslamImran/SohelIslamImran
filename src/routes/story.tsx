@@ -16,7 +16,8 @@ export const Route = createFileRoute("/story")({
 	head: ({ loaderData }) => {
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
-		const title = c.story.title.trim() || "Career story";
+		// The on-page heading ends with a period; titles in tabs and share cards do not.
+		const title = (c.story.title.trim() || "Career story").replace(/\.$/u, "");
 		const description = c.story.intro.trim() || "A public account of the work behind the work.";
 		const writing = c.writing.find((item) => item.href === "/story");
 		return pageHead(c, `${name} — ${title}`, description, "/story", "/images/social-story.png", [

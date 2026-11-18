@@ -101,7 +101,7 @@ function caseMoment(project: ProjectContent): {
 		return {
 			id: "how-it-works",
 			title: "One call, two platforms",
-			lead: "Your app talks to one TypeScript API. Underneath, Kotlin handles Android and Swift handles iOS. Pick a highlight to follow it.",
+			lead: "Your app talks to one TypeScript API. Underneath, Kotlin handles Android and Swift handles iOS.",
 			body: <UpdateFlow model={flow} />,
 		};
 	}
@@ -109,7 +109,7 @@ function caseMoment(project: ProjectContent): {
 		return {
 			id: "try-it",
 			title: "Try it here",
-			lead: "A small replay in the browser. Type the command or press Replay. The real one runs in your terminal.",
+			lead: "A small replay in the browser. Type the command or press Replay.",
 			body: <GhostReplay />,
 		};
 	}
@@ -395,7 +395,7 @@ function NextProject({ project, place }: { project: ProjectContent; place: strin
 					</span>
 				) : null}
 				<span className="mt-2 inline-flex items-center gap-1.5 text-[15px] font-medium text-primary-text">
-					Open case study
+					View project
 					<ArrowRightIcon
 						aria-hidden="true"
 						className="size-4 transition-transform duration-300 ease-trace group-hover/next:translate-x-1"

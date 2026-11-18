@@ -38,12 +38,12 @@ export const Route = createFileRoute("/resume")({
 	head: ({ loaderData }) => {
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
-		const role = c.identity.role.trim() || "Product engineer";
+		const role = c.identity.role.trim() || "Full-stack engineer";
 		const employer = c.experience.find((item) => item.current)?.company.trim() || undefined;
 		return pageHead(
 			c,
 			`${name} — Résumé`,
-			`${role}. Experience, selected projects, and how I work.`,
+			`${role}. Experience, skills, and selected projects, on one printable page.`,
 			"/resume",
 			"/images/social-resume.png",
 			[
@@ -75,7 +75,7 @@ function shortUrl(href: string) {
 function Resume() {
 	const content = Route.useLoaderData();
 	const name = content.identity.name.trim() || "Sohel Islam Imran";
-	const role = content.identity.role.trim() || "Product engineer";
+	const role = content.identity.role.trim() || "Full-stack engineer";
 	const current = content.experience.find((item) => item.current);
 	const employer = current?.company.trim() || undefined;
 	const projects = useMemo(() => {
@@ -88,7 +88,7 @@ function Resume() {
 	const summary =
 		content.resume.summary?.trim() ||
 		content.about.paragraphs.find((paragraph) => paragraph.trim()) ||
-		"Experience, selected projects, and how I work.";
+		"Experience, skills, and selected projects, on one printable page.";
 	const availability = content.identity.availability.trim();
 	const updatedAt = content.resume.updatedAt?.trim() || null;
 	const email = content.identity.email.trim();
@@ -136,7 +136,7 @@ function Resume() {
 				}
 			: null,
 		location
-			? { label: "Based in", value: location.split(",")[0], detail: timezone ?? location }
+			? { label: "Location", value: location.split(",")[0], detail: timezone ?? location }
 			: null,
 		availability ? { label: "Status", value: availability, detail: null } : null,
 	].filter((item) => item !== null);

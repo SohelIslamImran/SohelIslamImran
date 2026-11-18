@@ -45,7 +45,7 @@ export function displayValue(value: string): string {
 
 /**
  * The line a person scans: platform for profiles ("GitHub"), the title for
- * pieces of writing ("From First Computer to Lead Engineer").
+ * pieces of writing ("From first computer to lead engineer").
  */
 export function linkTitles(link: ProfileLinkContent) {
 	const platform = link.platform.trim() || "Link";

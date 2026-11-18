@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import type {
 	CapabilityContent,
 	ExperienceContent,
@@ -7,7 +7,7 @@ import type {
 	ProjectContent,
 	TestimonialContent,
 } from "../../types/content";
-import { CopyButton, CountUp, LocalTime, Stagger, useLocalTime } from "@/components/motion";
+import { CopyButton, CountUp, Stagger } from "@/components/motion";
 import {
 	DatedLabel,
 	MonoLabel,
@@ -19,7 +19,8 @@ import { groupExperienceByCompany } from "@/lib/experience";
 import { cn } from "@/lib/utils";
 import { ENGINEERING_PRINCIPLES } from "../EngineeringPrinciples";
 import { Testimonial } from "../Testimonial";
-import { DottedGlobe, isDaylightAtPin } from "./DottedGlobe";
+import { RemoteMap, type RemoteMapTeam } from "./RemoteMap";
+import { REMOTE_TEAMS } from "./remote-map";
 import { MiniTerminal, type TerminalFacts } from "./sections/MiniTerminal";
 import { TiltTile } from "./sections/TiltTile";
 import { UpdatePhone } from "./sections/UpdatePhone";
@@ -222,8 +223,7 @@ function OpenSourceTile({
 					App updates, one API.
 				</h3>
 				<p className="mt-3 mb-0 max-w-[44ch] text-[1rem] leading-[1.5] text-ink-soft">
-					{summary ||
-						"I maintain expo-in-app-updates for Expo developers building on Android and iOS."}
+					{summary || "My open-source Expo module for in-app update prompts on Android and iOS."}
 				</p>
 				{metrics.length > 0 ? (
 					<dl className="m-0 mt-6 grid grid-cols-2 gap-x-5 gap-y-5">
@@ -313,48 +313,40 @@ function TerminalTile({ facts, className }: { facts: TerminalFacts; className?: 
 	);
 }
 
-function DaylightLabel() {
-	const [day, setDay] = useState<boolean | null>(null);
-	useEffect(() => {
-		const update = () => setDay(isDaylightAtPin(new Date()));
-		update();
-		const timer = window.setInterval(update, 60_000);
-		return () => window.clearInterval(timer);
-	}, []);
-	if (day === null) return null;
-	return <span>{day ? "Daylight here" : "Night here"}</span>;
-}
-
-function LocationTile({ identity, className }: { identity: IdentityContent; className?: string }) {
-	const timeZone = identity.timezone.trim() || "Asia/Dhaka";
-	const place = identity.location.trim() || "Dhaka, Bangladesh";
-	const { offset } = useLocalTime(timeZone);
-	const offsetLabel = offset ?? (timeZone === "Asia/Dhaka" ? "UTC+6" : "");
+/**
+ * Where my remote teams were, drawn from home: a dotted world map with live
+ * day and night, an arc to each team, and the time gap I worked across.
+ */
+function RemoteTile({
+	experience,
+	className,
+}: {
+	experience: ExperienceContent[];
+	className?: string;
+}) {
+	const groups = groupExperienceByCompany(experience);
+	const teams: RemoteMapTeam[] = REMOTE_TEAMS.flatMap((team) => {
+		const group = groups.find((item) => item.company.trim() === team.company);
+		if (!group) return [];
+		return [{ ...team, period: group.period.trim().replace(/\bpresent\b/u, "now") }];
+	});
+	if (teams.length === 0) return null;
 	return (
 		<TiltTile
 			frameClassName={className}
 			className={cn("relative flex flex-col overflow-hidden", TILE_PAD)}
 		>
-			<TileLabel>Based in</TileLabel>
+			<TileLabel>Remote work</TileLabel>
 			<h3 data-par="2" className="mt-5 mb-0 text-headline">
-				{place}
+				Remote since 2021.
 			</h3>
-			<p className="mt-2 mb-0 flex flex-wrap items-baseline gap-x-2.5 text-muted-foreground">
-				<LocalTime
-					timeZone={timeZone}
-					className="text-[1.75rem] leading-none font-[600] tracking-[-0.03em] text-foreground"
-				/>
-				{offsetLabel ? <span className="mono-label">{offsetLabel}</span> : null}
+			<p className="mt-2 mb-0 max-w-[40ch] text-[15px] leading-[1.5] text-ink-soft">
+				I&apos;ve shipped with teams in Paris and New Jersey without sharing an office or a time
+				zone.
 			</p>
-			<div data-par="-2" className="relative mt-4 flex flex-1 items-center justify-center">
-				<DottedGlobe className="w-full max-w-[260px]" />
+			<div className="mt-6 flex flex-1 flex-col justify-center">
+				<RemoteMap teams={teams} />
 			</div>
-			<p className="mono-label mt-3 mb-0 flex justify-between gap-3 text-muted-foreground">
-				<span>
-					23.81°N <span className="text-line-strong">/</span> 90.41°E
-				</span>
-				<DaylightLabel />
-			</p>
 		</TiltTile>
 	);
 }
@@ -411,8 +403,8 @@ export function GlanceBento({
 				id="glance-title"
 				index="00"
 				eyebrow="At a glance"
-				title="A little context."
-				description="Where I work, what I ship, and the tools I give away."
+				title="Where things stand."
+				description="What I'm working on, what I've shipped, and the tools I give away."
 			/>
 			<Stagger className="depth-bento grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
 				{hasNow ? (
@@ -439,7 +431,7 @@ export function GlanceBento({
 						))}
 					</div>
 				) : null}
-				<LocationTile identity={identity} className="md:col-span-2 lg:col-span-5" />
+				<RemoteTile experience={experience} className="md:col-span-2 lg:col-span-5" />
 				<OpenSourceTile
 					project={project}
 					metrics={projectMetrics}

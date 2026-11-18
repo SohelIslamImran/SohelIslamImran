@@ -71,7 +71,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 						through.
 					</>
 				}
-				description="Each way I work is a check a change has to pass. A change that clears them all lands in this section. Use the rollback to take it out, or ship it again."
+				description="Each card is a stage a change has to clear before it ships. Ship a change to watch the checks run, then roll it back."
 			/>
 			{stages.length > 0 ? (
 				<ReleasePipeline
@@ -89,7 +89,8 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					className={cn(
 						"m-0 mt-[clamp(40px,5vw,64px)] flex min-w-0 list-none snap-x snap-mandatory scroll-px-gutter gap-4 overflow-x-auto overscroll-x-contain p-0 px-gutter pb-2 -mx-gutter [scrollbar-width:none]",
 						"md:mx-0 md:grid md:snap-none md:grid-cols-2 md:gap-x-[clamp(24px,3vw,40px)] md:gap-y-12 md:overflow-visible md:px-0 md:pb-0",
-						pairs.length >= 4 && "xl:grid-cols-4",
+						pairs.length === 4 && "xl:grid-cols-4",
+						pairs.length >= 5 && "lg:grid-cols-3 xl:grid-cols-5 xl:gap-x-6",
 						pairs.length === 3 && "lg:grid-cols-3",
 					)}
 				>

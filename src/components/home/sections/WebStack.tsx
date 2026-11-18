@@ -10,7 +10,7 @@ import { isAbort, useOnScreen, wait } from "./hooks";
  */
 const STEPS = [
 	{ id: "request", label: "request" },
-	{ id: "rule", label: "check rule" },
+	{ id: "rule", label: "check access" },
 	{ id: "row", label: "write row" },
 	{ id: "response", label: "200 OK" },
 ] as const;
@@ -41,7 +41,7 @@ const bar = "block rounded-full bg-[color-mix(in_srgb,var(--theme-ink)_9%,transp
 /**
  * The current role as a living web product: a small, generic settings page in
  * a browser window. Pressing Save (or watching it play once it is on screen)
- * runs one request through the stack in a single status line: request, rule
+ * runs one request through the stack in a single status line: request, access
  * check, row written, response. The role's published highlights sit below.
  */
 export function WebStack({ role, className }: { role: ExperienceContent; className?: string }) {
@@ -63,7 +63,7 @@ export function WebStack({ role, className }: { role: ExperienceContent; classNa
 				await wait(STEP_MS, signal);
 			}
 			setPhase(SAVED);
-			if (speak) setAnnounce("Saved. Request sent, rule checked, row written, 200 OK.");
+			if (speak) setAnnounce("Saved. Request sent, access checked, row written, 200 OK.");
 			await wait(LOOP_REST_MS, signal);
 		} while (loop);
 	}, []);
@@ -80,7 +80,7 @@ export function WebStack({ role, className }: { role: ExperienceContent; classNa
 	const save = () => {
 		if (reduceMotion) {
 			setPhase(SAVED);
-			setAnnounce("Saved. Request sent, rule checked, row written, 200 OK.");
+			setAnnounce("Saved. Request sent, access checked, row written, 200 OK.");
 			return;
 		}
 		setAnnounce("");

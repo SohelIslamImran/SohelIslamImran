@@ -13,37 +13,40 @@ export const STACK_LAYERS: readonly StackLayer[] = [
 	{
 		id: "interface",
 		name: "Interface",
-		sentence: "I build the web interfaces people use, then connect them to real product behavior.",
+		sentence: "I build the screens people use and connect each one to the API behind it.",
 		tools: ["React", "TanStack Router", "TanStack Query", "Tailwind CSS"],
 	},
 	{
 		id: "api",
 		name: "API",
-		sentence: "I build services that turn a user action into a clear, checked response.",
+		sentence: "I build typed APIs that validate each request and check who is allowed to make it.",
 		tools: ["TypeScript", "Bun", "Elysia"],
 	},
 	{
 		id: "data",
 		name: "Data",
-		sentence: "I shape the data behind a feature and keep its rules close to the code.",
-		tools: ["PostgreSQL", "Drizzle", "Redis"],
+		sentence:
+			"I design the PostgreSQL schema and write the migrations and queries a feature needs.",
+		tools: ["PostgreSQL", "Drizzle ORM", "SQL", "Redis"],
 	},
 	{
 		id: "access",
 		name: "Access",
-		sentence: "I work on sign-in and permissions so people can reach the right data.",
-		tools: ["Better Auth", "OIDC", "SSO"],
+		sentence:
+			"I build sign-in, single sign-on, and permissions so each person sees only their own data.",
+		tools: ["Better Auth", "OIDC", "SSO", "RBAC"],
 	},
 	{
 		id: "infrastructure",
 		name: "Infrastructure",
-		sentence: "I help define where services run and how deployments get access.",
+		sentence: "I help define where services run and what each deployment is allowed to touch.",
 		tools: ["AWS", "Terraform", "Docker"],
 	},
 	{
 		id: "release",
 		name: "Release",
-		sentence: "I check changes before release and help keep a path back when something goes wrong.",
+		sentence:
+			"I run automated checks before each release and help make sure a bad one can be rolled back.",
 		tools: ["GitHub Actions", "Playwright", "Bun Test"],
 	},
 ];

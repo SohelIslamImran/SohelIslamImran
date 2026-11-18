@@ -103,8 +103,8 @@ export function SelectedWork({
 				id="selected-work-title"
 				index="01"
 				eyebrow="Work"
-				title="A few things I've helped build."
-				description="Explore products, open-source tools, and the problems behind them."
+				title="Work I've shipped."
+				description="Products I've worked on for years, and open-source tools other developers install."
 				actions={
 					visible.length > 0 ? (
 						<Link

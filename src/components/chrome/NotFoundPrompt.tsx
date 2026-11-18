@@ -207,7 +207,7 @@ export function NotFoundPrompt({
 				}}
 			>
 				<label htmlFor={`${id}-prompt`} className="mono-label block text-muted-foreground">
-					Send the request somewhere real
+					Where to?
 				</label>
 				<div className="relative mt-2">
 					<span
@@ -232,7 +232,8 @@ export function NotFoundPrompt({
 					/>
 				</div>
 				<p id={`${id}-hint`} className="m-0 mt-2 text-[12px] text-muted-foreground">
-					Tab completes a route. Enter runs it; help lists the rest. The reroute links also work.
+					Type a page name and press Enter. Tab completes it, and help lists every command. Or use
+					the links on this page.
 				</p>
 			</form>
 		</>

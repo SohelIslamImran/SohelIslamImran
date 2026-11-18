@@ -46,7 +46,7 @@ export const Route = createRootRoute({
 				rel: "alternate",
 				type: "application/rss+xml",
 				href: "/rss.xml",
-				title: "Sohel Islam Imran — writing",
+				title: "Sohel Islam Imran — Writing",
 			},
 		],
 	}),

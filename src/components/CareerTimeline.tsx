@@ -126,7 +126,7 @@ function DepthGauge({ role, layers }: { role?: ExperienceContent; layers: Career
 export function CareerTimeline({
 	experience,
 	title = "From the interface to the whole stack.",
-	description = "I started on the interface. The bars show which layers each role reached.",
+	description = "The bars show which layers each role reached.",
 	className,
 }: CareerTimelineProps) {
 	const titleId = useId();

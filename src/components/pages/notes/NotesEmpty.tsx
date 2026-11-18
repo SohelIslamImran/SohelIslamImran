@@ -30,7 +30,8 @@ export function NotesEmpty({
 	intro: string;
 	origin: string;
 }) {
-	const storyTitle = content.story.title.trim();
+	// The story heading ends with a period; inline it reads better without one.
+	const storyTitle = content.story.title.trim().replace(/\.$/u, "");
 	const storyWriting = content.writing.find((item) => item.href === "/story");
 	const readingTime = storyWriting?.readingTime?.trim();
 	const projectCount = content.projects.length;
@@ -68,7 +69,7 @@ export function NotesEmpty({
 								<span className="fn-way-text">
 									<span className="fn-way-title">See the work</span>
 									<span className="fn-way-meta">
-										{projectCount > 0 ? `${projectCount} projects` : "Projects and case studies"}
+										{projectCount > 0 ? `${projectCount} projects` : "Projects and experiments"}
 									</span>
 								</span>
 								<Arrow />

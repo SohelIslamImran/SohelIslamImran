@@ -20,7 +20,7 @@ export const workGroupLabels: Record<WorkGroup, string> = {
 /** One plain sentence per group (copy deck: Work → groups). */
 export const workGroupDescriptions: Record<WorkGroup, string> = {
 	all: "Products, tools, and experiments in one place.",
-	product: "Work built for people to use.",
+	product: "Products that shipped to real users.",
 	"open-source": "Tools you can inspect, use, and build on.",
 	experiment: "Small projects where I try an idea.",
 };
