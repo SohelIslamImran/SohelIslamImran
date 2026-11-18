@@ -15,6 +15,11 @@
 		"CMS_ORIGIN": "https://cms.sohelislamimran.com",
 		"OWNER_EMAIL": "sohelislamimran@gmail.com",
 		"ENVIRONMENT": "production",
+		// Public identifiers for the Cloudflare Access application that protects
+		// the CMS hostname. Both appear in the Access login redirect, so they are
+		// configuration, not secrets.
+		"ACCESS_TEAM_DOMAIN": "https://bitter-breeze-2001.cloudflareaccess.com",
+		"ACCESS_AUDIENCE": "da0d81b228b4cd44f533d30b2c005e33c014b72d315b78298be3530846afd963",
 	},
 	"observability": {
 		"enabled": true,
