@@ -14,7 +14,13 @@ export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 		id: "end-to-end",
 		capabilityId: "product",
 		title: "One change, every layer.",
-		body: "A feature isn't done until its server rule, data change, and tests ship with the screen.",
+		body: "A feature isn't done until its API check, database change, and tests ship with the screen.",
+	},
+	{
+		id: "data",
+		capabilityId: "data",
+		title: "Change the database on purpose.",
+		body: "Every schema change ships as a versioned migration, reviewed with the code that depends on it.",
 	},
 	{
 		id: "native",
@@ -25,8 +31,8 @@ export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 	{
 		id: "boundaries",
 		capabilityId: "access",
-		title: "Put rules where they count.",
-		body: "I check access and privacy in the services and data layer, as well as the interface.",
+		title: "Enforce access on the server.",
+		body: "Hiding a button isn't security. I check permissions in the API and scope queries to the right organization.",
 	},
 	{
 		id: "delivery",

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { CopyButton } from "../motion/CopyButton";
-import { useLocalTime } from "../motion/LocalTime";
 import { TraceLine } from "../motion/TraceLine";
 import { Kbd, MonoLabel, StatusDot } from "../ui/portfolio";
 import { buttonVariants } from "../ui/button";
@@ -45,9 +44,6 @@ export function SiteFooter() {
 	const name = content?.identity.name.trim() || "Sohel Islam Imran";
 	const email = (content?.identity.email || content?.contact.email || "").trim();
 	const availability = content?.identity.availability.trim() ?? "";
-	const timeZone = content?.identity.timezone.trim() || "Asia/Dhaka";
-	const city = (content?.identity.location.trim() || "Dhaka").split(",")[0]?.trim() || "Dhaka";
-	const clock = useLocalTime(timeZone);
 	const elsewhere = (content?.contact.links ?? [])
 		.map((link) => ({ label: link.label.trim(), href: link.href.trim() }))
 		.filter((link) => link.label && link.href && !link.href.startsWith("#"));
@@ -187,18 +183,7 @@ export function SiteFooter() {
 						</ul>
 					</div>
 					<div className="min-w-0 max-sm:col-span-2">
-						<MonoLabel className="mb-3 block">Local time in {city}</MonoLabel>
-						<p className="m-0 flex min-h-11 items-baseline gap-2 md:min-h-9">
-							<time
-								dateTime={clock.iso ?? undefined}
-								className="text-[28px] leading-none font-[600] tracking-[-0.03em] text-foreground tabular-nums"
-							>
-								{clock.time ?? "--:--"}
-							</time>
-							<span className="font-mono text-[12px] text-muted-foreground">
-								{clock.offset ?? ""}
-							</span>
-						</p>
+						<MonoLabel className="mb-3 block">Search</MonoLabel>
 						{palette ? (
 							<button
 								type="button"

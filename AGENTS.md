@@ -27,6 +27,15 @@ full-document SSR, streaming, and a Cloudflare Workers runtime.
   state it without framing it as part of his professional identity.
 - The same rule applies to any profile, bio, résumé, or social copy written
   from `docs/sohel-profile/`.
+- Show the local time once, in the home contact section, where a visitor decides
+  whether to write. The résumé Location field and the terminal `time` command
+  may also state it. Don't add clocks or time-zone facts elsewhere.
+- The home "Remote work" map shows where past and current teams were, drawn
+  from home. Keep it about remote collaboration: no clock, and no headline or
+  label that frames Dhaka as his professional identity. Add a team to
+  `REMOTE_TEAMS` only when its location is confirmed in `docs/sohel-profile/`.
+- Describe skills concretely (permissions, schema migrations, single sign-on)
+  rather than with vague nouns such as "rules" or "boundaries".
 
 ## Animation
 

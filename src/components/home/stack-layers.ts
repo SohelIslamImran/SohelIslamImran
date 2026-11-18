@@ -19,20 +19,22 @@ export const STACK_LAYERS: readonly StackLayer[] = [
 	{
 		id: "api",
 		name: "API",
-		sentence: "I build services that turn a user action into a clear, checked response.",
+		sentence: "I build typed APIs that validate each request and check who is allowed to make it.",
 		tools: ["TypeScript", "Bun", "Elysia"],
 	},
 	{
 		id: "data",
 		name: "Data",
-		sentence: "I shape the data behind a feature and keep its rules close to the code.",
-		tools: ["PostgreSQL", "Drizzle", "Redis"],
+		sentence:
+			"I design the PostgreSQL schema and write the migrations and queries a feature needs.",
+		tools: ["PostgreSQL", "Drizzle ORM", "SQL", "Redis"],
 	},
 	{
 		id: "access",
 		name: "Access",
-		sentence: "I work on sign-in and permissions so each person sees only the data they should.",
-		tools: ["Better Auth", "OIDC", "SSO"],
+		sentence:
+			"I build sign-in, single sign-on, and permissions so each person sees only their own data.",
+		tools: ["Better Auth", "OIDC", "SSO", "RBAC"],
 	},
 	{
 		id: "infrastructure",

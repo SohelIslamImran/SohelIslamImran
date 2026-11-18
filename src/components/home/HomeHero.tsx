@@ -1,6 +1,6 @@
 import { useRef, type CSSProperties } from "react";
 import type { HeroContent, IdentityContent } from "../../types/content";
-import { LocalTime, Magnetic } from "@/components/motion";
+import { Magnetic } from "@/components/motion";
 import { buttonVariants } from "@/components/ui/button";
 import { MonoLabel, StatusDot } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
@@ -60,7 +60,6 @@ export function HomeHero({ identity, hero, portraitSrc, portraitAlt }: HomeHeroP
 	useHeroScroll(sectionRef);
 	const actions = hero.actions.filter((action) => action.href.trim()).slice(0, 2);
 	const availability = identity.availability.trim();
-	const timeZone = identity.timezone.trim() || "Asia/Dhaka";
 	const wordCount = hero.title.split(/\s+/u).filter(Boolean).length;
 	const afterTitle = WORD_START_MS + wordCount * WORD_STEP_MS;
 	const delay = (ms: number) => ({ "--d": `${ms}ms` }) as CSSProperties;
@@ -101,24 +100,16 @@ export function HomeHero({ identity, hero, portraitSrc, portraitAlt }: HomeHeroP
 						</span>
 					</div>
 
-					<MonoLabel
-						tone="muted"
-						className="hero-fade mt-8 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2"
-						style={delay(70)}
-					>
-						{availability ? (
-							<span className="inline-flex min-w-0 items-center gap-2.5 text-ink-soft">
-								<StatusDot />
-								{availability}
-							</span>
-						) : null}
-						{availability ? (
-							<span aria-hidden="true" className="h-3 w-px bg-line-strong max-sm:hidden" />
-						) : null}
-						<span className="whitespace-nowrap">
-							Local time <LocalTime timeZone={timeZone} showOffset className="text-foreground" />
-						</span>
-					</MonoLabel>
+					{availability ? (
+						<MonoLabel
+							tone="muted"
+							className="hero-fade mt-8 flex min-w-0 items-center gap-2.5 text-ink-soft"
+							style={delay(70)}
+						>
+							<StatusDot />
+							{availability}
+						</MonoLabel>
+					) : null}
 
 					<h1
 						id="hero-title"

@@ -10,7 +10,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	site: {
 		title: "Sohel Islam Imran — Lead Full Stack Engineer",
 		description:
-			"I'm Sohel, a lead full-stack engineer at Kuno. I build product features from interface to release, and I created the open-source expo-in-app-updates module.",
+			"I'm Sohel, a lead full-stack engineer at Kuno. I build product features across React interfaces, TypeScript APIs, PostgreSQL databases, authentication, and release pipelines.",
 		url: "https://sohelislamimran.com",
 		locale: "en",
 		theme: "systems-atlas",
@@ -29,7 +29,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Lead Full Stack Engineer",
 		title: "I build every layer of a product, from interface to release.",
 		intro:
-			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform, and I created expo-in-app-updates, an open-source module that lets Expo apps prompt people to update.",
+			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform. That covers React screens, TypeScript APIs, PostgreSQL schemas and migrations, sign-in and permissions, and the pipeline that ships them.",
 		actions: [
 			{ label: "See my work", href: "/work" },
 			{ label: "Email me", href: "mailto:sohelislamimran@gmail.com", external: true },
@@ -44,13 +44,10 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	about: {
 		title: "Self-taught, and still curious about the layer below.",
 		paragraphs: [
-			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production React Native app. Since then I've kept going one layer deeper, from mobile screens at Tilleli to the services, access rules, and releases behind Kuno.",
-			"Most of my attention goes to where the layers meet. If the interface shows a rule, the server should enforce it. A release should be easy to roll back. The next engineer should be able to see why something works. I hold my own work to that, and I help my teammates do the same.",
+			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production React Native app. Since then I've kept going one layer deeper, from mobile screens at Tilleli to the APIs, databases, permissions, and releases behind Kuno.",
+			"Most of my attention goes to where the layers meet. If the interface hides an action, the API should refuse it too. A schema change should ship as a migration that's safe to run. A release should be easy to roll back. The next engineer should be able to see why something works. I hold my own work to that, and I help my teammates do the same.",
 		],
-		facts: [
-			{ value: "2020", label: "first line of code" },
-			{ value: "UTC+6", label: "time zone" },
-		],
+		facts: [{ value: "2020", label: "first line of code" }],
 	},
 	experience: [
 		{
@@ -60,10 +57,10 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			period: "Mar 2026 — present",
 			location: "Remote",
 			summary:
-				"I build features across the product and help shape its architecture, security boundaries, testing, and release process.",
+				"I build features across the product and help shape its architecture, application security, testing, and release process.",
 			highlights: [
 				"Build learner, company, and admin workflows across React and TanStack interfaces, Elysia services on Bun, and PostgreSQL.",
-				"Strengthen permissions, trust between services, and privacy rules in the API and the database.",
+				"Strengthen permission checks, service-to-service authentication, and personal-data protection in the API and the database.",
 				"Contribute to how we ship: Terraform deployment identity, CI checks, rollback safeguards, and release tools.",
 				"Expand automated test coverage with Bun unit suites, API contract checks, route probes, and Playwright flows.",
 			],
@@ -141,7 +138,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			summary:
 				"A B2B learning platform where people build workplace skills through guided peer conversations.",
 			description:
-				"Kuno helps companies, education providers, and communities run professional development through diagnostics, learning pathways, peer matching, and guided conversations. I joined on the mobile app in late 2023 and now lead full-stack work on the product, its access rules, and its releases.",
+				"Kuno helps companies, education providers, and communities run professional development through diagnostics, learning pathways, peer matching, and guided conversations. I joined on the mobile app in late 2023 and now lead full-stack work on the product, its sign-in and permissions, and its releases.",
 			year: "2023 — present",
 			role: "Mobile, then full-stack, now lead engineer",
 			status: "Current role",
@@ -302,29 +299,31 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		{
 			id: "product",
 			title: "Full-stack product features",
-			description: "I build the interface, the service behind it, and the data it needs.",
-			tools: [
-				"TypeScript",
-				"React",
-				"TanStack Router/Query",
-				"Bun",
-				"Elysia",
-				"Drizzle",
-				"PostgreSQL",
-				"Redis",
-			],
+			description:
+				"I build the screen people use and the typed API behind it, and ship them as one change.",
+			tools: ["TypeScript", "React", "TanStack Router/Query", "Tailwind CSS", "Bun", "Elysia"],
+		},
+		{
+			id: "data",
+			title: "Databases and migrations",
+			description:
+				"I design PostgreSQL schemas, write migrations and queries with Drizzle ORM and SQL, and work with Redis caching and background jobs.",
+			tools: ["PostgreSQL", "SQL", "Drizzle", "Schema migrations", "Redis", "Background jobs"],
 		},
 		{
 			id: "access",
-			title: "Access rules that hold up",
+			title: "Sign-in, permissions, and security",
 			description:
-				"I work on sign-in, permissions, and rules that keep each organization's data separate.",
+				"I build sign-in and single sign-on, enforce who can do what, and keep each organization's data separate.",
 			tools: [
 				"Better Auth",
-				"Role-based access (RBAC)",
 				"OIDC / SSO",
-				"Webhook trust",
+				"Role-based access (RBAC)",
+				"Account linking",
 				"Data isolation",
+				"Webhook verification",
+				"Service authentication",
+				"Secret scanning",
 			],
 		},
 		{
@@ -658,10 +657,10 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				title: "Behind the screen.",
 				paragraphs: [
 					"I joined Kuno in late 2023 as a mobile application developer. In January 2025 my role became full-stack: B2B learning workflows, Bun and Elysia services, PostgreSQL and Drizzle data, authorization, localization, and cloud delivery.",
-					"I became Lead Full Stack Engineer in March 2026. Today my work covers product architecture, security boundaries, testing, deployment identity, and release coordination.",
+					"I became Lead Full Stack Engineer in March 2026. Today my work covers product architecture, application security, testing, deployment identity, and release coordination.",
 				],
 				artifact:
-					"A user action, a server rule, a data change, a test, and a safe path to production all belong together.",
+					"A user action, a permission check, a data change, a test, and a safe path to production all belong together.",
 			},
 			{
 				id: "05",

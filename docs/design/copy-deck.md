@@ -11,7 +11,6 @@ Use seed content for personal facts, project details, dates, and metrics. Keep m
 - actions: Copy email / Open email / Switch theme / Use light theme / Use dark theme / Follow system theme / Change accent / Close / Open menu / View source
 - email.success: Email copied. Talk soon.
 - footer.title: Let's talk about what comes next.
-- footer.clock: Local time in Dhaka
 - footer.credit: Built with TanStack Start. Served by Cloudflare Workers.
 - footer.links: Source / Field notes / Links / RSS
 - notFound.eyebrow: 404 — Route not found
@@ -37,9 +36,10 @@ Use seed content for personal facts, project details, dates, and metrics. Keep m
 - tiles.now.label: Now
 - tiles.now.title: Lead Full Stack Engineer at Kuno
 - tiles.now.body: I work across the product, services, data, and releases.
-- tiles.location.label: Local time
-- tiles.location.title: Dhaka, Bangladesh
-- tiles.location.meta: UTC+6
+- tiles.remote.label: Remote work
+- tiles.remote.title: Remote since 2021.
+- tiles.remote.body: I've shipped with teams in Paris and New Jersey without sharing an office or a time zone.
+- tiles.remote.row: {company} · {city} / {period} / {gap} ("5h behind", live)
 - tiles.openSource.label: Open source
 - tiles.openSource.title: App updates, one API.
 - tiles.openSource.body: My open-source Expo module for in-app update prompts on Android and iOS.
@@ -54,18 +54,20 @@ Use seed content for personal facts, project details, dates, and metrics. Keep m
 | Layer | Sentence | Tools |
 | --- | --- | --- |
 | Interface | I build the screens people use and connect each one to the API behind it. | React, React Native, Expo, TanStack Router |
-| API | I build services that turn a user action into a clear, checked response. | TypeScript, Bun, Elysia |
-| Data | I shape the data behind a feature and keep its rules close to the code. | PostgreSQL, Drizzle, Redis |
-| Access | I work on sign-in and permissions so each person sees only the data they should. | Better Auth, OIDC, SSO |
+| API | I build typed APIs that validate each request and check who is allowed to make it. | TypeScript, Bun, Elysia |
+| Data | I design the PostgreSQL schema and write the migrations and queries a feature needs. | PostgreSQL, Drizzle ORM, SQL, Redis |
+| Access | I build sign-in, single sign-on, and permissions so each person sees only their own data. | Better Auth, OIDC, SSO, RBAC |
 | Infrastructure | I help define where services run and what each deployment is allowed to touch. | AWS, Terraform, Docker |
 | Release | I run automated checks before each release and help make sure a bad one can be rolled back. | GitHub Actions, Playwright, Bun Test, EAS |
 
 ## Engineering principles
 
 - endToEnd.title: One change, every layer.
-- endToEnd.body: A feature isn't done until its server rule, data change, and tests ship with the screen.
-- boundaries.title: Put rules where they count.
-- boundaries.body: I check access and privacy in the services and data layer, as well as the screen.
+- endToEnd.body: A feature isn't done until its API check, database change, and tests ship with the screen.
+- data.title: Change the database on purpose.
+- data.body: Every schema change ships as a versioned migration, reviewed with the code that depends on it.
+- boundaries.title: Enforce access on the server.
+- boundaries.body: Hiding a button isn't security. I check permissions in the API and scope queries to the right organization.
 - native.title: Work with the platform.
 - native.body: I start with shared code and write Kotlin or Swift only where Android and iOS differ, as they do for in-app updates.
 - delivery.title: Make releases easy to check.

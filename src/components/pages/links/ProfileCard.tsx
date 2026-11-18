@@ -2,7 +2,7 @@ import type { PortfolioContent } from "@/types/content";
 import { mediaHref } from "@/lib/media";
 import { cn } from "@/lib/utils";
 import { PortfolioImage } from "@/components/PortfolioImage";
-import { CopyButton, LocalTime, useCopyToClipboard } from "@/components/motion";
+import { CopyButton, useCopyToClipboard } from "@/components/motion";
 import { buttonVariants } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/portfolio";
 import { usePointerTilt } from "./usePointerTilt";
@@ -79,8 +79,6 @@ export function ProfileCard({
 	const handle = content.identity.handle.trim();
 	const email = content.identity.email.trim();
 	const availability = content.identity.availability.trim();
-	const location = content.identity.location.trim();
-	const timezone = content.identity.timezone.trim() || "Asia/Dhaka";
 	const siteUrl = content.site.url?.trim().replace(/\/$/u, "");
 	const pageUrl = siteUrl ? `${siteUrl}/links` : "";
 
@@ -121,13 +119,6 @@ export function ProfileCard({
 						<li className="flex items-center gap-2">
 							<StatusDot />
 							{availability}
-						</li>
-					) : null}
-					{location ? (
-						<li className="flex flex-wrap items-center gap-x-2 pl-[18px]">
-							{location}
-							<span aria-hidden="true">·</span>
-							<LocalTime timeZone={timezone} showOffset />
 						</li>
 					) : null}
 				</ul>
