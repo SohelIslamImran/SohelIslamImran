@@ -11,7 +11,7 @@ const CMS_HOST = "cms.sohelislamimran.com";
 
 const securityHeaders: Record<string, string> = {
 	"Content-Security-Policy":
-		"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; connect-src 'self'; font-src 'self' data:",
+		"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; connect-src 'self' https://cloudflareinsights.com; font-src 'self' data:",
 	"Permissions-Policy": "camera=(), microphone=(), geolocation=(), payment=()",
 	"Referrer-Policy": "strict-origin-when-cross-origin",
 	"Strict-Transport-Security": "max-age=31536000; includeSubDomains",
@@ -39,20 +39,23 @@ export default {
 		}
 
 		if (splitCmsHost && host === publicHost && /^\/resume\/edit(?:\/|$)/u.test(incoming.pathname)) {
-			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/`, 308));
+			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms`, 308));
 		}
 
 		if (splitCmsHost && host === publicHost && incoming.pathname === "/cms") {
-			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/`, 308));
+			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms`, 308));
 		}
 
-		let routedRequest = request;
 		if (splitCmsHost && host === cmsHost) {
+			// Redirect rather than rewrite: the browser router hydrates from the
+			// address bar, so a server-only rewrite renders the CMS on the server
+			// and the home page on the client (React hydration error #418).
 			if (incoming.pathname === "/" || incoming.pathname === "/index.html") {
-				const cmsUrl = new URL(incoming);
-				cmsUrl.pathname = "/cms";
-				routedRequest = new Request(cmsUrl, request);
-			} else if (!isCmsRuntimePath(incoming.pathname)) {
+				return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms${incoming.search}`, 308), {
+					cms: true,
+				});
+			}
+			if (!isCmsRuntimePath(incoming.pathname)) {
 				return withSecurityHeaders(
 					Response.redirect(`${appOrigin}${incoming.pathname}${incoming.search}`, 308),
 				);
@@ -61,11 +64,11 @@ export default {
 
 		// TanStack Start reads bindings through `cloudflare:workers`. The edge
 		// adapter still receives `env` here for host configuration and redirects.
-		const response = await startFetch(routedRequest);
+		const response = await startFetch(request);
 		const cmsRequest = splitCmsHost
 			? host === cmsHost
 			: incoming.pathname === "/cms" || incoming.pathname.startsWith("/resume/edit");
-		return withSecurityHeaders(response, { request: routedRequest, cms: cmsRequest });
+		return withSecurityHeaders(response, { request, cms: cmsRequest });
 	},
 } satisfies ExportedHandler<Env>;
 
