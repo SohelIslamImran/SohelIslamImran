@@ -14,19 +14,23 @@ async function writeClipboard(text: string): Promise<boolean> {
 	} catch {
 		// Fall through to the legacy path (insecure origins, denied permission).
 	}
+	const focused = document.activeElement;
+	const field = document.createElement("textarea");
 	try {
-		const field = document.createElement("textarea");
 		field.value = text;
 		field.setAttribute("readonly", "");
 		field.style.position = "fixed";
 		field.style.opacity = "0";
 		document.body.appendChild(field);
 		field.select();
-		const ok = document.execCommand("copy");
-		field.remove();
-		return ok;
+		return document.execCommand("copy");
 	} catch {
 		return false;
+	} finally {
+		field.remove();
+		if (focused instanceof HTMLElement && focused !== document.activeElement) {
+			focused.focus({ preventScroll: true });
+		}
 	}
 }
 

@@ -163,7 +163,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 	// Pointer tilt (mouse only): a few degrees, eased by a CSS transition.
 	const onRootPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.pointerType !== "mouse" || drag.current?.moved) return;
+		if (reducedMotion || event.pointerType !== "mouse" || drag.current?.moved) return;
 		const rect = event.currentTarget.getBoundingClientRect();
 		const x = (event.clientX - rect.left) / rect.width - 0.5;
 		const y = (event.clientY - rect.top) / rect.height - 0.5;
@@ -177,7 +177,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 	// A sideways drag spins the stack and pulls it apart; vertical stays scroll.
 	const onScenePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.button !== 0) return;
+		if (reducedMotion || event.button !== 0) return;
 		drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
 	};
 	const onScenePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -243,8 +243,18 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			}}
 			onPointerMove={onRootPointerMove}
 			onFocus={(event) => {
-				if (event.target instanceof HTMLElement && event.target.matches(":focus-visible"))
-					setFocusWithin(true);
+				if (!(event.target instanceof HTMLElement)) return;
+				const keyboardFocus = event.target.matches(":focus-visible");
+				setFocusWithin(keyboardFocus);
+				if (
+					keyboardFocus &&
+					event.target.matches('[role="tab"], [role="tabpanel"]') &&
+					(sending || stillPrinted !== null)
+				) {
+					setAutoplay(false);
+					setMode("tour");
+					setStillPrinted(null);
+				}
 			}}
 			onBlur={(event) => {
 				if (!event.currentTarget.contains(event.relatedTarget as Node | null))
@@ -297,7 +307,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					className="st-scene"
 					aria-hidden="true"
 					onPointerEnter={(event) => {
-						if (event.pointerType === "mouse") setHovering(true);
+						if (!reducedMotion && event.pointerType === "mouse") setHovering(true);
 					}}
 					onPointerLeave={() => setHovering(false)}
 					onPointerDown={onScenePointerDown}
@@ -402,6 +412,10 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 							onClick={() => {
 								setMode("tour");
 								setStillPrinted(null);
+								if (!running) {
+									setPointerInside(false);
+									setFocusWithin(false);
+								}
 								setAutoplay(!running);
 							}}
 							disabled={hydrated && reducedMotion}

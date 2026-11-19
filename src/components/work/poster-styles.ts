@@ -97,7 +97,7 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 [data-poster][data-depth="flat"] [data-poster-light] { display: none; }
 /* Only animated pieces get a local origin, so plain transform attributes stay exact. */
 .wp-o, .wp-ping, .wp-sway, .wp-spin, .wp-spin-rev, .wp-upd-arrow, .wp-upd-check, .wp-pin-shadow,
-.wp-hydrate, .wp-confirm, .wp-original {
+.wp-hydrate, .wp-confirm, .wp-original, .wp-kuno-wave-a, .wp-kuno-wave-b, .wp-kuno-spark, .wp-kuno-check {
 	transform-box: fill-box;
 	transform-origin: center;
 }
@@ -108,6 +108,9 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 [data-poster] text {
 	font-family: var(--font-mono);
 	font-variant-numeric: tabular-nums;
+}
+[data-poster] text.wp-kuno-question {
+	font-family: var(--font-sans);
 }
 
 /* Paint */
@@ -172,13 +175,14 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 	.wp-spin { animation: wp-spin 18s linear infinite; }
 	.wp-spin-rev { animation: wp-spin 26s linear infinite reverse; }
 
-	/* kuno: chat bubbles take turns */
-	.wp-kuno-b1 { animation: wp-kuno-b1 7.2s var(--wp-ease) infinite; }
-	.wp-kuno-b2 { animation: wp-kuno-b2 7.2s var(--wp-ease) infinite; }
-	.wp-kuno-typing circle { animation: wp-typing 1.2s var(--wp-soft) infinite; }
-	.wp-kuno-typing circle:nth-child(2) { animation-delay: 0.15s; }
-	.wp-kuno-typing circle:nth-child(3) { animation-delay: 0.3s; }
-	.wp-kuno-typing { animation: wp-kuno-typing 7.2s linear infinite; }
+	/* kuno: peers take turns speaking while the guided prompt and reflection respond */
+	.wp-kuno-ring-a { animation: wp-kuno-ring-a 8s var(--wp-ease) infinite; }
+	.wp-kuno-ring-b { animation: wp-kuno-ring-b 8s var(--wp-ease) infinite; }
+	.wp-kuno-wave-a { animation: wp-kuno-wave-a 8s var(--wp-soft) infinite; }
+	.wp-kuno-wave-b { animation: wp-kuno-wave-b 8s var(--wp-soft) infinite; }
+	.wp-kuno-spark { animation: wp-kuno-spark 4s var(--wp-soft) infinite; }
+	.wp-kuno-check { animation: wp-kuno-check 8s var(--wp-ease) infinite; }
+	.wp-kuno-pip { animation: wp-kuno-pip 8s var(--wp-ease) infinite; }
 
 	/* expo-in-app-updates: sheet rises, ring fills, check lands, sheet leaves */
 	.wp-upd-sheet { animation: wp-upd-sheet 6.4s var(--wp-ease) infinite; }
@@ -268,24 +272,39 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 @keyframes wp-spin {
 	to { rotate: 360deg; }
 }
-@keyframes wp-typing {
-	0%, 60%, 100% { opacity: 0.35; translate: 0 0; }
-	30% { opacity: 1; translate: 0 -2px; }
+@keyframes wp-kuno-ring-a {
+	0%, 42% { opacity: 1; }
+	48%, 92% { opacity: 0; }
+	98%, 100% { opacity: 1; }
 }
-@keyframes wp-kuno-b1 {
-	0%, 4% { opacity: 0; translate: 0 8px; }
-	10%, 88% { opacity: 1; translate: 0 0; }
-	96%, 100% { opacity: 0; translate: 0 -4px; }
+@keyframes wp-kuno-ring-b {
+	0%, 44% { opacity: 0; }
+	50%, 88% { opacity: 1; }
+	94%, 100% { opacity: 0; }
 }
-@keyframes wp-kuno-b2 {
-	0%, 34% { opacity: 0; translate: 0 8px; }
-	40%, 88% { opacity: 1; translate: 0 0; }
-	96%, 100% { opacity: 0; translate: 0 -4px; }
+@keyframes wp-kuno-wave-a {
+	0%, 48%, 94%, 100% { scale: 1 0.55; opacity: 0.45; }
+	8%, 22%, 36% { scale: 1 1.25; opacity: 1; }
+	15%, 29%, 42% { scale: 1 0.7; opacity: 0.8; }
 }
-@keyframes wp-kuno-typing {
-	0%, 14% { opacity: 0; }
-	16%, 32% { opacity: 1; }
-	34%, 100% { opacity: 0; }
+@keyframes wp-kuno-wave-b {
+	0%, 46%, 94%, 100% { scale: 1 0.55; opacity: 0.45; }
+	54%, 68%, 82% { scale: 1 1.25; opacity: 1; }
+	61%, 75%, 88% { scale: 1 0.7; opacity: 0.8; }
+}
+@keyframes wp-kuno-spark {
+	0%, 100% { scale: 1; opacity: 0.85; }
+	50% { scale: 1.14; opacity: 1; }
+}
+@keyframes wp-kuno-check {
+	0%, 72%, 100% { scale: 1; opacity: 0.9; }
+	80% { scale: 1.16; opacity: 1; }
+	88% { scale: 1; opacity: 1; }
+}
+@keyframes wp-kuno-pip {
+	0%, 70% { opacity: 0.28; }
+	78%, 92% { opacity: 1; }
+	100% { opacity: 0.28; }
 }
 @keyframes wp-upd-sheet {
 	0% { translate: 0 120px; }

@@ -104,7 +104,7 @@ function DepthGauge({ role, layers }: { role?: ExperienceContent; layers: Career
 			</div>
 			<div className="mt-2 grid gap-1.5 border-t border-line pt-5">
 				<p className="m-0 flex items-baseline justify-between gap-4 text-[15px] font-medium text-foreground">
-					<span className="min-w-0 truncate">{role?.role.trim() || "—"}</span>
+					<span className="min-w-0 [overflow-wrap:anywhere]">{role?.role.trim() || "—"}</span>
 					<span className="mono-label shrink-0 text-primary-text">
 						{layers.length} / {CAREER_LAYERS.length} layers
 					</span>
@@ -125,8 +125,8 @@ function DepthGauge({ role, layers }: { role?: ExperienceContent; layers: Career
  */
 export function CareerTimeline({
 	experience,
-	title = "From the interface to the whole stack.",
-	description = "The bars show which layers each role reached.",
+	title = "From frontend to full stack.",
+	description = "Open a role to see what I built and the tools I used.",
 	className,
 }: CareerTimelineProps) {
 	const titleId = useId();
@@ -191,7 +191,10 @@ export function CareerTimeline({
 
 				{groups.length > 0 ? (
 					<div ref={railRef} className="relative min-w-0">
-						<TraceLine progress={scrollYProgress} className="absolute top-3 bottom-6 left-0" />
+						<TraceLine
+							progress={scrollYProgress}
+							className="absolute top-3 bottom-6 left-0 h-auto"
+						/>
 						<ol className="m-0 grid min-w-0 list-none gap-[clamp(40px,5vw,60px)] p-0">
 							{groups.map((group) => (
 								<li
@@ -220,7 +223,12 @@ export function CareerTimeline({
 										{group.current ? <StatusBadge tone="accent">Current</StatusBadge> : null}
 									</div>
 									<MonoLabel className="mt-2 block">
-										<time dateTime={dateTimeFromPeriod(group.period)}>{group.period}</time>
+										<time
+											className="inline-block max-w-full"
+											dateTime={dateTimeFromPeriod(group.period)}
+										>
+											{group.period}
+										</time>
 										{group.roles.length > 1 ? (
 											<span>
 												{" · "}
@@ -279,14 +287,14 @@ export function CareerTimeline({
 																		<span className="size-2 rounded-full bg-paper shadow-[inset_0_0_0_1.5px_var(--theme-line-strong)] transition-[background-color,box-shadow] duration-300 group-open/role:bg-primary group-open/role:shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-accent)_16%,transparent)]" />
 																	)}
 																</span>
-																<span className="grid min-w-0 flex-1 gap-1 sm:flex sm:items-baseline sm:justify-between sm:gap-4">
+																<span className="grid min-w-0 flex-1 gap-1 md:flex md:items-baseline md:justify-between md:gap-4">
 																	<span className="min-w-0 text-[1.0625rem] leading-snug font-medium tracking-[-0.012em] text-foreground [overflow-wrap:anywhere]">
 																		{role.role.trim() || "Role"}
 																	</span>
 																	<span className="flex shrink-0 items-center gap-3">
 																		<CoreSample layers={layers} />
 																		{/* Fixed width so the core samples line up down the column. */}
-																		<MonoLabel className="tabular-nums whitespace-nowrap sm:min-w-[23ch] sm:text-right">
+																		<MonoLabel className="tabular-nums whitespace-nowrap md:min-w-[23ch] md:text-right">
 																			<time dateTime={dateTimeFromPeriod(role.period)}>
 																				{role.period}
 																			</time>

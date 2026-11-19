@@ -39,21 +39,27 @@ function useDeckDepth(listRef: React.RefObject<HTMLOListElement | null>) {
 		const reset = () => cards.forEach((card) => card.style.removeProperty("--cover"));
 		const measure = () => {
 			frame = 0;
-			if (!deck.matches || reduce.matches) {
-				reset();
-				return;
-			}
-			cards.forEach((card, index) => {
-				const next = cards[index + 1];
-				if (!next) return;
-				const rect = card.getBoundingClientRect();
-				const nextTop = next.getBoundingClientRect().top;
-				const cover = Math.min(1, Math.max(0, (rect.bottom - nextTop) / rect.height));
+			// Read the unscaled card heights before writing any of the cover styles.
+			const tops = cards.map((card) => card.getBoundingClientRect().top);
+			const heights = cards.map((card) => card.offsetHeight);
+			cards.slice(0, -1).forEach((card, index) => {
+				const height = heights[index];
+				const cover = height
+					? Math.min(1, Math.max(0, 1 - (tops[index + 1] - tops[index]) / height))
+					: 0;
 				card.style.setProperty("--cover", cover.toFixed(3));
 			});
 		};
 		const onScroll = () => {
-			if (visible && !frame) frame = requestAnimationFrame(measure);
+			if (visible && deck.matches && !reduce.matches && !frame) {
+				frame = requestAnimationFrame(measure);
+			}
+		};
+		const onPreferenceChange = () => {
+			cancelAnimationFrame(frame);
+			frame = 0;
+			reset();
+			onScroll();
 		};
 		const observer = new IntersectionObserver(([entry]) => {
 			visible = entry?.isIntersecting ?? false;
@@ -62,13 +68,15 @@ function useDeckDepth(listRef: React.RefObject<HTMLOListElement | null>) {
 		observer.observe(list);
 		window.addEventListener("scroll", onScroll, { passive: true });
 		window.addEventListener("resize", onScroll);
-		deck.addEventListener("change", measure);
+		deck.addEventListener("change", onPreferenceChange);
+		reduce.addEventListener("change", onPreferenceChange);
 		return () => {
 			observer.disconnect();
 			cancelAnimationFrame(frame);
 			window.removeEventListener("scroll", onScroll);
 			window.removeEventListener("resize", onScroll);
-			deck.removeEventListener("change", measure);
+			deck.removeEventListener("change", onPreferenceChange);
+			reduce.removeEventListener("change", onPreferenceChange);
 			reset();
 		};
 	}, [listRef]);
@@ -124,16 +132,16 @@ export function SelectedWork({
 					ref={listRef}
 					data-work-deck=""
 					aria-label="Selected projects"
-					className="m-0 grid min-w-0 list-none gap-4 p-0 md:gap-5 [@media(min-width:1024px)_and_(min-height:760px)]:gap-[14vh]"
+					className="m-0 grid min-w-0 list-none gap-4 p-0 md:gap-5 motion-safe:[@media(min-width:1024px)_and_(min-height:760px)]:gap-[14vh]"
 				>
 					{picks.map((project, index) => (
 						<li
 							key={project.id}
 							data-deck-card=""
 							className={cn(
-								"relative min-w-0 origin-top [@media(min-width:1024px)_and_(min-height:760px)]:sticky [@media(min-width:1024px)_and_(min-height:760px)]:top-[var(--deck-top)]",
-								"[scale:calc(1-var(--cover,0)*0.06)] motion-reduce:[scale:1]",
-								"after:pointer-events-none after:absolute after:inset-0 after:z-[4] after:rounded-card after:bg-paper after:opacity-[calc(var(--cover,0)*0.45)] after:content-['']",
+								"relative min-w-0 origin-top motion-safe:[@media(min-width:1024px)_and_(min-height:760px)]:sticky motion-safe:[@media(min-width:1024px)_and_(min-height:760px)]:top-[var(--deck-top)]",
+								"motion-safe:[scale:calc(1-var(--cover,0)*0.06)] has-[:focus-visible]:z-[5] has-[:focus-visible]:scale-none",
+								"after:pointer-events-none after:absolute after:inset-0 after:z-[4] after:rounded-card after:bg-paper after:opacity-[calc(var(--cover,0)*0.45)] after:content-[''] has-[:focus-visible]:after:opacity-0",
 							)}
 							style={
 								{

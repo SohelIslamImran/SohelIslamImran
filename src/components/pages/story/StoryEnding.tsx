@@ -59,7 +59,7 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 							<Link
 								to="/work"
 								search={{ group: "all" }}
-								className="sd-handoff-link after:absolute after:inset-0 after:rounded-[inherit]"
+								className="sd-handoff-link after:absolute after:inset-0 after:rounded-[28px]"
 							>
 								See what I built
 							</Link>
@@ -73,12 +73,18 @@ export function StoryEnding({ content }: { content: PortfolioContent }) {
 				<li>
 					<SpotlightCard as="article" className="sd-handoff-card">
 						<span className="mono-label text-muted-foreground">
-							Résumé{resumeUpdated ? ` · updated ${resumeUpdated}` : ""}
+							Résumé
+							{resumeUpdated ? (
+								<>
+									{" · updated "}
+									<span className="whitespace-nowrap">{resumeUpdated}</span>
+								</>
+							) : null}
 						</span>
 						<h3 className="text-headline">
 							<Link
 								to="/resume"
-								className="sd-handoff-link after:absolute after:inset-0 after:rounded-[inherit]"
+								className="sd-handoff-link after:absolute after:inset-0 after:rounded-[28px]"
 							>
 								The short version
 							</Link>

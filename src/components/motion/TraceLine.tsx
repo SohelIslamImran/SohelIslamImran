@@ -88,7 +88,7 @@ export function TraceLine({
 				<motion.span
 					data-trace-part="lit"
 					className={cn(
-						"absolute bg-[linear-gradient(var(--trace-lit-angle),color-mix(in_srgb,var(--theme-accent-line)_25%,transparent),var(--theme-accent-line))]",
+						"absolute bg-[linear-gradient(var(--trace-lit-angle),color-mix(in_srgb,var(--theme-accent-line)_25%,transparent),var(--theme-accent-line))] motion-reduce:hidden",
 						vertical
 							? "inset-y-0 left-[calc(50%-0.75px)] w-[1.5px] origin-top [--trace-lit-angle:180deg]"
 							: "inset-x-0 top-[calc(50%-0.75px)] h-[1.5px] origin-left [--trace-lit-angle:90deg]",
@@ -98,6 +98,7 @@ export function TraceLine({
 			) : null}
 			<motion.span
 				data-trace-part="runner"
+				className={mode === "progress" ? "motion-reduce:hidden" : undefined}
 				style={
 					mode === "progress"
 						? vertical

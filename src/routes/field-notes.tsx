@@ -56,13 +56,7 @@ function FieldNotes() {
 	return (
 		<PageShell data-page="field-notes">
 			{publicEntries.length === 0 ? (
-				<NotesEmpty
-					content={content}
-					eyebrow={eyebrow}
-					title={title}
-					intro={intro}
-					origin={origin}
-				/>
+				<NotesEmpty content={content} eyebrow={eyebrow} title={title} intro={intro} />
 			) : (
 				<NotesList
 					eyebrow={eyebrow}

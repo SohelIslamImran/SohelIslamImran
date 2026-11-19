@@ -37,6 +37,10 @@ function useRevealAttribute(
 		if (isInViewport(element, window.innerHeight * 0.06)) return;
 		prepare?.(element);
 		element.setAttribute(attribute, "pending");
+		const revealOnFocus = () => {
+			element.removeAttribute(attribute);
+			observer.disconnect();
+		};
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				if (!entry?.isIntersecting) return;
@@ -46,8 +50,10 @@ function useRevealAttribute(
 			{ rootMargin: "0px 0px -8% 0px", threshold: 0.01 },
 		);
 		observer.observe(element);
+		element.addEventListener("focusin", revealOnFocus);
 		return () => {
 			observer.disconnect();
+			element.removeEventListener("focusin", revealOnFocus);
 			if (element.getAttribute(attribute) === "pending") element.removeAttribute(attribute);
 		};
 	}, [attribute, elementRef, prepare]);

@@ -22,13 +22,11 @@ export function NotesEmpty({
 	eyebrow,
 	title,
 	intro,
-	origin,
 }: {
 	content: PortfolioContent;
 	eyebrow: string;
 	title: string;
 	intro: string;
-	origin: string;
 }) {
 	// The story heading ends with a period; inline it reads better without one.
 	const storyTitle = content.story.title.trim().replace(/\.$/u, "");
@@ -89,7 +87,7 @@ export function NotesEmpty({
 					</ul>
 				</nav>
 			</div>
-			<DraftStack headline={HEADLINE} origin={origin} published={0} />
+			<DraftStack headline={HEADLINE} published={0} />
 		</div>
 	);
 }

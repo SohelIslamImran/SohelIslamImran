@@ -3676,10 +3676,12 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 		color: var(--theme-accent-foreground);
 	}
 	@media (hover: hover) and (pointer: fine) {
+		/* No lift on hover: moving the chip out from under a pointer resting on
+		   its edge drops the hover, the chip falls back, and it flickers. */
 		[data-slot="resume-skill"] > button:not([aria-pressed="true"]):hover {
 			border-color: var(--theme-line-strong);
+			background: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
 			color: var(--theme-ink);
-			translate: 0 -1px;
 		}
 	}
 	@media (pointer: coarse) {

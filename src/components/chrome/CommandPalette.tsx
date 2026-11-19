@@ -4,6 +4,7 @@ import {
 	useContext,
 	useEffect,
 	useId,
+	useLayoutEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -562,6 +563,13 @@ function CommandPalette({
 		// executeTerminal is recreated each render; the query drives this list.
 	}, [commandName, query, results]);
 	const flat = useMemo(() => grouped.flatMap((section) => section.items), [grouped]);
+	// Changes whenever the rendered rows do (a new query, or remote results
+	// arriving), so the selection highlight re-places itself without gliding.
+	const listKey = useMemo(
+		() =>
+			`${mode}:${query}:${grouped.map((section) => `${section.group}=${section.items.map((item) => item.id).join(",")}`).join("|")}`,
+		[grouped, mode, query],
+	);
 
 	const activeIndex = Math.max(
 		0,
@@ -577,9 +585,10 @@ function CommandPalette({
 
 	useEffect(() => {
 		if (!activeItem) return;
+		const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		document
 			.getElementById(`${optionPrefix}-${activeItem.id}`)
-			?.scrollIntoView({ block: "nearest" });
+			?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
 	}, [activeItem, optionPrefix]);
 
 	const run = (item: PaletteItem, origin?: Element | null) => {
@@ -894,8 +903,12 @@ function CommandPalette({
 							aria-label="Results"
 							// Scrollable regions are tabbable by default; arrows and Enter live on the input.
 							tabIndex={-1}
-							className="min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-py-2 p-2"
+							className="relative min-h-0 flex-1 overscroll-contain overflow-y-auto scroll-py-2 p-2"
 						>
+							<SelectionHighlight
+								targetId={activeItem ? `${optionPrefix}-${activeItem.id}` : null}
+								resetKey={listKey}
+							/>
 							{grouped.map((section) => (
 								<PaletteSection
 									key={section.group ?? "results"}
@@ -973,6 +986,60 @@ function CommandPalette({
 	);
 }
 
+/**
+ * One highlight that glides to the active option, instead of each row fading
+ * its own background in and out, so arrowing through results or sweeping the
+ * pointer over them reads as a single moving selection. It jumps without
+ * animating when the rendered rows change (a new query or mode, or remote
+ * results arriving) and when the list is resized.
+ */
+function SelectionHighlight({ targetId, resetKey }: { targetId: string | null; resetKey: string }) {
+	const ref = useRef<HTMLDivElement>(null);
+	const lastResetKey = useRef(resetKey);
+
+	useLayoutEffect(() => {
+		// The parent list, read from the DOM: its ref is attached after this
+		// child's layout effect runs on the first render.
+		const box = ref.current;
+		const list = box?.parentElement;
+		if (!box || !list) return;
+		const place = (animate: boolean) => {
+			const target = targetId ? document.getElementById(targetId) : null;
+			if (!target) {
+				box.style.opacity = "0";
+				return;
+			}
+			box.toggleAttribute("data-instant", !animate);
+			box.style.opacity = "1";
+			box.style.translate = `0 ${target.offsetTop}px`;
+			box.style.height = `${target.offsetHeight}px`;
+		};
+		const replaced = lastResetKey.current !== resetKey;
+		lastResetKey.current = resetKey;
+		place(!replaced && box.style.opacity === "1");
+
+		// Only a real width change (rows rewrap) re-places it; the observer's
+		// first call would otherwise cancel the glide that just started.
+		let width = list.clientWidth;
+		const observer = new ResizeObserver(() => {
+			if (list.clientWidth === width) return;
+			width = list.clientWidth;
+			place(false);
+		});
+		observer.observe(list);
+		return () => observer.disconnect();
+	}, [targetId, resetKey]);
+
+	return (
+		<div
+			ref={ref}
+			aria-hidden="true"
+			data-slot="palette-highlight"
+			className="pointer-events-none absolute inset-x-2 top-0 rounded-[14px] bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)] opacity-0 transition-[translate,height,opacity] duration-200 ease-trace data-instant:transition-none motion-reduce:transition-none"
+		/>
+	);
+}
+
 function PaletteSection({
 	group,
 	items,
@@ -1000,8 +1067,7 @@ function PaletteSection({
 				aria-checked={item.checked === undefined ? undefined : item.checked}
 				data-active={active || undefined}
 				className={cn(
-					"group/option relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px] transition-colors duration-150",
-					active ? "bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)]" : "",
+					"group/option relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px]",
 				)}
 				onPointerMove={(event) => {
 					if (event.pointerType === "mouse" && !active) onHover(item.id);
@@ -1010,7 +1076,7 @@ function PaletteSection({
 			>
 				<span
 					className={cn(
-						"grid size-8 shrink-0 place-items-center rounded-[10px] text-ink-soft transition-colors duration-150",
+						"grid size-8 shrink-0 place-items-center rounded-[10px] text-ink-soft transition-[background-color,color,box-shadow] duration-200 ease-trace",
 						active
 							? "bg-surface-raised text-primary-text shadow-raised"
 							: "bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]",

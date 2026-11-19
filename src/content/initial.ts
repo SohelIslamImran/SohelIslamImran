@@ -29,7 +29,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Lead Full Stack Engineer",
 		title: "I build every layer of a product, from interface to release.",
 		intro:
-			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform. That covers React screens, TypeScript APIs, PostgreSQL schemas and migrations, sign-in and permissions, and the pipeline that ships them.",
+			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform: the interface people use, the APIs behind it, the database and its migrations, sign-in and permissions, and the release pipeline that ships it all.",
 		actions: [
 			{ label: "See my work", href: "/work" },
 			{ label: "Email me", href: "mailto:sohelislamimran@gmail.com", external: true },

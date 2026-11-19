@@ -55,7 +55,7 @@ function CmsError() {
 						Open sign-in <span aria-hidden="true">↗</span>
 					</ButtonLink>
 					<ButtonLink href="/" variant="outline" className="min-h-11" size="default">
-						Return to the public site <span aria-hidden="true">↗</span>
+						Return to the public site <span aria-hidden="true">→</span>
 					</ButtonLink>
 				</div>
 			</PageHeader>
@@ -108,7 +108,7 @@ function CmsAccessState({
 						{actionLabel} <span aria-hidden="true">↗</span>
 					</ButtonLink>
 					<ButtonLink href="/" variant="outline" className="min-h-11" size="default">
-						Return to the public site <span aria-hidden="true">↗</span>
+						Return to the public site <span aria-hidden="true">→</span>
 					</ButtonLink>
 				</div>
 			</PageHeader>

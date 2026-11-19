@@ -29,3 +29,41 @@ export function splitHeadline(title: string): HeadlineParts {
 	if (words.length < 4) return { lead: words, accent: [] };
 	return { lead: words.slice(0, -1), accent: words.slice(-1) };
 }
+
+export interface WordGroup {
+	/** Index of the group's first word in the original list. */
+	start: number;
+	words: string[];
+}
+
+const MAX_GROUP_WORDS = 3;
+
+/** A word of one or two letters, ignoring punctuation ("a", "of", "to", "I"). */
+function isShortWord(word: string): boolean {
+	return word.replace(/[^\p{L}\p{N}]/gu, "").length <= 2;
+}
+
+/**
+ * Groups words so a short word stays on the same line as the word after it.
+ * Each group is rendered unbreakable, so a headline never ends a line on "a"
+ * or "of". A short final word stays in its own group.
+ */
+export function groupShortWords(words: string[]): WordGroup[] {
+	const groups: WordGroup[] = [];
+	let current: WordGroup | undefined;
+	words.forEach((word, index) => {
+		current ??= { start: index, words: [] };
+		current.words.push(word);
+		// Capped at three words, so a run of short words ("I do it in an") can't
+		// become one unbreakable group wider than a phone.
+		if (
+			!isShortWord(word) ||
+			current.words.length === MAX_GROUP_WORDS ||
+			index === words.length - 1
+		) {
+			groups.push(current);
+			current = undefined;
+		}
+	});
+	return groups;
+}
