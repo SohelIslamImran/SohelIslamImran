@@ -5,15 +5,27 @@ import { Section, SectionHeading, TagList } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { plateSag, supportsFor } from "./home/supports";
 
-/** The build: when it starts once the supports are in view, and the gap between landings. */
+/** The loop, in milliseconds: rise, rest, show one consequence, sink, rise again. */
 const BUILD_START_MS = 260;
 const BUILD_STEP_MS = 320;
-/** Share of the supports that must be on screen before they build. */
+const HOLD_MS = 1600;
+const DEMO_HOLD_MS = 2600;
+const DEMO_RETURN_MS = 1300;
+const TEARDOWN_STEP_MS = 200;
+const REBUILD_GAP_MS = 700;
+/** Share of the supports that must be on screen before the loop runs. */
 const BUILD_IN_VIEW = 0.6;
-/** After the first build on a page, which support comes out on its own, and for how long. */
+/** The first support the loop takes out; it then goes round the rest. */
 const DEMO_ID = "delivery";
-const DEMO_DELAY_MS = 1100;
-const DEMO_HOLD_MS = 1900;
+
+interface LoopControl {
+	/** Hover or focus on the controls: stand everything up and wait. */
+	pause: () => void;
+	/** Pointer or focus left: carry on from the rest. */
+	resume: () => void;
+	/** The visitor took over: stop until the supports leave the screen. */
+	stop: () => void;
+}
 
 /**
  * How I work, as one object anyone can read: a plate ("Your product") resting
@@ -23,17 +35,17 @@ const DEMO_HOLD_MS = 1900;
  * copy says what Sohel does about it. Put it back and everything settles.
  *
  * - The supports' labels are toggle buttons (aria-pressed), one out at a time.
- * - The object builds itself in front of the visitor: whenever the supports
- *   come into view (most of them on screen), they rise from the floor one at
- *   a time, left to right, each landing with a small impact on the floor. The
- *   plate, sagging toward its unsupported end, levels off as each one lands
- *   while the label counts them in, and a light sweeps across it when the
- *   last one is in. While the supports are off screen they are quietly taken
- *   down again, so coming back plays it again; nothing is ever taken down in
- *   view. After the first build on a page, the Release support comes out on
- *   its own for a moment and goes back, so the interaction is shown too.
- * - A support the visitor has taken out stays out; any click finishes a build
- *   at once. Never with reduced motion.
+ * - While the supports are in view the object runs a slow loop: they rise
+ *   from the floor one at a time, left to right, each landing with an impact
+ *   line, while the plate levels off and the label counts them in; a light
+ *   sweeps the plate when the last one is in. After a rest, one support comes
+ *   out to show its consequence (a different one each round) and goes back,
+ *   then the supports sink right to left and rise again.
+ * - Hovering or focusing the controls pauses the loop with everything
+ *   standing; clicking hands the object to the visitor and stops it until the
+ *   supports next leave the screen. Off screen they are quietly taken down,
+ *   so nothing is ever taken down in front of anyone mid-scroll. Never with
+ *   reduced motion, and only the visitor's own changes are announced.
  * - Every readout is in the server HTML (stacked in one cell, so the height
  *   never changes), and the server HTML shows the finished object.
  */
@@ -46,21 +58,24 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	/** Index of the support that is out, or -1. */
 	const [gone, setGone] = useState(-1);
 	const [hovered, setHovered] = useState(-1);
-	/** How many supports stand. Complete in the server HTML; the build re-raises them. */
+	/** How many supports stand. Complete in the server HTML; the loop raises and lowers them. */
 	const [placed, setPlaced] = useState(count);
-	/** True from the moment the supports are taken down until a build has settled. */
+	/** True while the loop owns the object (springier motion, landing effects). */
 	const [intro, setIntro] = useState(false);
+	/** Only the visitor's own changes go to the live region, never the loop's. */
+	const [announce, setAnnounce] = useState(false);
 	const sceneRef = useRef<HTMLDivElement>(null);
 	const timers = useRef<number[]>([]);
 	// Read by the observer, which outlives renders.
 	const goneRef = useRef(gone);
-	const demoRef = useRef({ index: demoIndex, played: false });
+	const demoRef = useRef(demoIndex);
+	const loopRef = useRef<LoopControl | null>(null);
 
 	useEffect(() => {
 		goneRef.current = gone;
 	}, [gone]);
 	useEffect(() => {
-		demoRef.current.index = demoIndex;
+		demoRef.current = demoIndex;
 	}, [demoIndex]);
 
 	const clearTimers = () => {
@@ -74,49 +89,113 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	useEffect(() => {
 		const scene = sceneRef.current;
 		if (!scene || count === 0 || reducedMotion || typeof IntersectionObserver === "undefined") {
+			loopRef.current = null;
 			clearTimers();
 			setIntro(false);
 			setPlaced(count);
 			return;
 		}
-		/** The supports are down, off screen, waiting to build. */
+		/** Supports down, off screen, waiting to rise. */
 		let armed = false;
+		/** Loop timers are scheduled. */
+		let active = false;
+		let paused = false;
+		let stopped = false;
+		/** The support that is out was taken out by the loop. */
+		let demoOut = false;
+		let round = 0;
+
+		const build = (delay: number) => {
+			armed = false;
+			active = true;
+			clearTimers();
+			setIntro(true);
+			for (let step = 1; step <= count; step += 1) {
+				later(delay + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
+			}
+			later(delay + count * BUILD_STEP_MS, rest);
+		};
+		const rest = () => {
+			active = true;
+			setIntro(true);
+			later(HOLD_MS, () => {
+				const start = demoRef.current >= 0 ? demoRef.current : 0;
+				const index = (start + round) % count;
+				round += 1;
+				demoOut = true;
+				setGone(index);
+				later(DEMO_HOLD_MS, () => {
+					demoOut = false;
+					setGone(-1);
+					later(DEMO_RETURN_MS, teardown);
+				});
+			});
+		};
+		const teardown = () => {
+			for (let step = 1; step <= count; step += 1) {
+				later((step - 1) * TEARDOWN_STEP_MS, () => setPlaced(count - step));
+			}
+			later(count * TEARDOWN_STEP_MS + REBUILD_GAP_MS, () => build(0));
+		};
+		/** Everything standing, nothing scheduled. */
+		const standStill = () => {
+			active = false;
+			clearTimers();
+			setPlaced(count);
+			if (demoOut) {
+				demoOut = false;
+				setGone(-1);
+			}
+		};
 		const arm = () => {
-			if (goneRef.current >= 0) return;
+			if (goneRef.current >= 0 && !demoOut) return;
 			clearTimers();
 			armed = true;
+			active = false;
+			paused = false;
+			stopped = false;
+			demoOut = false;
+			setAnnounce(false);
+			setGone(-1);
 			setIntro(true);
 			setPlaced(0);
 		};
-		const build = () => {
-			armed = false;
-			clearTimers();
-			for (let step = 1; step <= count; step += 1) {
-				later(BUILD_START_MS + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
-			}
-			const built = BUILD_START_MS + count * BUILD_STEP_MS;
-			later(built + 1100, () => setIntro(false));
-			const demo = demoRef.current;
-			if (demo.played || demo.index < 0) return;
-			demo.played = true;
-			later(built + DEMO_DELAY_MS, () => {
-				setGone(demo.index);
-				later(DEMO_HOLD_MS, () => setGone(-1));
-			});
+
+		loopRef.current = {
+			pause: () => {
+				if (armed || stopped || paused) return;
+				paused = true;
+				standStill();
+			},
+			resume: () => {
+				if (!paused || stopped || armed) return;
+				paused = false;
+				rest();
+			},
+			stop: () => {
+				stopped = true;
+				paused = false;
+				armed = false;
+				standStill();
+				setIntro(false);
+			},
 		};
+
 		const observer = new IntersectionObserver(
 			([entry]) => {
 				if (!entry) return;
 				if (!entry.isIntersecting) {
 					if (!armed) arm();
-				} else if (armed && entry.intersectionRatio >= BUILD_IN_VIEW) {
-					build();
+				} else if (entry.intersectionRatio >= BUILD_IN_VIEW) {
+					if (armed) build(BUILD_START_MS);
+					else if (!active && !paused && !stopped) rest();
 				}
 			},
 			{ threshold: [0, BUILD_IN_VIEW] },
 		);
 		observer.observe(scene);
 		return () => {
+			loopRef.current = null;
 			observer.disconnect();
 			clearTimers();
 		};
@@ -124,18 +203,20 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 
 	if (count === 0) return null;
 
-	/** Any interaction ends a build: everything stands again at once. */
-	const interrupt = () => {
+	/** A click hands the object to the visitor: the loop stops, everything stands. */
+	const takeOver = () => {
+		loopRef.current?.stop();
 		clearTimers();
 		setPlaced(count);
 		setIntro(false);
+		setAnnounce(true);
 	};
 	const toggle = (index: number) => {
-		interrupt();
+		takeOver();
 		setGone((value) => (value === index ? -1 : index));
 	};
 	const restore = () => {
-		interrupt();
+		takeOver();
 		setGone(-1);
 	};
 
@@ -194,7 +275,11 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				/>
 
 				{/* Readout: one state per support plus the whole one, stacked in one cell. */}
-				<div className="hw-readouts grid min-w-0" aria-live="polite" aria-atomic="true">
+				<div
+					className="hw-readouts grid min-w-0"
+					aria-live={announce ? "polite" : "off"}
+					aria-atomic="true"
+				>
 					<div className="hw-readout" data-on={gone < 0 ? "" : undefined} inert={gone >= 0}>
 						<p
 							className={cn(
@@ -289,6 +374,18 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					role="group"
 					aria-labelledby={`${baseId}-controls`}
 					className="hw-controls mt-4 grid min-w-0 gap-2"
+					onPointerEnter={(event) => {
+						if (event.pointerType === "mouse") loopRef.current?.pause();
+					}}
+					onPointerLeave={(event) => {
+						if (event.pointerType === "mouse") loopRef.current?.resume();
+					}}
+					onFocus={() => loopRef.current?.pause()}
+					onBlur={(event) => {
+						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+							loopRef.current?.resume();
+						}
+					}}
 				>
 					<p id={`${baseId}-controls`} className="sr-only">
 						Take a support out
