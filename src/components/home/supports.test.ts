@@ -27,6 +27,15 @@ describe("supportsFor", () => {
 		expect(supports[2]?.label).toBe("Logs");
 		expect(supports[2]?.without).toBe("Something your users rely on stops working.");
 	});
+
+	it("never repeats an id, even when a CMS id looks like a generated one", () => {
+		const capability = (id: string) => ({ id, title: id, description: "", tools: [] });
+		const ids = supportsFor([capability("build"), capability("Build"), capability("build-2")]).map(
+			(support) => support.id,
+		);
+		expect(new Set(ids).size).toBe(3);
+		expect(ids).toEqual(["build", "build-2", "build-2-2"]);
+	});
 });
 
 describe("plateSag", () => {

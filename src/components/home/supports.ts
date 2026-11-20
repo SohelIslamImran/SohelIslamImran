@@ -56,7 +56,14 @@ function slug(value: string) {
 
 /** One support per published capability, in CMS order, with unique ids. */
 export function supportsFor(capabilities: readonly CapabilityContent[]): Support[] {
-	const seen = new Map<string, number>();
+	const used = new Set<string>();
+	/** The slug itself, or the first free "-2", "-3"… suffix ("build-2" may already be a real id). */
+	const unique = (base: string) => {
+		let id = base;
+		for (let suffix = 2; used.has(id); suffix += 1) id = `${base}-${suffix}`;
+		used.add(id);
+		return id;
+	};
 	return capabilities
 		.map((capability) => ({
 			...capability,
@@ -66,12 +73,9 @@ export function supportsFor(capabilities: readonly CapabilityContent[]): Support
 		}))
 		.filter((capability) => capability.title || capability.description)
 		.map((capability) => {
-			const base = slug(capability.id || capability.title);
-			const count = seen.get(base) ?? 0;
-			seen.set(base, count + 1);
 			const plain = PLAIN[capability.id];
 			return {
-				id: count === 0 ? base : `${base}-${count + 1}`,
+				id: unique(slug(capability.id || capability.title)),
 				label: plain?.label ?? (capability.title.split(/[,:]/u)[0]?.trim() || "This part"),
 				without: plain?.without ?? FALLBACK_WITHOUT,
 				capability,

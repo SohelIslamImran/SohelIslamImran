@@ -19,10 +19,11 @@ const BUILD_IN_VIEW = 0.6;
 const DEMO_ID = "delivery";
 
 interface LoopControl {
-	/** Hover or focus on the controls: stand everything up and wait. */
-	pause: () => void;
-	/** Pointer or focus left: carry on from the rest. */
-	resume: () => void;
+	/**
+	 * Hover or focus on the controls holds the loop with everything standing;
+	 * it carries on from the rest only once neither holds it.
+	 */
+	hold: (kind: "hover" | "focus", on: boolean) => void;
 	/** The visitor took over: stop until the supports leave the screen. */
 	stop: () => void;
 }
@@ -41,10 +42,11 @@ interface LoopControl {
  *   sweeps the plate when the last one is in. After a rest, one support comes
  *   out to show its consequence (a different one each round) and goes back,
  *   then the supports sink right to left and rise again.
- * - Hovering or focusing the controls pauses the loop with everything
- *   standing; clicking hands the object to the visitor and stops it until the
- *   supports next leave the screen. Off screen they are quietly taken down,
- *   so nothing is ever taken down in front of anyone mid-scroll. Never with
+ * - Hovering or focusing the controls holds the loop with everything
+ *   standing, until both the pointer and focus have left; clicking hands the
+ *   object to the visitor and stops it until the supports next leave the
+ *   screen. Off screen everything is quietly reset and taken down, so
+ *   nothing is ever taken down in front of anyone mid-scroll. Never with
  *   reduced motion, and only the visitor's own changes are announced.
  * - Every readout is in the server HTML (stacked in one cell, so the height
  *   never changes), and the server HTML shows the finished object.
@@ -55,8 +57,9 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	const count = supports.length;
 	const demoIndex = supports.findIndex((support) => support.capability.id === DEMO_ID);
 	const reducedMotion = usePrefersReducedMotion();
-	/** Index of the support that is out, or -1. */
-	const [gone, setGone] = useState(-1);
+	/** Index of the support that is out, or -1 (ignored if the list has shrunk past it). */
+	const [goneState, setGone] = useState(-1);
+	const gone = goneState < count ? goneState : -1;
 	const [hovered, setHovered] = useState(-1);
 	/** How many supports stand. Complete in the server HTML; the loop raises and lowers them. */
 	const [placed, setPlaced] = useState(count);
@@ -70,6 +73,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	const goneRef = useRef(gone);
 	const demoRef = useRef(demoIndex);
 	const loopRef = useRef<LoopControl | null>(null);
+	const controlRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
 	useEffect(() => {
 		goneRef.current = gone;
@@ -99,7 +103,8 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 		let armed = false;
 		/** Loop timers are scheduled. */
 		let active = false;
-		let paused = false;
+		const holds = { hover: false, focus: false };
+		const held = () => holds.hover || holds.focus;
 		let stopped = false;
 		/** The support that is out was taken out by the loop. */
 		let demoOut = false;
@@ -147,12 +152,12 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				setGone(-1);
 			}
 		};
+		// Off screen everything resets, the visitor's own selection included, so
+		// coming back always finds the loop.
 		const arm = () => {
-			if (goneRef.current >= 0 && !demoOut) return;
 			clearTimers();
 			armed = true;
 			active = false;
-			paused = false;
 			stopped = false;
 			demoOut = false;
 			setAnnounce(false);
@@ -162,19 +167,15 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 		};
 
 		loopRef.current = {
-			pause: () => {
-				if (armed || stopped || paused) return;
-				paused = true;
-				standStill();
-			},
-			resume: () => {
-				if (!paused || stopped || armed) return;
-				paused = false;
-				rest();
+			hold: (kind, on) => {
+				const wasHeld = held();
+				holds[kind] = on;
+				if (armed || stopped) return;
+				if (!wasHeld && held()) standStill();
+				else if (wasHeld && !held()) rest();
 			},
 			stop: () => {
 				stopped = true;
-				paused = false;
 				armed = false;
 				standStill();
 				setIntro(false);
@@ -187,8 +188,12 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				if (!entry.isIntersecting) {
 					if (!armed) arm();
 				} else if (entry.intersectionRatio >= BUILD_IN_VIEW) {
-					if (armed) build(BUILD_START_MS);
-					else if (!active && !paused && !stopped) rest();
+					if (armed && !held()) build(BUILD_START_MS);
+					else if (armed) {
+						// Held while coming into view: stand up without the build.
+						armed = false;
+						standStill();
+					} else if (!active && !held() && !stopped) rest();
 				}
 			},
 			{ threshold: [0, BUILD_IN_VIEW] },
@@ -198,6 +203,8 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 			loopRef.current = null;
 			observer.disconnect();
 			clearTimers();
+			// A support the loop took out must not outlive the loop.
+			if (demoOut) setGone(-1);
 		};
 	}, [reducedMotion, count]);
 
@@ -216,8 +223,11 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 		setGone((value) => (value === index ? -1 : index));
 	};
 	const restore = () => {
+		const index = gone;
 		takeOver();
 		setGone(-1);
+		// The restore button hides itself, so focus goes back to that support's toggle.
+		controlRefs.current[index]?.focus();
 	};
 
 	const building = placed < count;
@@ -375,15 +385,15 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					aria-labelledby={`${baseId}-controls`}
 					className="hw-controls mt-4 grid min-w-0 gap-2"
 					onPointerEnter={(event) => {
-						if (event.pointerType === "mouse") loopRef.current?.pause();
+						if (event.pointerType === "mouse") loopRef.current?.hold("hover", true);
 					}}
 					onPointerLeave={(event) => {
-						if (event.pointerType === "mouse") loopRef.current?.resume();
+						if (event.pointerType === "mouse") loopRef.current?.hold("hover", false);
 					}}
-					onFocus={() => loopRef.current?.pause()}
+					onFocus={() => loopRef.current?.hold("focus", true)}
 					onBlur={(event) => {
 						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-							loopRef.current?.resume();
+							loopRef.current?.hold("focus", false);
 						}
 					}}
 				>
@@ -393,6 +403,9 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					{supports.map((support, index) => (
 						<button
 							key={support.id}
+							ref={(node) => {
+								controlRefs.current[index] = node;
+							}}
 							type="button"
 							aria-pressed={index === gone}
 							data-pending={index >= placed ? "" : undefined}
