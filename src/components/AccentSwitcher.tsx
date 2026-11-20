@@ -331,10 +331,12 @@ export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcher
 					aria-hidden="true"
 				/>
 			</PopoverTrigger>
+			{/* Fixed, like the dock it opens from, so scrolling never moves it. */}
 			<PopoverContent
 				align="end"
 				sideOffset={12}
-				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
+				positionMethod="fixed"
+				className="appearance-pop w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0 data-[ending-style]:animate-none data-[starting-style]:animate-none"
 			>
 				<MenuSurface className="flex w-[min(300px,calc(100vw-24px))] flex-col gap-3 p-3">
 					<PopoverHeader className="sr-only">

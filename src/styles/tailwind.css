@@ -4542,3 +4542,435 @@ html[data-xray] body {
 	background-size: 24px 24px;
 }
 /* end depth pass: chrome */
+
+/*
+ * How I work: a plate ("Your product") on one support per capability. Taking
+ * a support out drops it out of sight behind the floor line, leaves a dashed
+ * outline, and lets the plate settle toward the gap on a spring, pivoting on
+ * its far edge, with a hairline crack drawn above the gap.
+ */
+.hw-glow {
+	background: radial-gradient(
+		closest-side,
+		color-mix(in srgb, var(--theme-accent) 9%, transparent),
+		transparent
+	);
+}
+.hw-readout {
+	grid-area: 1 / 1;
+	align-self: end;
+	min-width: 0;
+	visibility: hidden;
+	opacity: 0;
+	translate: 0 10px;
+	transition:
+		opacity 240ms var(--ease-trace),
+		translate 380ms var(--ease-trace),
+		visibility 0s linear 380ms;
+}
+.hw-readout[data-on] {
+	visibility: visible;
+	opacity: 1;
+	translate: 0 0;
+	transition:
+		opacity 460ms var(--ease-trace) 90ms,
+		translate 760ms var(--ease-spring) 60ms,
+		visibility 0s;
+}
+.hw-line {
+	max-width: 24ch;
+	font-size: clamp(1.75rem, 3.6vw, 3rem);
+	font-weight: 620;
+	line-height: 1.06;
+	letter-spacing: -0.035em;
+	text-wrap: balance;
+	color: var(--theme-ink);
+}
+.hw-scene {
+	position: relative;
+	--gap: clamp(8px, 2vw, 20px);
+}
+.hw-plate {
+	position: relative;
+	z-index: 2;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	height: clamp(52px, 6vw, 64px);
+	padding: 0 clamp(16px, 2.4vw, 26px);
+	border-radius: 18px;
+	border: 1px solid var(--theme-line-strong);
+	background: linear-gradient(
+		180deg,
+		var(--theme-surface-raised),
+		color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid))
+	);
+	box-shadow:
+		inset 0 1px 0 var(--theme-highlight),
+		0 22px 44px -24px color-mix(in srgb, var(--theme-ink) 50%, transparent);
+	transform-origin: var(--pivot, 50%) 100%;
+	rotate: var(--tilt, 0deg);
+	translate: 0 var(--drop, 0px);
+	transition:
+		rotate 1000ms var(--ease-spring),
+		translate 1000ms var(--ease-spring),
+		border-color 320ms var(--ease-trace);
+}
+.hw[data-broken] .hw-plate {
+	border-color: color-mix(in srgb, var(--theme-signal) 38%, var(--theme-line-strong));
+}
+.hw-plate-name {
+	font-size: 15px;
+	font-weight: 620;
+	letter-spacing: -0.012em;
+	white-space: nowrap;
+}
+.hw-plate-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 13px;
+	color: var(--theme-ink-soft);
+	white-space: nowrap;
+}
+.hw-plate-dot {
+	width: 7px;
+	height: 7px;
+	flex: none;
+	border-radius: 999px;
+	background: var(--theme-success);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-success) 16%, transparent);
+	transition:
+		background-color 300ms var(--ease-trace),
+		box-shadow 300ms var(--ease-trace);
+}
+.hw[data-broken] .hw-plate-dot {
+	background: var(--theme-signal);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-signal) 18%, transparent);
+}
+.hw-plate-bad,
+.hw[data-broken] .hw-plate-ok {
+	display: none;
+}
+.hw[data-broken] .hw-plate-bad {
+	display: inline;
+}
+.hw-crack {
+	position: absolute;
+	bottom: -1px;
+	left: var(--crack, 50%);
+	width: 12px;
+	height: 34%;
+	translate: -50% 0;
+	overflow: visible;
+	fill: none;
+	stroke: color-mix(in srgb, var(--theme-signal) 75%, transparent);
+	stroke-width: 1.5;
+	stroke-linecap: round;
+	stroke-linejoin: round;
+	stroke-dasharray: 1;
+	stroke-dashoffset: 1;
+	opacity: 0;
+	vector-effect: non-scaling-stroke;
+	transition:
+		opacity 200ms var(--ease-trace),
+		stroke-dashoffset 0s linear 200ms;
+}
+.hw-crack path {
+	vector-effect: non-scaling-stroke;
+}
+.hw[data-broken] .hw-crack {
+	opacity: 1;
+	stroke-dashoffset: 0;
+	transition:
+		opacity 160ms var(--ease-trace) 260ms,
+		stroke-dashoffset 520ms var(--ease-trace) 260ms;
+}
+.hw-pillars {
+	display: grid;
+	grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+	gap: var(--gap);
+}
+.hw-pillar {
+	position: relative;
+	display: grid;
+	justify-items: center;
+	height: clamp(84px, 11vw, 136px);
+	overflow: clip;
+}
+.hw-pillar-body,
+.hw-ghost {
+	grid-area: 1 / 1;
+	width: clamp(26px, 38%, 76px);
+	height: 100%;
+	border-radius: 4px 4px 10px 10px;
+}
+.hw-pillar-body {
+	display: flex;
+	align-items: flex-end;
+	justify-content: center;
+	padding-bottom: 10px;
+	border: 1px solid var(--theme-line-strong);
+	border-top: 0;
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid)),
+		var(--theme-surface-raised) 42%,
+		color-mix(in srgb, var(--theme-ink) 11%, var(--theme-surface-solid))
+	);
+	box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--theme-ink) 6%, transparent);
+	transition:
+		translate 560ms var(--ease-trace),
+		opacity 420ms var(--ease-trace),
+		border-color 260ms var(--ease-trace),
+		background-color 260ms var(--ease-trace);
+}
+.hw-pillar[data-hover] .hw-pillar-body {
+	border-color: var(--theme-accent-line);
+	background: linear-gradient(
+		90deg,
+		color-mix(in srgb, var(--theme-accent) 12%, var(--theme-surface-solid)),
+		color-mix(in srgb, var(--theme-accent) 5%, var(--theme-surface-raised)) 42%,
+		color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid))
+	);
+}
+.hw-pillar-index {
+	font-family: var(--font-mono);
+	font-size: 10.5px;
+	letter-spacing: 0.08em;
+	color: var(--theme-muted);
+}
+.hw-ghost {
+	border: 1.5px dashed color-mix(in srgb, var(--theme-signal) 55%, transparent);
+	border-top: 0;
+	opacity: 0;
+	transition: opacity 240ms var(--ease-trace);
+}
+.hw-pillar[data-out] .hw-pillar-body {
+	translate: 0 104%;
+	opacity: 0.4;
+}
+.hw-pillar[data-out] .hw-ghost {
+	opacity: 1;
+	transition-delay: 220ms;
+}
+.hw-floor {
+	display: block;
+	height: 1px;
+	background: linear-gradient(
+		90deg,
+		transparent,
+		var(--theme-line-strong) 12%,
+		var(--theme-line-strong) 88%,
+		transparent
+	);
+}
+.hw-controls {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 48rem) {
+	.hw-controls {
+		grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+		gap: clamp(8px, 2vw, 20px);
+	}
+}
+.hw-control {
+	min-width: 0;
+	min-height: 64px;
+	padding: 12px 14px;
+	border: 1px solid var(--theme-line);
+	border-radius: 16px;
+	background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
+	color: var(--theme-ink);
+	text-align: left;
+	cursor: pointer;
+	transition:
+		border-color 220ms var(--ease-trace),
+		background-color 220ms var(--ease-trace),
+		scale 220ms var(--ease-trace);
+}
+@media (hover: hover) and (pointer: fine) {
+	.hw-control:hover {
+		border-color: var(--theme-line-strong);
+		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
+	}
+}
+.hw-control:active {
+	scale: 0.97;
+}
+.hw-control:focus-visible {
+	outline: 2px solid var(--theme-focus);
+	outline-offset: 2px;
+}
+.hw-control[aria-pressed="true"] {
+	border-color: color-mix(in srgb, var(--theme-signal) 45%, transparent);
+	background: color-mix(in srgb, var(--theme-signal) 7%, transparent);
+}
+.hw-control-icon {
+	display: grid;
+	flex: none;
+	width: 16px;
+	height: 16px;
+	color: var(--theme-muted);
+	transition:
+		rotate 360ms var(--ease-spring),
+		color 220ms var(--ease-trace);
+}
+.hw-control[aria-pressed="true"] .hw-control-icon {
+	rotate: 180deg;
+	color: var(--theme-signal);
+}
+.hw-restore {
+	opacity: 0;
+	translate: 0 6px;
+	transition:
+		opacity 240ms var(--ease-trace),
+		translate 360ms var(--ease-trace),
+		color 200ms var(--ease-trace);
+}
+.hw-restore[data-on] {
+	opacity: 1;
+	translate: 0 0;
+}
+@media (prefers-reduced-motion: reduce) {
+	.hw-readout,
+	.hw-readout[data-on],
+	.hw-plate,
+	.hw-pillar-body,
+	.hw-control-icon,
+	.hw-restore {
+		transition-duration: 0s !important;
+		transition-delay: 0s !important;
+	}
+	.hw-readout {
+		translate: none;
+	}
+	.hw-plate {
+		rotate: none;
+		translate: none;
+	}
+}
+
+/*
+ * Appearance menu motion. The panel springs out of the button it belongs to
+ * (Base UI sets --transform-origin there): smaller and soft-focused at first,
+ * settling with a little give. Only the panel moves; its contents ride along.
+ * Closing is a quick ease-in back toward the button.
+ * Transitions, not keyframes, so a close mid-open reverses smoothly.
+ */
+.appearance-pop {
+	transform-origin: var(--transform-origin);
+	transition:
+		opacity 200ms var(--ease-trace),
+		scale 560ms var(--ease-spring),
+		translate 560ms var(--ease-spring),
+		filter 280ms var(--ease-trace);
+}
+.appearance-pop[data-starting-style] {
+	opacity: 0;
+	scale: 0.86;
+	translate: 0 -10px;
+	filter: blur(8px);
+}
+.appearance-pop[data-ending-style] {
+	opacity: 0;
+	scale: 0.94;
+	translate: 0 -6px;
+	filter: blur(4px);
+	transition:
+		opacity 170ms cubic-bezier(0.4, 0, 1, 1),
+		scale 200ms cubic-bezier(0.4, 0, 1, 1),
+		translate 200ms cubic-bezier(0.4, 0, 1, 1),
+		filter 170ms cubic-bezier(0.4, 0, 1, 1);
+}
+/*
+ * Command palette motion. Desktop: a Spotlight-style panel that grows out of
+ * a soft blur with a spring and drifts down into place; its search row,
+ * results, and footer arrive a beat apart. Phones: a sheet on the iOS sheet
+ * curve. The backdrop fades and its blur deepens with the panel.
+ */
+[data-slot="command-palette-backdrop"] {
+	backdrop-filter: blur(3px);
+	transition:
+		opacity 320ms var(--ease-trace),
+		backdrop-filter 320ms var(--ease-trace);
+}
+[data-slot="command-palette-backdrop"]:is([data-starting-style], [data-ending-style]) {
+	opacity: 0;
+	backdrop-filter: blur(0);
+}
+[data-slot="command-palette-backdrop"][data-ending-style] {
+	transition-duration: 220ms;
+}
+[data-slot="command-palette"] {
+	transition: translate 480ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+[data-slot="command-palette"]:is([data-starting-style], [data-ending-style]) {
+	translate: 0 100%;
+}
+[data-slot="command-palette"][data-ending-style] {
+	transition: translate 280ms cubic-bezier(0.4, 0, 1, 1);
+}
+@media (min-width: 48rem) {
+	[data-slot="command-palette"] {
+		transform-origin: 50% 0;
+		transition:
+			opacity 220ms var(--ease-trace),
+			scale 600ms var(--ease-spring),
+			translate 600ms var(--ease-spring),
+			filter 300ms var(--ease-trace);
+	}
+	[data-slot="command-palette"][data-starting-style] {
+		opacity: 0;
+		scale: 0.93;
+		translate: 0 -14px;
+		filter: blur(10px);
+	}
+	[data-slot="command-palette"][data-ending-style] {
+		opacity: 0;
+		scale: 0.96;
+		translate: 0 -6px;
+		filter: blur(5px);
+		transition:
+			opacity 170ms cubic-bezier(0.4, 0, 1, 1),
+			scale 210ms cubic-bezier(0.4, 0, 1, 1),
+			translate 210ms cubic-bezier(0.4, 0, 1, 1),
+			filter 170ms cubic-bezier(0.4, 0, 1, 1);
+	}
+}
+@keyframes palette-part-in {
+	from {
+		opacity: 0;
+		translate: 0 8px;
+	}
+}
+[data-slot="command-palette"] > :not(.sr-only, [role="status"]) {
+	animation: palette-part-in 460ms var(--ease-trace) both;
+}
+[data-slot="command-palette"] > :nth-child(5) {
+	animation-delay: 60ms;
+}
+[data-slot="command-palette"] > :nth-child(n + 6) {
+	animation-delay: 110ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.appearance-pop,
+	.appearance-pop[data-ending-style],
+	[data-slot="command-palette"],
+	[data-slot="command-palette"][data-ending-style],
+	[data-slot="command-palette-backdrop"] {
+		transition: opacity 120ms linear !important;
+	}
+	.appearance-pop:is([data-starting-style], [data-ending-style]),
+	[data-slot="command-palette"]:is([data-starting-style], [data-ending-style]) {
+		scale: none;
+		translate: none;
+		filter: none;
+	}
+	[data-slot="command-palette"] > * {
+		animation: none;
+	}
+}

@@ -12,11 +12,11 @@ export interface TraceLine {
 
 export const REQUEST_TRACE: Readonly<Record<string, TraceLine>> = {
 	interface: { verb: "click", detail: "Save changes" },
-	api: { verb: "POST", detail: "/api/items → 200" },
-	data: { verb: "write", detail: "1 row" },
-	access: { verb: "check", detail: "role: member ✓" },
-	infrastructure: { verb: "deploy", detail: "healthy" },
-	release: { verb: "release", detail: "v1.5 ✓" },
+	api: { verb: "POST", detail: "/api/items" },
+	access: { verb: "check", detail: "role: editor ✓" },
+	data: { verb: "write", detail: "1 row → 200" },
+	infrastructure: { verb: "serve", detail: "healthy · 42 ms" },
+	release: { verb: "on", detail: "release v1.5" },
 };
 
 /** The trace line for a layer, or a plain fallback for unknown layers. */

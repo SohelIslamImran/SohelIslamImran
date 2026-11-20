@@ -86,6 +86,12 @@ function KunoArt({ uid }: PosterArtProps): PosterLayers {
 		{ x: 76.8, h: 10, delay: "0.18s" },
 		{ x: 82.8, h: 6, delay: "0.34s" },
 	];
+	const kunoSteps = [
+		{ x: 75, label: "DIAGNOSE", state: "done" },
+		{ x: 137, label: "MATCH", state: "done" },
+		{ x: 199, label: "PRACTICE", state: "now" },
+		{ x: 261, label: "APPLY", state: "next" },
+	] as const;
 	const waveB = [
 		{ x: 394.8, h: 5, delay: "0.1s" },
 		{ x: 400.8, h: 9, delay: "0.26s" },
@@ -240,40 +246,60 @@ function KunoArt({ uid }: PosterArtProps): PosterLayers {
 		),
 		front: (
 			<>
-				{/* Guided prompt card */}
+				{/* Skill pathway card: diagnose, match with a peer, practice, apply */}
 				<g className="wp-drop-lg">
 					<rect x={51} y={192} width={228} height={84} rx={14} className="wp-surface" />
 				</g>
 				<circle cx={71} cy={212} r={10} className="wp-a1" />
 				<path
-					d="M71 206.5 L72.4 210.6 L76.5 212 L72.4 213.4 L71 217.5 L69.6 213.4 L65.5 212 L69.6 210.6 Z"
-					className="wp-a wp-kuno-spark"
+					d="M65.5 215.5 L69.5 211.5 L72.5 214 L76.5 208.5"
+					className="wp-as"
+					strokeWidth={1.5}
 				/>
 				<text x={88} y={214.8} fontSize={8} fontWeight={600} letterSpacing={0.7} className="wp-ink">
-					GUIDED PROMPT
+					SKILL PATHWAY
 				</text>
 				<text x={265} y={214.8} fontSize={8} fontWeight={600} textAnchor="end" className="wp-at">
-					02/03
+					3/4
 				</text>
-				{/* The guide's question, legible, so the poster shows the practice itself */}
-				<text
-					x={65}
-					y={237}
-					fontSize={12.5}
-					fontWeight={600}
-					letterSpacing={-0.15}
-					className="wp-ink wp-kuno-question"
-				>
-					What did you hear them say?
-				</text>
-				<Bar x={65} y={244.5} w={120} h={4.5} className="wp-k2" />
-				{/* Prompt step dots & next cue */}
-				<circle cx={68} cy={261} r={2.6} className="wp-a2" />
-				<rect x={75} y={258.4} width={14} height={5.2} rx={2.6} className="wp-a" />
-				<circle cx={96} cy={261} r={2.6} className="wp-k2" />
-				<rect x={216} y={254} width={50} height={14} rx={7} className="wp-a1" />
-				<Bar x={225} y={259} w={22} h={4} className="wp-a2" />
-				<path d="M253 258.5 l2.5 2.5 -2.5 2.5" className="wp-as" strokeWidth={1.4} />
+				{/* Track: done up to the session in progress, which fills on each loop */}
+				<Bar x={75} y={238.5} w={186} h={3} className="wp-k2" />
+				<Bar x={75} y={238.5} w={62} h={3} className="wp-a" />
+				<Bar x={137} y={238.5} w={62} h={3} className="wp-a wp-kuno-trail" />
+				{kunoSteps.map((step) => (
+					<g key={step.label}>
+						{step.state === "done" ? (
+							<>
+								<circle cx={step.x} cy={240} r={7} className="wp-a" />
+								<path
+									d={`M${step.x - 3} 240 l2 2 l4 -4.2`}
+									className="wp-on-a-s"
+									strokeWidth={1.6}
+								/>
+							</>
+						) : step.state === "now" ? (
+							<>
+								<circle cx={step.x} cy={240} r={7} className="wp-as wp-ping" strokeWidth={1.3} />
+								<circle cx={step.x} cy={240} r={7.5} className="wp-surface" />
+								<circle cx={step.x} cy={240} r={7.5} className="wp-as" strokeWidth={1.6} />
+								<circle cx={step.x} cy={240} r={3} className="wp-a wp-pulse" />
+							</>
+						) : (
+							<circle cx={step.x} cy={240} r={6} className="wp-k2" />
+						)}
+						<text
+							x={step.x}
+							y={262}
+							fontSize={7.4}
+							fontWeight={step.state === "now" ? 600 : 500}
+							letterSpacing={0.4}
+							textAnchor="middle"
+							className={step.state === "now" ? "wp-at" : "wp-k5"}
+						>
+							{step.label}
+						</text>
+					</g>
+				))}
 
 				{/* Reflection & skill-growth card */}
 				<g className="wp-drop">

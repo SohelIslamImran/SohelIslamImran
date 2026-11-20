@@ -61,7 +61,11 @@ export function NavDock() {
 		const update = () => {
 			frame = 0;
 			const y = window.scrollY;
-			nav.toggleAttribute("data-condensed", y > 12);
+			// While a menu from the dock is open, hold the dock's size still: a
+			// scale change would move the button the menu is anchored to.
+			if (!nav.querySelector('[aria-expanded="true"]')) {
+				nav.toggleAttribute("data-condensed", y > 12);
+			}
 			if (Math.abs(y - lastY) > 6) {
 				nav.dataset.scrollDir = y > lastY && y > 120 ? "down" : "up";
 				lastY = y;

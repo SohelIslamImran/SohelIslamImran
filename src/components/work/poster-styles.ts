@@ -97,20 +97,17 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 [data-poster][data-depth="flat"] [data-poster-light] { display: none; }
 /* Only animated pieces get a local origin, so plain transform attributes stay exact. */
 .wp-o, .wp-ping, .wp-sway, .wp-spin, .wp-spin-rev, .wp-upd-arrow, .wp-upd-check, .wp-pin-shadow,
-.wp-hydrate, .wp-confirm, .wp-original, .wp-kuno-wave-a, .wp-kuno-wave-b, .wp-kuno-spark, .wp-kuno-check {
+.wp-hydrate, .wp-confirm, .wp-original, .wp-kuno-wave-a, .wp-kuno-wave-b, .wp-kuno-check {
 	transform-box: fill-box;
 	transform-origin: center;
 }
-.wp-stream, .wp-upd-bar {
+.wp-stream, .wp-upd-bar, .wp-kuno-trail {
 	transform-box: fill-box;
 	transform-origin: left center;
 }
 [data-poster] text {
 	font-family: var(--font-mono);
 	font-variant-numeric: tabular-nums;
-}
-[data-poster] text.wp-kuno-question {
-	font-family: var(--font-sans);
 }
 
 /* Paint */
@@ -175,12 +172,12 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 	.wp-spin { animation: wp-spin 18s linear infinite; }
 	.wp-spin-rev { animation: wp-spin 26s linear infinite reverse; }
 
-	/* kuno: peers take turns speaking while the guided prompt and reflection respond */
+	/* kuno: peers take turns speaking while the pathway fills and the reflection lands */
 	.wp-kuno-ring-a { animation: wp-kuno-ring-a 8s var(--wp-ease) infinite; }
 	.wp-kuno-ring-b { animation: wp-kuno-ring-b 8s var(--wp-ease) infinite; }
 	.wp-kuno-wave-a { animation: wp-kuno-wave-a 8s var(--wp-soft) infinite; }
 	.wp-kuno-wave-b { animation: wp-kuno-wave-b 8s var(--wp-soft) infinite; }
-	.wp-kuno-spark { animation: wp-kuno-spark 4s var(--wp-soft) infinite; }
+	.wp-kuno-trail { animation: wp-kuno-trail 8s var(--wp-ease) infinite; }
 	.wp-kuno-check { animation: wp-kuno-check 8s var(--wp-ease) infinite; }
 	.wp-kuno-pip { animation: wp-kuno-pip 8s var(--wp-ease) infinite; }
 
@@ -292,9 +289,10 @@ html[data-theme-resolved="dark"] [data-poster] [data-poster-light] {
 	54%, 68%, 82% { scale: 1 1.25; opacity: 1; }
 	61%, 75%, 88% { scale: 1 0.7; opacity: 0.8; }
 }
-@keyframes wp-kuno-spark {
-	0%, 100% { scale: 1; opacity: 0.85; }
-	50% { scale: 1.14; opacity: 1; }
+@keyframes wp-kuno-trail {
+	0%, 6% { scale: 0 1; opacity: 1; }
+	62%, 90% { scale: 1 1; opacity: 1; }
+	97%, 100% { scale: 1 1; opacity: 0; }
 }
 @keyframes wp-kuno-check {
 	0%, 72%, 100% { scale: 1; opacity: 0.9; }

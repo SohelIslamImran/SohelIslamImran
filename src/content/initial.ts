@@ -10,7 +10,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	site: {
 		title: "Sohel Islam Imran — Lead Full Stack Engineer",
 		description:
-			"I'm Sohel, a lead full-stack engineer at Kuno. I build product features across React interfaces, TypeScript APIs, PostgreSQL databases, authentication, and release pipelines.",
+			"I'm Sohel, a lead full-stack engineer. I build B2B products in TypeScript, from React and React Native interfaces to PostgreSQL schemas, single sign-on, role-based access, and CI/CD on AWS.",
 		url: "https://sohelislamimran.com",
 		locale: "en",
 		theme: "systems-atlas",
@@ -29,7 +29,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Lead Full Stack Engineer",
 		title: "I build every layer of a product, from interface to release.",
 		intro:
-			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform: the interface people use, the APIs behind it, the database and its migrations, sign-in and permissions, and the release pipeline that ships it all.",
+			"I'm Sohel. Hand me a product feature and I'll take it from the first sketch to production: React and React Native interfaces, TypeScript APIs, PostgreSQL schemas and migrations, Redis caching, single sign-on, role-based access, and CI/CD on AWS.",
 		actions: [
 			{ label: "See my work", href: "/work" },
 			{ label: "Email me", href: "mailto:sohelislamimran@gmail.com", external: true },
@@ -300,7 +300,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "product",
 			title: "Full-stack product features",
 			description:
-				"I build the screen people use and the typed API behind it, and ship them as one change.",
+				"I build the interfaces people use, on the web and on mobile, and the typed API behind them, and ship them as one change.",
 			tools: ["TypeScript", "React", "TanStack Router/Query", "Tailwind CSS", "Bun", "Elysia"],
 		},
 		{

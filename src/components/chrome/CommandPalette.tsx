@@ -744,7 +744,7 @@ function CommandPalette({
 			<Dialog.Portal>
 				<Dialog.Backdrop
 					data-slot="command-palette-backdrop"
-					className="fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.2)] backdrop-blur-[2px] transition-opacity duration-300 ease-trace data-ending-style:opacity-0 data-starting-style:opacity-0 dark:bg-[rgb(0_0_0/0.5)]"
+					className="fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.2)] dark:bg-[rgb(0_0_0/0.5)]"
 				/>
 				<Dialog.Popup
 					data-slot="command-palette"
@@ -759,14 +759,11 @@ function CommandPalette({
 					}}
 					className={cn(
 						"glass fixed z-(--z-palette) flex flex-col overflow-hidden bg-[color-mix(in_srgb,var(--theme-surface-solid)_86%,transparent)]! text-foreground outline-hidden",
-						"transition-[opacity,translate,scale,filter] ease-trace",
+						// Open and close motion lives in tailwind.css ("Command palette motion").
 						// Mobile: bottom sheet.
-						"inset-x-0 bottom-0 max-h-[min(86dvh,680px)] rounded-t-[28px] pb-[env(safe-area-inset-bottom)] duration-[360ms]",
-						"data-starting-style:translate-y-full data-ending-style:translate-y-full data-ending-style:duration-[240ms]",
+						"inset-x-0 bottom-0 max-h-[min(86dvh,680px)] rounded-t-[28px] pb-[env(safe-area-inset-bottom)]",
 						// Desktop: centered spotlight panel.
-						"md:inset-x-auto md:bottom-auto md:left-[calc(50%-min(320px,50vw-16px))] md:top-[max(12vh,88px)] md:max-h-[min(560px,76vh)] md:w-[min(640px,calc(100vw-32px))] md:rounded-[24px] md:pb-0 md:duration-[260ms]",
-						"md:data-starting-style:translate-y-[-6px] md:data-starting-style:scale-[.97] md:data-starting-style:opacity-0 md:data-starting-style:blur-[3px]",
-						"md:data-ending-style:translate-y-[-4px] md:data-ending-style:scale-[.98] md:data-ending-style:opacity-0 md:data-ending-style:duration-[180ms]",
+						"md:inset-x-auto md:bottom-auto md:left-[calc(50%-min(320px,50vw-16px))] md:top-[max(12vh,88px)] md:max-h-[min(560px,76vh)] md:w-[min(640px,calc(100vw-32px))] md:rounded-[24px] md:pb-0",
 					)}
 				>
 					<Dialog.Title className="sr-only">
