@@ -1,17 +1,19 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import type { CapabilityContent } from "../types/content";
-import { useEnterViewportOnce, usePrefersReducedMotion } from "@/components/motion";
+import { usePrefersReducedMotion } from "@/components/motion";
 import { Section, SectionHeading, TagList } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { plateSag, supportsFor } from "./home/supports";
 
-/** The one-time intro on first view: the build, then which support comes out, and for how long. */
-const BUILD_START_MS = 380;
-const BUILD_STEP_MS = 300;
+/** The build: when it starts once the supports are in view, and the gap between landings. */
+const BUILD_START_MS = 260;
+const BUILD_STEP_MS = 320;
+/** Share of the supports that must be on screen before they build. */
+const BUILD_IN_VIEW = 0.6;
+/** After the first build on a page, which support comes out on its own, and for how long. */
 const DEMO_ID = "delivery";
-const DEMO_DELAY_MS = 900;
+const DEMO_DELAY_MS = 1100;
 const DEMO_HOLD_MS = 1900;
-const DEMO_KEY = "how-i-work-demo";
 
 /**
  * How I work, as one object anyone can read: a plate ("Your product") resting
@@ -21,101 +23,110 @@ const DEMO_KEY = "how-i-work-demo";
  * copy says what Sohel does about it. Put it back and everything settles.
  *
  * - The supports' labels are toggle buttons (aria-pressed), one out at a time.
- * - On first view (once per session, never with reduced motion) the object
- *   builds itself: the supports rise from the floor one at a time, left to
- *   right, and the plate, sagging toward its unsupported end, levels off as
- *   each one lands while the label counts them in. Then the Release support
- *   comes out on its own for a moment and goes back, so the idea is shown
- *   before anyone has to discover it. The build only runs when the section
- *   starts below the fold, so nothing is ever taken down in front of anyone;
- *   any click finishes it at once.
+ * - The object builds itself in front of the visitor: whenever the supports
+ *   come into view (most of them on screen), they rise from the floor one at
+ *   a time, left to right, each landing with a small impact on the floor. The
+ *   plate, sagging toward its unsupported end, levels off as each one lands
+ *   while the label counts them in, and a light sweeps across it when the
+ *   last one is in. While the supports are off screen they are quietly taken
+ *   down again, so coming back plays it again; nothing is ever taken down in
+ *   view. After the first build on a page, the Release support comes out on
+ *   its own for a moment and goes back, so the interaction is shown too.
+ * - A support the visitor has taken out stays out; any click finishes a build
+ *   at once. Never with reduced motion.
  * - Every readout is in the server HTML (stacked in one cell, so the height
- *   never changes); with reduced motion nothing slides or tilts.
+ *   never changes), and the server HTML shows the finished object.
  */
 export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }) {
 	const baseId = useId();
 	const supports = supportsFor(capabilities);
 	const count = supports.length;
+	const demoIndex = supports.findIndex((support) => support.capability.id === DEMO_ID);
 	const reducedMotion = usePrefersReducedMotion();
 	/** Index of the support that is out, or -1. */
 	const [gone, setGone] = useState(-1);
 	const [hovered, setHovered] = useState(-1);
-	/** How many supports stand. Complete in the server HTML; the intro rebuilds it. */
+	/** How many supports stand. Complete in the server HTML; the build re-raises them. */
 	const [placed, setPlaced] = useState(count);
-	/** True while the intro build is queued or running. */
-	const [intro, setIntroState] = useState(false);
-	// Mirrored in a ref: the viewport callback below is the first render's.
-	const introRef = useRef(false);
-	const setIntro = (value: boolean) => {
-		introRef.current = value;
-		setIntroState(value);
-	};
-	const touched = useRef(false);
-	const rootRef = useRef<HTMLDivElement>(null);
+	/** True from the moment the supports are taken down until a build has settled. */
+	const [intro, setIntro] = useState(false);
+	const sceneRef = useRef<HTMLDivElement>(null);
 	const timers = useRef<number[]>([]);
+	// Read by the observer, which outlives renders.
+	const goneRef = useRef(gone);
+	const demoRef = useRef({ index: demoIndex, played: false });
 
-	useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
-
-	// Take the supports down before anyone sees them, but only when the section
-	// is still below the fold and the intro hasn't played this session.
 	useEffect(() => {
-		const root = rootRef.current;
-		if (reducedMotion || !root || count === 0) {
+		goneRef.current = gone;
+	}, [gone]);
+	useEffect(() => {
+		demoRef.current.index = demoIndex;
+	}, [demoIndex]);
+
+	const clearTimers = () => {
+		timers.current.forEach((timer) => window.clearTimeout(timer));
+		timers.current = [];
+	};
+	const later = (ms: number, run: () => void) => {
+		timers.current.push(window.setTimeout(run, ms));
+	};
+
+	useEffect(() => {
+		const scene = sceneRef.current;
+		if (!scene || count === 0 || reducedMotion || typeof IntersectionObserver === "undefined") {
+			clearTimers();
 			setIntro(false);
 			setPlaced(count);
 			return;
 		}
-		try {
-			if (sessionStorage.getItem(DEMO_KEY)) return;
-		} catch {
-			return;
-		}
-		if (root.getBoundingClientRect().top < window.innerHeight) return;
-		setIntro(true);
-		setPlaced(0);
-	}, [reducedMotion, count]);
-
-	const later = (ms: number, run: () => void) => {
-		timers.current.push(
-			window.setTimeout(() => {
-				if (!touched.current) run();
-			}, ms),
-		);
-	};
-
-	useEnterViewportOnce(
-		rootRef,
-		() => {
-			if (reducedMotion) return;
-			try {
-				if (sessionStorage.getItem(DEMO_KEY)) return;
-				sessionStorage.setItem(DEMO_KEY, "1");
-			} catch {
-				// Without storage the intro may simply play again next visit.
+		/** The supports are down, off screen, waiting to build. */
+		let armed = false;
+		const arm = () => {
+			if (goneRef.current >= 0) return;
+			clearTimers();
+			armed = true;
+			setIntro(true);
+			setPlaced(0);
+		};
+		const build = () => {
+			armed = false;
+			clearTimers();
+			for (let step = 1; step <= count; step += 1) {
+				later(BUILD_START_MS + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
 			}
-			let at = 0;
-			if (introRef.current) {
-				for (let step = 1; step <= count; step += 1) {
-					later(BUILD_START_MS + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
-				}
-				at = BUILD_START_MS + count * BUILD_STEP_MS;
-				later(at + 700, () => setIntro(false));
-			}
-			const demo = supports.findIndex((support) => support.capability.id === DEMO_ID);
-			if (demo < 0) return;
-			later(at + DEMO_DELAY_MS, () => {
-				setGone(demo);
+			const built = BUILD_START_MS + count * BUILD_STEP_MS;
+			later(built + 1100, () => setIntro(false));
+			const demo = demoRef.current;
+			if (demo.played || demo.index < 0) return;
+			demo.played = true;
+			later(built + DEMO_DELAY_MS, () => {
+				setGone(demo.index);
 				later(DEMO_HOLD_MS, () => setGone(-1));
 			});
-		},
-		{ rootMargin: "0px 0px -35% 0px" },
-	);
+		};
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (!entry) return;
+				if (!entry.isIntersecting) {
+					if (!armed) arm();
+				} else if (armed && entry.intersectionRatio >= BUILD_IN_VIEW) {
+					build();
+				}
+			},
+			{ threshold: [0, BUILD_IN_VIEW] },
+		);
+		observer.observe(scene);
+		return () => {
+			observer.disconnect();
+			clearTimers();
+		};
+	}, [reducedMotion, count]);
 
 	if (count === 0) return null;
 
-	/** Any interaction ends the intro: everything stands again at once. */
+	/** Any interaction ends a build: everything stands again at once. */
 	const interrupt = () => {
-		touched.current = true;
+		clearTimers();
 		setPlaced(count);
 		setIntro(false);
 	};
@@ -154,7 +165,6 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 			/>
 
 			<div
-				ref={rootRef}
 				data-slot="supports"
 				className="hw relative isolate min-w-0 overflow-hidden rounded-tile border border-line bg-surface-solid px-[clamp(20px,4vw,56px)] pt-[clamp(28px,4vw,52px)] pb-[clamp(20px,3vw,36px)] shadow-raised"
 				style={
@@ -241,7 +251,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				</div>
 
 				{/* The object. Decorative; the buttons below are the controls. */}
-				<div aria-hidden="true" className="hw-scene mt-[clamp(28px,4vw,44px)]">
+				<div ref={sceneRef} aria-hidden="true" className="hw-scene mt-[clamp(28px,4vw,44px)]">
 					<div className="hw-plate">
 						<span className="hw-plate-name">Your product</span>
 						<span className="hw-plate-status">
@@ -267,6 +277,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 								<span className="hw-pillar-body">
 									<span className="hw-pillar-index">{String(index + 1).padStart(2, "0")}</span>
 								</span>
+								<span className="hw-impact" />
 							</span>
 						))}
 					</div>

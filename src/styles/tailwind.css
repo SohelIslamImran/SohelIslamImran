@@ -4782,6 +4782,76 @@ html[data-xray] body {
 .hw[data-intro] .hw-pillar:not([data-pending]) .hw-pillar-index {
 	animation: hw-land 900ms var(--ease-trace) 380ms both;
 }
+/* Each landing leaves a short impact line on the floor under its support. */
+.hw-impact {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	width: clamp(26px, 38%, 76px);
+	height: 2px;
+	translate: -50% 0;
+	border-radius: 999px;
+	background: var(--theme-accent);
+	box-shadow: 0 0 10px color-mix(in srgb, var(--theme-accent) 60%, transparent);
+	opacity: 0;
+	pointer-events: none;
+}
+@keyframes hw-impact {
+	from {
+		opacity: 0.9;
+		scale: 0.35 1;
+	}
+	to {
+		opacity: 0;
+		scale: 1.7 1;
+	}
+}
+.hw[data-intro] .hw-pillar:not([data-pending]) .hw-impact {
+	animation: hw-impact 760ms var(--ease-trace) 300ms both;
+}
+/* When the last support lands: a light sweeps across the levelled plate and
+   the status dot pings as it turns green. */
+.hw-plate::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	background: linear-gradient(
+			100deg,
+			transparent 35%,
+			color-mix(in srgb, var(--theme-accent) 16%, transparent) 50%,
+			transparent 65%
+		)
+		no-repeat;
+	background-size: 260% 100%;
+	background-position: 130% 0;
+	opacity: 0;
+	pointer-events: none;
+}
+@keyframes hw-sweep {
+	from {
+		opacity: 1;
+		background-position: 130% 0;
+	}
+	to {
+		opacity: 1;
+		background-position: -30% 0;
+	}
+}
+.hw[data-intro]:not([data-building]) .hw-plate::after {
+	animation: hw-sweep 900ms var(--ease-trace) 240ms both;
+}
+@keyframes hw-ping {
+	from {
+		box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-success) 55%, transparent);
+	}
+	to {
+		box-shadow: 0 0 0 12px color-mix(in srgb, var(--theme-success) 0%, transparent);
+	}
+}
+.hw[data-intro]:not([data-building]) .hw-plate-dot {
+	animation: hw-ping 900ms var(--ease-trace) 240ms;
+}
 .hw-plate-wait,
 .hw[data-building] .hw-plate-ok {
 	display: none;
