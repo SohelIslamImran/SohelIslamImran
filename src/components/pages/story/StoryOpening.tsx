@@ -139,7 +139,7 @@ export function StoryOpening({
 						/>
 						<span className="sd-plate-caption mono-label" aria-hidden="true">
 							<span className="sd-plate-caption-layer">Surface</span>
-							<span className="sd-plate-caption-place">{location || "Now"}</span>
+							<span className="sd-plate-caption-place">Start here</span>
 						</span>
 					</div>
 				</div>

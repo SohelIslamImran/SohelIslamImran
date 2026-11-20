@@ -7,16 +7,11 @@ import {
 	type KeyboardEvent,
 	type PointerEvent as ReactPointerEvent,
 } from "react";
-import {
-	prefersReducedMotion,
-	useHydrated,
-	useOffscreenPause,
-	usePrefersReducedMotion,
-} from "@/components/motion";
+import { useHydrated, useOffscreenPause, usePrefersReducedMotion } from "@/components/motion";
 import { Tag } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { LayerMini } from "./hero/LayerMinis";
-import { AUTOPLAY_MS, STACK_CSS } from "./hero/stack-css";
+import { STACK_CSS } from "./hero/stack-css";
 import { traceLineFor } from "./request-trace";
 import { STACK_LAYERS, type StackLayer } from "./stack-layers";
 
@@ -27,25 +22,32 @@ interface StackTraceProps {
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
+/** The calm tour: how long each layer stays before the pulse moves on. */
+const TOUR_MS = 4500;
 /** "Send a request": one hop per layer, then a longer beat to land. */
-const SEND_STEP_MS = 720;
-const SEND_LAND_MS = 1700;
-/** Reduced motion: lines print on this beat with nothing travelling. */
-const STILL_PRINT_MS = 260;
+const SEND_STEP_MS = 760;
+const SEND_LAND_MS = 1500;
+/** Reduced motion: the selection steps on this beat with nothing travelling. */
+const STILL_STEP_MS = 260;
 
 /**
  * The Stack Trace: six isometric glass planes, one per layer of his work,
  * stacked in real CSS 3D with a trace line through their centres.
  *
+ * - A calm tour: each layer stays for a few seconds while the depth rail's
+ *   thumb fills like a timer, then the pulse drops to the next plane and the
+ *   card crossfades to it (old copy leaves toward where it now sits, new copy
+ *   arrives from the other side), the counter rolls, and the trace highlight
+ *   glides. It holds while the pointer or keyboard focus is on it and while
+ *   off-screen, has a pause button, and stops for good once a layer is picked.
  * - The labels beside the stack are a vertical tablist (arrows, Home, End);
- *   planes are clickable and tappable too. The selected plane lifts, lights,
- *   and its miniature comes alive; the card below says what he does there.
- * - One request run: a pulse travels down the trace line, layer by layer,
- *   and the card's trace log prints one line per layer as it passes.
- *   Autoplay is that run at a slow, readable pace (pauses on hover, focus,
- *   off-screen, and for good once the visitor picks a layer). "Send a
- *   request" plays it once, quickly, on demand. With reduced motion nothing
- *   travels; the lines print on a short beat instead.
+ *   planes are clickable and tappable too. Hovering a label only points at
+ *   its layer. The selected plane lifts, lights, and its miniature comes
+ *   alive. The request trace always shows all six lines; the lines the
+ *   request has reached are lit.
+ * - "Send a request" plays one run: a pulse travels down the trace line,
+ *   layer by layer, and the inspector follows it, then it rests. With reduced
+ *   motion nothing travels; the selection steps on a short beat instead.
  * - The stack tilts with the pointer and eases apart while the pointer is
  *   over it or on a sideways drag (touch too). "Pull apart" pins it wider
  *   still, with each layer's name written on its plane.
@@ -56,19 +58,22 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const baseId = useId();
 	const count = layers.length;
 	const [active, setActive] = useState(0);
-	const [autoplay, setAutoplay] = useState(true);
 	const [pinned, setPinned] = useState(false);
 	/** Mouse over the 3D scene: eases the stack apart. */
 	const [hovering, setHovering] = useState(false);
-	/** Mouse anywhere over the component: holds the tour while someone reads. */
+	const [dragging, setDragging] = useState(false);
+	/** One "Send a request" run is travelling down the stack. */
+	const [sending, setSending] = useState(false);
+	const [runKey, setRunKey] = useState(0);
+	/** A run has finished at least once: the button offers a replay. */
+	const [ran, setRan] = useState(false);
+	/** Mouse over a label: highlights that layer without changing the selection. */
+	const [hovered, setHovered] = useState<number | null>(null);
+	/** The calm tour; off for good once the visitor picks a layer. */
+	const [touring, setTouring] = useState(true);
+	/** Pointer or keyboard focus inside: the tour holds while someone reads. */
 	const [pointerInside, setPointerInside] = useState(false);
 	const [focusWithin, setFocusWithin] = useState(false);
-	const [dragging, setDragging] = useState(false);
-	/** "tour" is the slow autoplay; "send" is one quick run the visitor asked for. */
-	const [mode, setMode] = useState<"tour" | "send">("tour");
-	const [runKey, setRunKey] = useState(0);
-	/** Lines printed by a reduced-motion send; null when not printing that way. */
-	const [stillPrinted, setStillPrinted] = useState<number | null>(null);
 	const hydrated = useHydrated();
 	const reducedMotion = usePrefersReducedMotion();
 	const rootRef = useRef<HTMLDivElement>(null);
@@ -78,69 +83,65 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const suppressClick = useRef(false);
 	useOffscreenPause(rootRef);
 
+	const last = count - 1;
+	const tourOn = hydrated && touring && !sending && !reducedMotion && count > 1;
+	const stepMs = sending
+		? reducedMotion
+			? STILL_STEP_MS
+			: active === last
+				? SEND_LAND_MS
+				: SEND_STEP_MS
+		: TOUR_MS;
+	const moving = (sending && !reducedMotion) || tourOn;
+
 	useEffect(() => {
-		if (stillPrinted === null || stillPrinted >= count) return;
+		if (!sending) return;
 		const timer = window.setTimeout(() => {
-			setActive(stillPrinted);
-			setStillPrinted(stillPrinted + 1);
-		}, STILL_PRINT_MS);
+			if (active < last) setActive(active + 1);
+			else {
+				setSending(false);
+				setRan(true);
+			}
+		}, stepMs);
 		return () => window.clearTimeout(timer);
-	}, [stillPrinted, count]);
+	}, [sending, active, last, stepMs]);
 
 	if (count === 0) return null;
 
-	const last = count - 1;
-	const running = hydrated && autoplay && !reducedMotion && count > 1;
 	const open = pinned || hovering || dragging;
-	const sending = running && mode === "send";
-	const stepMs = sending ? (active === last ? SEND_LAND_MS : SEND_STEP_MS) : AUTOPLAY_MS;
-	// While a run plays, the log holds the lines up to the pulse; at rest it is the whole trace.
-	const printed = running ? active + 1 : (stillPrinted ?? count);
-	const printing = running || (stillPrinted !== null && stillPrinted < count);
 
 	const select = (index: number, { focus = false } = {}) => {
 		const next = Math.max(0, Math.min(count - 1, index));
-		setAutoplay(false);
-		setMode("tour");
-		setStillPrinted(null);
+		setSending(false);
+		setTouring(false);
 		setActive(next);
 		if (focus) tabRefs.current[next]?.focus();
 	};
 
-	const advance = () => {
-		if (prefersReducedMotion()) return;
-		if (active < last) {
-			setActive(active + 1);
-		} else if (mode === "send") {
-			setAutoplay(false);
-			setMode("tour");
-		} else {
-			setActive(0);
-		}
-	};
+	const advanceTour = () => setActive((value) => (value + 1) % count);
 
 	const sendRequest = () => {
+		setTouring(false);
 		setActive(0);
 		setRunKey((value) => value + 1);
-		if (reducedMotion || prefersReducedMotion()) {
-			setAutoplay(false);
-			setMode("tour");
-			setStillPrinted(1);
-			return;
-		}
-		setStillPrinted(null);
-		setMode("send");
-		setAutoplay(true);
+		setSending(count > 1);
 	};
 
 	const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+		// In a narrow container the labels form a two-column grid: Up and Down
+		// move by a row there, Left and Right by one label.
+		const row = (rootRef.current?.offsetWidth ?? Infinity) <= 480 ? 2 : 1;
 		let next: number;
 		switch (event.key) {
 			case "ArrowDown":
+				next = Math.min(count - 1, index + row);
+				break;
 			case "ArrowRight":
 				next = (index + 1) % count;
 				break;
 			case "ArrowUp":
+				next = Math.max(0, index - row);
+				break;
 			case "ArrowLeft":
 				next = (index - 1 + count) % count;
 				break;
@@ -163,7 +164,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 	// Pointer tilt (mouse only): a few degrees, eased by a CSS transition.
 	const onRootPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.pointerType !== "mouse" || drag.current?.moved) return;
+		if (reducedMotion || event.pointerType !== "mouse" || drag.current?.moved) return;
 		const rect = event.currentTarget.getBoundingClientRect();
 		const x = (event.clientX - rect.left) / rect.width - 0.5;
 		const y = (event.clientY - rect.top) / rect.height - 0.5;
@@ -177,7 +178,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 	// A sideways drag spins the stack and pulls it apart; vertical stays scroll.
 	const onScenePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-		if (event.button !== 0) return;
+		if (reducedMotion || event.button !== 0) return;
 		drag.current = { id: event.pointerId, x: event.clientX, y: event.clientY, moved: false };
 	};
 	const onScenePointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -189,7 +190,6 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			current.moved = true;
 			event.currentTarget.setPointerCapture(event.pointerId);
 			setDragging(true);
-			setAutoplay(false);
 		}
 		setRigVar("--spin", Math.max(-40, Math.min(40, dx * 0.3)));
 	};
@@ -216,11 +216,12 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			className={cn("st relative min-w-0", className)}
 			data-open={open ? "" : undefined}
 			data-pinned={pinned ? "" : undefined}
-			data-autoplay={running ? "" : undefined}
-			data-hold={(pointerInside || focusWithin) && !sending ? "" : undefined}
-			data-sending={sending ? "" : undefined}
-			data-landing={running && active === last ? "" : undefined}
-			data-first={running && active === 0 ? "" : undefined}
+			data-moving={moving ? "" : undefined}
+			data-touring={tourOn ? "" : undefined}
+			data-hold={tourOn && (pointerInside || focusWithin) ? "" : undefined}
+			data-sending={sending && !reducedMotion ? "" : undefined}
+			data-landing={moving && active === last ? "" : undefined}
+			data-first={moving && active === 0 ? "" : undefined}
 			style={
 				{
 					"--count": count,
@@ -228,6 +229,8 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					"--active": active,
 					"--to": Math.min(active + 1, last),
 					"--step": `${stepMs}ms`,
+					"--col": Math.floor(active / 3),
+					"--row": active % 3,
 				} as CSSProperties
 			}
 			onPointerEnter={(event) => {
@@ -236,15 +239,11 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			onPointerLeave={() => {
 				setPointerInside(false);
 				resetTilt();
-				// A mouse click leaves focus on a button without :focus-visible; don't let it hold the tour.
-				const focused = document.activeElement;
-				if (!(focused instanceof HTMLElement && focused.matches(":focus-visible")))
-					setFocusWithin(false);
 			}}
 			onPointerMove={onRootPointerMove}
 			onFocus={(event) => {
-				if (event.target instanceof HTMLElement && event.target.matches(":focus-visible"))
-					setFocusWithin(true);
+				if (event.target instanceof HTMLElement)
+					setFocusWithin(event.target.matches(":focus-visible"));
 			}}
 			onBlur={(event) => {
 				if (!event.currentTarget.contains(event.relatedTarget as Node | null))
@@ -265,7 +264,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					<button
 						type="button"
 						className="st-pull st-send"
-						data-busy={sending || printing ? "" : undefined}
+						data-busy={sending ? "" : undefined}
 						onClick={sendRequest}
 					>
 						<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
@@ -273,7 +272,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 							<path d="m4.4 8 3.6 3.6L11.6 8" />
 							<path d="M3 14.2h10" opacity="0.6" />
 						</svg>
-						<span>Send a request</span>
+						<span>{sending ? "Tracing…" : ran ? "Replay request" : "Send a request"}</span>
 					</button>
 					<button
 						type="button"
@@ -297,7 +296,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					className="st-scene"
 					aria-hidden="true"
 					onPointerEnter={(event) => {
-						if (event.pointerType === "mouse") setHovering(true);
+						if (!reducedMotion && event.pointerType === "mouse") setHovering(true);
 					}}
 					onPointerLeave={() => setHovering(false)}
 					onPointerDown={onScenePointerDown}
@@ -324,6 +323,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								className="st-plane"
 								data-active={index === active ? "" : undefined}
 								data-lit={index < active ? "" : undefined}
+								data-hover={index === hovered ? "" : undefined}
 								style={{ "--i": index } as CSSProperties}
 								onClick={() => {
 									if (!suppressClick.current) select(index);
@@ -336,7 +336,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								</svg>
 							</div>
 						))}
-						<span key={`dot-${runKey}-${active}-${running}`} className="st-dot">
+						<span key={`dot-${runKey}-${active}-${moving}`} className="st-dot">
 							<span className="st-dot-core" />
 						</span>
 						<span key={`land-${active}`} className="st-land" />
@@ -368,6 +368,12 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								data-lit={index < active ? "" : undefined}
 								style={{ "--i": index } as CSSProperties}
 								onClick={() => select(index)}
+								data-hover={index === hovered ? "" : undefined}
+								onPointerEnter={(event) => {
+									// Hover only points at the layer; a click, tap, or key selects it.
+									if (event.pointerType === "mouse") setHovered(index);
+								}}
+								onPointerLeave={() => setHovered(null)}
 								onKeyDown={(event) => onTabKeyDown(event, index)}
 							>
 								<span className="st-tab-lead" aria-hidden="true" />
@@ -383,30 +389,52 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 			<div className="st-card">
 				<div className="st-card-head">
-					<span className="mono-label text-muted-foreground" aria-hidden="true">
-						<span className="text-primary-text">{pad(active + 1)}</span> / {pad(count)}
+					<span className="mono-label st-count text-muted-foreground" aria-hidden="true">
+						<span className="st-odo text-primary-text">
+							<span className="st-odo-strip">
+								{layers.map((layer, index) => (
+									<span key={layer.id}>{pad(index + 1)}</span>
+								))}
+							</span>
+						</span>
+						<span>/ {pad(count)}</span>
 					</span>
-					<span className="st-progress" aria-hidden="true">
-						{running ? (
+					{/* Depth rail: one segment per layer; the thumb glides to the selection. */}
+					<span className="st-rail" aria-hidden="true">
+						{layers.map((layer, index) => (
 							<span
-								key={`${runKey}-${active}`}
-								className="st-progress-fill"
-								onAnimationEnd={advance}
+								key={layer.id}
+								className="st-rail-seg"
+								data-lit={index <= active ? "" : undefined}
 							/>
-						) : null}
+						))}
+						<span className="st-rail-thumb">
+							{tourOn ? (
+								<span
+									key={`${runKey}-${active}`}
+									className="st-rail-fill"
+									onAnimationEnd={advanceTour}
+								/>
+							) : null}
+						</span>
 					</span>
 					{count > 1 ? (
 						<button
 							type="button"
 							className="st-play"
-							onClick={() => {
-								setMode("tour");
-								setStillPrinted(null);
-								setAutoplay(!running);
-							}}
 							disabled={hydrated && reducedMotion}
+							onClick={() => {
+								if (tourOn) {
+									setTouring(false);
+									return;
+								}
+								setSending(false);
+								setPointerInside(false);
+								setFocusWithin(false);
+								setTouring(true);
+							}}
 						>
-							{running ? (
+							{tourOn ? (
 								<svg viewBox="0 0 12 12" aria-hidden="true" focusable="false">
 									<path
 										d="M3.5 2.5v7M8.5 2.5v7"
@@ -421,7 +449,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								</svg>
 							)}
 							<span className="sr-only">
-								{running ? "Pause the layer tour" : "Play the layer tour"}
+								{tourOn ? "Pause the layer tour" : "Play the layer tour"}
 							</span>
 						</button>
 					) : null}
@@ -437,7 +465,9 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								aria-labelledby={tabId(index)}
 								tabIndex={selected ? 0 : -1}
 								className="st-panel"
+								inert={!selected}
 								data-active={selected ? "" : undefined}
+								data-pos={index < active ? "before" : index > active ? "after" : undefined}
 							>
 								<p className="st-panel-title">{layer.name}</p>
 								<p className="st-panel-copy">{layer.sentence}</p>
@@ -452,34 +482,34 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 						);
 					})}
 				</div>
-				<ol
-					className="st-log"
-					aria-label="Request trace"
-					aria-live={mode === "send" || stillPrinted !== null ? "polite" : "off"}
-				>
+				<ol className="st-log" aria-label="Request trace">
 					{layers.map((layer, index) => {
 						const trace = traceLineFor(layer.id, layer.name);
-						const shown = index < printed;
 						return (
 							<li
 								key={layer.id}
 								className="st-log-line"
-								data-on={shown ? "" : undefined}
-								data-now={shown && printing && index === printed - 1 ? "" : undefined}
+								data-lit={index <= active ? "" : undefined}
+								data-active={index === active ? "" : undefined}
+								data-now={sending && index === active ? "" : undefined}
+								aria-current={index === active ? "step" : undefined}
 							>
-								{shown ? (
-									<>
-										<span className="st-log-i" aria-hidden="true">
-											{pad(index + 1)}
-										</span>
-										<span className="st-log-k">{trace.verb}</span>{" "}
-										<span className="st-log-d">{trace.detail}</span>
-									</>
-								) : null}
+								<span className="st-log-i" aria-hidden="true">
+									{pad(index + 1)}
+								</span>
+								<span className="st-log-k">{trace.verb}</span>{" "}
+								<span className="st-log-d">{trace.detail}</span>
 							</li>
 						);
 					})}
 				</ol>
+				<p className="sr-only" role="status">
+					{sending
+						? "Tracing a request through the stack."
+						: ran
+							? `The request reached ${layers[last]?.name ?? "the last layer"}.`
+							: ""}
+				</p>
 			</div>
 		</div>
 	);

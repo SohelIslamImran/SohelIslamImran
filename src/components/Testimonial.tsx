@@ -1,8 +1,5 @@
-import { useRef } from "react";
-import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import type { TestimonialContent } from "../types/content";
 import { cn } from "../lib/utils";
-import { useHydrated } from "./motion/hooks";
 import { classifyLink, LINK_ARROWS, LINK_DESTINATIONS } from "./home/links";
 import { Surface } from "./ui/portfolio";
 
@@ -125,9 +122,7 @@ export function Testimonial({
 }
 
 /**
- * The home page quote, set big. A large quote mark hangs above the first line
- * (never behind the letters) and drifts a little slower than the words as you
- * scroll. Still under reduced motion.
+ * The home page quote, with a large quote mark above the first line.
  */
 function FeatureQuote({
 	className,
@@ -148,16 +143,8 @@ function FeatureQuote({
 	initials: string;
 	link?: { href: string; kind: ReturnType<typeof classifyLink>; label: string; external: boolean };
 }) {
-	const ref = useRef<HTMLElement>(null);
-	const reduceMotion = useReducedMotion() === true;
-	// Server HTML and the hydration render carry no transform, so they always match.
-	const animate = useHydrated() && !reduceMotion;
-	const { scrollYProgress } = useScroll({ target: ref, offset: ["start end", "end start"] });
-	const markY = useTransform(scrollYProgress, [0, 1], [16, -16]);
-	const quoteY = useTransform(scrollYProgress, [0, 1], [24, -24]);
 	return (
 		<figure
-			ref={ref}
 			data-slot="testimonial"
 			className={cn("relative isolate m-0 min-w-0 pt-[clamp(24px,5vw,64px)]", className)}
 		>
@@ -167,19 +154,15 @@ function FeatureQuote({
 					{label}
 				</p>
 			) : null}
-			<motion.span
+			<span
 				aria-hidden="true"
-				style={animate ? { y: markY } : undefined}
 				className="pointer-events-none mt-[clamp(16px,2.4vw,28px)] block h-[0.42em] overflow-visible font-serif text-[clamp(5.5rem,11vw,9rem)] leading-[0.82] text-primary-text opacity-40 select-none"
 			>
 				“
-			</motion.span>
-			<motion.blockquote
-				style={animate ? { y: quoteY } : undefined}
-				className="m-0 mt-0 min-w-0 max-w-[18ch] text-[clamp(2.5rem,6.6vw,5.75rem)] leading-[1] font-[620] tracking-[-0.045em] text-balance text-foreground [overflow-wrap:anywhere]"
-			>
+			</span>
+			<blockquote className="m-0 mt-0 min-w-0 max-w-[18ch] text-[clamp(2.5rem,6.6vw,5.75rem)] leading-[1] font-[620] tracking-[-0.045em] text-balance text-foreground [overflow-wrap:anywhere]">
 				{quote}
-			</motion.blockquote>
+			</blockquote>
 			<figcaption className="mt-[clamp(32px,5vw,56px)] flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-3 border-t border-line pt-6 text-[15px] text-muted-foreground">
 				<span
 					aria-hidden="true"

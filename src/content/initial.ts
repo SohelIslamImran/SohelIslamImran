@@ -10,7 +10,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	site: {
 		title: "Sohel Islam Imran — Lead Full Stack Engineer",
 		description:
-			"I'm Sohel, a lead full-stack engineer at Kuno. I build product features across React interfaces, TypeScript APIs, PostgreSQL databases, authentication, and release pipelines.",
+			"I'm Sohel, a lead full-stack engineer. I build B2B products across web and mobile interfaces, APIs, databases and migrations, single sign-on, and permissions.",
 		url: "https://sohelislamimran.com",
 		locale: "en",
 		theme: "systems-atlas",
@@ -29,7 +29,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		eyebrow: "Lead Full Stack Engineer",
 		title: "I build every layer of a product, from interface to release.",
 		intro:
-			"I'm Sohel. I lead full-stack work at Kuno, a B2B learning platform. That covers React screens, TypeScript APIs, PostgreSQL schemas and migrations, sign-in and permissions, and the pipeline that ships them.",
+			"I'm Sohel. Hand me a feature and I'll take it from sketch to production: web and mobile interfaces, APIs, databases and migrations, single sign-on, permissions, and cloud deployments.",
 		actions: [
 			{ label: "See my work", href: "/work" },
 			{ label: "Email me", href: "mailto:sohelislamimran@gmail.com", external: true },
@@ -44,7 +44,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 	about: {
 		title: "Self-taught, and still curious about the layer below.",
 		paragraphs: [
-			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production React Native app. Since then I've kept going one layer deeper, from mobile screens at Tilleli to the APIs, databases, permissions, and releases behind Kuno.",
+			"I wrote my first code in late 2020, on my family's first computer. Six months later I was working in a production mobile app. Since then I've kept going one layer deeper, from app screens at Tilleli to the APIs, databases, permissions, and releases behind Kuno.",
 			"Most of my attention goes to where the layers meet. If the interface hides an action, the API should refuse it too. A schema change should ship as a migration that's safe to run. A release should be easy to roll back. The next engineer should be able to see why something works. I hold my own work to that, and I help my teammates do the same.",
 		],
 		facts: [{ value: "2020", label: "first line of code" }],
@@ -300,14 +300,14 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 			id: "product",
 			title: "Full-stack product features",
 			description:
-				"I build the screen people use and the typed API behind it, and ship them as one change.",
+				"I build the interfaces people use, on the web and on mobile, and the typed API behind them, and ship them as one change.",
 			tools: ["TypeScript", "React", "TanStack Router/Query", "Tailwind CSS", "Bun", "Elysia"],
 		},
 		{
 			id: "data",
 			title: "Databases and migrations",
 			description:
-				"I design PostgreSQL schemas, write migrations and queries with Drizzle ORM and SQL, and work with Redis caching and background jobs.",
+				"I design database schemas, write versioned migrations and queries, and add caching and background jobs where a feature needs them.",
 			tools: ["PostgreSQL", "SQL", "Drizzle", "Schema migrations", "Redis", "Background jobs"],
 		},
 		{
@@ -329,13 +329,15 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		{
 			id: "mobile",
 			title: "Mobile apps, down to native code",
-			description: "When a product needs an app, I build it with React Native and Expo.",
+			description:
+				"When a product needs an app, I build for iOS and Android, write native code when platform APIs call for it, and ship to both app stores.",
 			tools: ["React Native", "Expo", "EAS", "Kotlin", "Swift", "Android Play Core", "Firebase"],
 		},
 		{
 			id: "delivery",
 			title: "Releases with a way back",
-			description: "I help get each change from code review to production on AWS.",
+			description:
+				"I help take each change from code review to production: automated tests in CI, infrastructure defined as code, and a way to roll back a bad release.",
 			tools: ["Terraform", "AWS", "GitHub Actions", "Docker", "Playwright", "Bun Test", "EAS"],
 		},
 	],
@@ -601,7 +603,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 		href: "/resume",
 		updatedAt: "2026-10-27",
 		summary:
-			"At Kuno, a B2B learning platform, I went from mobile developer to lead full-stack engineer in just over two years. Before that I spent nearly three years as a React Native developer at Tilleli, a US events startup. I also created and maintain expo-in-app-updates, an open-source Expo module.",
+			"At Kuno, a B2B learning platform, I went from mobile developer to lead full-stack engineer in just over two years. Before that I spent nearly three years building the mobile app at Tilleli, a US events startup. I also created and maintain expo-in-app-updates, an open-source update module for Android and iOS.",
 	},
 	story: {
 		eyebrow: "My story",
@@ -646,7 +648,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				eyebrow: "2021 — Jan 2024 · Tilleli",
 				title: "A small team, a real codebase.",
 				paragraphs: [
-					"In 2021 a referral from that community led to an unpaid React Native internship at Tilleli, a US events startup. For the first time I was working in a production app and taking part in product conversations.",
+					"In 2021 a referral from that community led to an unpaid mobile internship at Tilleli, a US events startup. For the first time I was working in a production mobile app and taking part in product conversations.",
 					"Because the internship was unpaid, I also took a short paid frontend role at Bugfixers from July to September 2021. At Tilleli my work grew from app screens to Firebase services, payment and search integrations, and app store releases. I stayed responsible for the mobile app until January 2024.",
 				],
 				artifact: "Ownership came from careful work, repeated.",
@@ -656,7 +658,7 @@ export const INITIAL_PORTFOLIO_CONTENT: PortfolioContent = {
 				eyebrow: "Dec 2023 — present · Kuno",
 				title: "Behind the screen.",
 				paragraphs: [
-					"I joined Kuno in late 2023 as a mobile application developer. In January 2025 my role became full-stack: B2B learning workflows, Bun and Elysia services, PostgreSQL and Drizzle data, authorization, localization, and cloud delivery.",
+					"I joined Kuno in late 2023 as a mobile application developer. In January 2025 my role became full-stack: B2B learning workflows, backend services, database schemas and migrations, permissions, localization, and cloud delivery.",
 					"I became Lead Full Stack Engineer in March 2026. Today my work covers product architecture, application security, testing, deployment identity, and release coordination.",
 				],
 				artifact:

@@ -220,12 +220,20 @@ function Readout() {
 	return (
 		// One line, always the same height, so the chips below never move. Wide
 		// screens keep it pinned under the dock while the chips scroll; on narrow
-		// screens an active readout floats above the dock, with jump links.
-		<div ref={slotRef} data-slot="resume-skill-readout-slot" className="min-w-0 print:hidden">
+		// screens a pinned readout floats above the dock, with jump links (a mouse
+		// hover only updates it in place). The
+		// slot keeps its height while the readout floats, or the chips would jump
+		// up under the pointer, change the hovered skill, and flicker.
+		<div
+			ref={slotRef}
+			data-slot="resume-skill-readout-slot"
+			className="min-h-10 min-w-0 print:hidden"
+		>
 			<div
 				data-slot="resume-skill-readout"
 				data-active={active ? "" : undefined}
-				className="flex min-h-10 min-w-0 flex-col justify-center rounded-inner border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,var(--theme-surface-solid))] px-3 py-1.5 max-lg:data-active:fixed max-lg:data-active:inset-x-3 max-lg:data-active:bottom-[calc(var(--dock-space-bottom)+10px)] max-lg:data-active:z-(--z-toast) max-lg:data-active:gap-2.5 max-lg:data-active:p-3.5 max-lg:data-active:shadow-float"
+				data-floating={pinned ? "" : undefined}
+				className="flex min-h-10 min-w-0 flex-col justify-center rounded-inner border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,var(--theme-surface-solid))] px-3 py-1.5 max-lg:data-floating:fixed max-lg:data-floating:inset-x-3 max-lg:data-floating:bottom-[calc(var(--dock-space-bottom)+10px)] max-lg:data-floating:z-(--z-toast) max-lg:data-floating:gap-2.5 max-lg:data-floating:p-3.5 max-lg:data-floating:shadow-float"
 			>
 				<div className="flex min-w-0 items-center justify-between gap-3">
 					<div aria-live="polite" aria-atomic="true" className="min-w-0">
@@ -246,14 +254,14 @@ function Readout() {
 						<button
 							type="button"
 							onClick={clear}
-							className="pressable -mr-1 inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2 text-caption font-semibold text-primary-text hover:bg-primary-soft"
+							className="pressable -my-1 -mr-1 inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full px-2 text-caption font-semibold text-primary-text hover:bg-primary-soft"
 						>
 							Clear<span className="sr-only"> skill highlight</span>
 							<span aria-hidden="true">×</span>
 						</button>
 					) : null}
 				</div>
-				{active && targets.length ? (
+				{pinned && active && targets.length ? (
 					<ul className="m-0 flex list-none gap-1.5 overflow-x-auto p-0 pb-0.5 [scrollbar-width:none] lg:hidden [&::-webkit-scrollbar]:hidden">
 						{targets.map((target) => (
 							<li key={target.id} className="shrink-0">

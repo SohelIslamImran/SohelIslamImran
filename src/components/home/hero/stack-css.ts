@@ -1,5 +1,5 @@
-/** One autoplay step, ms. The progress bar and the request pulse share it. */
-export const AUTOPLAY_MS = 3200;
+/** Fallback length of one request hop, ms; the component sets --step. */
+const STEP_MS = 760;
 
 /*
  * Styles for the Stack Trace. Plain CSS because the 3D geometry is shared
@@ -170,6 +170,8 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 .st-tab:active { scale: 0.97; }
 .st-tab:focus-visible { outline: 2px solid var(--theme-focus); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .st-tab:hover { color: var(--theme-ink); } }
+.st-tab[data-hover]:not([data-active]) .st-tab-lead { background: color-mix(in srgb, var(--theme-accent-line) 60%, var(--theme-line-strong)); scale: 1.1 1; }
+.st-plane[data-hover]:not([data-active]) { opacity: 1; border-color: color-mix(in srgb, var(--theme-accent) 50%, transparent); }
 .st-tab[data-active] { color: var(--theme-ink); font-weight: 620; }
 .st-tab-lead { width: 22px; height: 1px; background: var(--theme-line-strong); transform-origin: left; transition: background-color 260ms var(--ease), scale 360ms var(--ease); }
 .st-tab[data-lit] .st-tab-lead { background: color-mix(in srgb, var(--theme-accent-line) 45%, var(--theme-line-strong)); }
@@ -183,39 +185,86 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	margin-top: 10px; padding: 18px 22px 22px; border-radius: var(--radius-card); border: 1px solid var(--theme-line);
 	background: var(--theme-surface-solid); box-shadow: var(--shadow-raised);
 }
-.st-card-head { display: flex; align-items: center; gap: 14px; min-height: 32px; }
-.st-progress { position: relative; flex: 1; height: 2px; overflow: hidden; border-radius: 999px; background: var(--theme-line); }
-.st-progress-fill { position: absolute; inset: 0; background: var(--theme-accent-line); transform-origin: left; scale: 0 1; }
+.st-card-head { display: flex; align-items: center; gap: 16px; min-height: 32px; }
+/* Counter: a strip of numbers that rolls to the selection. */
+.st-count { display: inline-flex; align-items: center; gap: 0.5em; line-height: 1.25; white-space: nowrap; }
+.st-odo { display: inline-block; height: 1.25em; overflow: hidden; }
+.st-odo-strip { display: flex; flex-direction: column; translate: 0 calc(var(--active) * -1.25em); transition: translate 560ms var(--glide); }
+.st-odo-strip > span { height: 1.25em; }
+/* Depth rail: one segment per layer, a thumb that glides to the selection. */
+.st-rail { position: relative; flex: 1; display: grid; grid-template-columns: repeat(var(--count), minmax(0, 1fr)); gap: 5px; align-items: center; height: 8px; min-width: 0; }
+.st-rail-seg { height: 2px; border-radius: 999px; background: var(--theme-line-strong); transition: background-color 480ms var(--ease); }
+.st-rail-seg[data-lit] { background: color-mix(in srgb, var(--theme-accent-line) 42%, var(--theme-line-strong)); }
+.st-rail-thumb {
+	position: absolute; left: 0; top: 50%; height: 6px; border-radius: 999px;
+	width: calc((100% - (var(--count) - 1) * 5px) / var(--count));
+	translate: calc(var(--active) * (100% + 5px)) -50%;
+	background: var(--theme-accent-line);
+	box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-accent-line) 14%, transparent), 0 0 14px color-mix(in srgb, var(--theme-accent-line) 45%, transparent);
+	transition: translate 620ms var(--glide);
+}
+.st[data-sending] .st-rail-thumb { transition-duration: 520ms; }
+/* Touring: the thumb is a timer. Its fill grows while a layer is shown. */
+.st[data-touring] .st-rail-thumb { background: color-mix(in srgb, var(--theme-accent-line) 30%, transparent); box-shadow: none; }
+.st-rail-fill {
+	position: absolute; inset: 0; border-radius: inherit; background: var(--theme-accent-line); transform-origin: left; scale: 0 1;
+	box-shadow: 0 0 12px color-mix(in srgb, var(--theme-accent-line) 45%, transparent);
+}
 .st-play {
-	display: grid; flex: none; place-items: center; width: 32px; height: 32px; margin-right: -8px; border: 0; border-radius: 999px;
+	display: grid; flex: none; place-items: center; width: 32px; height: 32px; margin: 0 -8px 0 -4px; border: 0; border-radius: 999px;
 	background: transparent; color: var(--theme-muted); cursor: pointer;
 	transition: color 200ms var(--ease), background-color 200ms var(--ease), scale 200ms var(--ease);
 }
 .st-play > svg { width: 12px; height: 12px; }
 .st-play:disabled { opacity: 0.4; cursor: default; }
 .st-play:not(:disabled):active { scale: 0.92; }
+.st-play:focus-visible { outline: 2px solid var(--theme-focus); outline-offset: 2px; }
 @media (hover: hover) and (pointer: fine) { .st-play:not(:disabled):hover { color: var(--theme-ink); background: color-mix(in srgb, var(--theme-ink) 6%, transparent); } }
-@media (pointer: coarse) { .st-play { width: 44px; height: 44px; margin: -6px -12px -6px 0; } .st-pull { min-height: 44px; } }
-.st-panels { display: grid; margin-top: 8px; }
-.st-panel { grid-area: 1 / 1; min-width: 0; visibility: hidden; border-radius: 12px; }
-.st-panel[data-active] { visibility: visible; }
-.st-panel:focus-visible { outline: 2px solid var(--theme-focus); outline-offset: 6px; }
+@media (pointer: coarse) { .st-play { width: 44px; height: 44px; margin: -6px -12px -6px -6px; } }
+/* Panels share one cell, so the card never changes height. The new layer's
+   copy fades in as one block with a short rise; the old one leaves at once. */
+.st-panels { display: grid; margin-top: 10px; }
+.st-panel {
+	grid-area: 1 / 1; min-width: 0; border-radius: 12px; visibility: hidden; opacity: 0; translate: 0 var(--off, 8px);
+	transition: opacity 280ms var(--ease), translate 420ms var(--ease), visibility 0s linear 420ms;
+}
+.st-panel[data-pos="before"] { --off: -8px; }
+.st-panel[data-pos="after"] { --off: 8px; }
+.st-panel[data-active] {
+	visibility: visible; opacity: 1; translate: 0 0;
+	transition: opacity 420ms var(--ease) 90ms, translate 620ms var(--glide) 60ms, visibility 0s;
+}
 .st-panel > * { margin: 0; }
+.st-panel:focus-visible { outline: 2px solid var(--theme-focus); outline-offset: 6px; }
 .st-panel-title { font-size: clamp(1.375rem, 2vw, 1.625rem); font-weight: 620; letter-spacing: -0.025em; line-height: 1.15; color: var(--theme-ink); }
 .st-panel-copy { margin-top: 8px; max-width: 48ch; font-size: 1.0625rem; line-height: 1.5; color: var(--theme-ink-soft); }
 .st-panel-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; padding: 0; list-style: none; }
 
-/* Request trace: one mono line per layer. Six rows always exist, so printing never moves anything. */
+/* Request trace: all six lines are always there. The lines the request has
+   reached are lit, and one highlight glides to the selected layer. */
 .st-log {
-	display: grid; grid-template-rows: repeat(3, 20px); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px 18px;
+	position: relative; display: grid; grid-template-rows: repeat(3, 22px); grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 2px 18px;
 	margin: 16px 0 0; padding: 12px 0 0; border-top: 1px dashed var(--theme-line-strong); list-style: none;
-	font-family: var(--font-mono); font-size: 12px; line-height: 20px; font-variant-numeric: tabular-nums;
+	font-family: var(--font-mono); font-size: 12px; line-height: 22px; font-variant-numeric: tabular-nums;
 }
-.st-log-line { display: grid; grid-template-columns: 2.1em 4.6em minmax(0, 1fr); min-width: 0; height: 20px; white-space: nowrap; color: var(--theme-ink-soft); }
-.st-log-i { color: var(--theme-muted); opacity: 0.8; }
-.st-log-k { color: var(--theme-accent-text); }
+.st-log::before {
+	content: ""; position: absolute; left: 0; top: 12px; height: 22px; width: calc((100% - 18px) / 2); border-radius: 7px;
+	background: color-mix(in srgb, var(--theme-accent) 9%, transparent);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-accent) 9%, transparent);
+	translate: calc(var(--col) * (100% + 18px)) calc(var(--row) * 24px);
+	transition: translate 560ms var(--glide);
+	pointer-events: none;
+}
+.st-log-line {
+	position: relative; display: grid; grid-template-columns: 2.1em 4.6em minmax(0, 1fr); min-width: 0; height: 22px; white-space: nowrap;
+	color: var(--theme-muted); transition: color 420ms var(--ease);
+}
+.st-log-line[data-lit] { color: var(--theme-ink-soft); }
+.st-log-i { color: var(--theme-muted); }
+.st-log-k { color: inherit; transition: color 420ms var(--ease); }
+.st-log-line[data-lit] .st-log-k { color: var(--theme-accent-text); }
 .st-log-d { overflow: hidden; text-overflow: ellipsis; }
-.st-log-line[data-now] .st-log-d { color: var(--theme-ink); }
+.st-log-line[data-active] .st-log-d { color: var(--theme-ink); }
 
 /* Narrow: the stack takes the full width; labels become a two-column grid */
 @container st (max-width: 480px) {
@@ -241,6 +290,7 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	.st-tab-index { padding-left: 0; }
 	.st-tab-name { overflow: hidden; text-overflow: ellipsis; }
 	.st-log { grid-template-rows: none; grid-auto-flow: row; }
+	.st-log::before { width: 100%; translate: 0 calc(var(--active) * 24px); }
 }
 
 /* Motion: only with no reduced-motion preference */
@@ -252,14 +302,14 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 .mi-cursor { transform: translate(64px, 84px); }
 
 @media (prefers-reduced-motion: no-preference) {
-	.st[data-autoplay] .st-progress-fill { animation: st-fill var(--step, ${AUTOPLAY_MS}ms) linear forwards; }
-	.st[data-autoplay] .st-dot { animation: st-hop var(--step, ${AUTOPLAY_MS}ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
-	.st[data-autoplay][data-landing] .st-dot { animation: st-dwell var(--step, ${AUTOPLAY_MS}ms) linear both; }
-	.st-log-line[data-now] { animation: st-print 320ms var(--ease) both; }
-	.st[data-autoplay][data-landing] .st-land::before { animation: st-ring 1400ms var(--ease) 250ms both; }
-	.st[data-autoplay][data-first] .st-dot-core { animation: st-dot-in 360ms var(--ease) both; }
-	.st:is([data-hold], [data-paused]) :is(.st-progress-fill, .st-dot, .st-dot-core),
-	.st:is([data-hold], [data-paused]) .st-land::before { animation-play-state: paused; }
+	.st[data-moving] .st-dot { animation: st-hop var(--step, ${STEP_MS}ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+	.st[data-moving][data-landing] .st-dot { animation: st-dwell var(--step, ${STEP_MS}ms) linear both; }
+	.st[data-touring] .st-rail-fill { animation: st-fill var(--step, ${STEP_MS}ms) linear forwards; }
+	.st-log-line[data-now] { animation: st-print 360ms var(--ease) both; }
+	.st[data-sending][data-landing] .st-land::before { animation: st-ring 1400ms var(--ease) 250ms both; }
+	.st[data-moving][data-first] .st-dot-core { animation: st-dot-in 360ms var(--ease) both; }
+	.st:is([data-paused], [data-hold]) :is(.st-dot, .st-dot-core, .st-rail-fill),
+	.st:is([data-paused], [data-hold]) .st-land::before { animation-play-state: paused; }
 
 	.st-plane[data-active] .mi-cursor { animation: mi-cursor 2.8s var(--ease) infinite; }
 	.st-plane[data-active] .mi-press { animation: mi-press 2.8s var(--ease) infinite; }
@@ -279,6 +329,8 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
 	.st-rig { transform: rotateX(calc(var(--rx) * 1deg)) rotateZ(-45deg); }
+	.st-odo-strip, .st-rail-thumb, .st-rail-seg, .st-log::before, .st-log-line, .st-panel { transition: none !important; }
+	.st-panel { translate: none; }
 }
 
 @keyframes st-fill { to { scale: 1 1; } }

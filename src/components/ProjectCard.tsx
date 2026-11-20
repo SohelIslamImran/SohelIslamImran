@@ -79,7 +79,7 @@ export function ProjectStatus({ status, className }: { status: string; className
 	);
 }
 
-function CardTags({ tags, max }: { tags: string[]; max: number }) {
+function CardTags({ tags, max = tags.length }: { tags: string[]; max?: number }) {
 	if (tags.length === 0) return null;
 	const shown = tags.slice(0, max);
 	const hidden = tags.length - shown.length;
@@ -148,7 +148,7 @@ function CardMetrics({ project, compact }: { project: ProjectContent; compact: b
  * - `split`: poster beside the copy on large screens. Used for a lead project.
  * - `compact`: the tighter "lab" card for experiments.
  *
- * The title link stretches over the whole card (one target, one name); the
+ * The project link stretches over the whole card (one target, one name); the
  * external links sit above it, so nothing interactive is nested.
  */
 export function ProjectCard({
@@ -177,7 +177,6 @@ export function ProjectCard({
 	const tags = nonEmpty(project.tags);
 	const compact = variant === "compact";
 	const split = variant === "split";
-	const meta = [role, year].filter(Boolean).join(" · ");
 
 	return (
 		<SpotlightCard
@@ -186,9 +185,8 @@ export function ProjectCard({
 			data-variant={variant}
 			data-poster-host=""
 			className={cn(
-				"group/card relative flex h-full min-w-0 flex-col p-2 transition-[box-shadow,border-color,translate,scale] duration-500 ease-trace",
-				"pointer-fine:hover:-translate-y-1.5 pointer-fine:hover:shadow-surface",
-				"has-[[data-card-link]:active]:scale-[.985]",
+				"group/card relative flex h-full min-w-0 flex-col p-2 transition-[box-shadow,border-color] duration-500 ease-trace",
+				"pointer-fine:hover:shadow-surface",
 				"has-[[data-card-link]:focus-visible]:outline-2 has-[[data-card-link]:focus-visible]:outline-offset-4 has-[[data-card-link]:focus-visible]:outline-ring",
 				split && "lg:grid lg:grid-cols-[minmax(0,1.18fr)_minmax(0,1fr)] lg:gap-2",
 				split &&
@@ -232,20 +230,7 @@ export function ProjectCard({
 									: "text-headline",
 						)}
 					>
-						{slug ? (
-							<Link
-								to="/work/$slug"
-								params={{ slug }}
-								data-card-link=""
-								viewTransition
-								onClick={primeWorkTransition}
-								className="text-inherit no-underline outline-hidden after:absolute after:inset-0 after:z-[1] after:rounded-[inherit] after:content-[''] focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-							>
-								{title}
-							</Link>
-						) : (
-							title
-						)}
+						{title}
 					</Heading>
 					{summary ? (
 						<p
@@ -260,13 +245,22 @@ export function ProjectCard({
 							{summary}
 						</p>
 					) : null}
-					{meta ? (
-						<p className="mono-label m-0 mt-1 min-w-0 text-muted-foreground">{meta}</p>
+					{role || year ? (
+						<p className="mono-label m-0 mt-1 min-w-0 text-muted-foreground [overflow-wrap:anywhere]">
+							{role}
+							{role && year ? " " : null}
+							{year ? (
+								<span className="inline-block max-w-full">
+									{role ? <span aria-hidden="true">· </span> : null}
+									{year}
+								</span>
+							) : null}
+						</p>
 					) : null}
 				</div>
 				<LayerStrip project={project} caption={layerCaption ?? (compact ? "count" : "names")} />
 				<CardMetrics project={project} compact={compact} />
-				{compact ? null : <CardTags tags={tags} max={split ? 6 : 4} />}
+				{compact ? null : <CardTags tags={tags} max={split ? undefined : 4} />}
 				<div
 					className={cn(
 						"mt-auto flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-3",
@@ -274,13 +268,21 @@ export function ProjectCard({
 					)}
 				>
 					{slug ? (
-						<span
-							aria-hidden="true"
-							className="inline-flex min-h-11 items-center gap-1.5 text-[15px] font-medium text-primary-text pointer-fine:min-h-9"
+						<Link
+							to="/work/$slug"
+							params={{ slug }}
+							data-card-link=""
+							viewTransition
+							onClick={primeWorkTransition}
+							className="inline-flex min-h-11 items-center gap-1.5 rounded-sm text-[15px] font-medium text-primary-text no-underline after:absolute after:inset-0 after:z-[1] after:rounded-card after:content-[''] pointer-fine:min-h-9"
 						>
 							View project
-							<ArrowRightIcon className="size-4 transition-transform duration-300 ease-trace group-hover/card:translate-x-1" />
-						</span>
+							<span className="sr-only">, {title}</span>
+							<ArrowRightIcon
+								aria-hidden="true"
+								className="size-4 transition-transform duration-300 ease-trace motion-safe:group-hover/card:translate-x-1"
+							/>
+						</Link>
 					) : null}
 					<ProjectExternalLinks project={project} />
 				</div>

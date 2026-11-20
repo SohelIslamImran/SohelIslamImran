@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import type { LinkContent } from "../../types/content";
 import {
 	LocalTime,
-	Magnetic,
 	TraceLine,
 	useCopyToClipboard,
+	usePrefersReducedMotion,
 	useSpotlight,
 } from "@/components/motion";
 import { MonoLabel, Section, StatusDot } from "@/components/ui/portfolio";
@@ -29,87 +29,84 @@ const SPRING = { type: "spring", stiffness: 420, damping: 26, mass: 0.7 } as con
 /**
  * The address as the main control: one press copies it, with a springy
  * check, a ring that spreads from the button, and a polite announcement.
- * Magnetic on a mouse; a plain button for touch and keyboard.
  */
 function CopyEmail({ email }: { email: string }) {
 	const { status, copy } = useCopyToClipboard(2400);
-	const reduceMotion = useReducedMotion() === true;
+	const reduceMotion = usePrefersReducedMotion();
 	const [burst, setBurst] = useState(0);
 	const copied = status === "copied";
 	const failed = status === "failed";
 	return (
 		<>
-			<Magnetic max={10} className="max-w-full">
-				<motion.button
-					type="button"
-					onClick={async () => {
-						const ok = await copy(email);
-						if (ok) setBurst((value) => value + 1);
-					}}
-					whileTap={{ scale: 0.96 }}
-					transition={SPRING}
-					aria-label={`Copy my email address, ${email}`}
-					className="contact-copy group/copy relative isolate inline-flex min-h-16 max-w-full items-center gap-3 rounded-full bg-primary py-3 pr-2.5 pl-5 sm:gap-4 sm:pr-3 sm:pl-7 text-left text-primary-foreground shadow-accent outline-offset-4"
+			<motion.button
+				type="button"
+				onClick={async () => {
+					const ok = await copy(email);
+					if (ok && !reduceMotion) setBurst((value) => value + 1);
+				}}
+				whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+				transition={SPRING}
+				aria-label={`Copy my email address, ${email}`}
+				className="contact-copy group/copy relative isolate inline-flex min-h-16 max-w-full items-center gap-3 rounded-full bg-primary py-3 pr-2.5 pl-5 sm:gap-4 sm:pr-3 sm:pl-7 text-left text-primary-foreground shadow-accent outline-offset-4"
+			>
+				<AnimatePresence>
+					{burst > 0 && !reduceMotion ? (
+						<motion.span
+							key={burst}
+							aria-hidden="true"
+							initial={{ opacity: 0.55, scale: 1 }}
+							animate={{ opacity: 0, scale: 1.35 }}
+							exit={{ opacity: 0 }}
+							transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+							className="pointer-events-none absolute inset-0 -z-10 rounded-full border-2 border-primary-line"
+						/>
+					) : null}
+				</AnimatePresence>
+				<span className="min-w-0 text-[clamp(0.9375rem,3.8vw,1.5rem)] leading-tight font-[600] tracking-[-0.02em] [overflow-wrap:anywhere]">
+					{email}
+				</span>
+				<span
+					aria-hidden="true"
+					className="relative grid size-10 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]"
 				>
-					<AnimatePresence>
-						{burst > 0 && !reduceMotion ? (
-							<motion.span
-								key={burst}
-								aria-hidden="true"
-								initial={{ opacity: 0.55, scale: 1 }}
-								animate={{ opacity: 0, scale: 1.35 }}
-								exit={{ opacity: 0 }}
-								transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-								className="pointer-events-none absolute inset-0 -z-10 rounded-full border-2 border-primary-line"
-							/>
-						) : null}
+					<AnimatePresence mode="popLayout" initial={false}>
+						{copied ? (
+							<motion.svg
+								key="check"
+								viewBox="0 0 16 16"
+								className="size-[18px] fill-none stroke-current stroke-[2] [stroke-linecap:round] [stroke-linejoin:round]"
+								initial={reduceMotion ? false : { scale: 0.4, opacity: 0, rotate: -20 }}
+								animate={{ scale: 1, opacity: 1, rotate: 0 }}
+								exit={reduceMotion ? undefined : { scale: 0.4, opacity: 0 }}
+								transition={SPRING}
+							>
+								<motion.path
+									d="m3.5 8.4 3 2.85 6-6.5"
+									initial={{ pathLength: reduceMotion ? 1 : 0 }}
+									animate={{ pathLength: 1 }}
+									transition={{ duration: 0.35, delay: 0.05 }}
+								/>
+							</motion.svg>
+						) : (
+							<motion.svg
+								key="copy"
+								viewBox="0 0 16 16"
+								className="size-[18px] fill-none stroke-current stroke-[1.5] [stroke-linejoin:round]"
+								initial={reduceMotion ? false : { scale: 0.4, opacity: 0 }}
+								animate={{ scale: 1, opacity: 1 }}
+								exit={reduceMotion ? undefined : { scale: 0.4, opacity: 0 }}
+								transition={SPRING}
+							>
+								<rect x="5.25" y="5.25" width="8" height="8" rx="2" />
+								<path d="M10.75 5.25v-1.5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1.5" />
+							</motion.svg>
+						)}
 					</AnimatePresence>
-					<span className="min-w-0 text-[clamp(0.9375rem,3.8vw,1.5rem)] leading-tight font-[600] tracking-[-0.02em] [overflow-wrap:anywhere]">
-						{email}
-					</span>
-					<span
-						aria-hidden="true"
-						className="relative grid size-10 shrink-0 place-items-center rounded-full bg-[color-mix(in_srgb,currentColor_18%,transparent)]"
-					>
-						<AnimatePresence mode="popLayout" initial={false}>
-							{copied ? (
-								<motion.svg
-									key="check"
-									viewBox="0 0 16 16"
-									className="size-[18px] fill-none stroke-current stroke-[2] [stroke-linecap:round] [stroke-linejoin:round]"
-									initial={{ scale: 0.4, opacity: 0, rotate: -20 }}
-									animate={{ scale: 1, opacity: 1, rotate: 0 }}
-									exit={{ scale: 0.4, opacity: 0 }}
-									transition={SPRING}
-								>
-									<motion.path
-										d="m3.5 8.4 3 2.85 6-6.5"
-										initial={{ pathLength: reduceMotion ? 1 : 0 }}
-										animate={{ pathLength: 1 }}
-										transition={{ duration: 0.35, delay: 0.05 }}
-									/>
-								</motion.svg>
-							) : (
-								<motion.svg
-									key="copy"
-									viewBox="0 0 16 16"
-									className="size-[18px] fill-none stroke-current stroke-[1.5] [stroke-linejoin:round]"
-									initial={{ scale: 0.4, opacity: 0 }}
-									animate={{ scale: 1, opacity: 1 }}
-									exit={{ scale: 0.4, opacity: 0 }}
-									transition={SPRING}
-								>
-									<rect x="5.25" y="5.25" width="8" height="8" rx="2" />
-									<path d="M10.75 5.25v-1.5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h1.5" />
-								</motion.svg>
-							)}
-						</AnimatePresence>
-					</span>
-				</motion.button>
-			</Magnetic>
+				</span>
+			</motion.button>
 			<p className="mono-label m-0 min-h-5 text-muted-foreground" aria-live="polite">
 				{copied ? (
-					<span className="text-success">Copied. Talk soon.</span>
+					<span className="text-success">Email address copied.</span>
 				) : failed ? (
 					<span className="text-destructive">Couldn't copy. Use the mail link.</span>
 				) : (

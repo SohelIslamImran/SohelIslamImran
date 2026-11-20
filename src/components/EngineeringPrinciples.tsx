@@ -26,7 +26,7 @@ export const ENGINEERING_PRINCIPLES: readonly EngineeringPrinciple[] = [
 		id: "native",
 		capabilityId: "mobile",
 		title: "Work with the platform.",
-		body: "I start with shared code and write Kotlin or Swift only where Android and iOS differ, as they do for in-app updates.",
+		body: "I start with shared code and drop into native APIs only where Android and iOS differ, as they do for in-app updates.",
 	},
 	{
 		id: "boundaries",

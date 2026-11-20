@@ -75,118 +75,251 @@ function Glow({ uid, cx, cy, r }: { uid: string; cx: number; cy: number; r: numb
 }
 
 /* ------------------------------------------------------------------ */
-/* kuno — a learning pathway lighting up, with a peer conversation     */
+/* kuno — a guided 1:1 peer conversation session building a skill     */
 /* ------------------------------------------------------------------ */
 
 function KunoArt({ uid }: PosterArtProps): PosterLayers {
-	const done =
-		"M56 236 C 96 236, 104 200, 140 200 C 180 200, 190 160, 226 160 C 266 160, 278 116, 316 116";
-	const ahead = "M316 116 C 358 116, 372 68, 414 68";
-	const doneNodes = [
-		[56, 236],
-		[140, 200],
-		[226, 160],
+	const peerAClip = `${uid}-peer-a`;
+	const peerBClip = `${uid}-peer-b`;
+	const waveA = [
+		{ x: 70.8, h: 6, delay: "0s" },
+		{ x: 76.8, h: 10, delay: "0.18s" },
+		{ x: 82.8, h: 6, delay: "0.34s" },
+	];
+	const kunoSteps = [
+		{ x: 75, label: "DIAGNOSE", state: "done" },
+		{ x: 137, label: "MATCH", state: "done" },
+		{ x: 199, label: "PRACTICE", state: "now" },
+		{ x: 261, label: "APPLY", state: "next" },
 	] as const;
+	const waveB = [
+		{ x: 394.8, h: 5, delay: "0.1s" },
+		{ x: 400.8, h: 9, delay: "0.26s" },
+		{ x: 406.8, h: 5, delay: "0.42s" },
+	];
 	return {
 		back: (
 			<>
-				<Glow uid={uid} cx={316} cy={116} r={120} />
-				<path d={`${done} ${ahead.replace("M316 116", "")}`} className="wp-road" strokeWidth={14} />
+				<Glow uid={uid} cx={240} cy={138} r={168} />
+				{/* Session window shell */}
+				<g className="wp-drop-lg">
+					<rect x={39} y={22} width={402} height={218} rx={16} className="wp-raised" />
+				</g>
+				{/* Session header */}
+				<line x1={39} y1={54} x2={441} y2={54} className="wp-ln" />
+				<circle cx={58} cy={38} r={3.2} className="wp-a wp-pulse" />
+				<text x={68} y={40.8} fontSize={8} fontWeight={600} letterSpacing={0.6} className="wp-ink">
+					1:1 SESSION
+				</text>
+				{/* Practised workplace skill pill */}
+				<rect x={181} y={29} width={118} height={18} rx={9} className="wp-a1" />
+				<text
+					x={240}
+					y={40.6}
+					fontSize={7.5}
+					fontWeight={600}
+					letterSpacing={0.5}
+					textAnchor="middle"
+					className="wp-at"
+				>
+					ACTIVE LISTENING
+				</text>
+				{/* Pacing timer */}
+				<rect x={371} y={29} width={54} height={18} rx={9} className="wp-k1" />
+				<circle cx={384.5} cy={38} r={3.5} className="wp-ln2" strokeWidth={1.1} />
+				<path d="M384.5 36 v2 l1.4 1" className="wp-ln2" strokeWidth={1.1} strokeLinecap="round" />
+				<text x={392.5} y={40.6} fontSize={7.5} className="wp-muted">
+					14:20
+				</text>
+				{/* Three-phase session ritual bar (Intent · Practice · Reflect) */}
+				<Bar x={55} y={63} w={118} h={4} className="wp-a" />
+				<Bar x={181} y={63} w={118} h={4} className="wp-k2" />
+				<Bar x={181} y={63} w={78} h={4} className="wp-a" />
+				<Bar x={307} y={63} w={118} h={4} className="wp-k2" />
+				{/* Subtle lower tray anchor inside the session frame */}
+				<rect x={55} y={200} width={370} height={26} rx={9} className="wp-k1" />
 			</>
 		),
 		mid: (
 			<>
-				<path d={done} className="wp-as" strokeWidth={2.5} />
-				<path d={ahead} className="wp-ln2" strokeDasharray="3 6" strokeLinecap="round" />
-				<path d={ahead} className="wp-as wp-h-show" strokeDasharray="3 6" />
-				{/* A request of learning travelling the finished part of the path */}
-				<path
-					d={done}
-					pathLength={100}
-					className="wp-as wp-run"
-					strokeWidth={10}
-					style={{ stroke: "var(--wp-accent-2)", "--wp-d": "4.2s" } as Vars}
+				<defs>
+					<clipPath id={peerAClip}>
+						<circle cx={142} cy={121} r={24} />
+					</clipPath>
+					<clipPath id={peerBClip}>
+						<circle cx={338} cy={121} r={24} />
+					</clipPath>
+				</defs>
+
+				{/* Peer A participant tile */}
+				<g className="wp-drop">
+					<rect x={55} y={76} width={174} height={108} rx={13} className="wp-surface" />
+				</g>
+				<rect
+					x={55}
+					y={76}
+					width={174}
+					height={108}
+					rx={13}
+					className="wp-as wp-kuno-ring-a"
+					strokeWidth={1.75}
 				/>
-				<path
-					d={done}
-					pathLength={100}
-					className="wp-as wp-run"
-					strokeWidth={4}
-					style={{ "--wp-d": "4.2s" } as Vars}
-				/>
-				{/* Completed steps */}
-				{doneNodes.map(([x, y], index) => (
-					<g key={x}>
-						<circle cx={x} cy={y} r={11} className="wp-a" />
-						<path d={`M${x - 4.5} ${y} l3 3 L${x + 5} ${y - 3.5}`} className="wp-on-a-s" />
-						<text x={x} y={y + 27} textAnchor="middle" fontSize={8.5} className="wp-muted">
-							{String(index + 1).padStart(2, "0")}
-						</text>
-					</g>
+				<rect x={65} y={85} width={26} height={16} rx={8} className="wp-a1" />
+				{waveA.map((bar) => (
+					<rect
+						key={bar.x}
+						x={bar.x}
+						y={93 - bar.h / 2}
+						width={2.4}
+						height={bar.h}
+						rx={1.2}
+						className="wp-a wp-kuno-wave-a"
+						style={{ animationDelay: bar.delay }}
+					/>
 				))}
-				{/* Current step */}
-				<circle cx={316} cy={116} r={11} className="wp-as wp-ping" strokeWidth={1.5} />
-				<circle
-					cx={316}
-					cy={116}
-					r={11}
-					className="wp-surface"
-					style={{ stroke: "var(--theme-accent)" }}
-					strokeWidth={2.5}
+				<circle cx={142} cy={121} r={24} className="wp-a1" />
+				<g clipPath={`url(#${peerAClip})`}>
+					<circle cx={142} cy={113.5} r={8.2} className="wp-a" style={{ opacity: 0.85 }} />
+					<path
+						d="M122 146 C 122 131, 130 125.5, 142 125.5 C 154 125.5, 162 131, 162 146 Z"
+						className="wp-a"
+						style={{ opacity: 0.68 }}
+					/>
+				</g>
+				<circle cx={142} cy={121} r={24} className="wp-as-soft" strokeWidth={1.2} />
+				<Bar x={67} y={163} w={50} h={5.5} className="wp-k3" />
+				<Bar x={123} y={163.5} w={28} h={4.5} className="wp-k2" />
+				<circle cx={213} cy={166} r={3} className="wp-a wp-kuno-ring-a" />
+
+				{/* Peer B participant tile */}
+				<g className="wp-drop">
+					<rect x={251} y={76} width={174} height={108} rx={13} className="wp-surface" />
+				</g>
+				<rect
+					x={251}
+					y={76}
+					width={174}
+					height={108}
+					rx={13}
+					className="wp-as wp-kuno-ring-b"
+					strokeWidth={1.75}
+					opacity={0}
 				/>
-				<circle cx={316} cy={116} r={4.5} className="wp-a" />
-				<text x={316} y={143} textAnchor="middle" fontSize={8.5} className="wp-at">
-					04
-				</text>
-				{/* Next step */}
-				<circle cx={414} cy={68} r={9} className="wp-surface" strokeDasharray="2.5 3" />
-				<text x={414} y={93} textAnchor="middle" fontSize={8.5} className="wp-muted">
-					05
-				</text>
+				<rect x={389} y={85} width={26} height={16} rx={8} className="wp-k1" />
+				{waveB.map((bar) => (
+					<rect
+						key={bar.x}
+						x={bar.x}
+						y={93 - bar.h / 2}
+						width={2.4}
+						height={bar.h}
+						rx={1.2}
+						className="wp-k4 wp-kuno-wave-b"
+						style={{ animationDelay: bar.delay }}
+					/>
+				))}
+				<circle cx={338} cy={121} r={24} className="wp-k2" />
+				<g clipPath={`url(#${peerBClip})`}>
+					<circle cx={338} cy={113.5} r={8.2} className="wp-k4" />
+					<path
+						d="M318 146 C 318 131, 326 125.5, 338 125.5 C 350 125.5, 358 131, 358 146 Z"
+						className="wp-k4"
+						style={{ opacity: 0.78 }}
+					/>
+				</g>
+				<circle cx={338} cy={121} r={24} className="wp-ln" />
+				<Bar x={263} y={163} w={56} h={5.5} className="wp-k3" />
+				<Bar x={325} y={163.5} w={24} h={4.5} className="wp-k2" />
+				<circle cx={409} cy={166} r={3} className="wp-a wp-kuno-ring-b" opacity={0} />
+
+				{/* Peer-to-peer dialogue exchange badge */}
+				<circle cx={240} cy={130} r={12} className="wp-as wp-ping wp-h" strokeWidth={1.3} />
+				<g className="wp-drop">
+					<circle cx={240} cy={130} r={12} className="wp-surface" />
+				</g>
+				<path
+					d="M234.5 127.5 H244.5 M242 125 l2.5 2.5 -2.5 2.5 M245.5 132.5 H235.5 M238 130 l-2.5 2.5 2.5 2.5"
+					className="wp-as"
+					strokeWidth={1.5}
+				/>
 			</>
 		),
 		front: (
 			<>
-				{/* Progress card */}
-				<g className="wp-drop">
-					<rect x={36} y={34} width={156} height={66} rx={14} className="wp-surface" />
+				{/* Skill pathway card: diagnose, match with a peer, practice, apply */}
+				<g className="wp-drop-lg">
+					<rect x={51} y={192} width={228} height={84} rx={14} className="wp-surface" />
 				</g>
-				<text x={50} y={55} fontSize={8} letterSpacing={0.9} className="wp-muted">
-					PATHWAY
+				<circle cx={71} cy={212} r={10} className="wp-a1" />
+				<path
+					d="M65.5 215.5 L69.5 211.5 L72.5 214 L76.5 208.5"
+					className="wp-as"
+					strokeWidth={1.5}
+				/>
+				<text x={88} y={214.8} fontSize={8} fontWeight={600} letterSpacing={0.7} className="wp-ink">
+					SKILL PATHWAY
 				</text>
-				<text x={178} y={55} fontSize={8} textAnchor="end" className="wp-at">
-					03/05
+				<text x={265} y={214.8} fontSize={8} fontWeight={600} textAnchor="end" className="wp-at">
+					3/4
 				</text>
-				<Bar x={50} y={64} w={128} h={5} className="wp-k2" />
-				<Bar x={50} y={64} w={77} h={5} className="wp-a" />
-				<Bar x={50} y={79} w={96} h={5} className="wp-k3" />
-				<Bar x={50} y={88} w={60} h={4} className="wp-k2" />
-
-				{/* Peer conversation */}
-				<circle cx={302} cy={206} r={14} className="wp-a2" />
-				<circle cx={302} cy={202} r={4.5} className="wp-a" />
-				<path d="M294.5 214 a7.5 6.5 0 0 1 15 0 z" className="wp-a" />
-				<g className="wp-kuno-b1">
-					<g className="wp-drop">
-						<rect x={324} y={188} width={118} height={32} rx={16} className="wp-surface" />
+				{/* Track: done up to the session in progress, which fills on each loop */}
+				<Bar x={75} y={238.5} w={186} h={3} className="wp-k2" />
+				<Bar x={75} y={238.5} w={62} h={3} className="wp-a" />
+				<Bar x={137} y={238.5} w={62} h={3} className="wp-a wp-kuno-trail" />
+				{kunoSteps.map((step) => (
+					<g key={step.label}>
+						{step.state === "done" ? (
+							<>
+								<circle cx={step.x} cy={240} r={7} className="wp-a" />
+								<path
+									d={`M${step.x - 3} 240 l2 2 l4 -4.2`}
+									className="wp-on-a-s"
+									strokeWidth={1.6}
+								/>
+							</>
+						) : step.state === "now" ? (
+							<>
+								<circle cx={step.x} cy={240} r={7} className="wp-as wp-ping" strokeWidth={1.3} />
+								<circle cx={step.x} cy={240} r={7.5} className="wp-surface" />
+								<circle cx={step.x} cy={240} r={7.5} className="wp-as" strokeWidth={1.6} />
+								<circle cx={step.x} cy={240} r={3} className="wp-a wp-pulse" />
+							</>
+						) : (
+							<circle cx={step.x} cy={240} r={6} className="wp-k2" />
+						)}
+						<text
+							x={step.x}
+							y={262}
+							fontSize={7.4}
+							fontWeight={step.state === "now" ? 600 : 500}
+							letterSpacing={0.4}
+							textAnchor="middle"
+							className={step.state === "now" ? "wp-at" : "wp-k5"}
+						>
+							{step.label}
+						</text>
 					</g>
-					<Bar x={338} y={198} w={76} h={5} className="wp-k3" />
-					<Bar x={338} y={207} w={48} h={5} className="wp-k2" />
+				))}
+
+				{/* Reflection & skill-growth card */}
+				<g className="wp-drop">
+					<rect x={291} y={192} width={138} height={84} rx={14} className="wp-surface" />
 				</g>
-				<circle cx={450} cy={252} r={14} className="wp-k2" />
-				<circle cx={450} cy={248} r={4.5} className="wp-k4" />
-				<path d="M442.5 260 a7.5 6.5 0 0 1 15 0 z" className="wp-k4" />
-				<g className="wp-kuno-typing" opacity={0}>
-					<rect x={378} y={236} width={50} height={28} rx={14} className="wp-surface" />
-					<circle cx={392} cy={250} r={2.6} className="wp-k4" />
-					<circle cx={403} cy={250} r={2.6} className="wp-k4" />
-					<circle cx={414} cy={250} r={2.6} className="wp-k4" />
+				<text x={305} y={214.8} fontSize={7.8} letterSpacing={0.7} className="wp-muted">
+					REFLECTION
+				</text>
+				<g className="wp-kuno-check">
+					<circle cx={409} cy={212} r={8.5} className="wp-a" />
+					<path d="M405.5 212 l2.3 2.3 L413 209.2" className="wp-on-a-s" strokeWidth={1.8} />
 				</g>
-				<g className="wp-kuno-b2">
-					<rect x={312} y={236} width={118} height={32} rx={16} className="wp-a" />
-					<Bar x={326} y={246} w={74} h={5} className="wp-on-a" style={{ opacity: 0.75 }} />
-					<Bar x={326} y={255} w={44} h={5} className="wp-on-a" style={{ opacity: 0.45 }} />
-				</g>
+				<Bar x={305} y={232} w={106} h={5.5} className="wp-k3" />
+				<Bar x={305} y={243} w={74} h={5.5} className="wp-k2" />
+				{/* Skill mastery progress pips */}
+				<Bar x={305} y={258} w={24.5} h={5} className="wp-a" />
+				<Bar x={333.5} y={258} w={24.5} h={5} className="wp-a" />
+				<Bar x={362} y={258} w={24.5} h={5} className="wp-a" />
+				<Bar x={390.5} y={258} w={24.5} h={5} className="wp-k2" />
+				<Bar x={390.5} y={258} w={24.5} h={5} className="wp-a wp-kuno-pip" />
 			</>
 		),
 	};

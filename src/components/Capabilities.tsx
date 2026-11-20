@@ -1,212 +1,469 @@
-import { useCallback, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import type { CapabilityContent } from "../types/content";
-import { cn } from "../lib/utils";
-import { pairPrinciples } from "./EngineeringPrinciples";
-import {
-	ReleasePipeline,
-	type PipelineRelease,
-	type StageState,
-} from "./home/sections/ReleasePipeline";
-import { Section, SectionHeading } from "./ui/portfolio";
+import { usePrefersReducedMotion } from "@/components/motion";
+import { Section, SectionHeading, TagList } from "@/components/ui/portfolio";
+import { cn } from "@/lib/utils";
+import { plateSag, supportsFor } from "./home/supports";
 
-const STATE_LABEL: Record<StageState, string> = {
-	idle: "Waiting",
-	running: "Checking",
-	passed: "Passed",
-	reverted: "Rolled back",
-};
+/** The loop, in milliseconds: rise, rest, show one consequence, sink, rise again. */
+const BUILD_START_MS = 260;
+const BUILD_STEP_MS = 320;
+const HOLD_MS = 1600;
+const DEMO_HOLD_MS = 2600;
+const DEMO_RETURN_MS = 1300;
+const TEARDOWN_STEP_MS = 200;
+const REBUILD_GAP_MS = 700;
+/** Share of the supports that must be on screen before the loop runs. */
+const BUILD_IN_VIEW = 0.6;
+/** The first support the loop takes out; it then goes round the rest. */
+const DEMO_ID = "delivery";
 
-/** The change the pipeline ships: it marks one word of this section's heading. */
-const RELEASE: PipelineRelease = {
-	from: "v1.4",
-	to: "v1.5",
-	change: "Highlight “change” in the heading",
-};
+interface LoopControl {
+	/**
+	 * Hover or focus on the controls holds the loop with everything standing;
+	 * it carries on from the rest only once neither holds it.
+	 */
+	hold: (kind: "hover" | "focus", on: boolean) => void;
+	/** The visitor took over: stop until the supports leave the screen. */
+	stop: () => void;
+}
 
 /**
- * "How I work", shown as the mechanism instead of described: each capability
- * is a stage of a release pipeline and its principle is the check that stage
- * must pass. Shipping really changes the section: the heading gains the
- * release and the delivery note records it; rolling back takes both out.
+ * How I work, as one object anyone can read: a plate ("Your product") resting
+ * on one support per capability. Take a support out and it slides away, the
+ * plate tilts toward the gap with a hairline crack, and the headline says in
+ * plain words what users would feel without it; below, the capability's own
+ * copy says what Sohel does about it. Put it back and everything settles.
+ *
+ * - The supports' labels are toggle buttons (aria-pressed), one out at a time.
+ * - While the supports are in view the object runs a slow loop: they rise
+ *   from the floor one at a time, left to right, each landing with an impact
+ *   line, while the plate levels off and the label counts them in; a light
+ *   sweeps the plate when the last one is in. After a rest, one support comes
+ *   out to show its consequence (a different one each round) and goes back,
+ *   then the supports sink right to left and rise again.
+ * - Hovering or focusing the controls holds the loop with everything
+ *   standing, until both the pointer and focus have left; clicking hands the
+ *   object to the visitor and stops it until the supports next leave the
+ *   screen. Off screen everything is quietly reset and taken down, so
+ *   nothing is ever taken down in front of anyone mid-scroll. Never with
+ *   reduced motion, and only the visitor's own changes are announced.
+ * - Every readout is in the server HTML (stacked in one cell, so the height
+ *   never changes), and the server HTML shows the finished object.
  */
 export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }) {
-	const { pairs, leftover } = pairPrinciples(capabilities);
-	const [states, setStates] = useState<StageState[]>([]);
-	const [shipped, setShipped] = useState(false);
-	const [rolledBack, setRolledBack] = useState(false);
-	const onStatesChange = useCallback((next: StageState[]) => setStates(next), []);
-	const onShippedChange = useCallback((next: boolean) => {
-		setShipped((previous) => {
-			if (previous && !next) setRolledBack(true);
-			if (next) setRolledBack(false);
-			return next;
-		});
-	}, []);
+	const baseId = useId();
+	const supports = supportsFor(capabilities);
+	const count = supports.length;
+	const demoIndex = supports.findIndex((support) => support.capability.id === DEMO_ID);
+	const reducedMotion = usePrefersReducedMotion();
+	/** Index of the support that is out, or -1 (ignored if the list has shrunk past it). */
+	const [goneState, setGone] = useState(-1);
+	const gone = goneState < count ? goneState : -1;
+	const [hovered, setHovered] = useState(-1);
+	/** How many supports stand. Complete in the server HTML; the loop raises and lowers them. */
+	const [placed, setPlaced] = useState(count);
+	/** True while the loop owns the object (springier motion, landing effects). */
+	const [intro, setIntro] = useState(false);
+	/** Only the visitor's own changes go to the live region, never the loop's. */
+	const [announce, setAnnounce] = useState(false);
+	const sceneRef = useRef<HTMLDivElement>(null);
+	const timers = useRef<number[]>([]);
+	// Read by the observer, which outlives renders.
+	const goneRef = useRef(gone);
+	const demoRef = useRef(demoIndex);
+	const loopRef = useRef<LoopControl | null>(null);
+	const controlRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-	if (pairs.length === 0 && leftover.length === 0) return null;
+	useEffect(() => {
+		goneRef.current = gone;
+	}, [gone]);
+	useEffect(() => {
+		demoRef.current = demoIndex;
+	}, [demoIndex]);
 
-	const stages = pairs.map(({ capability, principle }, index) => ({
-		id: capability.id || String(index),
-		title: capability.title.trim() || "Untitled capability",
-		check: principle?.title ?? "Checks pass.",
-	}));
-	// The release is recorded on the delivery note, or on the last one.
-	const found = pairs.findIndex(
-		({ capability, principle }) => capability.id === "delivery" || principle?.id === "delivery",
-	);
-	const deliveryIndex = found >= 0 ? found : pairs.length - 1;
+	const clearTimers = () => {
+		timers.current.forEach((timer) => window.clearTimeout(timer));
+		timers.current = [];
+	};
+	const later = (ms: number, run: () => void) => {
+		timers.current.push(window.setTimeout(run, ms));
+	};
+
+	useEffect(() => {
+		const scene = sceneRef.current;
+		if (!scene || count === 0 || reducedMotion || typeof IntersectionObserver === "undefined") {
+			loopRef.current = null;
+			clearTimers();
+			setIntro(false);
+			setPlaced(count);
+			return;
+		}
+		/** Supports down, off screen, waiting to rise. */
+		let armed = false;
+		/** Loop timers are scheduled. */
+		let active = false;
+		const holds = { hover: false, focus: false };
+		const held = () => holds.hover || holds.focus;
+		let stopped = false;
+		/** The support that is out was taken out by the loop. */
+		let demoOut = false;
+		let round = 0;
+
+		const build = (delay: number) => {
+			armed = false;
+			active = true;
+			clearTimers();
+			setIntro(true);
+			for (let step = 1; step <= count; step += 1) {
+				later(delay + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
+			}
+			later(delay + count * BUILD_STEP_MS, rest);
+		};
+		const rest = () => {
+			active = true;
+			setIntro(true);
+			later(HOLD_MS, () => {
+				const start = demoRef.current >= 0 ? demoRef.current : 0;
+				const index = (start + round) % count;
+				round += 1;
+				demoOut = true;
+				setGone(index);
+				later(DEMO_HOLD_MS, () => {
+					demoOut = false;
+					setGone(-1);
+					later(DEMO_RETURN_MS, teardown);
+				});
+			});
+		};
+		const teardown = () => {
+			for (let step = 1; step <= count; step += 1) {
+				later((step - 1) * TEARDOWN_STEP_MS, () => setPlaced(count - step));
+			}
+			later(count * TEARDOWN_STEP_MS + REBUILD_GAP_MS, () => build(0));
+		};
+		/** Everything standing, nothing scheduled. */
+		const standStill = () => {
+			active = false;
+			clearTimers();
+			setPlaced(count);
+			if (demoOut) {
+				demoOut = false;
+				setGone(-1);
+			}
+		};
+		// Off screen everything resets, the visitor's own selection included, so
+		// coming back always finds the loop.
+		const arm = () => {
+			clearTimers();
+			armed = true;
+			active = false;
+			stopped = false;
+			demoOut = false;
+			setAnnounce(false);
+			setGone(-1);
+			setIntro(true);
+			setPlaced(0);
+		};
+
+		loopRef.current = {
+			hold: (kind, on) => {
+				const wasHeld = held();
+				holds[kind] = on;
+				if (armed || stopped) return;
+				if (!wasHeld && held()) standStill();
+				else if (wasHeld && !held()) rest();
+			},
+			stop: () => {
+				stopped = true;
+				armed = false;
+				standStill();
+				setIntro(false);
+			},
+		};
+
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (!entry) return;
+				if (!entry.isIntersecting) {
+					if (!armed) arm();
+				} else if (entry.intersectionRatio >= BUILD_IN_VIEW) {
+					if (armed && !held()) build(BUILD_START_MS);
+					else if (armed) {
+						// Held while coming into view: stand up without the build.
+						armed = false;
+						standStill();
+					} else if (!active && !held() && !stopped) rest();
+				}
+			},
+			{ threshold: [0, BUILD_IN_VIEW] },
+		);
+		observer.observe(scene);
+		return () => {
+			loopRef.current = null;
+			observer.disconnect();
+			clearTimers();
+			// A support the loop took out must not outlive the loop.
+			if (demoOut) setGone(-1);
+		};
+	}, [reducedMotion, count]);
+
+	if (count === 0) return null;
+
+	/** A click hands the object to the visitor: the loop stops, everything stands. */
+	const takeOver = () => {
+		loopRef.current?.stop();
+		clearTimers();
+		setPlaced(count);
+		setIntro(false);
+		setAnnounce(true);
+	};
+	const toggle = (index: number) => {
+		takeOver();
+		setGone((value) => (value === index ? -1 : index));
+	};
+	const restore = () => {
+		const index = gone;
+		takeOver();
+		setGone(-1);
+		// The restore button hides itself, so focus goes back to that support's toggle.
+		controlRefs.current[index]?.focus();
+	};
+
+	const building = placed < count;
+	// While building, the plate pivots on its supported (left) end and sags
+	// toward the right, less with every support that lands.
+	const missing = building ? (count - placed) / count : 0;
+	const { tilt, drop } = building
+		? { tilt: Number((missing * 2.4).toFixed(2)), drop: Number((missing * 12).toFixed(1)) }
+		: plateSag(gone, count);
+	const out = supports[gone];
+	const crackAt = gone < 0 ? 50 : ((gone + 0.5) / count) * 100;
 
 	return (
-		<Section aria-labelledby="approach-title" id="how-i-work">
+		<Section
+			aria-labelledby="approach-title"
+			id="how-i-work"
+			spacing="compact"
+			className="text-foreground"
+		>
 			<SectionHeading
 				id="approach-title"
 				index="03"
 				eyebrow="How I work"
-				title={
-					<>
-						Follow the{" "}
-						<span className="how-change" data-shipped={shipped ? "" : undefined}>
-							change
-						</span>{" "}
-						through.
-					</>
-				}
-				description="Each card is a stage a change has to clear before it ships. Ship a change to watch the checks run, then roll it back."
+				title="What it takes to ship a feature."
+				description="Every feature rests on a few things going right. Take one out to see what your users would feel, and what I do about it."
 			/>
-			{stages.length > 0 ? (
-				<ReleasePipeline
-					stages={stages}
-					release={RELEASE}
-					onStatesChange={onStatesChange}
-					onShippedChange={onShippedChange}
-				/>
-			) : null}
-			{pairs.length > 0 ? (
-				<ol
-					// Below md the notes sit in one swipeable row instead of a tall stack.
-					tabIndex={0}
-					aria-label="The stages in detail"
-					className={cn(
-						"m-0 mt-[clamp(40px,5vw,64px)] flex min-w-0 list-none snap-x snap-mandatory scroll-px-gutter gap-4 overflow-x-auto overscroll-x-contain p-0 px-gutter pb-2 -mx-gutter [scrollbar-width:none]",
-						"md:mx-0 md:grid md:snap-none md:grid-cols-2 md:gap-x-[clamp(24px,3vw,40px)] md:gap-y-12 md:overflow-visible md:px-0 md:pb-0",
-						pairs.length === 4 && "xl:grid-cols-4",
-						pairs.length >= 5 && "lg:grid-cols-3 xl:grid-cols-5 xl:gap-x-6",
-						pairs.length === 3 && "lg:grid-cols-3",
-					)}
-				>
-					{pairs.map(({ capability, principle }, index) => {
-						const state = states[index] ?? "idle";
-						const tools = capability.tools.map((tool) => tool.trim()).filter(Boolean);
-						const recordsRelease = index === deliveryIndex;
-						return (
-							<li
-								key={capability.id || index}
-								data-state={state}
-								className="how-note relative flex w-[84%] max-w-[340px] min-w-0 shrink-0 snap-start flex-col border-t border-line pt-6 md:w-auto md:max-w-none"
-							>
-								<p className="mono-label m-0 flex items-center justify-between gap-3 text-muted-foreground">
-									<span>
-										Stage{" "}
-										<span className="text-primary-text">{String(index + 1).padStart(2, "0")}</span>
-									</span>
-									<span
-										aria-hidden="true"
-										className={cn(
-											"transition-colors duration-300",
-											state === "passed" && "text-success",
-											state === "running" && "text-primary-text",
-										)}
-									>
-										{STATE_LABEL[state]}
-									</span>
-								</p>
-								<h3 className="mt-4 mb-0 text-[1.25rem] leading-[1.25] font-[600] tracking-[-0.02em] text-balance text-foreground">
-									{capability.title.trim() || "Untitled capability"}
-								</h3>
-								<p className="mt-3 mb-0 text-[15.5px] leading-[1.55] text-ink-soft">
-									{capability.description.trim() ||
-										"Details will appear here when they are ready to share."}
-								</p>
-								{principle ? (
-									<p className="mt-4 mb-0 flex gap-2.5 text-[14.5px] leading-[1.5] text-muted-foreground">
-										<span
-											aria-hidden="true"
-											className={cn(
-												"mt-[0.2em] grid size-4 shrink-0 place-items-center rounded-full border text-[9px] leading-none transition-colors duration-300",
-												state === "passed"
-													? "border-transparent bg-success text-[var(--theme-surface-solid)]"
-													: "border-line-strong text-transparent",
-											)}
-										>
-											✓
-										</span>
-										<span>
-											<span className="sr-only">{principle.title} </span>
-											{principle.body}
-										</span>
-									</p>
-								) : null}
-								{tools.length > 0 ? (
-									<p className="mt-5 mb-0 font-mono text-[12.5px] leading-[1.7] text-muted-foreground">
-										<span className="sr-only">Tools: </span>
-										{tools.join(" · ")}
-									</p>
-								) : null}
-								{recordsRelease ? (
-									<ReleaseRecord shipped={shipped} rolledBack={rolledBack} />
-								) : null}
-							</li>
-						);
-					})}
-				</ol>
-			) : null}
-			{leftover.length > 0 ? (
-				<ul className="m-0 mt-10 grid list-none gap-x-10 gap-y-6 p-0 md:grid-cols-2">
-					{leftover.map((principle) => (
-						<li key={principle.id} className="min-w-0 border-t border-line pt-5">
-							<p className="m-0 text-[1.0625rem] font-semibold text-foreground">
-								{principle.title}
-							</p>
-							<p className="mt-1.5 mb-0 text-[15px] leading-[1.55] text-muted-foreground">
-								{principle.body}
-							</p>
-						</li>
-					))}
-				</ul>
-			) : null}
-		</Section>
-	);
-}
 
-/**
- * The delivery note's release record. Both lines always occupy the same cell,
- * so swapping them crossfades without moving anything. The pipeline already
- * announces the change, so this stays out of the live region.
- */
-function ReleaseRecord({ shipped, rolledBack }: { shipped: boolean; rolledBack: boolean }) {
-	return (
-		<p
-			className="how-release mt-auto mb-0 grid pt-5 font-mono text-[12.5px] leading-[1.5]"
-			data-shipped={shipped ? "" : undefined}
-		>
-			<span
-				className="how-release-row"
-				data-on={shipped ? "" : undefined}
-				aria-hidden={shipped ? undefined : true}
+			<div
+				data-slot="supports"
+				className="hw relative isolate min-w-0 overflow-hidden rounded-tile border border-line bg-surface-solid px-[clamp(20px,4vw,56px)] pt-[clamp(28px,4vw,52px)] pb-[clamp(20px,3vw,36px)] shadow-raised"
+				style={
+					{
+						"--n": count,
+						"--tilt": `${tilt}deg`,
+						"--drop": `${drop}px`,
+						"--crack": `${crackAt}%`,
+						"--pivot": building
+							? "0%"
+							: gone < 0
+								? "50%"
+								: gone < (count - 1) / 2
+									? "100%"
+									: gone > (count - 1) / 2
+										? "0%"
+										: "50%",
+					} as CSSProperties
+				}
+				data-broken={gone >= 0 ? "" : undefined}
+				data-building={building ? "" : undefined}
+				data-intro={intro ? "" : undefined}
 			>
-				<span className="text-success">● {RELEASE.to} live</span>
-				<span className="text-muted-foreground"> · rollback ready</span>
-			</span>
-			<span
-				className="how-release-row"
-				data-on={shipped ? undefined : ""}
-				aria-hidden={shipped ? true : undefined}
-			>
-				<span className="text-muted-foreground">○ {RELEASE.from} live</span>
-				{rolledBack ? (
-					<span className="text-muted-foreground"> · {RELEASE.to} rolled back</span>
-				) : null}
-			</span>
-		</p>
+				<div
+					aria-hidden="true"
+					className="hw-glow pointer-events-none absolute inset-x-0 -top-40 -z-10 mx-auto h-[420px] w-[min(900px,100%)] rounded-full"
+				/>
+
+				{/* Readout: one state per support plus the whole one, stacked in one cell. */}
+				<div
+					className="hw-readouts grid min-w-0"
+					aria-live={announce ? "polite" : "off"}
+					aria-atomic="true"
+				>
+					<div className="hw-readout" data-on={gone < 0 ? "" : undefined} inert={gone >= 0}>
+						<p
+							className={cn(
+								"mono-label m-0 flex items-center gap-2 transition-colors duration-300",
+								building ? "text-primary-text" : "text-success",
+							)}
+						>
+							<span
+								aria-hidden="true"
+								className={cn(
+									"size-1.5 rounded-full transition-colors duration-300",
+									building ? "bg-primary" : "bg-success",
+								)}
+							/>
+							{/* The count is visual only, so the live region doesn't read every step. */}
+							<span aria-hidden="true">
+								{building ? `${placed} of ${count} in place` : `All ${count} in place`}
+							</span>
+							<span className="sr-only">All {count} in place</span>
+						</p>
+						<p className="hw-line m-0 mt-4">Your users never notice any of this.</p>
+						<p className="m-0 mt-4 max-w-[58ch] text-body text-ink-soft">
+							That’s the point. Take a support out below to see why each one matters.
+						</p>
+					</div>
+					{supports.map((support, index) => (
+						<div
+							key={support.id}
+							className="hw-readout"
+							data-on={index === gone ? "" : undefined}
+							inert={index !== gone}
+						>
+							<p className="mono-label m-0 flex items-center gap-2 text-signal">
+								<span aria-hidden="true" className="size-1.5 rounded-full bg-signal" />
+								Without {support.label.toLowerCase()}
+							</p>
+							<p className="hw-line m-0 mt-4">{support.without}</p>
+							<div className="mt-5 grid min-w-0 gap-1.5 border-l-2 border-primary-line/50 pl-4">
+								<p className="m-0 text-small text-muted-foreground">
+									What I do about it ·{" "}
+									<span className="font-semibold text-foreground">{support.capability.title}</span>
+								</p>
+								{support.capability.description ? (
+									<p className="m-0 max-w-[62ch] text-small text-ink-soft">
+										{support.capability.description}
+									</p>
+								) : null}
+								{support.capability.tools.length > 0 ? (
+									<TagList items={support.capability.tools} className="mt-1.5" />
+								) : null}
+							</div>
+						</div>
+					))}
+				</div>
+
+				{/* The object. Decorative; the buttons below are the controls. */}
+				<div ref={sceneRef} aria-hidden="true" className="hw-scene mt-[clamp(28px,4vw,44px)]">
+					<div className="hw-plate">
+						<span className="hw-plate-name">Your product</span>
+						<span className="hw-plate-status">
+							<span className="hw-plate-dot" />
+							<span className="hw-plate-ok">Everything works</span>
+							<span className="hw-plate-wait">Not ready yet</span>
+							<span className="hw-plate-bad">Something’s wrong</span>
+						</span>
+						<svg className="hw-crack" viewBox="0 0 24 40" preserveAspectRatio="none">
+							<path pathLength={1} d="M11 0 L14 12 L9 22 L13 31 L12 40" />
+						</svg>
+					</div>
+					<div className="hw-pillars">
+						{supports.map((support, index) => (
+							<span
+								key={support.id}
+								className="hw-pillar"
+								data-out={index === gone ? "" : undefined}
+								data-pending={index >= placed ? "" : undefined}
+								data-hover={index === hovered && index !== gone ? "" : undefined}
+							>
+								<span className="hw-ghost" />
+								<span className="hw-pillar-body">
+									<span className="hw-pillar-index">{String(index + 1).padStart(2, "0")}</span>
+								</span>
+								<span className="hw-impact" />
+							</span>
+						))}
+					</div>
+					<span className="hw-floor" />
+				</div>
+
+				{/* Controls, under their supports on wide screens. */}
+				<div
+					role="group"
+					aria-labelledby={`${baseId}-controls`}
+					className="hw-controls mt-4 grid min-w-0 gap-2"
+					onPointerEnter={(event) => {
+						if (event.pointerType === "mouse") loopRef.current?.hold("hover", true);
+					}}
+					onPointerLeave={(event) => {
+						if (event.pointerType === "mouse") loopRef.current?.hold("hover", false);
+					}}
+					onFocus={() => loopRef.current?.hold("focus", true)}
+					onBlur={(event) => {
+						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+							loopRef.current?.hold("focus", false);
+						}
+					}}
+				>
+					<p id={`${baseId}-controls`} className="sr-only">
+						Take a support out
+					</p>
+					{supports.map((support, index) => (
+						<button
+							key={support.id}
+							ref={(node) => {
+								controlRefs.current[index] = node;
+							}}
+							type="button"
+							aria-pressed={index === gone}
+							data-pending={index >= placed ? "" : undefined}
+							onClick={() => toggle(index)}
+							onPointerEnter={(event) => {
+								if (event.pointerType === "mouse") setHovered(index);
+							}}
+							onPointerLeave={() => setHovered(-1)}
+							className="hw-control group/control"
+						>
+							<span className="flex min-w-0 items-center justify-between gap-2">
+								<span className="truncate text-[15px] font-semibold tracking-tight">
+									{support.label}
+								</span>
+								<span aria-hidden="true" className="hw-control-icon">
+									<svg viewBox="0 0 16 16" fill="none">
+										<path
+											d="M8 3v10M4 9l4 4 4-4"
+											stroke="currentColor"
+											strokeWidth="1.6"
+											strokeLinecap="round"
+											strokeLinejoin="round"
+										/>
+									</svg>
+								</span>
+							</span>
+							<span className="mt-0.5 block text-[12.5px] leading-snug text-muted-foreground">
+								{index === gone ? "Out · tap to put back" : support.capability.title}
+							</span>
+						</button>
+					))}
+				</div>
+
+				<div className="mt-5 flex min-h-9 items-center justify-center">
+					<button
+						type="button"
+						onClick={restore}
+						tabIndex={gone >= 0 ? 0 : -1}
+						aria-hidden={gone < 0 || undefined}
+						className={cn(
+							"hw-restore inline-flex min-h-9 items-center gap-2 rounded-full border border-line-strong px-4 text-[13px] font-medium text-ink-soft hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+							gone < 0 && "pointer-events-none",
+						)}
+						data-on={gone >= 0 ? "" : undefined}
+					>
+						<svg aria-hidden="true" viewBox="0 0 16 16" fill="none" className="size-3.5">
+							<path
+								d="M3.5 8a4.5 4.5 0 1 0 1.4-3.3M3.5 2.5v2.6h2.6"
+								stroke="currentColor"
+								strokeWidth="1.5"
+								strokeLinecap="round"
+								strokeLinejoin="round"
+							/>
+						</svg>
+						Put {out ? out.label.toLowerCase() : "it"} back
+					</button>
+				</div>
+			</div>
+		</Section>
 	);
 }

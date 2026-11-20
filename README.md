@@ -16,7 +16,7 @@
 
 I joined [Kuno](https://www.kuno-ai.com/), a B2B learning platform, as a mobile developer in late 2023, and I've been Lead Full Stack Engineer there since March 2026.
 
-I started with web development in late 2020, moved into React Native and Expo product work in 2021, and grew into full-stack architecture and delivery. I like following a product problem through the whole system, including the less visible work that makes it secure, reliable, and ready to ship.
+I started with web development in late 2020, moved into mobile product work in 2021, and grew into full-stack architecture and delivery. I like following a product problem through the whole system, including the less visible work that makes it secure, reliable, and ready to ship.
 
 ## Experience
 

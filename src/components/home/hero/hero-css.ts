@@ -6,7 +6,8 @@
 export const HERO_CSS = `
 [data-slot="home-hero"] { --hero-p: 0; }
 .hero-word { display: inline-block; white-space: nowrap; }
-.hero-lead, .hero-accent { display: block; text-wrap: balance; }
+#hero-title { text-wrap: balance; }
+.hero-group { white-space: nowrap; }
 
 @media (prefers-reduced-motion: no-preference) {
 	.hero-word {

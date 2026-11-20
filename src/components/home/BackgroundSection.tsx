@@ -1,8 +1,8 @@
 import { useRef } from "react";
 import { Link } from "@tanstack/react-router";
-import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
+import { motion, useScroll, useTransform } from "motion/react";
 import type { MetricContent } from "../../types/content";
-import { useHydrated } from "@/components/motion";
+import { useHydrated, usePrefersReducedMotion } from "@/components/motion";
 import { buttonVariants } from "@/components/ui/button";
 import { Section, SectionHeading } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
@@ -24,13 +24,10 @@ export function BackgroundSection({ title, paragraphs, facts }: BackgroundSectio
 	const visibleFacts = facts.filter((fact) => fact.value.trim() || fact.label.trim());
 	const stackRef = useRef<HTMLDivElement>(null);
 	const hydrated = useHydrated();
-	const reduceMotion = useReducedMotion() === true;
+	const reduceMotion = usePrefersReducedMotion();
 	const animate = hydrated && !reduceMotion;
 	const { scrollYProgress } = useScroll({ target: stackRef, offset: ["start 90%", "start 30%"] });
-	const backY = useTransform(scrollYProgress, [0, 1], [-96, 0]);
-	const backScale = useTransform(scrollYProgress, [0, 1], [0.94, 1]);
-	const frontRotate = useTransform(scrollYProgress, [0, 1], [7, 0]);
-	const shadowOpacity = useTransform(scrollYProgress, [0, 1], [0, 1]);
+	const backY = useTransform(scrollYProgress, [0, 1], [-20, 0]);
 
 	return (
 		<Section aria-labelledby="about-title" id="background">
@@ -72,24 +69,20 @@ export function BackgroundSection({ title, paragraphs, facts }: BackgroundSectio
 						</Link>
 					</div>
 				</div>
-				<div ref={stackRef} className="relative min-w-0 [perspective:1400px]">
-					<motion.div
-						style={animate ? { rotateX: frontRotate, transformOrigin: "50% 100%" } : undefined}
-						className="relative z-10 rounded-card border border-line bg-surface-solid p-[clamp(24px,4vw,44px)] shadow-surface"
-					>
+				<div ref={stackRef} className="relative min-w-0">
+					<div className="relative z-10 rounded-card border border-line bg-surface-solid p-[clamp(24px,4vw,44px)] shadow-surface">
 						<p className="mono-label m-0 mb-5 text-muted-foreground">How it started</p>
 						<p className="m-0 max-w-[40ch] text-[clamp(1.25rem,2vw,1.625rem)] leading-[1.4] font-[500] tracking-[-0.018em] text-foreground">
 							{lead || "I learned by building, one layer at a time."}
 						</p>
-					</motion.div>
+					</div>
 					{rest.length > 0 ? (
 						<motion.div
-							style={animate ? { y: backY, scale: backScale } : undefined}
+							style={animate ? { y: backY } : undefined}
 							className="relative z-0 mx-[clamp(8px,1.5vw,16px)] -mt-5 rounded-b-card border border-t-0 border-line bg-surface-raised px-[clamp(22px,3.6vw,40px)] pt-[clamp(40px,5vw,56px)] pb-[clamp(24px,3.6vw,40px)]"
 						>
-							<motion.span
+							<span
 								aria-hidden="true"
-								style={animate ? { opacity: shadowOpacity } : undefined}
 								className="pointer-events-none absolute inset-x-0 top-0 h-10 bg-[linear-gradient(to_bottom,color-mix(in_srgb,var(--theme-ink)_7%,transparent),transparent)]"
 							/>
 							<p className="mono-label m-0 mb-4 text-muted-foreground">What I care about</p>

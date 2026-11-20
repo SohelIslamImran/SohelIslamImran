@@ -8,10 +8,6 @@ import {
 	arcPath,
 	dotsPath,
 	project,
-	splitByDaylight,
-	subsolarPoint,
-	sunHeight,
-	timeGap,
 } from "./remote-map";
 
 const nearestDot = (lat: number, lon: number) =>
@@ -51,35 +47,11 @@ describe("remote map", () => {
 		expect(path.startsWith("M")).toBe(true);
 	});
 
-	it("splits land into day and night by where the sun is", () => {
-		const noonUtcJune = new Date(Date.UTC(2026, 5, 21, 12, 0));
-		const sun = subsolarPoint(noonUtcJune);
-		expect(sun.lon).toBeCloseTo(0, 5);
-		expect(sun.lat).toBeGreaterThan(23);
-		expect(sunHeight({ lat: 48.86, lon: 2.35 }, sun)).toBeGreaterThan(0);
-		expect(sunHeight({ lat: -33.87, lon: 151.21 }, sun)).toBeLessThan(0);
-		const split = splitByDaylight(noonUtcJune);
-		const count = (path: string) => path.match(/h0/g)?.length ?? 0;
-		expect(count(split.day) + count(split.night)).toBe(LAND_DOTS.length);
-	});
-
 	it("curves each arc above the straight line between its ends", () => {
 		const [paris] = REMOTE_TEAMS;
 		const path = arcPath(HOME, paris!);
 		expect(path.match(/-?[\d.]+/g)).toHaveLength(6);
 		const controlY = Number(path.split("Q")[1]!.split(" ")[1]);
 		expect(controlY).toBeLessThan(Math.min(project(HOME).y, project(paris!).y));
-	});
-
-	it("reports the time gap from home, following daylight saving", () => {
-		const winter = new Date(Date.UTC(2026, 0, 15, 12));
-		const summer = new Date(Date.UTC(2026, 6, 15, 12));
-		expect(timeGap("Europe/Paris", HOME.timeZone, winter)).toBe("5h behind");
-		expect(timeGap("Europe/Paris", HOME.timeZone, summer)).toBe("4h behind");
-		expect(timeGap("America/New_York", HOME.timeZone, winter)).toBe("11h behind");
-		expect(timeGap("America/New_York", HOME.timeZone, summer)).toBe("10h behind");
-		expect(timeGap("Asia/Kolkata", HOME.timeZone, winter)).toBe("30m behind");
-		expect(timeGap("Asia/Dhaka", HOME.timeZone, winter)).toBe("same time");
-		expect(timeGap("Not/AZone", HOME.timeZone, winter)).toBeNull();
 	});
 });

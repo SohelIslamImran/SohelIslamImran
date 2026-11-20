@@ -9,15 +9,7 @@ import { useDepthTilt } from "../../work/useDepthTilt";
  * The pointer, the device, or a scroll tilt on touch turns the stack.
  * Decorative: the page states the same facts in text.
  */
-export function DraftStack({
-	headline,
-	origin,
-	published,
-}: {
-	headline: string;
-	origin: string;
-	published: number;
-}) {
+export function DraftStack({ headline, published }: { headline: string; published: number }) {
 	const rigRef = useRef<HTMLDivElement>(null);
 	useDepthTilt(rigRef);
 	const chars = Array.from(headline);
@@ -37,11 +29,6 @@ export function DraftStack({
 					</div>
 					<div className="fn-draft-body">
 						<p className="fn-fm">---</p>
-						{origin ? (
-							<p className="fn-fm">
-								<span className="fn-key">origin:</span> {origin}
-							</p>
-						) : null}
 						<p className="fn-fm">
 							<span className="fn-key">status:</span> draft
 						</p>

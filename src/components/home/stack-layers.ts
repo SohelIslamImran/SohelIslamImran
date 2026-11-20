@@ -1,5 +1,6 @@
 /**
- * The six layers a single request crosses, top to bottom. UI copy from the
+ * The six layers a single request crosses, top to bottom: access is checked
+ * before anything is written. UI copy from the
  * copy deck's "Stack Trace" table; every tool appears in his profile.
  */
 export interface StackLayer {
@@ -13,7 +14,8 @@ export const STACK_LAYERS: readonly StackLayer[] = [
 	{
 		id: "interface",
 		name: "Interface",
-		sentence: "I build the screens people use and connect each one to the API behind it.",
+		sentence:
+			"I build the interfaces people use, on the web and on mobile, and connect each one to the API behind it.",
 		tools: ["React", "TanStack Router", "TanStack Query", "Tailwind CSS"],
 	},
 	{
@@ -23,18 +25,17 @@ export const STACK_LAYERS: readonly StackLayer[] = [
 		tools: ["TypeScript", "Bun", "Elysia"],
 	},
 	{
-		id: "data",
-		name: "Data",
-		sentence:
-			"I design the PostgreSQL schema and write the migrations and queries a feature needs.",
-		tools: ["PostgreSQL", "Drizzle ORM", "SQL", "Redis"],
-	},
-	{
 		id: "access",
 		name: "Access",
 		sentence:
 			"I build sign-in, single sign-on, and permissions so each person sees only their own data.",
 		tools: ["Better Auth", "OIDC", "SSO", "RBAC"],
+	},
+	{
+		id: "data",
+		name: "Data",
+		sentence: "I design the database schema and write the migrations and queries a feature needs.",
+		tools: ["PostgreSQL", "Drizzle ORM", "SQL", "Redis"],
 	},
 	{
 		id: "infrastructure",

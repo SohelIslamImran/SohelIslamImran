@@ -6,7 +6,7 @@ import { MonoLabel, StatusDot } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { PortfolioImage } from "../PortfolioImage";
 import { HERO_CSS } from "./hero/hero-css";
-import { splitHeadline } from "./hero/headline";
+import { groupShortWords, splitHeadline } from "./hero/headline";
 import { useHeroScroll } from "./hero/useHeroScroll";
 import { SmartLink } from "./links";
 import { StackTrace } from "./StackTrace";
@@ -19,8 +19,10 @@ const WORD_STEP_MS = 60;
  * The CMS headline, word by word, for a CSS-only rise. The text is final in
  * the server HTML; the animation only plays as styles arrive and is skipped
  * under reduced motion. The clause after the last comma (or the last word)
- * takes the accent ink and starts its own line. Both clauses balance their
- * own breaks, so no width leaves an orphan ("of a / product,").
+ * takes the accent ink. The whole headline balances as one block, so its
+ * lines come out close in length instead of a short clause stacked on a long
+ * one, and short words ("a", "of", "to") stay with the word after them, so
+ * no line ends on one.
  */
 function Headline({ title }: { title: string }) {
 	const { lead, accent } = splitHeadline(title);
@@ -34,7 +36,15 @@ function Headline({ title }: { title: string }) {
 		</span>
 	);
 	const join = (words: string[], offset: number, accented: boolean) =>
-		words.flatMap((text, index) => [index > 0 ? " " : null, word(text, offset + index, accented)]);
+		groupShortWords(words).flatMap((group, groupIndex) => [
+			groupIndex > 0 ? " " : null,
+			<span key={`group-${offset + group.start}`} className="hero-group">
+				{group.words.flatMap((text, index) => [
+					index > 0 ? " " : null,
+					word(text, offset + group.start + index, accented),
+				])}
+			</span>,
+		]);
 	return (
 		<>
 			<span className="hero-lead">{join(lead, 0, false)}</span>

@@ -64,6 +64,20 @@ export const Route = createFileRoute("/resume")({
 	component: Resume,
 });
 
+/** "GMT+6" for an IANA zone such as "Asia/Dhaka"; null when the zone is unknown. */
+function timeZoneOffset(timeZone: string) {
+	if (!timeZone) return null;
+	try {
+		return (
+			new Intl.DateTimeFormat("en-US", { timeZone, timeZoneName: "shortOffset" })
+				.formatToParts(new Date())
+				.find((part) => part.type === "timeZoneName")?.value ?? null
+		);
+	} catch {
+		return null;
+	}
+}
+
 function shortUrl(href: string) {
 	return href
 		.trim()
@@ -93,9 +107,9 @@ function Resume() {
 	const updatedAt = content.resume.updatedAt?.trim() || null;
 	const email = content.identity.email.trim();
 	const location = content.identity.location.trim();
-	const timezone = content.about.facts
-		.find((fact) => /time\s*zone/iu.test(fact.label))
-		?.value.trim();
+	const timezone =
+		content.about.facts.find((fact) => /time\s*zone/iu.test(fact.label))?.value.trim() ||
+		timeZoneOffset(content.identity.timezone.trim());
 	const profiles = content.social.filter(
 		(link) => /github|linkedin|portfolio/iu.test(link.platform) && link.href.trim(),
 	);
@@ -136,7 +150,7 @@ function Resume() {
 				}
 			: null,
 		location
-			? { label: "Location", value: location.split(",")[0], detail: timezone ?? location }
+			? { label: "Location", value: location, detail: timezone ? `Remote · ${timezone}` : "Remote" }
 			: null,
 		availability ? { label: "Status", value: availability, detail: null } : null,
 	].filter((item) => item !== null);
@@ -204,7 +218,7 @@ function Resume() {
 						<p className="mt-4 max-w-[60ch] text-[17px] leading-relaxed text-ink-soft">{summary}</p>
 						<ul
 							data-slot="resume-contact"
-							className="m-0 mt-4 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small print:gap-x-[3.6mm]"
+							className="m-0 mt-4 -ml-2 flex list-none flex-wrap items-center gap-x-1 gap-y-0 p-0 text-small print:ml-0 print:gap-x-[3.6mm]"
 						>
 							{[
 								email
@@ -233,7 +247,6 @@ function Resume() {
 											rel={item.external ? "noopener noreferrer" : undefined}
 											className={cn(
 												"pressable inline-flex min-h-11 items-center rounded-full px-2 print:min-h-0 print:px-0",
-												position === 0 && "-ml-2 print:ml-0",
 												item.external
 													? "text-ink-soft hover:text-foreground"
 													: "font-semibold text-primary-text",

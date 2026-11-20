@@ -7,7 +7,7 @@ import type {
 	ProjectContent,
 	TestimonialContent,
 } from "../../types/content";
-import { CopyButton, CountUp, Stagger } from "@/components/motion";
+import { CopyButton, CountUp } from "@/components/motion";
 import {
 	DatedLabel,
 	MonoLabel,
@@ -81,12 +81,6 @@ function NowTile({
 			<TileLabel>
 				<StatusDot />
 				<span>Now</span>
-				{lead.location?.trim() ? (
-					<>
-						<span aria-hidden="true">·</span>
-						<span>{lead.location.trim()}</span>
-					</>
-				) : null}
 			</TileLabel>
 			<h3 data-par="2" className="mt-5 mb-0 max-w-[22ch] text-headline text-balance">
 				{role}
@@ -219,7 +213,7 @@ function OpenSourceTile({
 					<TileLabel>Open source</TileLabel>
 					{version ? <MonoLabel tone="accent">{version}</MonoLabel> : null}
 				</div>
-				<h3 data-par="2" className="mt-5 mb-0 text-headline">
+				<h3 data-par="2" className="mt-5 mb-0 text-headline text-balance">
 					App updates, one API.
 				</h3>
 				<p className="mt-3 mb-0 max-w-[44ch] text-[1rem] leading-[1.5] text-ink-soft">
@@ -240,15 +234,7 @@ function OpenSourceTile({
 					</dl>
 				) : null}
 				<div className="mt-6 flex min-w-0 items-center gap-2 rounded-[18px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] py-1 pr-1 pl-4">
-					<code
-						// Scrolls when the tile is narrow; the fade shows there is more.
-						tabIndex={0}
-						aria-label={`Install command: ${INSTALL_COMMAND}`}
-						className="min-w-0 flex-1 overflow-x-auto rounded-md py-2 pr-6 font-mono text-[13px] leading-[1.45] whitespace-nowrap text-foreground [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-					>
-						<span aria-hidden="true" className="mr-2 text-muted-foreground select-none">
-							$
-						</span>
+					<code className="min-w-0 flex-1 py-2 font-mono text-[13px] leading-[1.45] text-foreground [overflow-wrap:anywhere]">
 						{INSTALL_COMMAND}
 					</code>
 					<CopyButton
@@ -314,8 +300,7 @@ function TerminalTile({ facts, className }: { facts: TerminalFacts; className?: 
 }
 
 /**
- * Where my remote teams were, drawn from home: a dotted world map with live
- * day and night, an arc to each team, and the time gap I worked across.
+ * Where my remote teams were, with an arc from home to each team.
  */
 function RemoteTile({
 	experience,
@@ -340,10 +325,6 @@ function RemoteTile({
 			<h3 data-par="2" className="mt-5 mb-0 text-headline">
 				Remote since 2021.
 			</h3>
-			<p className="mt-2 mb-0 max-w-[40ch] text-[15px] leading-[1.5] text-ink-soft">
-				I&apos;ve shipped with teams in Paris and New Jersey without sharing an office or a time
-				zone.
-			</p>
 			<div className="mt-6 flex flex-1 flex-col justify-center">
 				<RemoteMap teams={teams} />
 			</div>
@@ -406,7 +387,7 @@ export function GlanceBento({
 				title="Where things stand."
 				description="What I'm working on, what I've shipped, and the tools I give away."
 			/>
-			<Stagger className="depth-bento grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
+			<div className="depth-bento grid min-w-0 grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-12">
 				{hasNow ? (
 					<NowTile experience={experience} className="md:col-span-2 lg:col-span-7 lg:row-span-2" />
 				) : null}
@@ -438,7 +419,7 @@ export function GlanceBento({
 					className="md:col-span-2 lg:col-span-7"
 				/>
 				<TerminalTile facts={facts} className="md:col-span-2 lg:col-span-5" />
-			</Stagger>
+			</div>
 			{testimonial ? (
 				<Testimonial
 					testimonial={testimonial}

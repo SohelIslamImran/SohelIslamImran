@@ -33,7 +33,7 @@ function isExternal(href: string) {
  * Closing scene on every page: "end of trace". The request that started at the
  * interface arrives at the last layer; the stack spreads apart when you hover or
  * focus the contact block. Then the site map, an oversized wordmark with an
- * outline layer behind it, and a meta row with live local time.
+ * outline layer behind it, and a meta row.
  */
 export function SiteFooter() {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -77,7 +77,9 @@ export function SiteFooter() {
 								Let’s talk about what comes next.
 							</h2>
 							<p className="mt-4 mb-0 max-w-[44ch] text-lead text-muted-foreground">
-								Send me an email, or pick any profile on the links page.
+								{pathname === "/links"
+									? "Send me an email, or pick any profile above."
+									: "Send me an email, or pick any profile on the links page."}
 							</p>
 							<div className="mt-8 flex min-w-0 flex-wrap items-center gap-3">
 								{email ? (
