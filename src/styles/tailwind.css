@@ -4756,6 +4756,54 @@ html[data-xray] body {
 	opacity: 1;
 	transition-delay: 220ms;
 }
+/*
+ * The intro build: pending supports wait below the floor (the pillar clips
+ * them) and rise on a spring as they're placed; each one's number flashes as
+ * it lands, and its control lights up with it. The plate shows "Not ready
+ * yet" until the last one is in.
+ */
+.hw-pillar[data-pending] .hw-pillar-body {
+	translate: 0 104%;
+}
+.hw[data-intro] .hw-pillar-body {
+	transition:
+		translate 720ms var(--ease-spring),
+		opacity 420ms var(--ease-trace),
+		border-color 260ms var(--ease-trace),
+		background-color 260ms var(--ease-trace);
+}
+@keyframes hw-land {
+	0%,
+	30% {
+		color: var(--theme-accent-text);
+		text-shadow: 0 0 12px color-mix(in srgb, var(--theme-accent) 60%, transparent);
+	}
+}
+.hw[data-intro] .hw-pillar:not([data-pending]) .hw-pillar-index {
+	animation: hw-land 900ms var(--ease-trace) 380ms both;
+}
+.hw-plate-wait,
+.hw[data-building] .hw-plate-ok {
+	display: none;
+}
+.hw[data-building] .hw-plate-wait {
+	display: inline;
+	color: var(--theme-muted);
+}
+.hw[data-building] .hw-plate-dot {
+	background: var(--theme-muted);
+	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-muted) 14%, transparent);
+}
+.hw-control[data-pending] {
+	opacity: 0.4;
+}
+.hw[data-intro] .hw-control {
+	transition:
+		border-color 220ms var(--ease-trace),
+		background-color 220ms var(--ease-trace),
+		scale 220ms var(--ease-trace),
+		opacity 420ms var(--ease-trace) 260ms;
+}
 .hw-floor {
 	display: block;
 	height: 1px;
@@ -4855,35 +4903,41 @@ html[data-xray] body {
 
 /*
  * Appearance menu motion. The panel springs out of the button it belongs to
- * (Base UI sets --transform-origin there): smaller and soft-focused at first,
- * settling with a little give. Only the panel moves; its contents ride along.
- * Closing is a quick ease-in back toward the button.
- * Transitions, not keyframes, so a close mid-open reverses smoothly.
+ * (Base UI sets --transform-origin there), settling with a little give. Only
+ * the panel moves; its contents ride along. Closing is a quick ease-in back
+ * toward the button. Transitions, not keyframes, so a close mid-open reverses
+ * smoothly.
+ *
+ * The wrapper only scales and moves. Opacity or a filter on an ancestor of
+ * the glass surface cuts its backdrop blur, so mid-animation the page text
+ * would show through the tint and then snap away. The fade lives on the glass
+ * surface itself, and there is no blur-in.
  */
 .appearance-pop {
 	transform-origin: var(--transform-origin);
 	transition:
-		opacity 200ms var(--ease-trace),
 		scale 560ms var(--ease-spring),
-		translate 560ms var(--ease-spring),
-		filter 280ms var(--ease-trace);
+		translate 560ms var(--ease-spring);
+}
+.appearance-pop [data-slot="menu-surface"] {
+	transition: opacity 200ms var(--ease-trace);
 }
 .appearance-pop[data-starting-style] {
-	opacity: 0;
 	scale: 0.86;
 	translate: 0 -10px;
-	filter: blur(8px);
+}
+.appearance-pop:is([data-starting-style], [data-ending-style]) [data-slot="menu-surface"] {
+	opacity: 0;
 }
 .appearance-pop[data-ending-style] {
-	opacity: 0;
 	scale: 0.94;
 	translate: 0 -6px;
-	filter: blur(4px);
 	transition:
-		opacity 170ms cubic-bezier(0.4, 0, 1, 1),
 		scale 200ms cubic-bezier(0.4, 0, 1, 1),
-		translate 200ms cubic-bezier(0.4, 0, 1, 1),
-		filter 170ms cubic-bezier(0.4, 0, 1, 1);
+		translate 200ms cubic-bezier(0.4, 0, 1, 1);
+}
+.appearance-pop[data-ending-style] [data-slot="menu-surface"] {
+	transition: opacity 170ms cubic-bezier(0.4, 0, 1, 1);
 }
 /*
  * Command palette motion. Desktop: a Spotlight-style panel that grows out of
@@ -4914,30 +4968,28 @@ html[data-xray] body {
 	transition: translate 280ms cubic-bezier(0.4, 0, 1, 1);
 }
 @media (min-width: 48rem) {
+	/* No blur-in: a filter on the glass panel breaks its backdrop blur while
+	   it animates (see the appearance menu above). */
 	[data-slot="command-palette"] {
 		transform-origin: 50% 0;
 		transition:
 			opacity 220ms var(--ease-trace),
 			scale 600ms var(--ease-spring),
-			translate 600ms var(--ease-spring),
-			filter 300ms var(--ease-trace);
+			translate 600ms var(--ease-spring);
 	}
 	[data-slot="command-palette"][data-starting-style] {
 		opacity: 0;
 		scale: 0.93;
 		translate: 0 -14px;
-		filter: blur(10px);
 	}
 	[data-slot="command-palette"][data-ending-style] {
 		opacity: 0;
 		scale: 0.96;
 		translate: 0 -6px;
-		filter: blur(5px);
 		transition:
 			opacity 170ms cubic-bezier(0.4, 0, 1, 1),
 			scale 210ms cubic-bezier(0.4, 0, 1, 1),
-			translate 210ms cubic-bezier(0.4, 0, 1, 1),
-			filter 170ms cubic-bezier(0.4, 0, 1, 1);
+			translate 210ms cubic-bezier(0.4, 0, 1, 1);
 	}
 }
 @keyframes palette-part-in {
@@ -4957,8 +5009,8 @@ html[data-xray] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.appearance-pop,
-	.appearance-pop[data-ending-style],
+	.appearance-pop [data-slot="menu-surface"],
+	.appearance-pop[data-ending-style] [data-slot="menu-surface"],
 	[data-slot="command-palette"],
 	[data-slot="command-palette"][data-ending-style],
 	[data-slot="command-palette-backdrop"] {
@@ -4969,6 +5021,15 @@ html[data-xray] body {
 		scale: none;
 		translate: none;
 		filter: none;
+	}
+	/* Base UI unmounts the popup once its own transitions end, and the fade is
+	   on the surface inside it, so give the wrapper an invisible one to wait on. */
+	.appearance-pop,
+	.appearance-pop[data-ending-style] {
+		transition: scale 120ms linear !important;
+	}
+	.appearance-pop[data-ending-style] {
+		scale: 0.999;
 	}
 	[data-slot="command-palette"] > * {
 		animation: none;

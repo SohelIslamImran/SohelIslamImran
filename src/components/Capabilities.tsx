@@ -5,7 +5,9 @@ import { Section, SectionHeading, TagList } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { plateSag, supportsFor } from "./home/supports";
 
-/** The one-time demo on first view: which support, and for how long. */
+/** The one-time intro on first view: the build, then which support comes out, and for how long. */
+const BUILD_START_MS = 380;
+const BUILD_STEP_MS = 300;
 const DEMO_ID = "delivery";
 const DEMO_DELAY_MS = 900;
 const DEMO_HOLD_MS = 1900;
@@ -19,9 +21,14 @@ const DEMO_KEY = "how-i-work-demo";
  * copy says what Sohel does about it. Put it back and everything settles.
  *
  * - The supports' labels are toggle buttons (aria-pressed), one out at a time.
- * - On first view (once per session, never with reduced motion) the Release
- *   support comes out on its own for a moment, then goes back, so the idea is
- *   shown before anyone has to discover it.
+ * - On first view (once per session, never with reduced motion) the object
+ *   builds itself: the supports rise from the floor one at a time, left to
+ *   right, and the plate, sagging toward its unsupported end, levels off as
+ *   each one lands while the label counts them in. Then the Release support
+ *   comes out on its own for a moment and goes back, so the idea is shown
+ *   before anyone has to discover it. The build only runs when the section
+ *   starts below the fold, so nothing is ever taken down in front of anyone;
+ *   any click finishes it at once.
  * - Every readout is in the server HTML (stacked in one cell, so the height
  *   never changes); with reduced motion nothing slides or tilts.
  */
@@ -33,51 +40,101 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	/** Index of the support that is out, or -1. */
 	const [gone, setGone] = useState(-1);
 	const [hovered, setHovered] = useState(-1);
+	/** How many supports stand. Complete in the server HTML; the intro rebuilds it. */
+	const [placed, setPlaced] = useState(count);
+	/** True while the intro build is queued or running. */
+	const [intro, setIntroState] = useState(false);
+	// Mirrored in a ref: the viewport callback below is the first render's.
+	const introRef = useRef(false);
+	const setIntro = (value: boolean) => {
+		introRef.current = value;
+		setIntroState(value);
+	};
 	const touched = useRef(false);
 	const rootRef = useRef<HTMLDivElement>(null);
 	const timers = useRef<number[]>([]);
 
 	useEffect(() => () => timers.current.forEach((timer) => window.clearTimeout(timer)), []);
 
+	// Take the supports down before anyone sees them, but only when the section
+	// is still below the fold and the intro hasn't played this session.
+	useEffect(() => {
+		const root = rootRef.current;
+		if (reducedMotion || !root || count === 0) {
+			setIntro(false);
+			setPlaced(count);
+			return;
+		}
+		try {
+			if (sessionStorage.getItem(DEMO_KEY)) return;
+		} catch {
+			return;
+		}
+		if (root.getBoundingClientRect().top < window.innerHeight) return;
+		setIntro(true);
+		setPlaced(0);
+	}, [reducedMotion, count]);
+
+	const later = (ms: number, run: () => void) => {
+		timers.current.push(
+			window.setTimeout(() => {
+				if (!touched.current) run();
+			}, ms),
+		);
+	};
+
 	useEnterViewportOnce(
 		rootRef,
 		() => {
 			if (reducedMotion) return;
-			const demo = supports.findIndex((support) => support.capability.id === DEMO_ID);
-			if (demo < 0) return;
 			try {
 				if (sessionStorage.getItem(DEMO_KEY)) return;
 				sessionStorage.setItem(DEMO_KEY, "1");
 			} catch {
-				// Without storage the demo may simply play again next visit.
+				// Without storage the intro may simply play again next visit.
 			}
-			timers.current.push(
-				window.setTimeout(() => {
-					if (touched.current) return;
-					setGone(demo);
-					timers.current.push(
-						window.setTimeout(() => {
-							if (!touched.current) setGone(-1);
-						}, DEMO_HOLD_MS),
-					);
-				}, DEMO_DELAY_MS),
-			);
+			let at = 0;
+			if (introRef.current) {
+				for (let step = 1; step <= count; step += 1) {
+					later(BUILD_START_MS + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
+				}
+				at = BUILD_START_MS + count * BUILD_STEP_MS;
+				later(at + 700, () => setIntro(false));
+			}
+			const demo = supports.findIndex((support) => support.capability.id === DEMO_ID);
+			if (demo < 0) return;
+			later(at + DEMO_DELAY_MS, () => {
+				setGone(demo);
+				later(DEMO_HOLD_MS, () => setGone(-1));
+			});
 		},
 		{ rootMargin: "0px 0px -35% 0px" },
 	);
 
 	if (count === 0) return null;
 
-	const toggle = (index: number) => {
+	/** Any interaction ends the intro: everything stands again at once. */
+	const interrupt = () => {
 		touched.current = true;
+		setPlaced(count);
+		setIntro(false);
+	};
+	const toggle = (index: number) => {
+		interrupt();
 		setGone((value) => (value === index ? -1 : index));
 	};
 	const restore = () => {
-		touched.current = true;
+		interrupt();
 		setGone(-1);
 	};
 
-	const { tilt, drop } = plateSag(gone, count);
+	const building = placed < count;
+	// While building, the plate pivots on its supported (left) end and sags
+	// toward the right, less with every support that lands.
+	const missing = building ? (count - placed) / count : 0;
+	const { tilt, drop } = building
+		? { tilt: Number((missing * 2.4).toFixed(2)), drop: Number((missing * 12).toFixed(1)) }
+		: plateSag(gone, count);
 	const out = supports[gone];
 	const crackAt = gone < 0 ? 50 : ((gone + 0.5) / count) * 100;
 
@@ -106,8 +163,9 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 						"--tilt": `${tilt}deg`,
 						"--drop": `${drop}px`,
 						"--crack": `${crackAt}%`,
-						"--pivot":
-							gone < 0
+						"--pivot": building
+							? "0%"
+							: gone < 0
 								? "50%"
 								: gone < (count - 1) / 2
 									? "100%"
@@ -117,6 +175,8 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					} as CSSProperties
 				}
 				data-broken={gone >= 0 ? "" : undefined}
+				data-building={building ? "" : undefined}
+				data-intro={intro ? "" : undefined}
 			>
 				<div
 					aria-hidden="true"
@@ -126,9 +186,24 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				{/* Readout: one state per support plus the whole one, stacked in one cell. */}
 				<div className="hw-readouts grid min-w-0" aria-live="polite" aria-atomic="true">
 					<div className="hw-readout" data-on={gone < 0 ? "" : undefined} inert={gone >= 0}>
-						<p className="mono-label m-0 flex items-center gap-2 text-success">
-							<span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-							All {count} in place
+						<p
+							className={cn(
+								"mono-label m-0 flex items-center gap-2 transition-colors duration-300",
+								building ? "text-primary-text" : "text-success",
+							)}
+						>
+							<span
+								aria-hidden="true"
+								className={cn(
+									"size-1.5 rounded-full transition-colors duration-300",
+									building ? "bg-primary" : "bg-success",
+								)}
+							/>
+							{/* The count is visual only, so the live region doesn't read every step. */}
+							<span aria-hidden="true">
+								{building ? `${placed} of ${count} in place` : `All ${count} in place`}
+							</span>
+							<span className="sr-only">All {count} in place</span>
 						</p>
 						<p className="hw-line m-0 mt-4">Your users never notice any of this.</p>
 						<p className="m-0 mt-4 max-w-[58ch] text-body text-ink-soft">
@@ -172,6 +247,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 						<span className="hw-plate-status">
 							<span className="hw-plate-dot" />
 							<span className="hw-plate-ok">Everything works</span>
+							<span className="hw-plate-wait">Not ready yet</span>
 							<span className="hw-plate-bad">Something’s wrong</span>
 						</span>
 						<svg className="hw-crack" viewBox="0 0 24 40" preserveAspectRatio="none">
@@ -184,6 +260,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 								key={support.id}
 								className="hw-pillar"
 								data-out={index === gone ? "" : undefined}
+								data-pending={index >= placed ? "" : undefined}
 								data-hover={index === hovered && index !== gone ? "" : undefined}
 							>
 								<span className="hw-ghost" />
@@ -210,6 +287,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 							key={support.id}
 							type="button"
 							aria-pressed={index === gone}
+							data-pending={index >= placed ? "" : undefined}
 							onClick={() => toggle(index)}
 							onPointerEnter={(event) => {
 								if (event.pointerType === "mouse") setHovered(index);

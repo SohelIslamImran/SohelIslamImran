@@ -34,8 +34,7 @@ export const STACK_LAYERS: readonly StackLayer[] = [
 	{
 		id: "data",
 		name: "Data",
-		sentence:
-			"I design the PostgreSQL schema and write the migrations and queries a feature needs.",
+		sentence: "I design the database schema and write the migrations and queries a feature needs.",
 		tools: ["PostgreSQL", "Drizzle ORM", "SQL", "Redis"],
 	},
 	{

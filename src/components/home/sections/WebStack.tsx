@@ -15,9 +15,9 @@ const TOTAL_MS = 84;
 /** The request's spans, in milliseconds from the start of the request. */
 const SPANS = [
 	{ id: "auth", name: "auth.can(invite)", start: 5, duration: 4 },
-	{ id: "seats", name: "pg.seats.count", start: 11, duration: 9 },
-	{ id: "insert", name: "pg.invites.insert", start: 23, duration: 17 },
-	{ id: "queue", name: "redis.enqueue(email)", start: 44, duration: 5 },
+	{ id: "seats", name: "db.seats.count", start: 11, duration: 9 },
+	{ id: "insert", name: "db.invites.insert", start: 23, duration: 17 },
+	{ id: "queue", name: "jobs.enqueue(email)", start: 44, duration: 5 },
 ] as const;
 
 const LAST = SPANS.length - 1;
