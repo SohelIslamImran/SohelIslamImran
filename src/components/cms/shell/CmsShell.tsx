@@ -502,6 +502,18 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const [railMode, setRailMode] = useState<RailMode>("auto");
 	const [commandOpen, setCommandOpen] = useState(false);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	// The drawer is hidden by CSS at `lg`, but an open Base UI dialog would
+	// keep its scroll lock and focus trap. Close it when the viewport grows.
+	useEffect(() => {
+		if (!drawerOpen) return;
+		const desktop = window.matchMedia("(min-width: 1024px)");
+		const close = () => {
+			if (desktop.matches) setDrawerOpen(false);
+		};
+		close();
+		desktop.addEventListener("change", close);
+		return () => desktop.removeEventListener("change", close);
+	}, [drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 	const [publishSweepKey, setPublishSweepKey] = useState(0);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);

@@ -222,7 +222,7 @@ export function PipelineBar({
 						trigger={
 							<button
 								type="button"
-								className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border border-dashed border-destructive/55 bg-destructive/10 px-3 font-mono text-[11.5px] font-medium text-destructive"
+								className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border pointer-coarse:min-h-11 max-lg:min-h-11 border-dashed border-destructive/55 bg-destructive/10 px-3 font-mono text-[11.5px] font-medium text-destructive"
 							>
 								<AlertTriangleIcon className="size-3.5" />
 								<span>
@@ -235,7 +235,7 @@ export function PipelineBar({
 					<Link
 						to="/cms/release"
 						className={cn(
-							"inline-flex min-h-9 items-center gap-2 rounded-full border px-3 font-mono text-[11.5px] tabular-nums no-underline transition-colors duration-150",
+							"inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-2 rounded-full border px-3 font-mono text-[11.5px] tabular-nums no-underline transition-colors duration-150",
 							stage === "synced" && "border-line bg-surface-solid text-ink-soft",
 							stage === "ahead" && "border-primary-line bg-primary-soft text-primary-text",
 							stage === "dirty" && "border-primary-line bg-surface-solid text-foreground",
@@ -365,7 +365,7 @@ export function PipelineBar({
 					<button
 						type="button"
 						onClick={onOpenCommandBar}
-						className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border border-line bg-surface-solid px-3 text-[12.5px] text-muted-foreground transition-colors duration-150 hover:border-line-strong hover:text-foreground"
+						className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border pointer-coarse:min-h-11 max-lg:min-h-11 border-line bg-surface-solid px-3 text-[12.5px] text-muted-foreground transition-colors duration-150 hover:border-line-strong hover:text-foreground"
 					>
 						<SearchIcon className="size-3.5" />
 						<span className="hidden xl:inline">Jump</span>

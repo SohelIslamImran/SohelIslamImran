@@ -133,13 +133,13 @@ function ReleaseRoute() {
 					<Tabs.List className="inline-flex items-center gap-1 rounded-full border border-line bg-surface-solid p-1">
 						<Tabs.Tab
 							value="changes"
-							className="min-h-8 rounded-full px-3.5 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground data-[active]:bg-foreground data-[active]:text-background pointer-coarse:min-h-10"
+							className="min-h-8 rounded-full px-3.5 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground data-[active]:bg-foreground data-[active]:text-background pointer-coarse:min-h-11"
 						>
 							Changes ({diff.changedSections.length})
 						</Tabs.Tab>
 						<Tabs.Tab
 							value="json"
-							className="min-h-8 rounded-full px-3.5 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground data-[active]:bg-foreground data-[active]:text-background pointer-coarse:min-h-10"
+							className="min-h-8 rounded-full px-3.5 text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground data-[active]:bg-foreground data-[active]:text-background pointer-coarse:min-h-11"
 						>
 							Raw JSON
 						</Tabs.Tab>
