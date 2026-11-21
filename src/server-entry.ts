@@ -1,4 +1,5 @@
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
+import { toPublicCmsPath } from "./lib/cms-host";
 
 // Keep the stream handler explicit so independent route data can flush while
 // the SSR document is still being assembled. Critical identity/SEO content is
@@ -38,26 +39,31 @@ export default {
 			);
 		}
 
-		if (splitCmsHost && host === publicHost && /^\/resume\/edit(?:\/|$)/u.test(incoming.pathname)) {
-			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms`, 308));
-		}
-
-		if (splitCmsHost && host === publicHost && incoming.pathname === "/cms") {
-			return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms`, 308));
+		if (splitCmsHost && host === publicHost && isLegacyCmsPath(incoming.pathname)) {
+			return withSecurityHeaders(
+				Response.redirect(`${cmsOrigin}${publicCmsPath(incoming.pathname)}${incoming.search}`, 308),
+			);
 		}
 
 		if (splitCmsHost && host === cmsHost) {
-			// Redirect rather than rewrite: the browser router hydrates from the
-			// address bar, so a server-only rewrite renders the CMS on the server
-			// and the home page on the client (React hydration error #418).
-			if (incoming.pathname === "/" || incoming.pathname === "/index.html") {
-				return withSecurityHeaders(Response.redirect(`${cmsOrigin}/cms${incoming.search}`, 308), {
-					cms: true,
-				});
-			}
-			if (!isCmsRuntimePath(incoming.pathname)) {
+			// The router rewrites `/x` on this host to the internal `/cms/x` route
+			// on both server and client (see `src/lib/cms-host.ts`), so the CMS is
+			// served at the root. Old `/cms/*` bookmarks move to the clean URL.
+			if (/^\/cms(?:\/|$)/u.test(incoming.pathname)) {
 				return withSecurityHeaders(
-					Response.redirect(`${appOrigin}${incoming.pathname}${incoming.search}`, 308),
+					Response.redirect(
+						`${cmsOrigin}${toPublicCmsPath(incoming.pathname)}${incoming.search}`,
+						308,
+					),
+					{ cms: true },
+				);
+			}
+			if (incoming.pathname === "/robots.txt") {
+				return withSecurityHeaders(
+					new Response("User-agent: *\nDisallow: /\n", {
+						headers: { "Content-Type": "text/plain; charset=utf-8" },
+					}),
+					{ cms: true },
 				);
 			}
 		}
@@ -65,9 +71,7 @@ export default {
 		// TanStack Start reads bindings through `cloudflare:workers`. The edge
 		// adapter still receives `env` here for host configuration and redirects.
 		const response = await startFetch(request);
-		const cmsRequest = splitCmsHost
-			? host === cmsHost
-			: incoming.pathname === "/cms" || incoming.pathname.startsWith("/resume/edit");
+		const cmsRequest = splitCmsHost ? host === cmsHost : isLegacyCmsPath(incoming.pathname);
 		return withSecurityHeaders(response, { request, cms: cmsRequest });
 	},
 } satisfies ExportedHandler<Env>;
@@ -80,23 +84,13 @@ function hostnameFromOrigin(origin: string, fallback: string) {
 	}
 }
 
-/**
- * The CMS document is served from a different hostname, but its browser
- * runtime still requests the generated assets and server-function endpoints
- * from that same origin. Redirecting those requests to the public hostname
- * breaks CSP and drops the Access assertion from CMS mutations.
- */
-function isCmsRuntimePath(pathname: string): boolean {
-	return (
-		pathname.startsWith("/cms") ||
-		pathname.startsWith("/__tsr") ||
-		pathname.startsWith("/_serverFn/") ||
-		pathname.startsWith("/assets/") ||
-		pathname.startsWith("/images/") ||
-		pathname.startsWith("/media/") ||
-		pathname === "/favicon.svg" ||
-		pathname === "/favicon.ico"
-	);
+/** `/cms`, `/cms/*`, and the old `/resume/edit` editor, on the public host. */
+function isLegacyCmsPath(pathname: string): boolean {
+	return /^\/cms(?:\/|$)/u.test(pathname) || /^\/resume\/edit(?:\/|$)/u.test(pathname);
+}
+
+function publicCmsPath(pathname: string): string {
+	return pathname.startsWith("/resume/edit") ? "/" : toPublicCmsPath(pathname);
 }
 
 function withSecurityHeaders(
@@ -110,7 +104,7 @@ function withSecurityHeaders(
 	const url = request ? new URL(request.url) : null;
 	const privateRoute =
 		options?.cms ||
-		url?.pathname === "/cms" ||
+		(url ? /^\/cms(?:\/|$)/u.test(url.pathname) : false) ||
 		url?.pathname.startsWith("/links/") ||
 		url?.pathname.startsWith("/resume/edit");
 	if (privateRoute) {

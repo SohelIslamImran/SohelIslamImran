@@ -1,0 +1,68 @@
+/*
+ * CMS density tier ("Control plane"). Imported by tailwind.css so it ships in
+ * the same stylesheet as the tokens. Uses Trace tokens only; tool radii are
+ * concentric: panels 18px, nested cards 12px, inputs and rows 10px.
+ */
+
+@layer components {
+	.cms-root {
+		--cms-radius-panel: 18px;
+		--cms-radius-nested: 12px;
+		--cms-radius-control: 10px;
+		--cms-rail-width: 248px;
+		background: var(--theme-paper);
+		color: var(--theme-ink);
+		font-size: 14px;
+	}
+
+	.cms-panel {
+		border: 1px solid var(--theme-line);
+		border-radius: var(--cms-radius-panel);
+		background: var(--theme-surface-solid);
+		box-shadow:
+			0 1px 2px var(--theme-shadow-soft),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	/* Trace mark: a 2px accent bar in the left gutter of a changed field. */
+	.cms-field {
+		--cms-gutter: 12px;
+	}
+
+	.cms-trace-mark {
+		position: absolute;
+		top: 4px;
+		bottom: 4px;
+		left: calc(var(--cms-gutter) * -1);
+		width: 2px;
+		border-radius: 2px;
+		background: var(--theme-accent);
+		opacity: 0;
+		scale: 1 0.4;
+		transition:
+			opacity 180ms var(--ease-trace),
+			scale 220ms var(--ease-trace);
+	}
+
+	.cms-field[data-changed] > .cms-trace-mark {
+		opacity: 1;
+		scale: 1 1;
+	}
+
+	/* An invalid field breaks the mark into a dashed destructive line, so state never relies on hue. */
+	.cms-field[data-invalid] > .cms-trace-mark {
+		opacity: 1;
+		scale: 1 1;
+		background: repeating-linear-gradient(
+			to bottom,
+			var(--theme-destructive) 0 4px,
+			transparent 4px 7px
+		);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-trace-mark {
+			transition: none;
+		}
+	}
+}
