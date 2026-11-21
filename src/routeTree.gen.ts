@@ -21,7 +21,11 @@ import { Route as StoryRouteImport } from './routes/story'
 import { Route as WorkRouteImport } from './routes/work'
 import { Route as ApiCollectRouteImport } from './routes/api/collect'
 import { Route as CmsIndexRouteImport } from './routes/cms/index'
+import { Route as CmsActivityRouteImport } from './routes/cms/activity'
 import { Route as CmsAnalyticsRouteImport } from './routes/cms/analytics'
+import { Route as CmsHistoryRouteImport } from './routes/cms/history'
+import { Route as CmsLibraryRouteImport } from './routes/cms/library'
+import { Route as CmsReleaseRouteImport } from './routes/cms/release'
 import { Route as LinksLinkIdRouteImport } from './routes/links/$linkId'
 import { Route as MediaAssetIdRouteImport } from './routes/media/$assetId'
 import { Route as ResumeEditRouteImport } from './routes/resume.edit'
@@ -88,9 +92,29 @@ const CmsIndexRoute = CmsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => CmsRoute,
 } as any)
+const CmsActivityRoute = CmsActivityRouteImport.update({
+  id: '/activity',
+  path: '/activity',
+  getParentRoute: () => CmsRoute,
+} as any)
 const CmsAnalyticsRoute = CmsAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
+  getParentRoute: () => CmsRoute,
+} as any)
+const CmsHistoryRoute = CmsHistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => CmsRoute,
+} as any)
+const CmsLibraryRoute = CmsLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
+  getParentRoute: () => CmsRoute,
+} as any)
+const CmsReleaseRoute = CmsReleaseRouteImport.update({
+  id: '/release',
+  path: '/release',
   getParentRoute: () => CmsRoute,
 } as any)
 const LinksLinkIdRoute = LinksLinkIdRouteImport.update({
@@ -131,7 +155,11 @@ export interface FileRoutesByFullPath {
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
   '/api/collect': typeof ApiCollectRoute
+  '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
+  '/cms/history': typeof CmsHistoryRoute
+  '/cms/library': typeof CmsLibraryRoute
+  '/cms/release': typeof CmsReleaseRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -150,7 +178,11 @@ export interface FileRoutesByTo {
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
   '/api/collect': typeof ApiCollectRoute
+  '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
+  '/cms/history': typeof CmsHistoryRoute
+  '/cms/library': typeof CmsLibraryRoute
+  '/cms/release': typeof CmsReleaseRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -171,7 +203,11 @@ export interface FileRoutesById {
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
   '/api/collect': typeof ApiCollectRoute
+  '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
+  '/cms/history': typeof CmsHistoryRoute
+  '/cms/library': typeof CmsLibraryRoute
+  '/cms/release': typeof CmsReleaseRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -193,7 +229,11 @@ export interface FileRouteTypes {
     | '/story'
     | '/work'
     | '/api/collect'
+    | '/cms/activity'
     | '/cms/analytics'
+    | '/cms/history'
+    | '/cms/library'
+    | '/cms/release'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -212,7 +252,11 @@ export interface FileRouteTypes {
     | '/story'
     | '/work'
     | '/api/collect'
+    | '/cms/activity'
     | '/cms/analytics'
+    | '/cms/history'
+    | '/cms/library'
+    | '/cms/release'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -232,7 +276,11 @@ export interface FileRouteTypes {
     | '/story'
     | '/work'
     | '/api/collect'
+    | '/cms/activity'
     | '/cms/analytics'
+    | '/cms/history'
+    | '/cms/library'
+    | '/cms/release'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -343,11 +391,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CmsIndexRouteImport
       parentRoute: typeof CmsRoute
     }
+    '/cms/activity': {
+      id: '/cms/activity'
+      path: '/activity'
+      fullPath: '/cms/activity'
+      preLoaderRoute: typeof CmsActivityRouteImport
+      parentRoute: typeof CmsRoute
+    }
     '/cms/analytics': {
       id: '/cms/analytics'
       path: '/analytics'
       fullPath: '/cms/analytics'
       preLoaderRoute: typeof CmsAnalyticsRouteImport
+      parentRoute: typeof CmsRoute
+    }
+    '/cms/history': {
+      id: '/cms/history'
+      path: '/history'
+      fullPath: '/cms/history'
+      preLoaderRoute: typeof CmsHistoryRouteImport
+      parentRoute: typeof CmsRoute
+    }
+    '/cms/library': {
+      id: '/cms/library'
+      path: '/library'
+      fullPath: '/cms/library'
+      preLoaderRoute: typeof CmsLibraryRouteImport
+      parentRoute: typeof CmsRoute
+    }
+    '/cms/release': {
+      id: '/cms/release'
+      path: '/release'
+      fullPath: '/cms/release'
+      preLoaderRoute: typeof CmsReleaseRouteImport
       parentRoute: typeof CmsRoute
     }
     '/links/$linkId': {
@@ -389,13 +465,21 @@ declare module '@tanstack/react-router' {
 }
 
 interface CmsRouteChildren {
+  CmsActivityRoute: typeof CmsActivityRoute
   CmsAnalyticsRoute: typeof CmsAnalyticsRoute
+  CmsHistoryRoute: typeof CmsHistoryRoute
+  CmsLibraryRoute: typeof CmsLibraryRoute
+  CmsReleaseRoute: typeof CmsReleaseRoute
   CmsIndexRoute: typeof CmsIndexRoute
   CmsContentSectionRoute: typeof CmsContentSectionRoute
 }
 
 const CmsRouteChildren: CmsRouteChildren = {
+  CmsActivityRoute: CmsActivityRoute,
   CmsAnalyticsRoute: CmsAnalyticsRoute,
+  CmsHistoryRoute: CmsHistoryRoute,
+  CmsLibraryRoute: CmsLibraryRoute,
+  CmsReleaseRoute: CmsReleaseRoute,
   CmsIndexRoute: CmsIndexRoute,
   CmsContentSectionRoute: CmsContentSectionRoute,
 }
