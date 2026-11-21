@@ -48,3 +48,40 @@ All three reviewers returned **approve with changes**.
 - Accepted. Analytics map reuses `remote-map.ts` projection plus a static ISO-2 centroid table; no home arcs or Dhaka framing.
 - Accepted. Zero-data state renders the real layout with flat tracks and a "no visits recorded yet" strip.
 - Could, deferred to polish: shortcut legend in the command bar footer, publish sweep animation.
+
+## Round 2: cross-review of the implementations (2026-11-21)
+
+| Branch | Builder | Reviewer | Verdict |
+| --- | --- | --- | --- |
+| `t3/first-party-analytics` | Codex A | Codex B | approve with changes |
+| `t3/cms-shell-release-workflow` | Antigravity | Codex A | **reject** (4 blockers, reproduced against local D1) |
+| `t3/cms-content-editors` | Codex B | Antigravity | pending |
+
+All three branches are merged on the integration branch; fixes land on top.
+
+### Orchestrator QA found before the reviews landed
+- **Blocker, fixed** (`5bcf99a`): the pipeline bar's selector returned a fresh object per call and looped `useSyncExternalStore`, crashing the dashboard into the "unavailable" screen. `useDraftSelector` now caches per state and keeps shallow-equal results.
+- Fixed: command bar "Clear" wrapped onto two lines.
+
+### Analytics (Codex B on Codex A): all accepted, sent to a Codex fixer
+1. Blocker: `/work/<slug>` paths and outbound link ids were only syntax-checked; resolve against published content or drop.
+2. Search/hash-only navigations counted as new pageviews.
+3. Engagement stopped at the first hide; accumulate per view, one event id, collector keeps the max.
+4. `mailto:` profile link clicks were never attributed.
+5. Deltas compared a partial day with full days.
+6. Breakdown queries trimmed in JS instead of SQL; projects ranked separately.
+7. Presence heartbeat 30 s → 60 s.
+8. Range selector used color alone.
+9. Copy: "No visits in this period" for empty ranges.
+Also assigned: wire live visitors into the rail pulse slot.
+
+### Shell and release (Codex A on Antigravity): all accepted
+- Blocker: restore and discard bypassed the store queue and could race autosave. → store-level `restore`/`discard` through the queue.
+- Blocker: discard could restore a superseded live revision. → require the published revision in the atomic update.
+- Blocker: a rejected restore could still write a success audit row. → gate history and audit inserts on the mutation's own update for save, publish, restore, discard.
+- Blocker: uploaded assets never reached the attachment pickers (they read `draft.media`). → pickers source new attachments from the owner-only library.
+- Should-fix: publish confirmation could promote a draft edited after review. → capture the reviewed draft, invalidate on edits.
+- Should-fix: one insertion marked every row "reordered"; duplicate ids made diff and revert disagree. → relative order among shared ids; enforce per-collection id uniqueness.
+- Should-fix: revision byte size read JSON bodies. → `octet_length`.
+- Should-fix, **fixed by orchestrator** (`ce41fad`): phone drawer stayed modal after resizing to desktop.
+- Nit, **fixed by orchestrator** (`ce41fad`): 36–40px touch targets raised to 44px on coarse pointers.
