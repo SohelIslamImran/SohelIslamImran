@@ -85,14 +85,40 @@ export function useCmsSession(): CmsSession {
 }
 
 /**
- * Subscribe to a slice of draft state. The selector must return a stable
- * value (a primitive, or a reference held by the state) or it re-renders on
- * every store change.
+ * Subscribe to a slice of draft state. The result is cached per store state,
+ * and a new result that is shallow-equal to the previous one keeps the
+ * previous reference, so selectors may return small objects or arrays
+ * without looping `useSyncExternalStore` or re-rendering on unrelated edits.
  */
 export function useDraftSelector<T>(selector: (state: DraftState, store: DraftStore) => T): T {
 	const store = useDraftStore();
-	const getSnapshot = () => selector(store.getState(), store);
+	const cache = useRef<{ state: DraftState; selector: unknown; value: T } | null>(null);
+	const getSnapshot = () => {
+		const state = store.getState();
+		const previous = cache.current;
+		if (previous && previous.state === state && previous.selector === selector) {
+			return previous.value;
+		}
+		const next = selector(state, store);
+		const value = previous && shallowEqual(previous.value, next) ? previous.value : next;
+		cache.current = { state, selector, value };
+		return value;
+	};
 	return useSyncExternalStore(store.subscribe, getSnapshot, getSnapshot);
+}
+
+function shallowEqual(a: unknown, b: unknown): boolean {
+	if (Object.is(a, b)) return true;
+	if (a === null || b === null || typeof a !== "object" || typeof b !== "object") return false;
+	if (Array.isArray(a) !== Array.isArray(b)) return false;
+	if (Array.isArray(a) && Array.isArray(b)) {
+		return a.length === b.length && a.every((item, index) => Object.is(item, b[index]));
+	}
+	const left = a as Record<string, unknown>;
+	const right = b as Record<string, unknown>;
+	const keys = Object.keys(left);
+	if (keys.length !== Object.keys(right).length) return false;
+	return keys.every((key) => Object.is(left[key], right[key]));
 }
 
 export function useDraftValue<T = unknown>(path: string): T {
