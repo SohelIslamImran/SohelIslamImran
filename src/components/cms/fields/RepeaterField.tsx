@@ -1,7 +1,7 @@
-import { useRef, useState, type ComponentType, type ReactNode } from "react";
+import { memo, useCallback, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
-import { useDraftStore, useField, useIssuesUnder } from "../draft/context";
-import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
+import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
+import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowActions } from "./ListFields";
 import { UndoRemoval, editorButton } from "./UndoRemoval";
@@ -29,32 +29,67 @@ export function RepeaterField<T extends object>({
 	max?: number;
 }) {
 	const store = useDraftStore();
-	const field = useField<T[] | undefined>(path);
-	const rows = field.value ?? EMPTY;
+	const keys = useDraftSelector((_state, store) =>
+		((store.valueAt(path) as T[] | undefined) ?? EMPTY).map(rowId),
+	);
+	const issues = useIssuesAt(path);
+	const changed = useChangedAt(path);
 	const localKeys = useRef<number[]>([]);
 	const nextKey = useRef(0);
 	const [removed, setRemoved] = useState<RemovedRow<T> | null>(null);
+	const duplicates = duplicateIds(keys.map((id) => ({ id })));
 
-	// Generate the same initial keys in SSR and hydration. Move the keys with
-	// rows so edits that replace an object preserve its expanded state.
-	localKeys.current = rows.map((_, index) => localKeys.current[index] ?? nextKey.current++);
+	// Assign the same initial keys in SSR and hydration. Move them with rows
+	// that lack IDs so a reorder preserves their disclosure state.
+	localKeys.current = keys.map((_, index) => localKeys.current[index] ?? nextKey.current++);
 
-	const move = (from: number, to: number, focusSummary = false) => {
-		if (to < 0 || to >= rows.length) return;
-		localKeys.current = moveItem(localKeys.current, from, to);
-		field.set(moveItem(rows, from, to));
-		if (focusSummary) requestAnimationFrame(() => focusField(childPath(path, to)));
-	};
-	const insert = (index: number, row: T) => {
-		if (rows.length >= max) return;
-		localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
-		field.set(insertItem(rows, index, row));
-		requestAnimationFrame(() => {
-			const summary = document.getElementById(fieldId(childPath(path, index)));
-			if (summary?.parentElement instanceof HTMLDetailsElement) summary.parentElement.open = true;
-			focusField(childPath(path, index));
-		});
-	};
+	const move = useCallback(
+		(from: number, to: number) => {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+			if (to < 0 || to >= rows.length) return;
+			localKeys.current = moveItem(localKeys.current, from, to);
+			store.update(path, moveItem(rows, from, to));
+			requestAnimationFrame(() => focusField(childPath(path, to)));
+		},
+		[path, store],
+	);
+
+	const insert = useCallback(
+		(index: number, row: T) => {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+			if (rows.length >= max) return;
+			localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
+			store.update(path, insertItem(rows, index, row));
+			requestAnimationFrame(() => {
+				const summary = document.getElementById(fieldId(childPath(path, index)));
+				if (summary?.parentElement instanceof HTMLDetailsElement) summary.parentElement.open = true;
+				focusField(childPath(path, index));
+			});
+		},
+		[max, path, store],
+	);
+
+	const duplicate = useCallback(
+		(index: number) => {
+			const row = store.valueAt(childPath(path, index)) as T;
+			insert(index + 1, duplicateRow(row));
+		},
+		[insert, path, store],
+	);
+
+	const remove = useCallback(
+		(index: number, label: string) => {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+			const row = rows[index];
+			if (!row) return;
+			localKeys.current = removeItem(localKeys.current, index);
+			store.update(path, removeItem(rows, index));
+			setRemoved({ row, index, label });
+			const target = rows.length === 1 ? path : childPath(path, Math.min(index, rows.length - 2));
+			requestAnimationFrame(() => focusField(target));
+		},
+		[path, store],
+	);
 
 	return (
 		<FieldFrame
@@ -62,59 +97,32 @@ export function RepeaterField<T extends object>({
 			label={label}
 			description={description}
 			asGroup
-			issues={field.issues}
-			changed={field.changed}
-			onRevert={field.revert}
+			issues={issues}
+			changed={changed}
+			onRevert={() => store.revertAt(path)}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
-					{rows.length}/{max}
+					{keys.length}/{max}
 				</span>
 			}
 		>
-			{rows.length ? (
+			{keys.length ? (
 				<ol className="m-0 grid list-none gap-2 p-0" aria-labelledby={`${fieldId(path)}-label`}>
-					{rows.map((row, index) => {
-						const rowPath = childPath(path, index);
-						const name = summarize(row).trim() || `${itemLabel} ${index + 1}`;
-						return (
-							<RepeaterRow
-								key={rowId(row) || `local-${localKeys.current[index]}`}
-								path={rowPath}
-								name={name}
-								actions={
-									<RowActions
-										label={name}
-										canMoveUp={index > 0}
-										canMoveDown={index < rows.length - 1}
-										onMoveUp={() => move(index, index - 1, true)}
-										onMoveDown={() => move(index, index + 1, true)}
-										onRemove={() => {
-											localKeys.current = removeItem(localKeys.current, index);
-											field.set(removeItem(rows, index));
-											setRemoved({ row, index, label: name });
-											const target =
-												rows.length === 1
-													? path
-													: childPath(path, Math.min(index, rows.length - 2));
-											requestAnimationFrame(() => focusField(target));
-										}}
-									>
-										<button
-											type="button"
-											className={editorButton}
-											disabled={rows.length >= max}
-											onClick={() => insert(index + 1, duplicateRow(row))}
-											aria-label={`Duplicate ${name}`}
-										>
-											Duplicate
-										</button>
-									</RowActions>
-								}
-								onMove={(step) => move(index, index + step)}
-								Editor={Editor}
-							/>
-						);
-					})}
+					{keys.map((id, index) => (
+						<MemoRepeaterRow
+							key={id && !duplicates.has(id) ? id : `local-${localKeys.current[index]}`}
+							path={childPath(path, index)}
+							index={index}
+							itemLabel={itemLabel}
+							summarize={summarize}
+							canMoveDown={index < keys.length - 1}
+							full={keys.length >= max}
+							move={move}
+							remove={remove}
+							duplicate={duplicate}
+							Editor={Editor}
+						/>
+					))}
 				</ol>
 			) : (
 				<p className="m-0 text-[13px] text-muted-foreground">No entries yet.</p>
@@ -123,10 +131,10 @@ export function RepeaterField<T extends object>({
 				<button
 					type="button"
 					id={fieldId(path)}
-					aria-describedby={describedBy(path, Boolean(description), field.issues)}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
 					className={editorButton}
-					disabled={rows.length >= max}
-					onClick={() => insert(rows.length, create())}
+					disabled={keys.length >= max}
+					onClick={() => insert(keys.length, create())}
 				>
 					Add {itemLabel.toLowerCase()}
 				</button>
@@ -134,10 +142,7 @@ export function RepeaterField<T extends object>({
 			{removed ? (
 				<UndoRemoval
 					label={removed.label}
-					canUndo={
-						rows.length < max &&
-						!rows.some((row) => rowId(row) && rowId(row) === rowId(removed.row))
-					}
+					canUndo={keys.length < max && (!rowId(removed.row) || !keys.includes(rowId(removed.row)))}
 					onDismiss={() => {
 						setRemoved(null);
 						requestAnimationFrame(() => focusField(path));
@@ -148,7 +153,7 @@ export function RepeaterField<T extends object>({
 						if (!restored) return;
 						const index = Math.min(removed.index, current.length);
 						localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
-						field.set(restored);
+						store.update(path, restored);
 						setRemoved(null);
 						requestAnimationFrame(() => focusField(childPath(path, index)));
 					}}
@@ -158,21 +163,36 @@ export function RepeaterField<T extends object>({
 	);
 }
 
-function RepeaterRow({
+function RepeaterRow<T extends object>({
 	path,
-	name,
-	actions,
-	onMove,
+	index,
+	itemLabel,
+	summarize,
+	canMoveDown,
+	full,
+	move,
+	remove,
+	duplicate,
 	Editor,
 }: {
 	path: string;
-	name: string;
-	actions: ReactNode;
-	onMove: (step: number) => void;
+	index: number;
+	itemLabel: string;
+	summarize: (row: T) => string;
+	canMoveDown: boolean;
+	full: boolean;
+	move: (from: number, to: number) => void;
+	remove: (index: number, label: string) => void;
+	duplicate: (index: number) => void;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	const [opened, setOpened] = useState(false);
-	const issues = useIssuesUnder(path);
+	const summary = useDraftSelector((_state, store) => {
+		const row = store.valueAt(path) as T | undefined;
+		return row ? summarize(row).trim() : "";
+	});
+	const name = summary || `${itemLabel} ${index + 1}`;
+	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
 	return (
 		<li
 			className="min-w-0 rounded-[12px] border border-line bg-surface-solid"
@@ -184,7 +204,7 @@ function RepeaterRow({
 				)
 					return;
 				event.preventDefault();
-				onMove(event.key === "ArrowUp" ? -1 : 1);
+				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
 			}}
 		>
 			<details onToggle={(event) => setOpened(event.currentTarget.open)}>
@@ -194,9 +214,9 @@ function RepeaterRow({
 					className="min-h-10 cursor-pointer wrap-anywhere rounded-[10px] px-3 py-2.5 text-[14px] font-medium marker:text-muted-foreground pointer-coarse:min-h-11"
 				>
 					{name}
-					{issues.length ? (
+					{issueCount ? (
 						<span className="ml-2 text-xs text-destructive">
-							· {issues.length} {issues.length === 1 ? "error" : "errors"}
+							· {issueCount} {issueCount === 1 ? "error" : "errors"}
 						</span>
 					) : null}
 				</summary>
@@ -206,7 +226,28 @@ function RepeaterRow({
 					</div>
 				) : null}
 			</details>
-			<div className="flex justify-end border-t border-line p-1.5">{actions}</div>
+			<div className="flex justify-end border-t border-line p-1.5">
+				<RowActions
+					label={name}
+					canMoveUp={index > 0}
+					canMoveDown={canMoveDown}
+					onMoveUp={() => move(index, index - 1)}
+					onMoveDown={() => move(index, index + 1)}
+					onRemove={() => remove(index, name)}
+				>
+					<button
+						type="button"
+						className={editorButton}
+						disabled={full}
+						onClick={() => duplicate(index)}
+						aria-label={`Duplicate ${name}`}
+					>
+						Duplicate
+					</button>
+				</RowActions>
+			</div>
 		</li>
 	);
 }
+
+const MemoRepeaterRow = memo(RepeaterRow) as typeof RepeaterRow;

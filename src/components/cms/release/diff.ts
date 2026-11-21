@@ -5,7 +5,7 @@
  * every row as edited.
  */
 import type { MediaAsset, PortfolioContent } from "../../../types/content";
-import { childPath, getAt, jsonEqual, parsePath } from "../draft/paths";
+import { childPath, duplicateIds, getAt, jsonEqual, parsePath } from "../draft/paths";
 import { SECTIONS, type SectionId, type SectionMeta } from "../sections/registry";
 
 export type FieldDiffKind = "short" | "prose" | "tags" | "media" | "list";
@@ -257,6 +257,28 @@ function diffObjectFields(
 	return diffs;
 }
 
+/** Keep the longest run of shared rows whose relative order is unchanged. */
+function orderedIds(shared: readonly string[], beforeIndices: ReadonlyMap<string, number>) {
+	const lengths = shared.map(() => 1);
+	const previous = shared.map(() => -1);
+	let longest = -1;
+	for (const [index, id] of shared.entries()) {
+		for (let earlier = 0; earlier < index; earlier++) {
+			if (
+				beforeIndices.get(shared[earlier])! < beforeIndices.get(id)! &&
+				lengths[earlier] + 1 > lengths[index]
+			) {
+				lengths[index] = lengths[earlier] + 1;
+				previous[index] = earlier;
+			}
+		}
+		if (longest < 0 || lengths[index] > lengths[longest]) longest = index;
+	}
+	const ordered = new Set<string>();
+	for (let index = longest; index >= 0; index = previous[index]) ordered.add(shared[index]);
+	return ordered;
+}
+
 function diffIdCollection(
 	beforeList: unknown[],
 	afterList: unknown[],
@@ -272,6 +294,10 @@ function diffIdCollection(
 	afterList.forEach((item, index) => {
 		if (hasId(item)) afterById.set(item.id, { item, index });
 	});
+
+	const beforeIndices = new Map([...beforeById].map(([id, { index }]) => [id, index]));
+	const shared = [...afterById.keys()].filter((id) => beforeById.has(id));
+	const ordered = orderedIds(shared, beforeIndices);
 
 	const rows: RowDiff[] = [];
 
@@ -295,7 +321,7 @@ function diffIdCollection(
 			return;
 		}
 		const fields = diffObjectFields(matched.item, item, path, true);
-		const moved = matched.index !== afterIndex;
+		const moved = !ordered.has(item.id);
 		if (fields.length > 0) {
 			rows.push({
 				id: item.id,
@@ -361,7 +387,12 @@ export function diffPortfolioDocuments(
 					isIdArray(beforeVal) ||
 					isIdArray(afterVal) ||
 					(beforeVal.length === 0 && afterVal.length === 0);
-				if (treatsAsIdRows && rootKey !== "social") {
+				if (
+					treatsAsIdRows &&
+					rootKey !== "social" &&
+					!duplicateIds(beforeVal).size &&
+					!duplicateIds(afterVal).size
+				) {
 					rows.push(...diffIdCollection(beforeVal, afterVal, rootKey, Boolean(section.collection)));
 				} else {
 					fields.push({
@@ -389,7 +420,9 @@ export function diffPortfolioDocuments(
 					if (
 						Array.isArray(left) &&
 						Array.isArray(right) &&
-						(isIdArray(left) || isIdArray(right))
+						(isIdArray(left) || isIdArray(right)) &&
+						!duplicateIds(left).size &&
+						!duplicateIds(right).size
 					) {
 						rows.push(...diffIdCollection(left, right, childPath(rootKey, key), false));
 					} else {

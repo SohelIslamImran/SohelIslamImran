@@ -143,6 +143,11 @@ function PublishConfirmDialogBody({
 }) {
 	const store = useDraftStore();
 	const draft = useDraftSelector((state) => state.draft);
+	const [reviewedDraft] = useState(() => store.getState().draft);
+	const reviewExpired = reviewedDraft !== draft;
+	const blocked = useDraftSelector(
+		(state) => Boolean(state.conflict) || state.issues.all.length > 0,
+	);
 	const published = useDraftSelector((state) => state.published);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
@@ -152,16 +157,14 @@ function PublishConfirmDialogBody({
 	);
 
 	const changedSections = useMemo(
-		() => diffPortfolioDocuments(published, draft).changedSections,
-		[published, draft],
+		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
+		[published, reviewedDraft],
 	);
 
 	const confirmPublish = async () => {
-		const ok = await store.publish();
-		if (ok) {
-			onOpenChange(false);
-			onPublished?.();
-		}
+		const ok = await store.publish({ reviewedDraft });
+		if (ok || store.getState().conflict) onOpenChange(false);
+		if (ok) onPublished?.();
 	};
 
 	return (
@@ -184,9 +187,11 @@ function PublishConfirmDialogBody({
 								Publish draft to live site?
 							</AlertDialog.Title>
 							<AlertDialog.Description className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">
-								{dirty
-									? "Unsaved edits will be saved first, then promoted live immediately."
-									: "Visitors on sohelislamimran.com will see this revision immediately."}
+								{reviewExpired
+									? "The draft changed. Close this dialog and review the updated draft."
+									: dirty
+										? "Unsaved edits will be saved first, then promoted live immediately."
+										: "Visitors on sohelislamimran.com will see this revision immediately."}
 							</AlertDialog.Description>
 						</div>
 					</div>
@@ -218,7 +223,7 @@ function PublishConfirmDialogBody({
 							<Button
 								variant="default"
 								size="sm"
-								disabled={busy}
+								disabled={busy || blocked || reviewExpired}
 								onClick={() => void confirmPublish()}
 							>
 								{busy ? "Publishing…" : "Publish now"}

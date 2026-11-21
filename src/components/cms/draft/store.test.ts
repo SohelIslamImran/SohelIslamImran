@@ -15,6 +15,10 @@ function snapshot(content: PortfolioContent = initialContent): DraftSnapshotInpu
 	};
 }
 
+function mockApi(overrides: Partial<DraftApi> = {}): DraftApi {
+	return { save: vi.fn(), publish: vi.fn(), restore: vi.fn(), discard: vi.fn(), ...overrides };
+}
+
 function deferred<T>() {
 	let resolve!: (value: T) => void;
 	const promise = new Promise<T>((done) => (resolve = done));
@@ -61,6 +65,15 @@ describe("paths", () => {
 		expect(correspondingPath({ list: [{ id: "new" }] }, live, "list[0]")).toBeNull();
 	});
 
+	it("refuses a row or field match when either side has duplicate IDs", () => {
+		const single = { list: [{ id: "x", title: "Live" }] };
+		const duplicate = { list: [...single.list, { id: "x", title: "Second" }] };
+		expect(correspondingPath(duplicate, single, "list[0].title")).toBeNull();
+		expect(correspondingPath(duplicate, single, "list[1].title")).toBeNull();
+		expect(correspondingPath(single, duplicate, "list[0]")).toBeNull();
+		expect(correspondingPath(single, duplicate, "list")).toEqual(["list"]);
+	});
+
 	it("indexes issues with stable arrays", () => {
 		const index = indexIssues([
 			{ path: "projects[0].title", message: "required" },
@@ -80,7 +93,7 @@ describe("DraftStore", () => {
 			.fn<DraftApi["save"]>()
 			.mockImplementationOnce(() => first.promise)
 			.mockResolvedValue({ ok: true, revision: 7, updatedAt: "t2" });
-		const store = new DraftStore(snapshot(), { save, publish: vi.fn() }, { autosaveDelay: 10_000 });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
 
 		store.update("hero.title", "One");
 		const pending = store.save();
@@ -105,13 +118,109 @@ describe("DraftStore", () => {
 		const publish = vi
 			.fn<DraftApi["publish"]>()
 			.mockResolvedValue({ ok: true, status: "published", revision: 9, publishedAt: "p" });
-		const store = new DraftStore(snapshot(), { save, publish }, { autosaveDelay: 10_000 });
+		const store = new DraftStore(snapshot(), mockApi({ save, publish }), { autosaveDelay: 10_000 });
 		store.update("hero.title", "Live title");
 		expect(store.getState().ahead).toBe(false);
-		await store.publish();
+		await store.publish({ reviewedDraft: store.getState().draft });
 		expect(publish).toHaveBeenCalledWith({ expectedDraftRevision: 9 });
 		expect(store.getState().published.hero.title).toBe("Live title");
 		expect(store.getState().ahead).toBe(false);
+		store.dispose();
+	});
+
+	it("rejects a publish confirmation when edits happened before the queued publish", async () => {
+		const publish = vi.fn<DraftApi["publish"]>();
+		const store = new DraftStore(snapshot(), mockApi({ publish }));
+		const reviewedDraft = store.getState().draft;
+		const action = store.publish({ reviewedDraft });
+		store.update("hero.title", "Edited after review");
+		expect(await action).toBe(false);
+		expect(publish).not.toHaveBeenCalled();
+		store.dispose();
+	});
+
+	it("does not publish a reviewed snapshot if new edits arrive while saving it", async () => {
+		const pending = deferred<Awaited<ReturnType<DraftApi["save"]>>>();
+		const save = vi.fn<DraftApi["save"]>().mockReturnValue(pending.promise);
+		const publish = vi.fn<DraftApi["publish"]>();
+		const store = new DraftStore(snapshot(), mockApi({ save, publish }));
+		store.update("hero.title", "Reviewed");
+		const action = store.publish({ reviewedDraft: store.getState().draft });
+		await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+		store.update("hero.title", "Later edit");
+		pending.resolve({ ok: true, revision: 6, updatedAt: "t" });
+		expect(await action).toBe(false);
+		expect(publish).not.toHaveBeenCalled();
+		expect(store.valueAt("hero.title")).toBe("Later edit");
+		store.dispose();
+	});
+
+	it.each(["restore", "discard"] as const)("queues %s behind an in-flight save", async (method) => {
+		const pending = deferred<Awaited<ReturnType<DraftApi["save"]>>>();
+		const save = vi.fn<DraftApi["save"]>().mockReturnValue(pending.promise);
+		const replacement = snapshot();
+		replacement.draftRevision = 7;
+		const replace = vi
+			.fn<DraftApi["restore"] | DraftApi["discard"]>()
+			.mockResolvedValue({ ok: true, snapshot: replacement });
+		const store = new DraftStore(snapshot(), mockApi({ save, [method]: replace }));
+		store.update("hero.title", "A title to save");
+		const saving = store.save();
+		await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+		const replacing = method === "restore" ? store.restore(20) : store.discard(5);
+		expect(replace).not.toHaveBeenCalled();
+		pending.resolve({ ok: true, revision: 6, updatedAt: "t" });
+		await saving;
+		expect(await replacing).toBe(true);
+		expect(replace).toHaveBeenCalledWith(
+			method === "restore"
+				? { id: 20, expectedRevision: 6 }
+				: { expectedPublishedRevision: 5, expectedRevision: 6 },
+		);
+		expect(store.getState()).toMatchObject({ status: "idle", draftRevision: 7, dirty: false });
+		expect(store.getState().draft).toBe(replacement.draft);
+		store.dispose();
+	});
+
+	it.each(["restore", "discard"] as const)(
+		"keeps unsaved edits on a %s conflict",
+		async (method) => {
+			const remote = snapshot();
+			remote.draftRevision = 6;
+			const replace = vi.fn().mockResolvedValue({ ok: false, kind: "conflict", current: remote });
+			const store = new DraftStore(snapshot(), mockApi({ [method]: replace }));
+			store.update("hero.title", "Keep this");
+			expect(await (method === "restore" ? store.restore(10) : store.discard(5))).toBe(false);
+			expect(store.getState()).toMatchObject({ status: "conflict", conflict: remote, dirty: true });
+			expect(store.valueAt("hero.title")).toBe("Keep this");
+			store.dispose();
+		},
+	);
+
+	it("requires fresh confirmation when new edits arrive before a discard starts", async () => {
+		const discard = vi.fn<DraftApi["discard"]>();
+		const store = new DraftStore(snapshot(), mockApi({ discard }));
+		const confirmedDraft = store.getState().draft;
+		store.update("hero.title", "Edited after confirmation opened");
+		expect(await store.discard(5, confirmedDraft)).toBe(false);
+		expect(discard).not.toHaveBeenCalled();
+		expect(store.getState().dirty).toBe(true);
+		store.dispose();
+	});
+
+	it("holds edits made during a replacement for the conflict dialog", async () => {
+		const pending = deferred<Awaited<ReturnType<DraftApi["restore"]>>>();
+		const restore = vi.fn<DraftApi["restore"]>().mockReturnValue(pending.promise);
+		const store = new DraftStore(snapshot(), mockApi({ restore }));
+		const action = store.restore(20);
+		await vi.waitFor(() => expect(restore).toHaveBeenCalledOnce());
+		store.update("hero.title", "New typing");
+		const restored = snapshot();
+		restored.draftRevision = 6;
+		pending.resolve({ ok: true, snapshot: restored });
+		expect(await action).toBe(false);
+		expect(store.getState().conflict).toBe(restored);
+		expect(store.valueAt("hero.title")).toBe("New typing");
 		store.dispose();
 	});
 
@@ -122,7 +231,7 @@ describe("DraftStore", () => {
 			.fn<DraftApi["save"]>()
 			.mockResolvedValueOnce({ ok: false, kind: "conflict", current: remote })
 			.mockResolvedValue({ ok: true, revision: 13, updatedAt: "t" });
-		const store = new DraftStore(snapshot(), { save, publish: vi.fn() }, { autosaveDelay: 10_000 });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
 		store.update("hero.title", "Mine");
 		await store.save();
 		expect(store.getState().status).toBe("conflict");
@@ -135,7 +244,7 @@ describe("DraftStore", () => {
 
 	it("does not save an invalid draft", async () => {
 		const save = vi.fn<DraftApi["save"]>();
-		const store = new DraftStore(snapshot(), { save, publish: vi.fn() }, { autosaveDelay: 10_000 });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
 		store.update("projects[0].title", "");
 		expect(store.getState().issues.all.length).toBeGreaterThan(0);
 		expect(await store.save()).toBe(false);
@@ -144,11 +253,7 @@ describe("DraftStore", () => {
 	});
 
 	it("tracks changes and reverts by row id after reordering", () => {
-		const store = new DraftStore(
-			snapshot(),
-			{ save: vi.fn(), publish: vi.fn() },
-			{ autosaveDelay: 10_000 },
-		);
+		const store = new DraftStore(snapshot(), mockApi(), { autosaveDelay: 10_000 });
 		const projects = store.getState().draft.projects;
 		store.update("projects", [...projects].reverse());
 		const last = projects.length - 1;

@@ -108,6 +108,18 @@ function hasId(value: unknown): value is { id: string } {
 	);
 }
 
+/** IDs that occur more than once within one list. */
+export function duplicateIds(rows: readonly unknown[]): Set<string> {
+	const seen = new Set<string>();
+	const duplicates = new Set<string>();
+	for (const row of rows) {
+		if (!hasId(row)) continue;
+		if (seen.has(row.id)) duplicates.add(row.id);
+		seen.add(row.id);
+	}
+	return duplicates;
+}
+
 /**
  * Map a draft path to the matching path in another document (usually the
  * published one). Rows that carry an `id` are matched by id, so reordering a
@@ -127,10 +139,15 @@ export function correspondingPath(
 		if (typeof segment === "number" && Array.isArray(draftNode)) {
 			const row = draftNode[segment];
 			if (hasId(row) && Array.isArray(otherNode)) {
-				const index = otherNode.findIndex(
-					(candidate) => hasId(candidate) && candidate.id === row.id,
-				);
-				if (index === -1) return null;
+				const matches = (candidate: unknown) => hasId(candidate) && candidate.id === row.id;
+				const index = otherNode.findIndex(matches);
+				if (
+					index === -1 ||
+					otherNode.findIndex((candidate, position) => position > index && matches(candidate)) !==
+						-1 ||
+					draftNode.some((candidate, position) => position !== segment && matches(candidate))
+				)
+					return null;
 				out.push(index);
 				draftNode = row;
 				otherNode = otherNode[index];

@@ -7,10 +7,9 @@ import { useMemo, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
-import { useCmsSession, useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
+import { useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { DiffView } from "../../components/cms/release/DiffView";
 import { RawJsonTab } from "../../components/cms/release/RawJsonTab";
@@ -21,7 +20,6 @@ import {
 	PublishIcon,
 } from "../../components/cms/shell/cms-icons";
 import { formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
-import { discardDraft } from "../../server/cms-history.functions";
 
 export const Route = createFileRoute("/cms/release")({
 	head: () => ({
@@ -32,8 +30,6 @@ export const Route = createFileRoute("/cms/release")({
 
 function ReleaseRoute() {
 	const store = useDraftStore();
-	const { csrfToken } = useCmsSession();
-	const runDiscardDraft = useServerFn(discardDraft);
 
 	const draft = useDraftSelector((state) => state.draft);
 	const published = useDraftSelector((state) => state.published);
@@ -49,8 +45,12 @@ function ReleaseRoute() {
 	);
 
 	const [tab, setTab] = useState<"changes" | "json">("changes");
-	const [confirmingPublish, setConfirmingPublish] = useState(false);
-	const [discardOpen, setDiscardOpen] = useState(false);
+	const [reviewedDraft, setReviewedDraft] = useState<typeof draft | null>(null);
+	const confirmingPublish = reviewedDraft === draft;
+	const [discardReview, setDiscardReview] = useState<{
+		draft: typeof draft;
+		publishedRevision: number;
+	} | null>(null);
 	const [discarding, setDiscarding] = useState(false);
 	const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -62,57 +62,31 @@ function ReleaseRoute() {
 
 	const handleConfirmPublish = async () => {
 		setNotice(null);
-		const ok = await store.publish();
+		if (!reviewedDraft) return;
+		const ok = await store.publish({ reviewedDraft });
 		if (ok) {
-			setConfirmingPublish(false);
+			setReviewedDraft(null);
 			const nextRev = store.getState().publishedRevision;
 			setNotice({ tone: "ok", text: `Published Live r${nextRev} to sohelislamimran.com.` });
 		}
 	};
 
 	const handleConfirmDiscard = async () => {
+		if (!discardReview) return;
 		setDiscarding(true);
 		setNotice(null);
-		try {
-			const state = store.getState();
-			if (state.ahead) {
-				const result = await runDiscardDraft({
-					data: { expectedRevision: state.draftRevision, csrfToken },
-				});
-				if (result.ok) {
-					store.adoptSnapshot(result.snapshot);
-					setDiscardOpen(false);
-					setConfirmingPublish(false);
-					setNotice({
-						tone: "ok",
-						text: `Draft discarded. Reset to Live r${result.snapshot.publishedRevision} as Draft r${result.snapshot.draftRevision}.`,
-					});
-				} else {
-					store.adoptSnapshot(result.current);
-					setDiscardOpen(false);
-					setNotice({
-						tone: "error",
-						text: "The draft changed in another session. Loaded the latest server state instead.",
-					});
-				}
-			} else {
-				// Only unsaved local edits exist; server draft already equals live.
-				store.adoptSnapshot({
-					draft: structuredClone(state.published),
-					published: state.published,
-					draftRevision: state.draftRevision,
-					publishedRevision: state.publishedRevision,
-					draftUpdatedAt: state.draftUpdatedAt,
-					publishedAt: state.publishedAt,
-				});
-				setDiscardOpen(false);
-				setConfirmingPublish(false);
-				setNotice({ tone: "ok", text: "Unsaved local edits cleared." });
-			}
-		} catch {
-			setNotice({ tone: "error", text: "Could not discard the draft. Try again in a moment." });
-		} finally {
-			setDiscarding(false);
+		const ok = await store.discard(discardReview.publishedRevision, discardReview.draft);
+		setDiscarding(false);
+		setDiscardReview(null);
+		const state = store.getState();
+		if (ok) {
+			setReviewedDraft(null);
+			setNotice({
+				tone: "ok",
+				text: `Draft discarded. Reset to Live r${state.publishedRevision} as Draft r${state.draftRevision}.`,
+			});
+		} else if (state.error) {
+			setNotice({ tone: "error", text: state.error });
 		}
 	};
 
@@ -249,7 +223,7 @@ function ReleaseRoute() {
 										variant="outline"
 										size="sm"
 										disabled={busy}
-										onClick={() => setConfirmingPublish(false)}
+										onClick={() => setReviewedDraft(null)}
 										className="pointer-coarse:min-h-11"
 									>
 										Cancel
@@ -261,7 +235,7 @@ function ReleaseRoute() {
 								variant="default"
 								size="default"
 								disabled={!canPublish}
-								onClick={() => setConfirmingPublish(true)}
+								onClick={() => setReviewedDraft(draft)}
 								className="w-full"
 							>
 								<PublishIcon className="size-4" />
@@ -274,7 +248,7 @@ function ReleaseRoute() {
 								variant="destructive"
 								size="sm"
 								disabled={!hasChanges || busy || discarding}
-								onClick={() => setDiscardOpen(true)}
+								onClick={() => setDiscardReview({ draft, publishedRevision })}
 								className="w-full pointer-coarse:min-h-11"
 							>
 								<DiscardIcon className="size-3.5" />
@@ -300,7 +274,12 @@ function ReleaseRoute() {
 			)}
 
 			{/* Discard confirmation AlertDialog */}
-			<AlertDialog.Root open={discardOpen} onOpenChange={setDiscardOpen}>
+			<AlertDialog.Root
+				open={discardReview !== null}
+				onOpenChange={(open) => {
+					if (!open) setDiscardReview(null);
+				}}
+			>
 				<AlertDialog.Portal>
 					<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.35)] dark:bg-[rgb(0_0_0/0.6)]" />
 					<AlertDialog.Popup className="cms-dialog-popup cms-glass fixed top-1/2 left-1/2 z-(--z-palette) grid w-[min(460px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6">
@@ -311,12 +290,13 @@ function ReleaseRoute() {
 							<div className="grid gap-1">
 								<p className="mono-label m-0 text-[10.5px] text-destructive">Discard draft</p>
 								<AlertDialog.Title className="m-0 text-[17px] font-semibold tracking-[-0.015em]">
-									Reset draft back to Live r{publishedRevision}?
+									Reset draft back to Live r{discardReview?.publishedRevision}?
 								</AlertDialog.Title>
 								<AlertDialog.Description className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">
 									All unpublished changes across {diff.changedSections.length}{" "}
 									{diff.changedSections.length === 1 ? "section" : "sections"} will be replaced by
-									the live revision. Older drafts remain recoverable in Revision history.
+									the live revision, including unsaved edits. Saved drafts remain in Revision
+									history.
 								</AlertDialog.Description>
 							</div>
 						</div>

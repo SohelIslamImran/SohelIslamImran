@@ -44,9 +44,19 @@ export type PublishResult =
 	  }
 	| { ok: false; kind: "conflict"; current: DraftSnapshotInput };
 
+type ReplaceResult =
+	| { ok: true; snapshot: DraftSnapshotInput }
+	| { ok: false; kind: "conflict"; current: DraftSnapshotInput }
+	| { ok: false; kind: "not-found" };
+
 export interface DraftApi {
 	save(input: { content: PortfolioContent; expectedRevision: number }): Promise<SaveResult>;
 	publish(input: { expectedDraftRevision: number }): Promise<PublishResult>;
+	restore(input: { id: number; expectedRevision: number }): Promise<ReplaceResult>;
+	discard(input: {
+		expectedRevision: number;
+		expectedPublishedRevision: number;
+	}): Promise<ReplaceResult>;
 }
 
 export type SaveStatus = "idle" | "saving" | "publishing" | "error" | "conflict";
@@ -277,9 +287,13 @@ export class DraftStore {
 	 * Publish the saved draft. Unsaved edits are saved first; the publish is
 	 * pinned to the revision that save produced.
 	 */
-	publish(): Promise<boolean> {
+	publish({ reviewedDraft }: { reviewedDraft: PortfolioContent }): Promise<boolean> {
 		this.cancelAutosave();
 		return this.enqueue(async () => {
+			if (this.state.draft !== reviewedDraft) {
+				this.scheduleAutosave();
+				return false;
+			}
 			if (this.state.conflict || this.state.issues.all.length > 0) return false;
 			if (!jsonEqual(this.state.draft, this.state.saved)) {
 				const saved = await this.saveNow();
@@ -308,19 +322,76 @@ export class DraftStore {
 		});
 	}
 
-	/**
-	 * Replace the whole draft (restore a revision, import a file, discard to
-	 * live) and save it as a new draft revision.
-	 */
+	/** Install and save an imported document. */
 	replaceDraft(content: PortfolioContent): Promise<boolean> {
 		this.cancelAutosave();
-		this.set({ draft: content });
-		return this.save();
+		return this.enqueue(() => {
+			if (this.state.conflict) return Promise.resolve(false);
+			this.set({ draft: content });
+			return this.saveNow();
+		});
 	}
 
-	/** Throw away unsaved and saved draft changes: the draft becomes what is live. */
-	discardToLive(): Promise<boolean> {
-		return this.replaceDraft(structuredClone(this.state.published));
+	/** Replace the confirmed draft after any in-flight save settles. */
+	restore(id: number, reviewedDraft = this.state.draft): Promise<boolean> {
+		return this.replaceFromServer(reviewedDraft, (expectedRevision) =>
+			this.api.restore({ id, expectedRevision }),
+		);
+	}
+
+	discard(
+		expectedPublishedRevision = this.state.publishedRevision,
+		reviewedDraft = this.state.draft,
+	): Promise<boolean> {
+		return this.replaceFromServer(reviewedDraft, (expectedRevision) =>
+			this.api.discard({ expectedRevision, expectedPublishedRevision }),
+		);
+	}
+
+	private replaceFromServer(
+		reviewedDraft: PortfolioContent,
+		replace: (expectedRevision: number) => Promise<ReplaceResult>,
+	): Promise<boolean> {
+		this.cancelAutosave();
+		return this.enqueue(async () => {
+			if (this.state.conflict) return false;
+			if (this.state.draft !== reviewedDraft) {
+				this.scheduleAutosave();
+				this.set({ status: "error", error: "The draft changed. Review it and try again." });
+				return false;
+			}
+			this.cancelAutosave();
+			this.set({ status: "saving", error: null });
+			try {
+				const result = await replace(this.state.draftRevision);
+				if (!result.ok) {
+					if (result.kind === "conflict") {
+						this.set({ status: "conflict", conflict: result.current });
+					} else {
+						this.set({ status: "error", error: "That revision could not be found." });
+						this.scheduleAutosave();
+					}
+					return false;
+				}
+				// If editing resumed while the request ran, let the owner choose
+				// which version to keep before autosave can overwrite either one.
+				if (this.state.draft !== reviewedDraft) {
+					this.set({ status: "conflict", conflict: result.snapshot });
+					return false;
+				}
+				this.adoptSnapshot(result.snapshot);
+				return true;
+			} catch (error) {
+				const { message, authExpired } = messageFor(error);
+				this.set({
+					status: "error",
+					error: authExpired ? message : "The draft could not be replaced. Check your connection.",
+					authExpired,
+				});
+				this.scheduleAutosave();
+				return false;
+			}
+		});
 	}
 
 	/** Conflict: drop local edits and load the server's document. */
@@ -359,8 +430,7 @@ export class DraftStore {
 		return this.save();
 	}
 
-	/** After a restore or discard on the server, adopt the server snapshot. */
-	adoptSnapshot(snapshot: DraftSnapshotInput) {
+	private adoptSnapshot(snapshot: DraftSnapshotInput) {
 		this.cancelAutosave();
 		this.set({
 			...snapshot,
@@ -368,6 +438,7 @@ export class DraftStore {
 			conflict: null,
 			status: "idle",
 			error: null,
+			authExpired: false,
 		});
 	}
 }

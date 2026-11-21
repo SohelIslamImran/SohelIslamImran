@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
@@ -7,11 +8,13 @@ import { itemForIssue } from "../../components/cms/sections/collection-helpers";
 import { SECTION_EDITORS } from "../../components/cms/sections/editors";
 import { findSection, isSectionId, type SectionMeta } from "../../components/cms/sections/registry";
 
+export const sectionSearch = z.object({
+	item: z.string().max(160).optional().catch(undefined),
+	tab: z.literal("social").optional().catch(undefined),
+});
+
 export const Route = createFileRoute("/cms/content/$section")({
-	validateSearch: z.object({
-		item: z.string().max(160).optional(),
-		tab: z.literal("social").optional(),
-	}),
+	validateSearch: sectionSearch,
 	beforeLoad: ({ params }) => {
 		if (!isSectionId(params.section)) throw notFound();
 	},
@@ -25,6 +28,17 @@ function SectionRoute() {
 	const { section: sectionId } = Route.useParams();
 	const { item, tab } = Route.useSearch();
 	const navigate = Route.useNavigate();
+	const select = useCallback(
+		(nextItem?: string, nextTab?: "social", replace = false) =>
+			navigate({
+				to: "/cms/content/$section",
+				params: { section: sectionId },
+				search: { item: nextItem, tab: nextTab },
+				replace,
+				resetScroll: false,
+			}),
+		[navigate, sectionId],
+	);
 	if (!isSectionId(sectionId)) return null;
 	const section = findSection(sectionId);
 	if (!section) return null;
@@ -39,20 +53,7 @@ function SectionRoute() {
 				<p className="m-0 text-[14px] text-muted-foreground">{section.summary}</p>
 				<SectionIssues section={section} />
 			</header>
-			<Editor
-				key={sectionId}
-				item={item}
-				tab={tab}
-				select={(nextItem, nextTab) =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: sectionId },
-						search: { item: nextItem, tab: nextTab },
-						replace: true,
-						resetScroll: false,
-					})
-				}
-			/>
+			<Editor key={sectionId} item={item} tab={tab} select={select} />
 		</div>
 	);
 }

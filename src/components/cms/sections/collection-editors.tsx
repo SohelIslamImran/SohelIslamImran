@@ -30,7 +30,7 @@ import {
 	VisibilityField,
 } from "../fields";
 import { CollectionEditor, type EditorProps } from "./CollectionEditor";
-import { duplicateProject, slugIssue, uniqueProjectSlug } from "./collection-helpers";
+import { duplicateProject, uniqueProfileLinkSlug, uniqueProjectSlug } from "./collection-helpers";
 import { EditorGroup } from "./EditorLayout";
 
 const CATEGORY_COPY = {
@@ -47,9 +47,6 @@ const CATEGORY_OPTIONS = PROJECT_CATEGORIES.map((value) => ({
 function ProjectSlug({ path }: { path: string }) {
 	const slugPath = `${path}.slug`;
 	const slug = useDraftValue<string>(slugPath);
-	const issue = useDraftSelector((state, store) =>
-		slugIssue(slug, state.draft.projects, store.valueAt(`${path}.id`) as string),
-	);
 	const liveSlug = useDraftSelector(
 		(state, store) => store.liveValueAt(slugPath, state) as string | undefined,
 	);
@@ -62,7 +59,6 @@ function ProjectSlug({ path }: { path: string }) {
 				mono
 				spellCheck={false}
 				maxLength={160}
-				extraIssue={issue ? { path: slugPath, message: issue } : undefined}
 				description={
 					<span className="wrap-anywhere">
 						Public URL <code className="font-mono text-ink-soft">/work/{slug || "…"}</code>
@@ -396,7 +392,13 @@ function SocialFields({ path, profile = false }: { path: string; profile?: boole
 			<TextField path={`${path}.label`} label="Label" maxLength={profile ? 240 : 160} required />
 			<TextField path={`${path}.platform`} label="Platform" maxLength={80} required />
 			<TextField path={`${path}.handle`} label="Handle" maxLength={160} mono optional />
-			<HrefField path={`${path}.href`} label="Destination" />
+			<HrefField
+				path={`${path}.href`}
+				label="Destination"
+				description={
+					profile ? "Use https://, a site path like /work, mailto:, or tel:." : undefined
+				}
+			/>
 		</div>
 	);
 }
@@ -419,7 +421,9 @@ export function LinksEditor(props: EditorProps) {
 	return (
 		<Tabs.Root
 			value={props.tab ?? "profile"}
-			onValueChange={(tab) => void props.select(undefined, tab === "social" ? "social" : undefined)}
+			onValueChange={(tab) =>
+				void props.select(undefined, tab === "social" ? "social" : undefined, true)
+			}
 			className="grid min-w-0 gap-4"
 		>
 			<Tabs.List
@@ -441,7 +445,17 @@ export function LinksEditor(props: EditorProps) {
 					itemLabel="Link"
 					nameLabel="Link label"
 					nameLimit={240}
-					create={(label, id) => ({ id, label, platform: "", href: "" })}
+					create={(label, _id, rows) => ({
+						id: uniqueProfileLinkSlug(label, rows),
+						label,
+						platform: "",
+						href: "",
+					})}
+					duplicate={(row, rows) => ({
+						...row,
+						id: uniqueProfileLinkSlug(`${row.id}-copy`, rows),
+						label: row.label.slice(0, 233) + " (copy)",
+					})}
 					describe={(row) => ({
 						title: row.label,
 						subtitle: row.platform,

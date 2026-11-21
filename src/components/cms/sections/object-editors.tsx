@@ -193,6 +193,7 @@ export function StoryEditor() {
 			<EditorGroup title="Story chapters">
 				<RepeaterField<StoryChapterContent>
 					path="story.chapters"
+					max={30}
 					label="Chapters"
 					itemLabel="Chapter"
 					create={() => ({ id: newRowId(), eyebrow: "", title: "", paragraphs: [] })}

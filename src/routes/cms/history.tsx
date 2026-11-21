@@ -10,7 +10,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { cn } from "../../lib/utils";
 import { Button } from "../../components/ui/button";
-import { useCmsSession, useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
+import { useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { DiffView } from "../../components/cms/release/DiffView";
 import {
@@ -19,7 +19,7 @@ import {
 	HistoryIcon,
 } from "../../components/cms/shell/cms-icons";
 import { formatBytes, formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
-import { getRevision, listRevisions, restoreRevision } from "../../server/cms-history.functions";
+import { getRevision, listRevisions } from "../../server/cms-history.functions";
 import type {
 	RevisionDetail,
 	RevisionKind,
@@ -106,13 +106,11 @@ function RevisionRow({
 function HistoryRoute() {
 	const { revision: searchRevision } = Route.useSearch();
 	const store = useDraftStore();
-	const { csrfToken } = useCmsSession();
 	const draft = useDraftSelector((state) => state.draft);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 
 	const fetchList = useServerFn(listRevisions);
 	const fetchDetail = useServerFn(getRevision);
-	const runRestore = useServerFn(restoreRevision);
 
 	const [filter, setFilter] = useState<"all" | RevisionKind>("all");
 	const [items, setItems] = useState<RevisionSummary[]>([]);
@@ -126,7 +124,7 @@ function HistoryRoute() {
 	const [loadingDetail, setLoadingDetail] = useState(false);
 	const [detailError, setDetailError] = useState<string | null>(null);
 
-	const [confirmOpen, setConfirmOpen] = useState(false);
+	const [restoreReview, setRestoreReview] = useState<typeof draft | null>(null);
 	const [restoring, setRestoring] = useState(false);
 	const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 
@@ -219,40 +217,21 @@ function HistoryRoute() {
 	}, [detail, draft]);
 
 	const handleRestore = async () => {
-		if (!detail) return;
+		if (!detail || !restoreReview) return;
 		setRestoring(true);
 		setNotice(null);
-		try {
-			const result = await runRestore({
-				data: {
-					id: detail.id,
-					expectedRevision: store.getState().draftRevision,
-					csrfToken,
-				},
+		const ok = await store.restore(detail.id, restoreReview);
+		setRestoring(false);
+		setRestoreReview(null);
+		const state = store.getState();
+		if (ok) {
+			setNotice({
+				tone: "ok",
+				text: `Restored ${detail.kind} r${detail.revision} into Draft r${state.draftRevision}. Publish when ready to go live.`,
 			});
-			if (result.ok) {
-				store.adoptSnapshot(result.snapshot);
-				setConfirmOpen(false);
-				setNotice({
-					tone: "ok",
-					text: `Restored ${detail.kind} r${detail.revision} into Draft r${result.snapshot.draftRevision}. Publish when ready to go live.`,
-				});
-				void loadInitial(filter);
-			} else if (result.kind === "conflict") {
-				store.adoptSnapshot(result.current);
-				setConfirmOpen(false);
-				setNotice({
-					tone: "error",
-					text: `Another session saved Draft r${result.current.draftRevision}. Synced your workspace — try restoring again if still needed.`,
-				});
-			} else {
-				setConfirmOpen(false);
-				setNotice({ tone: "error", text: "That revision could not be found." });
-			}
-		} catch {
-			setNotice({ tone: "error", text: "Could not restore this revision. Check your connection." });
-		} finally {
-			setRestoring(false);
+			void loadInitial(filter);
+		} else if (state.error) {
+			setNotice({ tone: "error", text: state.error });
 		}
 	};
 
@@ -399,7 +378,7 @@ function HistoryRoute() {
 									variant="default"
 									size="sm"
 									disabled={diff.changedSections.length === 0 || restoring}
-									onClick={() => setConfirmOpen(true)}
+									onClick={() => setRestoreReview(draft)}
 									className="pointer-coarse:min-h-11"
 								>
 									<HistoryIcon className="size-3.5" />
@@ -424,7 +403,12 @@ function HistoryRoute() {
 				</section>
 			</div>
 
-			<AlertDialog.Root open={confirmOpen} onOpenChange={setConfirmOpen}>
+			<AlertDialog.Root
+				open={restoreReview !== null}
+				onOpenChange={(open) => {
+					if (!open) setRestoreReview(null);
+				}}
+			>
 				<AlertDialog.Portal>
 					<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.35)] dark:bg-[rgb(0_0_0/0.6)]" />
 					<AlertDialog.Popup className="cms-dialog-popup cms-glass fixed top-1/2 left-1/2 z-(--z-palette) grid w-[min(460px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6">
@@ -438,8 +422,8 @@ function HistoryRoute() {
 									Restore {detail?.kind} r{detail?.revision} into your draft?
 								</AlertDialog.Title>
 								<AlertDialog.Description className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">
-									This writes a new draft revision (r{draftRevision + 1}) and upgrades older schema
-									versions automatically. The live site does not change until you publish.
+									This replaces your current draft, including unsaved edits, with a new draft
+									revision. Publish when you are ready to update the live site.
 								</AlertDialog.Description>
 							</div>
 						</div>

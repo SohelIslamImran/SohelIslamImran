@@ -31,6 +31,59 @@ describe("portfolio content validation", () => {
 		);
 	});
 
+	it("validates collection IDs and project slugs per collection on writes", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.projects[1]!.id = draft.projects[0]!.id;
+		draft.projects[1]!.slug = draft.projects[0]!.slug.toUpperCase();
+		draft.story.chapters.push({ ...draft.story.chapters[0]! });
+		const result = validatePortfolioContent(draft);
+		expect(result).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				{ path: "projects[1].id", message: "must be unique" },
+				{ path: "projects[1].slug", message: "must be unique" },
+				{ path: "projects[1].slug", message: expect.stringContaining("lowercase") },
+				{
+					path: `story.chapters[${draft.story.chapters.length - 1}].id`,
+					message: "must be unique",
+				},
+			]),
+		});
+		expect(parseStoredContent(JSON.stringify(draft)).projects[1]?.slug).toBe(
+			draft.projects[1]?.slug,
+		);
+	});
+
+	it("rejects overlong chapter, paragraph, and media ID lists and reads legacy chapters safely", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.story.chapters = Array.from({ length: 31 }, (_, i) => ({
+			...draft.story.chapters[0]!,
+			id: `chapter-${i}`,
+		}));
+		expect(parseStoredContent(JSON.stringify(draft)).story.chapters).toHaveLength(31);
+		draft.story.chapters[0]!.paragraphs = Array.from({ length: 21 }, () => "Paragraph");
+		draft.travel.entries = [
+			{
+				id: "trip",
+				place: "Example",
+				region: "",
+				season: "",
+				summary: "",
+				reflection: "",
+				visibility: "public",
+				mediaIds: Array.from({ length: 31 }, (_, i) => `asset-${i}`),
+			},
+		];
+		expect(validatePortfolioContent(draft)).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				{ path: "story.chapters", message: "must contain no more than 30 items" },
+				{ path: "story.chapters[0].paragraphs", message: "must contain no more than 20 items" },
+				{ path: "travel.entries[0].mediaIds", message: "must contain no more than 30 items" },
+			]),
+		});
+	});
+
 	it("upgrades only exact legacy schema versions 1 and 2", () => {
 		for (const version of [1, 2]) {
 			const legacy = createLegacyV2Fixture();

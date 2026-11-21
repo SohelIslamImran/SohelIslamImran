@@ -1,6 +1,16 @@
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
+import { listMedia } from "../../../server/cms-history.functions";
 import type { MediaAsset } from "../../../types/content";
-import { useDraftSelector, useDraftValue, useField, useIssuesUnder } from "../draft/context";
-import { childPath, moveItem, removeItem } from "../draft/paths";
+import {
+	useCmsSession,
+	useDraftSelector,
+	useDraftStore,
+	useDraftValue,
+	useField,
+	useIssuesUnder,
+} from "../draft/context";
+import { childPath, moveItem, removeItem, setAt } from "../draft/paths";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowActions } from "./ListFields";
@@ -36,16 +46,53 @@ function PublishedThumbnail({ assetId }: { assetId: string }) {
 	);
 }
 
+const EMPTY_ASSETS: readonly MediaAsset[] = [];
+
+function useMediaLibrary() {
+	const { mediaEnabled } = useCmsSession();
+	const loadMedia = useServerFn(listMedia);
+	const [library, setLibrary] = useState<readonly MediaAsset[]>(EMPTY_ASSETS);
+	const [description, setDescription] = useState<string | undefined>(
+		mediaEnabled ? "Loading media library…" : "Media storage is not connected.",
+	);
+
+	useEffect(() => {
+		if (!mediaEnabled) return;
+		let current = true;
+		void loadMedia({ data: { includeAttachments: true } }).then(
+			(result) => {
+				if (!current) return;
+				const assets = result.items.flatMap((item) => (item.attachment ? [item.attachment] : []));
+				setLibrary(assets);
+				setDescription(
+					!result.mediaEnabled
+						? "Media storage is not connected."
+						: assets.length
+							? undefined
+							: "Add assets in the media library.",
+				);
+			},
+			() => {
+				if (current) setDescription("The media library could not be loaded.");
+			},
+		);
+		return () => {
+			current = false;
+		};
+	}, [loadMedia, mediaEnabled]);
+
+	return { library, description };
+}
+
 export function MediaField({ path, label }: { path: string; label: string }) {
 	const field = useField<MediaAsset | null | undefined>(path);
-	const library = useDraftValue<MediaAsset[]>("media");
+	const { library, description } = useMediaLibrary();
 	const id = field.value?.id;
 	const missing = id && !library.some((asset) => asset.id === id);
-	const description = library.length ? undefined : "Add assets in the media library.";
 	const options = [
 		{ value: NO_ASSET, label: "None" },
 		...library.map((asset) => ({ ...mediaOption(asset), value: embedChoice(asset.id) })),
-		...(missing ? [{ value: embedChoice(id), label: `Missing from library (${id})` }] : []),
+		...(missing ? [{ value: embedChoice(id), label: field.value?.alt || id }] : []),
 	];
 	const issues = useIssuesUnder(path);
 	const pickerIssues = issues.filter((issue) => issue.path !== `${path}.alt`);
@@ -85,19 +132,21 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 
 export function MediaIdsField({ path }: { path: string }) {
 	const field = useField<string[]>(path);
-	const library = useDraftValue<MediaAsset[]>("media");
+	const store = useDraftStore();
+	const { library, description: libraryDescription } = useMediaLibrary();
+	const draftAssets = useDraftValue<MediaAsset[]>("media");
 	const issues = useIssuesUnder(path);
 	const ids = field.value;
-	const assets = new Map(library.map((asset) => [asset.id, asset]));
+	const assets = new Map(draftAssets.map((asset) => [asset.id, asset]));
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const move = (from: number, to: number) => {
 		if (to < 0 || to >= ids.length) return;
 		field.set(moveItem(ids, from, to));
 		requestAnimationFrame(() => focusField(childPath(path, to)));
 	};
-	const description = available.length
-		? "Photos appear in this order."
-		: "There are no more assets to add from the library.";
+	const description =
+		libraryDescription ??
+		(available.length ? "Photos appear in this order." : "All library assets are attached.");
 	return (
 		<FieldFrame
 			path={path}
@@ -171,7 +220,18 @@ export function MediaIdsField({ path }: { path: string }) {
 				placeholder="Add photo"
 				options={available.map(mediaOption)}
 				disabled={ids.length >= MAX_TRAVEL_MEDIA || !available.length}
-				onChange={(id) => field.set([...ids, id])}
+				onChange={(id) => {
+					const asset = available.find((entry) => entry.id === id);
+					if (!asset) return;
+					const draft = store.getState().draft;
+					const withAttachment = setAt(draft, path, [...ids, id]);
+					store.update(
+						[],
+						draft.media.some((entry) => entry.id === id)
+							? withAttachment
+							: { ...withAttachment, media: [...draft.media, asset] },
+					);
+				}}
 			/>
 		</FieldFrame>
 	);

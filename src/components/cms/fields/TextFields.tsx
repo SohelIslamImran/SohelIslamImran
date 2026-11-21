@@ -1,5 +1,4 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useField } from "../draft/context";
 import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
@@ -27,7 +26,6 @@ export interface TextFieldProps extends BaseFieldProps {
 	mono?: boolean;
 	prefix?: ReactNode;
 	valueOverride?: string;
-	extraIssue?: ValidationIssue;
 }
 
 export function Counter({ length, max }: { length: number; max?: number }) {
@@ -62,11 +60,10 @@ export function TextField({
 	prefix,
 	required,
 	valueOverride,
-	extraIssue,
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = valueOverride ?? field.value ?? "";
-	const issues = extraIssue ? [...field.issues, extraIssue] : field.issues;
+	const { issues } = field;
 	return (
 		<FieldFrame
 			path={path}
