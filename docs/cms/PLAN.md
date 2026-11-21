@@ -1,6 +1,6 @@
 # CMS rebuild: "Control Plane"
 
-Status: plan v1 (2026-11-21). Owner: orchestrator. Reviewed by: Codex A, Codex B, Antigravity (verdicts in `docs/cms/REVIEW.md`).
+Status: plan v1.1 (2026-11-21), amended by the round-1 rulings in `docs/cms/REVIEW.md`, which take precedence. Owner: orchestrator. Reviewed by: Codex A, Codex B, Antigravity (verdicts in `docs/cms/REVIEW.md`).
 
 ## 1. Goals
 
@@ -43,7 +43,7 @@ Visual rules: dark-first (follows the system theme, both themes must pass AA), n
   - `cms/index.tsx` → `/` Overview
   - `cms/analytics.tsx` → `/analytics`
   - `cms/content.$section.tsx` → `/content/:section` (section registry; collections use `?item=<id>`)
-  - `cms/media.tsx` → `/media`
+  - `cms/library.tsx` → `/library` (not `/media`: that is the public asset route)
   - `cms/release.tsx` → `/release` (changes vs live, publish, discard)
   - `cms/history.tsx` → `/history` (revisions, restore)
   - `cms/activity.tsx` → `/activity` (audit events)
@@ -113,7 +113,7 @@ The orchestrator builds the foundation first and commits it. Then three agents w
 | Orchestrator (foundation) | host rewrite, server-entry, root chrome split, CMS layout route + bare shell, draft provider, path helpers, field primitives v1, section registry skeleton with the `site` editor as the reference | `src/router.tsx`, `src/server-entry.ts`, `src/routes/__root.tsx`, `src/routes/cms.tsx`, `src/components/cms/draft/**`, `src/components/cms/fields/**` (v1), `src/components/cms/sections/registry.ts` |
 | Codex A (`codex`) | analytics end to end | `migrations/0004_analytics.sql`, `wrangler.jsonc` (cron), `src/routes/api/collect.ts`, `src/server/analytics*.ts`, `src/components/analytics/**`, `src/components/cms/analytics/**`, `src/routes/cms/index.tsx`, `src/routes/cms/analytics.tsx`, the `scheduled` export and Beacon mount (two small edits in files above) |
 | Codex B (`codex-work`) | every content editor and the collection editor | `src/components/cms/sections/**` (except registry wiring), `src/components/cms/fields/**` (extends v1), `src/routes/cms/content.$section.tsx` |
-| Antigravity | shell design, command bar, release workflow, history, activity, media | `src/components/cms/shell/**`, `src/styles/cms.css`, `src/routes/cms/{release,history,activity,media}.tsx`, `src/server/cms-history.functions.ts`, additions to `src/server/cms-storage.server.ts` and `media.server.ts`, `src/components/cms/release/**` |
+| Antigravity | shell design, command bar, release workflow, history, activity, media | `src/components/cms/shell/**`, `src/styles/cms.css`, `src/routes/cms/{release,history,activity,library}.tsx`, `src/server/cms-history.functions.ts`, additions to `src/server/cms-storage.server.ts` and `media.server.ts`, `src/components/cms/release/**` |
 
 `src/routeTree.gen.ts` is regenerated after merging; do not hand-edit it.
 
