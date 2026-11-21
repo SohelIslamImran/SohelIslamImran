@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
+import { useDraftSelector } from "../draft/context";
+import { correspondingPath, getAt, parsePath } from "../draft/paths";
 
 /**
  * Deterministic DOM id for the control at a content path, so a validation
@@ -15,9 +17,17 @@ export function fieldId(path: string): string {
 export function focusField(path: string): boolean {
 	if (typeof document === "undefined") return false;
 	const control = document.getElementById(fieldId(path));
-	if (!(control instanceof HTMLElement)) return false;
-	control.scrollIntoView({ block: "center", inline: "nearest" });
-	control.focus({ preventScroll: true });
+	if (!(control instanceof HTMLElement) || !control.getClientRects().length) return false;
+	const frame = control.closest<HTMLElement>('[data-slot="cms-field"]');
+	const target =
+		control.getAttribute("aria-hidden") === "true"
+			? frame?.querySelector<HTMLElement>("[data-visible-field-control]")
+			: control.matches(":disabled")
+				? frame
+				: control;
+	if (!target) return false;
+	target.scrollIntoView({ block: "center", inline: "nearest" });
+	target.focus({ preventScroll: true });
 	return true;
 }
 
@@ -57,9 +67,19 @@ export function FieldFrame({
 	const descriptionId = description ? `${id}-description` : undefined;
 	const errorId = issues.length ? `${id}-error` : undefined;
 	const LabelTag = asGroup ? "p" : "label";
+	const canRevert = useDraftSelector(({ draft, published }) => {
+		if (!changed || !onRevert) return false;
+		const livePath = correspondingPath(draft, published, parsePath(path));
+		if (!livePath) return false;
+		// New rows and new embeds have no published parent to revert to.
+		const parent = getAt(published, livePath.slice(0, -1));
+		const key = livePath.at(-1);
+		return parent != null && (typeof key !== "number" || getAt(parent, [key]) !== undefined);
+	});
 	return (
 		<div
 			data-slot="cms-field"
+			tabIndex={-1}
 			data-changed={changed || undefined}
 			data-invalid={issues.length > 0 || undefined}
 			className={cn("cms-field group/cms-field relative grid min-w-0 gap-1.5", className)}
@@ -67,7 +87,8 @@ export function FieldFrame({
 			<span aria-hidden="true" data-slot="cms-trace-mark" className="cms-trace-mark" />
 			<div className="flex min-h-6 min-w-0 items-center justify-between gap-3">
 				<LabelTag
-					{...(asGroup ? { id: `${id}-label` } : { htmlFor: id })}
+					id={`${id}-label`}
+					{...(asGroup ? {} : { htmlFor: id })}
 					className="m-0 min-w-0 text-[13px] font-medium text-foreground"
 				>
 					{label}
@@ -75,11 +96,11 @@ export function FieldFrame({
 				</LabelTag>
 				<div className="flex shrink-0 items-center gap-2">
 					{meta}
-					{changed && onRevert ? (
+					{canRevert ? (
 						<button
 							type="button"
 							onClick={onRevert}
-							className="cms-revert pressable inline-flex min-h-7 items-center gap-1 rounded-full px-2 font-mono text-[11px] text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
+							className="cms-revert pressable inline-flex min-h-7 items-center gap-1 rounded-full pointer-coarse:min-h-11 px-2 font-mono text-[11px] text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
 						>
 							<span aria-hidden="true">↺</span> Revert
 							<span className="sr-only">
@@ -129,4 +150,4 @@ function sentenceCase(message: string): string {
 
 /** Shared control chrome for the CMS density tier. */
 export const controlClass =
-	"cms-control w-full min-w-0 rounded-[10px] border border-control-border bg-surface-solid px-3 text-[14px] text-foreground shadow-[inset_0_1px_var(--theme-highlight)] outline-hidden transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-muted-foreground/70 hover:border-line-strong focus-visible:border-ring focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-focus)_28%,transparent)] aria-invalid:border-destructive disabled:opacity-50";
+	"cms-control w-full min-w-0 rounded-[10px] border border-control-border bg-surface-solid px-3 text-[14px] text-foreground shadow-[inset_0_1px_var(--theme-highlight)] outline-hidden transition-[border-color,box-shadow,background-color] duration-150 placeholder:text-muted-foreground/70 hover:border-line-strong focus-visible:border-ring focus-visible:shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-focus)_28%,transparent)] aria-invalid:border-destructive disabled:opacity-50 pointer-coarse:min-h-11";

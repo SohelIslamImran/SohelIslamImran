@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useField } from "../draft/context";
 import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
@@ -14,19 +15,22 @@ interface BaseFieldProps {
 	optional?: boolean;
 	className?: string;
 	disabled?: boolean;
+	required?: boolean;
 }
 
 export interface TextFieldProps extends BaseFieldProps {
-	type?: "text" | "email" | "url" | "search";
+	type?: "text" | "email" | "url" | "search" | "date";
 	inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 	autoComplete?: string;
 	spellCheck?: boolean;
 	/** Monospace input, for slugs, ids, hrefs. */
 	mono?: boolean;
 	prefix?: ReactNode;
+	valueOverride?: string;
+	extraIssue?: ValidationIssue;
 }
 
-function Counter({ length, max }: { length: number; max?: number }) {
+export function Counter({ length, max }: { length: number; max?: number }) {
 	if (!max) return null;
 	const over = length > max;
 	return (
@@ -56,15 +60,19 @@ export function TextField({
 	spellCheck,
 	mono,
 	prefix,
+	required,
+	valueOverride,
+	extraIssue,
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
-	const value = field.value ?? "";
+	const value = valueOverride ?? field.value ?? "";
+	const issues = extraIssue ? [...field.issues, extraIssue] : field.issues;
 	return (
 		<FieldFrame
 			path={path}
 			label={label}
 			description={description}
-			issues={field.issues}
+			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			meta={<Counter length={value.length} max={maxLength} />}
@@ -82,11 +90,12 @@ export function TextField({
 					value={value}
 					placeholder={placeholder}
 					disabled={disabled}
+					aria-required={required || undefined}
 					inputMode={inputMode}
 					autoComplete={autoComplete}
 					spellCheck={spellCheck}
-					aria-invalid={field.issues.length > 0 || undefined}
-					aria-describedby={describedBy(path, Boolean(description), field.issues)}
+					aria-invalid={issues.length > 0 || undefined}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
 					onChange={(event) => {
 						const next = event.currentTarget.value;
 						field.set(optional && next === "" ? undefined : next);
@@ -123,6 +132,7 @@ export function TextAreaField({
 	className,
 	disabled,
 	rows = 3,
+	required,
 }: TextAreaFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
@@ -151,6 +161,7 @@ export function TextAreaField({
 				value={value}
 				placeholder={placeholder}
 				disabled={disabled}
+				aria-required={required || undefined}
 				aria-invalid={field.issues.length > 0 || undefined}
 				aria-describedby={describedBy(path, Boolean(description), field.issues)}
 				onChange={(event) => {

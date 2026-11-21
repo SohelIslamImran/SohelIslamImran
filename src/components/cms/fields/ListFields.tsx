@@ -1,7 +1,9 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useDraftStore, useField, useIssuesUnder } from "../draft/context";
 import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
+import { Counter } from "./TextFields";
 import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
 
 export interface TagsFieldProps {
@@ -23,7 +25,7 @@ export function TagsField({
 	label,
 	description,
 	placeholder = "Add and press Enter",
-	max = 100,
+	max = MAX_COLLECTION_ITEMS,
 	className,
 }: TagsFieldProps) {
 	const field = useField<string[] | undefined>(path);
@@ -69,13 +71,13 @@ export function TagsField({
 					{tags.map((tag, index) => (
 						<li
 							key={`${tag}-${index}`}
-							className="inline-flex min-h-7 items-center gap-0.5 rounded-full border border-line bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] py-0.5 pr-0.5 pl-2.5 text-[12.5px] text-foreground"
+							className="inline-flex min-h-7 max-w-full items-center gap-0.5 rounded-full border border-line bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] py-0.5 pr-0.5 pl-2.5 text-[12.5px] text-foreground"
 						>
-							{tag}
+							<span className="min-w-0 wrap-anywhere">{tag}</span>
 							<button
 								type="button"
 								onClick={() => field.set(removeItem(tags, index))}
-								className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] hover:text-foreground pointer-coarse:size-8"
+								className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] hover:text-foreground pointer-coarse:size-11"
 							>
 								<span aria-hidden="true">×</span>
 								<span className="sr-only">Remove {tag}</span>
@@ -103,9 +105,14 @@ export function TagsField({
 						}
 					}}
 					onBlur={() => add(draft)}
-					className="min-h-7 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden placeholder:text-muted-foreground/70"
+					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden placeholder:text-muted-foreground/70"
 				/>
 			</div>
+			{draft ? (
+				<div className="justify-self-end">
+					<Counter length={draft.trim().length} max={240} />
+				</div>
+			) : null}
 		</FieldFrame>
 	);
 }
@@ -118,6 +125,7 @@ export interface StringListFieldProps {
 	addLabel?: string;
 	placeholder?: string;
 	max?: number;
+	maxLength?: number;
 	/** Textareas for paragraphs, single-line inputs for highlights. */
 	multiline?: boolean;
 	className?: string;
@@ -134,15 +142,15 @@ export function StringListField({
 	itemLabel = "Item",
 	addLabel = "Add item",
 	placeholder,
-	max = 100,
+	max = MAX_COLLECTION_ITEMS,
 	multiline = false,
+	maxLength = 240,
 	className,
 }: StringListFieldProps) {
 	const store = useDraftStore();
 	const field = useField<string[] | undefined>(path);
 	const issues = useIssuesUnder(path);
 	const items = field.value ?? [];
-	const listRef = useRef<HTMLOListElement>(null);
 	const focusRow = (index: number) =>
 		requestAnimationFrame(() => document.getElementById(fieldId(childPath(path, index)))?.focus());
 	const move = (from: number, to: number) => {
@@ -166,27 +174,24 @@ export function StringListField({
 			}
 			className={className}
 		>
-			<ol
-				ref={listRef}
-				className="m-0 grid list-none gap-2 p-0"
-				aria-labelledby={`${fieldId(path)}-label`}
-			>
+			<ol className="m-0 grid list-none gap-2 p-0" aria-labelledby={`${fieldId(path)}-label`}>
 				{items.map((item, index) => {
 					const rowPath = childPath(path, index);
 					const rowIssues = issues.filter((issue) => issue.path === rowPath);
 					const Control = multiline ? "textarea" : "input";
 					return (
-						<li key={index} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-2">
-							<span className="mt-2.5 w-6 text-right font-mono text-[11px] tabular-nums text-muted-foreground">
-								{String(index + 1).padStart(2, "0")}
-							</span>
-							<div className="grid min-w-0 gap-1">
+						<li
+							key={index}
+							className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 max-sm:gap-x-0"
+						>
+							<div className="grid min-w-0 gap-1 max-sm:col-span-2">
 								<Control
 									id={fieldId(rowPath)}
 									value={item}
 									placeholder={placeholder}
 									aria-label={`${itemLabel} ${index + 1}`}
 									aria-invalid={rowIssues.length > 0 || undefined}
+									aria-describedby={rowIssues.length ? `${fieldId(rowPath)}-error` : undefined}
 									rows={multiline ? 3 : undefined}
 									onChange={(event) => store.update(rowPath, event.currentTarget.value)}
 									onKeyDown={(event) => {
@@ -204,8 +209,14 @@ export function StringListField({
 										multiline ? "min-h-20 resize-y py-2.5 leading-relaxed" : "min-h-10",
 									)}
 								/>
+								<div className="justify-self-end">
+									<Counter length={item.length} max={maxLength} />
+								</div>
 								{rowIssues.length ? (
-									<p className="m-0 text-[12.5px] text-destructive">
+									<p
+										id={`${fieldId(rowPath)}-error`}
+										className="m-0 text-[12.5px] text-destructive"
+									>
 										<span aria-hidden="true">! </span>
 										{rowIssues.map((issue) => issue.message).join(" · ")}
 									</p>
@@ -217,9 +228,11 @@ export function StringListField({
 								canMoveDown={index < items.length - 1}
 								onMoveUp={() => move(index, index - 1)}
 								onMoveDown={() => move(index, index + 1)}
+								className="max-sm:col-start-2"
 								onRemove={() => {
 									field.set(removeItem(items, index));
 									if (items.length > 1) focusRow(Math.max(0, index - 1));
+									else requestAnimationFrame(() => document.getElementById(fieldId(path))?.focus());
 								}}
 							/>
 						</li>
@@ -229,6 +242,8 @@ export function StringListField({
 			<div>
 				<button
 					type="button"
+					id={fieldId(path)}
+					aria-describedby={describedBy(path, Boolean(description), field.issues)}
 					disabled={items.length >= max}
 					onClick={() => {
 						field.set(insertItem(items, items.length, ""));
@@ -251,6 +266,7 @@ export function RowActions({
 	onMoveUp,
 	onMoveDown,
 	onRemove,
+	className,
 	children,
 }: {
 	label: string;
@@ -259,12 +275,13 @@ export function RowActions({
 	onMoveUp: () => void;
 	onMoveDown: () => void;
 	onRemove?: () => void;
+	className?: string;
 	children?: ReactNode;
 }) {
 	const button =
 		"inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent pointer-coarse:size-11";
 	return (
-		<div className="flex shrink-0 items-center gap-0.5">
+		<div className={cn("flex shrink-0 flex-wrap items-center gap-0.5", className)}>
 			{children}
 			<button type="button" className={button} disabled={!canMoveUp} onClick={onMoveUp}>
 				<span aria-hidden="true">↑</span>
