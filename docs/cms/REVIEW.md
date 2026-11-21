@@ -55,7 +55,7 @@ All three reviewers returned **approve with changes**.
 | --- | --- | --- | --- |
 | `t3/first-party-analytics` | Codex A | Codex B | approve with changes |
 | `t3/cms-shell-release-workflow` | Antigravity | Codex A | **reject** (4 blockers, reproduced against local D1) |
-| `t3/cms-content-editors` | Codex B | Antigravity | pending |
+| `t3/cms-content-editors` | Codex B | Antigravity | approve with changes (2 blockers) |
 
 All three branches are merged on the integration branch; fixes land on top.
 
@@ -85,3 +85,9 @@ Also assigned: wire live visitors into the rail pulse slot.
 - Should-fix: revision byte size read JSON bodies. → `octet_length`.
 - Should-fix, **fixed by orchestrator** (`ce41fad`): phone drawer stayed modal after resizing to desktop.
 - Nit, **fixed by orchestrator** (`ce41fad`): 36–40px touch targets raised to 44px on coarse pointers.
+
+### Content editors (Antigravity on Codex B): all accepted
+- Blocker: `profileLinks[].id` is the public `/links/:id` slug but was a UUID and not editable. → derive a unique slug from the label, editable field with a URL-change warning.
+- Blocker: `story.chapters` allowed more than 30 rows; the validator silently truncates. → `max={30}` and reject overflow in validation.
+- Should-fix: Alt+↑/↓ in repeaters dropped focus; collection-root errors could not be focused; project slug rules lived only in the editor (move pattern and uniqueness into `validation.ts` so they gate save and publish); whole-list re-render per keystroke; mobile Back bar offset and history `replace`; malformed `?item`/`?tab` threw; profile link href hint mentioned `#` anchors the validator rejects.
+- Nits: `window.confirm` for delete, tag chip focus on removal, empty-library hint copy, `DateField` legacy toggle.
