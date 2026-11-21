@@ -91,3 +91,14 @@ Also assigned: wire live visitors into the rail pulse slot.
 - Blocker: `story.chapters` allowed more than 30 rows; the validator silently truncates. → `max={30}` and reject overflow in validation.
 - Should-fix: Alt+↑/↓ in repeaters dropped focus; collection-root errors could not be focused; project slug rules lived only in the editor (move pattern and uniqueness into `validation.ts` so they gate save and publish); whole-list re-render per keystroke; mobile Back bar offset and history `replace`; malformed `?item`/`?tab` threw; profile link href hint mentioned `#` anchors the validator rejects.
 - Nits: `window.confirm` for delete, tag chip focus on removal, empty-library hint copy, `DateField` legacy toggle.
+
+## Round 3: fixes merged (2026-11-21)
+
+- `t3/fix-analytics-review-findings` (Codex): all 10 analytics items fixed, including the live visitor count in the rail.
+- `t3/fix-cms-review-round-two` (Codex): all 17 shell, release, and editor items fixed, with fixed-clock D1 race tests for audit integrity.
+
+Integration branch: `typecheck`, `check`, `test` (221 passed), and `build` pass.
+
+Orchestrator browser QA (headless Chromium, the in-app preview produced no frames): edit → autosave → release diff → publish (public home served the new headline) → activity log rows → restore r3 as a new draft → discard to live → restore and republish the original; light and dark; 1440px and 390px with no horizontal scroll; phone drawer; command bar search; no console errors.
+
+Not verified: production Cloudflare Access on the `cms.` hostname, the Workers rate-limit binding, the cron trigger, and R2 uploads (R2 is not bound in this repo).
