@@ -1,25 +1,12 @@
-/**
- * Live-pulse slot at the top of the CMS layer rail.
- *
- * The analytics workstream replaces or overrides this slot with live visitor
- * telemetry from `getLiveVisitors`. Kept deliberately neutral here with no
- * `aria-live` region so background polling never interrupts screen readers.
- */
 import { Link } from "@tanstack/react-router";
 import { cn } from "../../../lib/utils";
 
-export interface RailPulseSlotProps {
-	/** Optional live visitor count supplied by the analytics integration. */
-	activeCount?: number | null;
-	className?: string;
-}
+import { useLiveVisitors } from "../analytics/LiveVisitors";
 
-// `/cms/analytics` is added by the parallel analytics workstream; keep a wide
-// string so this component compiles both before and after that route merges.
-const ANALYTICS_ROUTE: string = "/cms/analytics";
-
-export function RailPulseSlot({ activeCount = null, className }: RailPulseSlotProps) {
-	const hasCount = typeof activeCount === "number" && Number.isFinite(activeCount);
+export function RailPulseSlot({ className }: { className?: string }) {
+	const { data, paused } = useLiveVisitors();
+	const activeCount = data?.live.count ?? null;
+	const hasCount = activeCount !== null;
 	const active = hasCount && activeCount > 0;
 	const label = hasCount
 		? `${activeCount} active ${activeCount === 1 ? "visitor" : "visitors"} now`
@@ -27,7 +14,7 @@ export function RailPulseSlot({ activeCount = null, className }: RailPulseSlotPr
 
 	return (
 		<Link
-			to={ANALYTICS_ROUTE}
+			to="/cms/analytics"
 			data-slot="cms-rail-pulse"
 			title={label}
 			aria-label={label}
@@ -38,8 +25,8 @@ export function RailPulseSlot({ activeCount = null, className }: RailPulseSlotPr
 		>
 			<span className="flex min-w-0 items-center gap-2">
 				<span className="relative grid size-2.5 shrink-0 place-items-center" aria-hidden="true">
-					{active ? (
-						<span className="absolute inset-0 rounded-full bg-success/45 motion-safe:animate-ping-soft" />
+					{active && !paused ? (
+						<span className="absolute inset-0 rounded-full bg-success/45 motion-safe:animate-ping-soft motion-reduce:hidden" />
 					) : null}
 					<span
 						className={cn(

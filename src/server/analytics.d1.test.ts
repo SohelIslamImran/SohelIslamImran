@@ -246,7 +246,7 @@ describe("analytics in Miniflare D1", () => {
 		const midnight = Date.parse("2026-11-21");
 		const initial = {
 			...pageview(),
-			path: "/work/first?token=redacted",
+			path: "/work/kuno?token=redacted",
 			referrer_host: "Example.ORG",
 		};
 		expect((await submit(initial, midnight - 1000)).status).toBe(204);
@@ -262,13 +262,139 @@ describe("analytics in Miniflare D1", () => {
 		const { results } = await test.db.prepare("SELECT * FROM analytics_events").all();
 		expect(results).toHaveLength(1);
 		expect(results[0]).toMatchObject({
-			path: "/work/first",
+			path: "/work/kuno",
 			referrer_host: "example.org",
 			device: "Mobile",
 			browser: "Chrome",
 			country: "unknown",
 		});
 		expect(JSON.stringify(results)).not.toMatch(/192\.0\.2|Mozilla|redacted/u);
+	});
+
+	it("accepts only published project paths and profile link IDs, using a short-lived cache", async () => {
+		const doc = await test.db
+			.prepare("SELECT draft_json, published_json FROM portfolio_documents")
+			.first<{ draft_json: string; published_json: string }>();
+		const replace = (column: "draft_json" | "published_json", value: string) =>
+			test.db.prepare(`UPDATE portfolio_documents SET ${column} = ?`).bind(value).run();
+		const draft = JSON.parse(doc!.draft_json);
+		// The initializer's published content includes these IDs. The draft does not grant access.
+		draft.projects = [{ slug: "draft-only" }];
+		draft.profileLinks = [{ id: "draft-only" }];
+		const outbound = (link_id: string) => ({
+			kind: "outbound",
+			event_id: crypto.randomUUID(),
+			tab_id: tab,
+			path: "/",
+			link_id,
+		});
+		try {
+			await replace("draft_json", JSON.stringify(draft));
+			expect((await submit({ ...pageview(), path: "/work/draft-only" }, baseTime)).status).toBe(
+				400,
+			);
+			expect((await submit(outbound("draft-only"), baseTime)).status).toBe(400);
+			expect(
+				(await submit({ kind: "heartbeat", tab_id: tab, path: "/work/unpublished" }, baseTime))
+					.status,
+			).toBe(400);
+			expect(
+				(await submit({ ...pageview(), path: "/work/%6Buno/?private=1#section" }, baseTime)).status,
+			).toBe(204);
+			expect((await submit(outbound("email"), baseTime)).status).toBe(204);
+			expect(
+				(await test.db.prepare("SELECT path, link_id FROM analytics_events ORDER BY path").all())
+					.results,
+			).toEqual([
+				{ path: "/", link_id: "email" },
+				{ path: "/work/kuno", link_id: null },
+			]);
+			expect((await test.db.prepare("SELECT path FROM analytics_presence").all()).results).toEqual([
+				{ path: "/work/kuno" },
+			]);
+
+			await replace("published_json", "{}");
+			expect((await submit(outbound("email"), baseTime + 59_999)).status).toBe(204);
+			expect((await submit(outbound("email"), baseTime + 60_000)).status).toBe(503);
+		} finally {
+			await replace("draft_json", doc!.draft_json);
+			await replace("published_json", doc!.published_json);
+		}
+	});
+
+	it("keeps one engagement row at the maximum duration, including after rollup", async () => {
+		const event = { kind: "engagement", event_id: crypto.randomUUID(), path: "/", tab_id: tab };
+		const yesterday = baseTime - day;
+		for (const visible_ms of [2000, 8000, 3000, 8000]) {
+			expect((await submit({ ...event, visible_ms }, yesterday)).status).toBe(204);
+		}
+		const duration = async () =>
+			(await test.db.prepare("SELECT day, visible_ms FROM analytics_events").all()).results;
+		expect(await duration()).toEqual([{ day: "2026-11-20", visible_ms: 8000 }]);
+		await maintainAnalytics(test.db, baseTime);
+		expect((await submit({ ...event, visible_ms: 12_000 }, baseTime)).status).toBe(204);
+		expect((await submit({ ...event, visible_ms: 5000 }, baseTime)).status).toBe(204);
+		expect(await duration()).toEqual([{ day: "2026-11-20", visible_ms: 12_000 }]);
+		expect((await readAnalyticsSummary(test.db, "7d", baseTime)).totals.medianEngagedSeconds).toBe(
+			12,
+		);
+	});
+
+	it("compares Today at matching UTC times and longer ranges over completed days", async () => {
+		const midnight = Date.parse("2026-11-21");
+		for (const [i, ts] of [
+			midnight - day - 1,
+			midnight - day,
+			baseTime - day - 1,
+			baseTime - day,
+			midnight,
+			baseTime - 1,
+			baseTime,
+		].entries()) {
+			await submit(pageview(), ts, { "CF-Connecting-IP": `192.0.2.${i + 1}` });
+		}
+		await maintainAnalytics(test.db, baseTime);
+		const overview = await readAnalyticsOverview(test.db, baseTime);
+		expect(overview.today).toMatchObject({ value: 2, delta: 0 });
+		expect(overview.week).toMatchObject({ value: 4, delta: 4 });
+		expect(overview.recent.series.at(-1)?.at).toBe("2026-11-20");
+		expect(overview.recent.totals.pageviews).toBe(4);
+		const rolling = await readAnalyticsSummary(test.db, "24h", baseTime);
+		expect(rolling.totals.pageviews).toBe(3);
+		expect(rolling.previous.pageviews).toBe(3);
+	});
+
+	it("limits SQL breakdowns and ranks projects even when they miss the page cutoff", async () => {
+		await test.db.batch([
+			test.db.prepare(
+				"INSERT INTO analytics_daily VALUES ('2026-11-20', 'site', '*', 'pageviews', 100)",
+			),
+			test.db.prepare(
+				"INSERT INTO analytics_daily VALUES ('2026-11-20', 'pages', '/work/kuno', 'pageviews', 1)",
+			),
+			...Array.from({ length: 12 }, (_, index) =>
+				["pages", "referrers", "links", "destinations"].map((dimension) =>
+					test.db
+						.prepare("INSERT INTO analytics_daily VALUES ('2026-11-20', ?, ?, ?, ?)")
+						.bind(
+							dimension,
+							`value-${index}`,
+							dimension === "pages" || dimension === "referrers" ? "pageviews" : "clicks",
+							index + 2,
+						),
+				),
+			).flat(),
+		]);
+		const summary = await readAnalyticsSummary(test.db, "7d", baseTime);
+		for (const rows of [
+			summary.topPages,
+			summary.referrers,
+			summary.outboundLinks,
+			summary.outboundHosts,
+		]) {
+			expect(rows.map((row) => row.count)).toEqual([13, 12, 11, 10, 9, 8, 7, 6, 5, 4]);
+		}
+		expect(summary.topProjects).toEqual([{ value: "/work/kuno", count: 1 }]);
 	});
 
 	it("backfills missed days atomically, prunes finalized raw days and preserves query results", async () => {
@@ -283,7 +409,7 @@ describe("analytics in Miniflare D1", () => {
 			visible_ms,
 		});
 		for (const [event, time] of [
-			[view("/work/first"), old],
+			[view("/work/kuno"), old],
 			[view("/story"), old],
 			[engagement(9000), old],
 			[
@@ -312,10 +438,10 @@ describe("analytics in Miniflare D1", () => {
 		expect(rolling.series.at(-1)).toMatchObject({ pageviews: 2, visitorDays: 1 });
 		expect(rolling.totals.visitorDays).toBe(2);
 		expect(rolling.previous.pageviews).toBe(0);
-		expect(raw.totals).toEqual({ visitorDays: 3, pageviews: 5, medianEngagedSeconds: 10 });
-		expect(raw.topProjects).toEqual([{ value: "/work/first", count: 1 }]);
+		expect(raw.totals).toEqual({ visitorDays: 2, pageviews: 3, medianEngagedSeconds: 9.5 });
+		expect(raw.topProjects).toEqual([{ value: "/work/kuno", count: 1 }]);
 		expect(raw.outboundLinks).toEqual([{ value: "github", count: 1 }]);
-		expect(raw.series.at(-1)).toEqual({ at: "2026-11-21", visitorDays: 1, pageviews: 2 });
+		expect(raw.series.at(-1)).toEqual({ at: "2026-11-20", visitorDays: 1, pageviews: 1 });
 
 		const oldDay = new Date(old).toISOString().slice(0, 10);
 		await test.db
@@ -332,6 +458,10 @@ describe("analytics in Miniflare D1", () => {
 		expect(await readAnalyticsSummary(test.db, "24h", baseTime)).toEqual(rolling);
 		await maintainAnalytics(test.db, baseTime);
 		expect(await readAnalyticsSummary(test.db, "12m", baseTime)).toEqual(raw);
-		expect((await readAnalyticsOverview(test.db, baseTime)).allTime.totals).toEqual(raw.totals);
+		expect((await readAnalyticsOverview(test.db, baseTime)).allTime.totals).toEqual({
+			visitorDays: 3,
+			pageviews: 5,
+			medianEngagedSeconds: 10,
+		});
 	});
 });

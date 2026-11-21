@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
 	AnalyticsUnavailable,
@@ -8,7 +9,6 @@ import {
 	Panel,
 	RankedList,
 	controlClass,
-	useLiveVisitors,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
 import { useDraftSelector } from "../../components/cms/draft/context";
@@ -74,10 +74,10 @@ function CmsOverview() {
 			</header>
 			{overview ? (
 				<>
-					{overview.allTime.totals.pageviews === 0 ? <NoVisits /> : null}
+					{overview.allTime.totals.pageviews === 0 ? <NoVisits allTime /> : null}
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<p className="m-0 text-sm text-muted-foreground" title={visitorDayDescription}>
-							Traffic in visitor-days · UTC
+							Traffic in visitor-days · UTC · 7- and 30-day totals use completed days
 						</p>
 						<LiveControls {...live} />
 					</div>
@@ -90,7 +90,7 @@ function CmsOverview() {
 							comparison="since last check"
 							live={!live.paused && (active ?? 0) > 0}
 						/>
-						<Kpi label="Today" {...overview.today} comparison="than yesterday" />
+						<Kpi label="Today" {...overview.today} comparison="than this time yesterday" />
 						<Kpi label="7 days" {...overview.week} comparison="than prior 7 days" />
 						<Kpi
 							label="30 days"

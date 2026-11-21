@@ -1,9 +1,8 @@
 import { useRouter } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
-import { getLiveVisitors } from "../../../server/analytics.functions";
-import type { AnalyticsCount, LiveVisitors } from "../../../server/analytics.server";
+import type { AnalyticsCount } from "../../../server/analytics.server";
+import type { useLiveVisitors } from "./LiveVisitors";
 
 export const controlClass =
 	"inline-flex min-h-11 items-center justify-center rounded-[10px] border border-line px-3 font-medium text-foreground no-underline hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring";
@@ -79,10 +78,10 @@ export function RankedList({
 	);
 }
 
-export function NoVisits() {
+export function NoVisits({ allTime = false }: { allTime?: boolean }) {
 	return (
 		<p className="m-0 rounded-[10px] border border-line px-3 py-2 text-muted-foreground">
-			No visits recorded yet
+			{allTime ? "No visits recorded yet" : "No visits in this period"}
 		</p>
 	);
 }
@@ -160,41 +159,6 @@ export function Kpi({
 			<Delta value={delta} comparison={comparison} />
 		</div>
 	);
-}
-
-export function useLiveVisitors() {
-	const query = useServerFn(getLiveVisitors);
-	const [paused, setPaused] = useState(false);
-	const [data, setData] = useState<{ live: LiveVisitors; samples: number[] } | null>(null);
-	const [failed, setFailed] = useState(false);
-
-	useEffect(() => {
-		if (paused) return;
-		let stopped = false;
-		let timer: number;
-		async function poll() {
-			try {
-				const live = await query();
-				if (!stopped) {
-					setFailed(false);
-					setData((previous) => ({
-						live,
-						samples: [...(previous?.samples ?? []).slice(-11), live.count],
-					}));
-				}
-			} catch {
-				if (!stopped) setFailed(true);
-			} finally {
-				if (!stopped) timer = window.setTimeout(poll, 15_000);
-			}
-		}
-		void poll();
-		return () => {
-			stopped = true;
-			window.clearTimeout(timer);
-		};
-	}, [paused, query]);
-	return { data, paused, setPaused, failed };
 }
 
 export function LiveControls({

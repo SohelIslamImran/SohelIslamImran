@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { canonicalAnalyticsPath } from "../components/analytics/paths";
+import { analyticsProjectPath } from "../components/analytics/paths";
 import { linkableProjects, projectSlug } from "../components/work/project-utils";
 import {
 	readAnalyticsOverview,
@@ -21,7 +21,7 @@ async function withProjectTitles(summary: AnalyticsSummary) {
 	const content = await readPublished();
 	const titles = new Map(
 		linkableProjects(content.projects).map((project) => [
-			canonicalAnalyticsPath(`/work/${encodeURIComponent(projectSlug(project))}`),
+			analyticsProjectPath(projectSlug(project)),
 			project.title,
 		]),
 	);
