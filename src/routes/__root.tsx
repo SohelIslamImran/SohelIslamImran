@@ -9,6 +9,7 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
+import { Beacon } from "../components/analytics/Beacon";
 import { accentBootScript, themeColors } from "../components/AccentSwitcher";
 import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/CommandPalette";
 import { NavDock } from "../components/chrome/NavDock";
@@ -85,6 +86,7 @@ function RootComponent() {
 	return (
 		<MotionConfig reducedMotion="user">
 			<RootDocument>
+				<Beacon />
 				<CommandPaletteProvider>
 					<a
 						data-slot="skip-link"

@@ -1,5 +1,6 @@
 import { createStartHandler, defaultStreamHandler } from "@tanstack/react-start/server";
 import { toPublicCmsPath } from "./lib/cms-host";
+import { maintainAnalytics } from "./server/analytics.server";
 
 // Keep the stream handler explicit so independent route data can flush while
 // the SSR document is still being assembled. Critical identity/SEO content is
@@ -22,7 +23,12 @@ const securityHeaders: Record<string, string> = {
 	"Cross-Origin-Resource-Policy": "same-origin",
 };
 
+export async function scheduled(controller: ScheduledController, env: Env) {
+	await maintainAnalytics(env.DB, controller.scheduledTime);
+}
+
 export default {
+	scheduled,
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const incoming = new URL(request.url);
 		const host = incoming.hostname.toLowerCase();

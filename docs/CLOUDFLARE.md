@@ -96,3 +96,9 @@ bun run build
 ## Local development
 
 Copy `.dev.vars.example` to `.dev.vars`, replace placeholders with local values, and keep the file out of version control. Use the local CMS hostname or loopback flow for development. The production Access policy and production secrets are not replaced by local values.
+
+## Analytics
+
+Apply `0004_analytics.sql` to the existing D1 `DB` binding before deploying the collector. The `ANALYTICS_LIMITER` Workers binding allows 60 submissions per minute per client key at each Cloudflare location. When the binding is absent, the collector uses a bounded, per-isolate limit. At 00:20 UTC daily, the Worker cron backfills completed days and then prunes raw events older than 90 days, presence older than one day, and daily secrets older than two UTC days. Aggregate rollups are retained. D1 Time Travel can still restore deleted rows within its recovery window. [D1 Time Travel](https://developers.cloudflare.com/d1/reference/time-travel/)
+
+The first-party beacon uses no cookies or third-party scripts. It honors Do Not Track and the browser-local preference set by `?analytics=off` or cleared by `?analytics=on`. The collector discards query strings, keeps hostnames only for referrals and external destinations, and never stores raw IPs or user agents. Separate daily HMAC keys identify visitors and tabs within one UTC day. The live view counts tabs seen in the last two minutes. A visitor can count once on each UTC day. Hourly buckets count distinct visitor-days seen within each hour, so their sum can exceed the 24-hour visitor-days total. Engaged time rolls up whole-second totals per tab per UTC day. Profile link clicks come from the beacon alone.
