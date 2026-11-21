@@ -26,6 +26,14 @@
 		"head_sampling_rate": 1,
 	},
 	"upload_source_maps": true,
+	"ratelimits": [
+		{
+			"name": "ANALYTICS_LIMITER",
+			"namespace_id": "41004",
+			"simple": { "limit": 60, "period": 60 },
+		},
+	],
+	"triggers": { "crons": ["20 0 * * *"] },
 	"d1_databases": [
 		{
 			"binding": "DB",

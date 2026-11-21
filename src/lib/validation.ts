@@ -195,7 +195,7 @@ function readStringArray(
 		issues.push({ path, message: `must contain no more than ${maxItems} items` });
 	}
 
-	return value.slice(0, maxItems).map((item, index) => {
+	return value.map((item, index) => {
 		if (typeof item !== "string") {
 			issues.push({ path: `${path}[${index}]`, message: "must be a string" });
 			return "";
@@ -953,6 +953,8 @@ function readSocial(value: unknown, issues: ValidationIssue[]): SocialLinkConten
 		.map((item, index) => readSocialItem(item, `social[${index}]`, issues));
 }
 
+export const PUBLIC_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+
 const PROFILE_LINK_KINDS = ["social", "contact", "story", "work", "other"] as const;
 type ProfileLinkKind = (typeof PROFILE_LINK_KINDS)[number];
 
@@ -970,7 +972,7 @@ function readProfileLinkItem(
 	const id = readRequiredString(object, "id", `${path}.id`, issues, {
 		maxLength: 80,
 	});
-	if (id.length > 0 && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(id)) {
+	if (id.length > 0 && !PUBLIC_SLUG_PATTERN.test(id)) {
 		issues.push({
 			path: `${path}.id`,
 			message: "must contain only lowercase letters, numbers, and single hyphens",
@@ -1100,7 +1102,7 @@ function readStoryChapter(
 	};
 }
 
-function readStory(value: unknown, issues: ValidationIssue[]): StoryContent {
+function readStory(value: unknown, issues: ValidationIssue[], stored: boolean): StoryContent {
 	const object = asObject(value);
 	if (!object) {
 		issues.push({ path: "story", message: "must be an object" });
@@ -1116,10 +1118,11 @@ function readStory(value: unknown, issues: ValidationIssue[]): StoryContent {
 	}
 
 	const rawChapters = object.chapters;
+	if (!stored && Array.isArray(rawChapters) && rawChapters.length > 30) {
+		issues.push({ path: "story.chapters", message: "must contain no more than 30 items" });
+	}
 	const chapters = Array.isArray(rawChapters)
-		? rawChapters
-				.slice(0, 30)
-				.map((item, index) => readStoryChapter(item, `story.chapters[${index}]`, issues))
+		? rawChapters.map((item, index) => readStoryChapter(item, `story.chapters[${index}]`, issues))
 		: (issues.push({ path: "story.chapters", message: "must be an array" }), []);
 
 	return {
@@ -1505,18 +1508,43 @@ export function upgradeStoredContent(value: unknown): PortfolioContent {
 	const identity = asObject(normalized.identity);
 	if (identity) normalized.identity = normalizeLegacyMediaField(identity, "avatar");
 
-	return parsePortfolioContent({
-		...normalized,
-		schemaVersion: CONTENT_SCHEMA_VERSION,
-		projects: normalizeLegacyProjects(object.projects),
-		testimonials: object.testimonials ?? [],
-		credentials: object.credentials ?? [],
-		profileLinks: normalizeLegacyProfileLinks(object.profileLinks ?? []),
-		media: normalizeLegacyMediaArray(object.media),
-	});
+	return readPortfolioContent(
+		{
+			...normalized,
+			schemaVersion: CONTENT_SCHEMA_VERSION,
+			projects: normalizeLegacyProjects(object.projects),
+			testimonials: object.testimonials ?? [],
+			credentials: object.credentials ?? [],
+			profileLinks: normalizeLegacyProfileLinks(object.profileLinks ?? []),
+			media: normalizeLegacyMediaArray(object.media),
+		},
+		true,
+	);
 }
 
 export function parsePortfolioContent(value: unknown): PortfolioContent {
+	return readPortfolioContent(value, false);
+}
+
+function checkUnique(
+	rows: readonly { [key in "id" | "slug"]?: string }[],
+	path: string,
+	key: "id" | "slug",
+	issues: ValidationIssue[],
+) {
+	const seen = new Set<string>();
+	for (const [index, row] of rows.entries()) {
+		const value = row[key];
+		if (!value) continue;
+		const normalized = key === "slug" ? value.trim().toLowerCase() : value;
+		if (seen.has(normalized)) {
+			issues.push({ path: `${path}[${index}].${key}`, message: "must be unique" });
+		}
+		seen.add(normalized);
+	}
+}
+
+function readPortfolioContent(value: unknown, stored: boolean): PortfolioContent {
 	const issues: ValidationIssue[] = [];
 	const object = asObject(value);
 
@@ -1547,10 +1575,37 @@ export function parsePortfolioContent(value: unknown): PortfolioContent {
 		social: readSocial(object.social, issues),
 		profileLinks: readProfileLinks(object.profileLinks, issues),
 		resume: readResume(object.resume, issues),
-		story: readStory(object.story, issues),
+		story: readStory(object.story, issues, stored),
 		travel: readTravel(object.travel, issues),
 		media: readMediaArray(object.media, issues),
 	};
+
+	// Existing publications predate these constraints. Validate them on the
+	// next save or publish while keeping stored documents readable.
+	if (!stored) {
+		for (const key of [
+			"experience",
+			"projects",
+			"capabilities",
+			"testimonials",
+			"credentials",
+			"writing",
+			"media",
+		] as const) {
+			checkUnique(result[key], key, "id", issues);
+		}
+		checkUnique(result.story.chapters, "story.chapters", "id", issues);
+		checkUnique(result.travel.entries, "travel.entries", "id", issues);
+		checkUnique(result.projects, "projects", "slug", issues);
+		for (const [index, { slug }] of result.projects.entries()) {
+			if (slug && !PUBLIC_SLUG_PATTERN.test(slug)) {
+				issues.push({
+					path: `projects[${index}].slug`,
+					message: "must contain only lowercase letters, numbers, and single hyphens",
+				});
+			}
+		}
+	}
 
 	if (issues.length > 0) {
 		throw new ContentValidationError(issues);
@@ -1567,7 +1622,7 @@ export function parseStoredContent(json: string): PortfolioContent {
 	}
 
 	try {
-		return parsePortfolioContent(JSON.parse(json) as unknown);
+		return readPortfolioContent(JSON.parse(json) as unknown, true);
 	} catch (error) {
 		if (error instanceof ContentValidationError) {
 			throw error;
@@ -1577,8 +1632,11 @@ export function parseStoredContent(json: string): PortfolioContent {
 	}
 }
 
-export function serializePortfolioContent(value: unknown): string {
-	const content = parsePortfolioContent(value);
+export function serializePortfolioContent(
+	value: unknown,
+	options?: { fromStorage: boolean },
+): string {
+	const content = readPortfolioContent(value, options?.fromStorage ?? false);
 	const json = JSON.stringify(content);
 
 	if (new TextEncoder().encode(json).byteLength > MAX_CONTENT_BYTES) {

@@ -9,6 +9,7 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
+import { Beacon } from "../components/analytics/Beacon";
 import { accentBootScript, themeColors } from "../components/AccentSwitcher";
 import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/CommandPalette";
 import { NavDock } from "../components/chrome/NavDock";
@@ -61,14 +62,31 @@ function RootComponent() {
 	});
 	const focusOnClientNavigation = hasHydratedRootRoute;
 
+	// The CMS (`/cms/*`, served at the root of the CMS host) brings its own
+	// dashboard shell. It skips the public dock, footer, and command palette.
+	const isCmsRoute = useRouterState({
+		select: (state) => state.matches.some((match) => match.routeId.startsWith("/cms")),
+	});
+
 	useEffect(() => {
 		hasHydratedRootRoute = true;
 	}, []);
 	useRouteViewTransitions();
 
+	if (isCmsRoute) {
+		return (
+			<MotionConfig reducedMotion="user">
+				<RootDocument>
+					<Outlet />
+				</RootDocument>
+			</MotionConfig>
+		);
+	}
+
 	return (
 		<MotionConfig reducedMotion="user">
 			<RootDocument>
+				<Beacon />
 				<CommandPaletteProvider>
 					<a
 						data-slot="skip-link"

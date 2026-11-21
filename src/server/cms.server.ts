@@ -16,6 +16,7 @@ import {
 } from "./cms-storage.server";
 import {
 	getCsrfToken,
+	isLoopbackRequest,
 	requireOwner,
 	verifyCsrfToken,
 	type AccessAuthEnvironment,
@@ -25,7 +26,7 @@ import type { PortfolioContent } from "../types/content";
 
 export type CmsRuntime = AccessAuthEnvironment & MediaEnvironment & { CMS_ORIGIN?: string };
 
-function runtime(): CmsRuntime {
+export function runtime(): CmsRuntime {
 	return env;
 }
 
@@ -60,7 +61,11 @@ export async function readAdminSnapshot(request: Request): Promise<{
 	};
 }
 
-function assertMutation(
+/**
+ * Owner check plus CSRF and origin check for every CMS mutation. New owner
+ * mutations (history, media, analytics settings) must call this first.
+ */
+export function assertMutation(
 	request: Request,
 	csrfToken: string | null | undefined,
 ): Promise<Awaited<ReturnType<typeof requireOwner>>> {
@@ -68,10 +73,7 @@ function assertMutation(
 		const environment = runtime();
 		const requestUrl = new URL(request.url);
 		const expectedOrigin =
-			environment.ENVIRONMENT === "development" &&
-			(requestUrl.hostname === "localhost" ||
-				requestUrl.hostname === "127.0.0.1" ||
-				requestUrl.hostname === "[::1]")
+			environment.ENVIRONMENT === "development" && isLoopbackRequest(request)
 				? requestUrl.origin
 				: cmsOrigin(environment);
 		verifyCsrfToken(request, csrfToken, expectedOrigin);

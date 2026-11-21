@@ -1,15 +1,26 @@
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
-import { and, eq, exists, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
+import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { CONTENT_SCHEMA_VERSION, type MediaAsset, type PortfolioContent } from "../types/content";
 import {
 	MAX_CONTENT_BYTES,
-	parsePortfolioContent,
 	parseStoredContent,
 	serializePortfolioContent,
 	upgradeStoredContent,
 } from "../lib/validation";
 import { mediaAssets, portfolioDocuments, portfolioRevisions } from "./schema.server";
+
+export const auditEvents = sqliteTable("audit_events", {
+	id: text("id").primaryKey(),
+	eventType: text("event_type").notNull(),
+	actorEmail: text("actor_email").notNull(),
+	actorSubject: text("actor_subject"),
+	documentId: text("document_id"),
+	revision: integer("revision"),
+	detailsJson: text("details_json"),
+	createdAt: text("created_at").notNull(),
+});
 
 export const PORTFOLIO_DOCUMENT_ID = "primary" as const;
 
@@ -98,19 +109,6 @@ export class CmsInputError extends Error {
 	}
 }
 
-interface StoredDocumentRow {
-	id: string;
-	schema_version: number;
-	draft_json: string;
-	published_json: string;
-	draft_revision: number;
-	published_revision: number;
-	draft_updated_at: string;
-	published_at: string | null;
-	updated_by: string;
-	published_by: string | null;
-}
-
 interface PublishedDocumentRow {
 	publishedJson: string;
 	publishedRevision: number;
@@ -126,7 +124,7 @@ function requireDatabase(env: CmsEnvironment): D1Database {
 
 function database(db: D1Database) {
 	return drizzle(db, {
-		schema: { mediaAssets, portfolioDocuments, portfolioRevisions },
+		schema: { auditEvents, mediaAssets, portfolioDocuments, portfolioRevisions },
 		logger: false,
 	});
 }
@@ -244,13 +242,11 @@ export function parseStoredOrBootstrap(json: string, revision: number): Portfoli
 		return upgradeStoredContent(value);
 	}
 
-	if (revision > 1) return parseStoredContent(json);
-
-	if (blankBootstrap) {
+	if (revision <= 1 && blankBootstrap) {
 		return INITIAL_PORTFOLIO_CONTENT;
 	}
 
-	return parsePortfolioContent(value);
+	return parseStoredContent(json);
 }
 
 function referencedMediaIds(content: PortfolioContent): string[] {
@@ -305,21 +301,24 @@ function parseContentColumn(json: unknown, revision: unknown): PortfolioContent 
 	}
 }
 
-function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
+function snapshotFromRow(
+	row: typeof portfolioDocuments.$inferSelect | undefined,
+): CmsDocumentSnapshot {
+	if (!row) throw new CmsDataError();
 	try {
-		const draftRevision = integerColumn(row.draft_revision);
-		const publishedRevision = integerColumn(row.published_revision);
+		const draftRevision = integerColumn(row.draftRevision);
+		const publishedRevision = integerColumn(row.publishedRevision);
 		return {
 			id: stringColumn(row.id),
-			schemaVersion: integerColumn(row.schema_version),
+			schemaVersion: integerColumn(row.schemaVersion),
 			draftRevision,
 			publishedRevision,
-			draftUpdatedAt: stringColumn(row.draft_updated_at),
-			publishedAt: nullableStringColumn(row.published_at),
-			updatedBy: stringColumn(row.updated_by),
-			publishedBy: nullableStringColumn(row.published_by),
-			draft: parseContentColumn(row.draft_json, draftRevision),
-			published: parseContentColumn(row.published_json, publishedRevision),
+			draftUpdatedAt: stringColumn(row.draftUpdatedAt),
+			publishedAt: nullableStringColumn(row.publishedAt),
+			updatedBy: stringColumn(row.updatedBy),
+			publishedBy: nullableStringColumn(row.publishedBy),
+			draft: parseContentColumn(row.draftJson, draftRevision),
+			published: parseContentColumn(row.publishedJson, publishedRevision),
 		};
 	} catch (error) {
 		if (error instanceof CmsDataError) {
@@ -332,29 +331,17 @@ function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
 	}
 }
 
-async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
-	const [stored] = await database(db)
+function selectSnapshot(query: ReturnType<typeof database>) {
+	return query
 		.select()
 		.from(portfolioDocuments)
 		.where(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID))
 		.limit(1);
+}
 
-	if (!stored) {
-		throw new CmsDataError();
-	}
-
-	return snapshotFromRow({
-		id: stored.id,
-		schema_version: stored.schemaVersion,
-		draft_json: stored.draftJson,
-		published_json: stored.publishedJson,
-		draft_revision: stored.draftRevision,
-		published_revision: stored.publishedRevision,
-		draft_updated_at: stored.draftUpdatedAt,
-		published_at: stored.publishedAt,
-		updated_by: stored.updatedBy,
-		published_by: stored.publishedBy,
-	});
+async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
+	const [stored] = await selectSnapshot(database(db));
+	return snapshotFromRow(stored);
 }
 
 /**
@@ -456,15 +443,23 @@ export async function saveDraft(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedRevision + 1),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	const auditId = crypto.randomUUID();
+	const draftAuditSelect = query
+		.select({
+			id: sql<string>`${auditId}`.as("id"),
+			eventType: sql<string>`'draft.save'`.as("event_type"),
+			actorEmail: sql<string>`${actor.email}`.as("actor_email"),
+			actorSubject: sql<string | null>`${actor.subject ?? null}`.as("actor_subject"),
+			documentId: portfolioDocuments.id,
+			revision: sql<number>`${expectedRevision + 1}`.as("revision"),
+			detailsJson: sql<string | null>`NULL`.as("details_json"),
+			createdAt: sql<string>`${now}`.as("created_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	// Keep the UPDATE, history insert, and audit insert adjacent. Each insert
+	// uses SQLite changes() to check that the preceding statement wrote one row.
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -480,7 +475,8 @@ export async function saveDraft(
 					eq(portfolioDocuments.draftRevision, expectedRevision),
 				),
 			),
-		query.insert(portfolioRevisions).select(draftRevisionSelect).onConflictDoNothing(),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(draftAuditSelect),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
@@ -522,16 +518,11 @@ export async function publishDraft(
 	const mediaIds = referencedMediaIds(draft);
 	const publishedJson = serializePortfolioContent(draft);
 	const query = database(db);
-	const documentAtRevision = query
-		.select({ id: portfolioDocuments.id })
-		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-			),
-		);
+	const publishAuditId = crypto.randomUUID();
+	const publishedByThisMutation = query
+		.select({ id: auditEvents.id })
+		.from(auditEvents)
+		.where(eq(auditEvents.id, publishAuditId));
 	const publishedRevisionSelect = query
 		.select({
 			id: sql<number | null>`NULL`.as("id"),
@@ -543,15 +534,7 @@ export async function publishDraft(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedAt, now),
-				eq(portfolioDocuments.publishedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const mediaIdBatches: string[][] = [];
 	for (let index = 0; index < mediaIds.length; index += 50) {
 		mediaIdBatches.push(mediaIds.slice(index, index + 50));
@@ -560,8 +543,21 @@ export async function publishDraft(
 		query
 			.update(mediaAssets)
 			.set({ status: "published", updatedAt: now })
-			.where(and(inArray(mediaAssets.id, ids), exists(documentAtRevision))),
+			.where(and(inArray(mediaAssets.id, ids), exists(publishedByThisMutation))),
 	);
+	const publishAuditSelect = query
+		.select({
+			id: sql<string>`${publishAuditId}`.as("id"),
+			eventType: sql<string>`'draft.publish'`.as("event_type"),
+			actorEmail: sql<string>`${actor.email}`.as("actor_email"),
+			actorSubject: sql<string | null>`${actor.subject ?? null}`.as("actor_subject"),
+			documentId: portfolioDocuments.id,
+			revision: sql<number>`${expectedDraftRevision}`.as("revision"),
+			detailsJson: sql<string | null>`NULL`.as("details_json"),
+			createdAt: sql<string>`${now}`.as("created_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -580,12 +576,13 @@ export async function publishDraft(
 					lt(portfolioDocuments.publishedRevision, expectedDraftRevision),
 				),
 			),
+		query.insert(portfolioRevisions).select(publishedRevisionSelect),
+		query.insert(auditEvents).select(publishAuditSelect),
 		query
 			.update(mediaAssets)
 			.set({ status: "draft", updatedAt: now })
-			.where(and(eq(mediaAssets.status, "published"), exists(documentAtRevision))),
+			.where(and(eq(mediaAssets.status, "published"), exists(publishedByThisMutation))),
 		...publishMediaStatements,
-		query.insert(portfolioRevisions).select(publishedRevisionSelect).onConflictDoNothing(),
 	]);
 
 	if (results[0]?.meta.changes === 1) {
@@ -611,4 +608,370 @@ export async function publishDraft(
 	}
 
 	return { ok: false, kind: "conflict", current };
+}
+
+export type RevisionKind = "draft" | "published";
+
+export interface RevisionSummary {
+	id: number;
+	kind: RevisionKind;
+	revision: number;
+	changedBy: string;
+	changedAt: string;
+	bytes: number;
+}
+
+export interface RevisionListResult {
+	items: RevisionSummary[];
+	nextBefore: number | null;
+}
+
+export interface RevisionDetail extends RevisionSummary {
+	content: PortfolioContent;
+}
+
+export type RestoreRevisionResult =
+	| { ok: true; snapshot: CmsDocumentSnapshot }
+	| { ok: false; kind: "conflict"; current: CmsDocumentSnapshot }
+	| { ok: false; kind: "not-found" };
+
+export type DiscardDraftResult =
+	| { ok: true; snapshot: CmsDocumentSnapshot }
+	| { ok: false; kind: "conflict"; current: CmsDocumentSnapshot };
+
+export type AuditEventDetails = Record<string, string | number | boolean | null>;
+
+export interface AuditEventItem {
+	id: string;
+	eventType: string;
+	actorEmail: string;
+	revision: number | null;
+	details: AuditEventDetails | null;
+	createdAt: string;
+}
+
+export interface AuditEventListResult {
+	items: AuditEventItem[];
+	nextBefore: string | null;
+}
+
+function clampLimit(value: number | undefined, fallback: number): number {
+	if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+	return Math.max(1, Math.min(100, Math.trunc(value)));
+}
+
+function parseAuditDetails(raw: string | null): AuditEventDetails | null {
+	if (!raw) return null;
+	try {
+		const record = asRecord(JSON.parse(raw));
+		if (!record) return null;
+		const out: AuditEventDetails = {};
+		for (const [key, value] of Object.entries(record)) {
+			if (
+				value === null ||
+				typeof value === "string" ||
+				typeof value === "number" ||
+				typeof value === "boolean"
+			) {
+				out[key] = value;
+			}
+		}
+		return out;
+	} catch {
+		return null;
+	}
+}
+
+/** List revision metadata and byte sizes without fetching stored JSON bodies. */
+export async function listRevisions(
+	env: CmsEnvironment,
+	options: { kind?: RevisionKind; limit?: number; before?: number } = {},
+): Promise<RevisionListResult> {
+	const db = requireDatabase(env);
+	const limit = clampLimit(options.limit, 30);
+	const conditions = [eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID)];
+	if (options.kind) {
+		conditions.push(eq(portfolioRevisions.kind, options.kind));
+	}
+	if (typeof options.before === "number" && Number.isSafeInteger(options.before)) {
+		conditions.push(lt(portfolioRevisions.id, options.before));
+	}
+	const rows = await database(db)
+		.select({
+			id: portfolioRevisions.id,
+			kind: portfolioRevisions.kind,
+			revision: portfolioRevisions.revision,
+			changedBy: portfolioRevisions.changedBy,
+			changedAt: portfolioRevisions.changedAt,
+			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
+		})
+		.from(portfolioRevisions)
+		.where(and(...conditions))
+		.orderBy(desc(portfolioRevisions.id))
+		.limit(limit + 1);
+
+	const hasMore = rows.length > limit;
+	const page = hasMore ? rows.slice(0, limit) : rows;
+	const items: RevisionSummary[] = page.map((row) => ({
+		id: integerColumn(row.id),
+		kind: row.kind === "published" ? "published" : "draft",
+		revision: integerColumn(row.revision),
+		changedBy: stringColumn(row.changedBy),
+		changedAt: stringColumn(row.changedAt),
+		bytes: integerColumn(row.bytes),
+	}));
+	const last = items[items.length - 1];
+	return {
+		items,
+		nextBefore: hasMore && last ? last.id : null,
+	};
+}
+
+/** Read one historical revision, upgrading legacy schema versions to the current shape. */
+export async function getRevision(env: CmsEnvironment, id: number): Promise<RevisionDetail | null> {
+	const db = requireDatabase(env);
+	const revisionId = requireRevision(id, "id");
+	const [row] = await database(db)
+		.select({
+			id: portfolioRevisions.id,
+			kind: portfolioRevisions.kind,
+			revision: portfolioRevisions.revision,
+			contentJson: portfolioRevisions.contentJson,
+			changedBy: portfolioRevisions.changedBy,
+			changedAt: portfolioRevisions.changedAt,
+			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
+		})
+		.from(portfolioRevisions)
+		.where(
+			and(
+				eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID),
+				eq(portfolioRevisions.id, revisionId),
+			),
+		)
+		.limit(1);
+
+	if (!row) return null;
+	const revisionNumber = integerColumn(row.revision);
+	return {
+		id: integerColumn(row.id),
+		kind: row.kind === "published" ? "published" : "draft",
+		revision: revisionNumber,
+		changedBy: stringColumn(row.changedBy),
+		changedAt: stringColumn(row.changedAt),
+		bytes: integerColumn(row.bytes),
+		content: parseContentColumn(row.contentJson, revisionNumber),
+	};
+}
+
+/**
+ * Restore a historical revision into the current draft as a new draft revision.
+ * Upgrades legacy schema versions via `parseStoredOrBootstrap` + `serializePortfolioContent`.
+ */
+export async function restoreRevision(
+	env: CmsEnvironment,
+	input: { id: number; expectedRevision: number; actor: CmsActor },
+): Promise<RestoreRevisionResult> {
+	const db = requireDatabase(env);
+	const revisionId = requireRevision(input.id, "id");
+	const expectedRevision = requireRevision(input.expectedRevision, "expectedRevision");
+	const actor = requireActor(input.actor);
+	const source = await getRevision(env, revisionId);
+	if (!source) return { ok: false, kind: "not-found" };
+
+	const contentJson = serializePortfolioContent(source.content, { fromStorage: true });
+	const now = new Date().toISOString();
+	const query = database(db);
+	const nextRevision = expectedRevision + 1;
+	const detailsJson = JSON.stringify({
+		sourceId: source.id,
+		sourceKind: source.kind,
+		sourceRevision: source.revision,
+	});
+	const draftRevisionSelect = query
+		.select({
+			id: sql<number | null>`NULL`.as("id"),
+			documentId: portfolioDocuments.id,
+			kind: sql<string>`'draft'`.as("kind"),
+			revision: sql<number>`${nextRevision}`.as("revision"),
+			contentJson: sql<string>`${contentJson}`.as("content_json"),
+			changedBy: sql<string>`${actor.email}`.as("changed_by"),
+			changedAt: sql<string>`${now}`.as("changed_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	const auditId = crypto.randomUUID();
+	const auditSelect = query
+		.select({
+			id: sql<string>`${auditId}`.as("id"),
+			eventType: sql<string>`'revision.restore'`.as("event_type"),
+			actorEmail: sql<string>`${actor.email}`.as("actor_email"),
+			actorSubject: sql<string | null>`${actor.subject ?? null}`.as("actor_subject"),
+			documentId: portfolioDocuments.id,
+			revision: sql<number>`${nextRevision}`.as("revision"),
+			detailsJson: sql<string>`${detailsJson}`.as("details_json"),
+			createdAt: sql<string>`${now}`.as("created_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	const results = await query.batch([
+		query
+			.update(portfolioDocuments)
+			.set({
+				schemaVersion: CONTENT_SCHEMA_VERSION,
+				draftJson: contentJson,
+				draftRevision: sql`${portfolioDocuments.draftRevision} + 1`,
+				draftUpdatedAt: now,
+				updatedBy: actor.email,
+			})
+			.where(
+				and(
+					eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioDocuments.draftRevision, expectedRevision),
+				),
+			),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(auditSelect),
+		selectSnapshot(query),
+	]);
+
+	if (results[0]?.meta.changes !== 1) {
+		return { ok: false, kind: "conflict", current: snapshotFromRow(results[3][0]) };
+	}
+
+	return { ok: true, snapshot: snapshotFromRow(results[3][0]) };
+}
+
+/** Discard draft changes by copying the published document into a new draft revision. */
+export async function discardDraft(
+	env: CmsEnvironment,
+	input: { expectedRevision: number; expectedPublishedRevision: number; actor: CmsActor },
+): Promise<DiscardDraftResult> {
+	const db = requireDatabase(env);
+	const expectedRevision = requireRevision(input.expectedRevision, "expectedRevision");
+	const expectedPublishedRevision = requireRevision(
+		input.expectedPublishedRevision,
+		"expectedPublishedRevision",
+	);
+	const actor = requireActor(input.actor);
+	const before = await getAdminSnapshot(env);
+	if (
+		before.draftRevision !== expectedRevision ||
+		before.publishedRevision !== expectedPublishedRevision
+	) {
+		return { ok: false, kind: "conflict", current: before };
+	}
+
+	const contentJson = serializePortfolioContent(before.published, { fromStorage: true });
+	const now = new Date().toISOString();
+	const query = database(db);
+	const nextRevision = expectedRevision + 1;
+	const detailsJson = JSON.stringify({ publishedRevision: before.publishedRevision });
+	const draftRevisionSelect = query
+		.select({
+			id: sql<number | null>`NULL`.as("id"),
+			documentId: portfolioDocuments.id,
+			kind: sql<string>`'draft'`.as("kind"),
+			revision: sql<number>`${nextRevision}`.as("revision"),
+			contentJson: sql<string>`${contentJson}`.as("content_json"),
+			changedBy: sql<string>`${actor.email}`.as("changed_by"),
+			changedAt: sql<string>`${now}`.as("changed_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	const auditId = crypto.randomUUID();
+	const auditSelect = query
+		.select({
+			id: sql<string>`${auditId}`.as("id"),
+			eventType: sql<string>`'draft.discard'`.as("event_type"),
+			actorEmail: sql<string>`${actor.email}`.as("actor_email"),
+			actorSubject: sql<string | null>`${actor.subject ?? null}`.as("actor_subject"),
+			documentId: portfolioDocuments.id,
+			revision: sql<number>`${nextRevision}`.as("revision"),
+			detailsJson: sql<string>`${detailsJson}`.as("details_json"),
+			createdAt: sql<string>`${now}`.as("created_at"),
+		})
+		.from(portfolioDocuments)
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	const results = await query.batch([
+		query
+			.update(portfolioDocuments)
+			.set({
+				schemaVersion: CONTENT_SCHEMA_VERSION,
+				draftJson: contentJson,
+				draftRevision: sql`${portfolioDocuments.draftRevision} + 1`,
+				draftUpdatedAt: now,
+				updatedBy: actor.email,
+			})
+			.where(
+				and(
+					eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioDocuments.draftRevision, expectedRevision),
+					eq(portfolioDocuments.publishedRevision, expectedPublishedRevision),
+				),
+			),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(auditSelect),
+		selectSnapshot(query),
+	]);
+
+	if (results[0]?.meta.changes !== 1) {
+		return { ok: false, kind: "conflict", current: snapshotFromRow(results[3][0]) };
+	}
+
+	return { ok: true, snapshot: snapshotFromRow(results[3][0]) };
+}
+
+/** List owner audit events newest first, paginated with an opaque `before` cursor. */
+export async function listAuditEvents(
+	env: CmsEnvironment,
+	options: { limit?: number; before?: string } = {},
+): Promise<AuditEventListResult> {
+	const db = requireDatabase(env);
+	const limit = clampLimit(options.limit, 40);
+	const query = database(db);
+
+	let cursorFilter = undefined;
+	if (options.before) {
+		const splitAt = options.before.lastIndexOf("|");
+		if (splitAt > 0) {
+			const beforeAt = options.before.slice(0, splitAt);
+			const beforeId = options.before.slice(splitAt + 1);
+			cursorFilter = or(
+				lt(auditEvents.createdAt, beforeAt),
+				and(eq(auditEvents.createdAt, beforeAt), lt(auditEvents.id, beforeId)),
+			);
+		} else {
+			cursorFilter = lt(auditEvents.createdAt, options.before);
+		}
+	}
+
+	const rows = await query
+		.select({
+			id: auditEvents.id,
+			eventType: auditEvents.eventType,
+			actorEmail: auditEvents.actorEmail,
+			revision: auditEvents.revision,
+			detailsJson: auditEvents.detailsJson,
+			createdAt: auditEvents.createdAt,
+		})
+		.from(auditEvents)
+		.where(cursorFilter)
+		.orderBy(desc(auditEvents.createdAt), desc(auditEvents.id))
+		.limit(limit + 1);
+
+	const hasMore = rows.length > limit;
+	const page = hasMore ? rows.slice(0, limit) : rows;
+	const items: AuditEventItem[] = page.map((row) => ({
+		id: stringColumn(row.id),
+		eventType: stringColumn(row.eventType),
+		actorEmail: stringColumn(row.actorEmail),
+		revision: row.revision === null ? null : integerColumn(row.revision),
+		details: parseAuditDetails(row.detailsJson),
+		createdAt: stringColumn(row.createdAt),
+	}));
+	const last = items[items.length - 1];
+	return {
+		items,
+		nextBefore: hasMore && last ? `${last.createdAt}|${last.id}` : null,
+	};
 }

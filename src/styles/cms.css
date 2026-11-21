@@ -1,0 +1,355 @@
+/*
+ * CMS density tier ("Control plane"). Imported by tailwind.css so it ships in
+ * the same stylesheet as the Trace tokens. Uses Trace tokens only; tool radii
+ * are concentric: panels 18px, nested cards 12px, inputs and rows 10px.
+ */
+
+@layer components {
+	.cms-root {
+		--cms-radius-panel: 18px;
+		--cms-radius-nested: 12px;
+		--cms-radius-control: 10px;
+		--cms-rail-width: 248px;
+		--cms-rail-collapsed: 56px;
+		--cms-topbar-height: 56px;
+		background: var(--theme-paper);
+		color: var(--theme-ink);
+		font-size: 14px;
+	}
+
+	.cms-panel {
+		border: 1px solid var(--theme-line);
+		border-radius: var(--cms-radius-panel);
+		background: var(--theme-surface-solid);
+		box-shadow:
+			0 1px 2px var(--theme-shadow-soft),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	.cms-nested {
+		border: 1px solid var(--theme-line);
+		border-radius: var(--cms-radius-nested);
+		background: var(--theme-surface-raised);
+	}
+
+	/* Floating chrome glass: scrolled pipeline bar, command bar, mobile drawer, bottom action bar. */
+	.cms-glass {
+		background: color-mix(in srgb, var(--theme-surface-solid) 82%, transparent);
+		backdrop-filter: blur(22px) saturate(180%);
+		-webkit-backdrop-filter: blur(22px) saturate(180%);
+		border-color: var(--theme-glass-border);
+		box-shadow: var(--shadow-glass);
+	}
+
+	.cms-topbar {
+		background: var(--theme-paper);
+		border-bottom: 1px solid var(--theme-line);
+		transition:
+			background-color 200ms var(--ease-trace),
+			border-color 200ms var(--ease-trace),
+			box-shadow 200ms var(--ease-trace);
+	}
+
+	.cms-topbar[data-scrolled="true"] {
+		background: color-mix(in srgb, var(--theme-surface-solid) 80%, transparent);
+		backdrop-filter: blur(20px) saturate(180%);
+		-webkit-backdrop-filter: blur(20px) saturate(180%);
+		border-bottom-color: var(--theme-glass-border);
+		box-shadow:
+			0 1px 0 var(--theme-highlight) inset,
+			0 8px 28px -12px var(--theme-shadow-strong);
+	}
+
+	@media (max-width: 1023px) {
+		.cms-topbar {
+			background: color-mix(in srgb, var(--theme-surface-solid) 82%, transparent);
+			backdrop-filter: blur(20px) saturate(180%);
+			-webkit-backdrop-filter: blur(20px) saturate(180%);
+			border-bottom-color: var(--theme-glass-border);
+		}
+	}
+
+	/*
+	 * Responsive rail geometry without JS hydration mismatches:
+	 * - < 1024px: single column, navigation lives in the mobile drawer.
+	 * - 1024–1279px: auto defaults to the 56px icon rail; user can expand with `[`.
+	 * - >= 1280px: auto defaults to the 248px full rail; user can collapse with `[`.
+	 */
+	.cms-layout {
+		display: grid;
+		min-height: 100svh;
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.cms-rail-desktop {
+		display: none;
+	}
+
+	@media (min-width: 1024px) {
+		.cms-layout {
+			grid-template-columns: var(--cms-rail-collapsed) minmax(0, 1fr);
+			transition: grid-template-columns 220ms var(--ease-trace);
+		}
+		.cms-layout[data-rail="expanded"] {
+			grid-template-columns: var(--cms-rail-width) minmax(0, 1fr);
+		}
+		.cms-rail-desktop {
+			display: flex;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-label,
+		.cms-layout[data-rail="auto"] .cms-rail-heading,
+		.cms-layout[data-rail="auto"] .cms-rail-badge-full,
+		.cms-layout[data-rail="auto"] .cms-rail-brand-text,
+		.cms-layout[data-rail="auto"] .cms-rail-pulse-text,
+		.cms-layout[data-rail="auto"] .cms-rail-footer-label,
+		.cms-layout[data-rail="collapsed"] .cms-rail-label,
+		.cms-layout[data-rail="collapsed"] .cms-rail-heading,
+		.cms-layout[data-rail="collapsed"] .cms-rail-badge-full,
+		.cms-layout[data-rail="collapsed"] .cms-rail-brand-text,
+		.cms-layout[data-rail="collapsed"] .cms-rail-pulse-text,
+		.cms-layout[data-rail="collapsed"] .cms-rail-footer-label {
+			display: none;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-link,
+		.cms-layout[data-rail="collapsed"] .cms-rail-link {
+			justify-content: center;
+			padding-inline: 0;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-badge-dot,
+		.cms-layout[data-rail="collapsed"] .cms-rail-badge-dot {
+			display: inline-flex;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-footer-row,
+		.cms-layout[data-rail="collapsed"] .cms-rail-footer-row {
+			flex-direction: column;
+			align-items: center;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-pulse,
+		.cms-layout[data-rail="collapsed"] .cms-rail-pulse {
+			justify-content: center;
+			padding-inline: 0;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-top-row,
+		.cms-layout[data-rail="collapsed"] .cms-rail-top-row {
+			flex-direction: column;
+			align-items: center;
+			gap: 6px;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-header,
+		.cms-layout[data-rail="collapsed"] .cms-rail-header {
+			padding-inline: 8px;
+		}
+	}
+
+	@media (min-width: 1280px) {
+		.cms-layout[data-rail="auto"] {
+			grid-template-columns: var(--cms-rail-width) minmax(0, 1fr);
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-label,
+		.cms-layout[data-rail="auto"] .cms-rail-heading,
+		.cms-layout[data-rail="auto"] .cms-rail-badge-full,
+		.cms-layout[data-rail="auto"] .cms-rail-brand-text,
+		.cms-layout[data-rail="auto"] .cms-rail-pulse-text,
+		.cms-layout[data-rail="auto"] .cms-rail-footer-label {
+			display: initial;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-badge-full {
+			display: inline-flex;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-link {
+			justify-content: space-between;
+			padding-inline: 10px;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-badge-dot {
+			display: none;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-footer-row {
+			flex-direction: row;
+			align-items: center;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-pulse {
+			justify-content: space-between;
+			padding-inline: 10px;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-top-row {
+			flex-direction: row;
+			align-items: center;
+			gap: 8px;
+		}
+		.cms-layout[data-rail="auto"] .cms-rail-header {
+			padding-inline: 10px;
+		}
+	}
+
+	/* Pipeline conduit lines & state motion (only transform/translate/scale/opacity). */
+	.cms-pipeline-line {
+		position: relative;
+		height: 2px;
+		border-radius: 999px;
+		overflow: hidden;
+		background: var(--theme-line-strong);
+	}
+
+	.cms-pipeline-line[data-tone="accent"] {
+		background: var(--theme-accent-line);
+	}
+
+	.cms-pipeline-line[data-tone="success"] {
+		background: color-mix(in srgb, var(--theme-success) 55%, transparent);
+	}
+
+	.cms-pipeline-line[data-tone="invalid"] {
+		background: repeating-linear-gradient(
+			to right,
+			var(--theme-destructive) 0 5px,
+			transparent 5px 9px
+		);
+	}
+
+	.cms-pipeline-runner {
+		position: absolute;
+		inset: 0;
+		border-radius: 999px;
+		background: linear-gradient(90deg, transparent 0%, var(--theme-accent) 50%, transparent 100%);
+		animation: cms-conduit-travel 1.25s var(--ease-in-out-soft) infinite;
+	}
+
+	@keyframes cms-conduit-travel {
+		from {
+			translate: -100% 0;
+		}
+		to {
+			translate: 100% 0;
+		}
+	}
+
+	/* One-shot luminous trace sweep across the pipeline bar after publish. */
+	.cms-publish-sweep {
+		position: absolute;
+		inset-inline: 0;
+		bottom: -1px;
+		height: 2px;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.cms-publish-sweep::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			var(--theme-accent) 45%,
+			var(--theme-success) 65%,
+			transparent 100%
+		);
+		animation: cms-sweep-once 900ms var(--ease-trace) forwards;
+	}
+
+	@keyframes cms-sweep-once {
+		0% {
+			translate: -100% 0;
+			opacity: 0.2;
+		}
+		20% {
+			opacity: 1;
+		}
+		100% {
+			translate: 100% 0;
+			opacity: 0;
+		}
+	}
+
+	/* Base UI Dialog / AlertDialog / Drawer motion. */
+	.cms-backdrop {
+		transition: opacity 200ms var(--ease-trace);
+	}
+	.cms-backdrop[data-starting-style],
+	.cms-backdrop[data-ending-style] {
+		opacity: 0;
+	}
+
+	.cms-dialog-popup {
+		transition:
+			opacity 200ms var(--ease-trace),
+			scale 220ms var(--ease-trace),
+			translate 220ms var(--ease-trace);
+	}
+	.cms-dialog-popup[data-starting-style],
+	.cms-dialog-popup[data-ending-style] {
+		opacity: 0;
+		scale: 0.97;
+		translate: 0 8px;
+	}
+
+	.cms-drawer-popup {
+		transition:
+			opacity 220ms var(--ease-trace),
+			translate 240ms var(--ease-trace);
+	}
+	.cms-drawer-popup[data-starting-style],
+	.cms-drawer-popup[data-ending-style] {
+		opacity: 0;
+		translate: -100% 0;
+	}
+
+	/* Trace mark: a 2px accent bar in the left gutter of a changed field. */
+	.cms-field {
+		--cms-gutter: 12px;
+	}
+
+	.cms-trace-mark {
+		position: absolute;
+		top: 4px;
+		bottom: 4px;
+		left: calc(var(--cms-gutter) * -1);
+		width: 2px;
+		border-radius: 2px;
+		background: var(--theme-accent);
+		opacity: 0;
+		scale: 1 0.4;
+		transition:
+			opacity 180ms var(--ease-trace),
+			scale 220ms var(--ease-trace);
+	}
+
+	.cms-field[data-changed] > .cms-trace-mark {
+		opacity: 1;
+		scale: 1 1;
+	}
+
+	/* An invalid field breaks the mark into a dashed destructive line, so state never relies on hue. */
+	.cms-field[data-invalid] > .cms-trace-mark {
+		opacity: 1;
+		scale: 1 1;
+		background: repeating-linear-gradient(
+			to bottom,
+			var(--theme-destructive) 0 4px,
+			transparent 4px 7px
+		);
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-layout,
+		.cms-topbar,
+		.cms-backdrop,
+		.cms-dialog-popup,
+		.cms-drawer-popup,
+		.cms-trace-mark {
+			transition: none;
+		}
+		.cms-pipeline-runner,
+		.cms-publish-sweep::after {
+			animation: none;
+		}
+		.cms-pipeline-runner {
+			translate: 0 0;
+			background: var(--theme-accent);
+			opacity: 0.65;
+		}
+		.cms-publish-sweep {
+			display: none;
+		}
+	}
+}

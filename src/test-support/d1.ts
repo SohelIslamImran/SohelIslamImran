@@ -2,9 +2,14 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Miniflare } from "miniflare";
 
-const migrations = ["0001_initial.sql", "0002_profile_links.sql", "0003_project_categories.sql"];
+const migrations = [
+	"0001_initial.sql",
+	"0002_profile_links.sql",
+	"0003_project_categories.sql",
+	"0004_analytics.sql",
+];
 
-export async function createTestD1() {
+export async function createTestD1(options?: { media?: boolean }) {
 	const miniflare = new Miniflare({
 		workers: [
 			{
@@ -21,7 +26,12 @@ export async function createTestD1() {
 							},
 						},
 					},
-					env: { DB: { type: "d1", name: "portfolio-content-test" } },
+					env: {
+						DB: { type: "d1", name: "portfolio-content-test" },
+						...(options?.media && {
+							MEDIA: { type: "r2" as const, name: "portfolio-content-test-media" },
+						}),
+					},
 				},
 			},
 		],
@@ -40,6 +50,9 @@ export async function createTestD1() {
 
 	return {
 		db: db as unknown as D1Database,
+		media: options?.media
+			? ((await miniflare.getR2Bucket("MEDIA")) as unknown as R2Bucket)
+			: undefined,
 		dispose: () => miniflare.dispose(),
 	};
 }
