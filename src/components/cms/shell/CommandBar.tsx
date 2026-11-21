@@ -568,7 +568,7 @@ function CommandBarOpen({
 									setQuery("");
 									inputRef.current?.focus();
 								}}
-								className="rounded-full px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+								className="shrink-0 whitespace-nowrap rounded-full px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
 							>
 								Clear
 							</button>
