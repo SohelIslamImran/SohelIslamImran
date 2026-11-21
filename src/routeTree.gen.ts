@@ -19,7 +19,9 @@ import { Route as RssDotxmlRouteImport } from './routes/rss[.]xml'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StoryRouteImport } from './routes/story'
 import { Route as WorkRouteImport } from './routes/work'
+import { Route as ApiCollectRouteImport } from './routes/api/collect'
 import { Route as CmsIndexRouteImport } from './routes/cms/index'
+import { Route as CmsAnalyticsRouteImport } from './routes/cms/analytics'
 import { Route as LinksLinkIdRouteImport } from './routes/links/$linkId'
 import { Route as MediaAssetIdRouteImport } from './routes/media/$assetId'
 import { Route as ResumeEditRouteImport } from './routes/resume.edit'
@@ -76,9 +78,19 @@ const WorkRoute = WorkRouteImport.update({
   path: '/work',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCollectRoute = ApiCollectRouteImport.update({
+  id: '/api/collect',
+  path: '/api/collect',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CmsIndexRoute = CmsIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => CmsRoute,
+} as any)
+const CmsAnalyticsRoute = CmsAnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => CmsRoute,
 } as any)
 const LinksLinkIdRoute = LinksLinkIdRouteImport.update({
@@ -118,6 +130,8 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
+  '/api/collect': typeof ApiCollectRoute
+  '/cms/analytics': typeof CmsAnalyticsRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -135,6 +149,8 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
+  '/api/collect': typeof ApiCollectRoute
+  '/cms/analytics': typeof CmsAnalyticsRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -154,6 +170,8 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/story': typeof StoryRoute
   '/work': typeof WorkRoute
+  '/api/collect': typeof ApiCollectRoute
+  '/cms/analytics': typeof CmsAnalyticsRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -174,6 +192,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/story'
     | '/work'
+    | '/api/collect'
+    | '/cms/analytics'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -191,6 +211,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/story'
     | '/work'
+    | '/api/collect'
+    | '/cms/analytics'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -209,6 +231,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/story'
     | '/work'
+    | '/api/collect'
+    | '/cms/analytics'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -228,6 +252,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StoryRoute: typeof StoryRoute
   WorkRoute: typeof WorkRoute
+  ApiCollectRoute: typeof ApiCollectRoute
   MediaAssetIdRoute: typeof MediaAssetIdRoute
   WorkSlugRoute: typeof WorkSlugRoute
 }
@@ -304,11 +329,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WorkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/collect': {
+      id: '/api/collect'
+      path: '/api/collect'
+      fullPath: '/api/collect'
+      preLoaderRoute: typeof ApiCollectRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/cms/': {
       id: '/cms/'
       path: '/'
       fullPath: '/cms/'
       preLoaderRoute: typeof CmsIndexRouteImport
+      parentRoute: typeof CmsRoute
+    }
+    '/cms/analytics': {
+      id: '/cms/analytics'
+      path: '/analytics'
+      fullPath: '/cms/analytics'
+      preLoaderRoute: typeof CmsAnalyticsRouteImport
       parentRoute: typeof CmsRoute
     }
     '/links/$linkId': {
@@ -350,11 +389,13 @@ declare module '@tanstack/react-router' {
 }
 
 interface CmsRouteChildren {
+  CmsAnalyticsRoute: typeof CmsAnalyticsRoute
   CmsIndexRoute: typeof CmsIndexRoute
   CmsContentSectionRoute: typeof CmsContentSectionRoute
 }
 
 const CmsRouteChildren: CmsRouteChildren = {
+  CmsAnalyticsRoute: CmsAnalyticsRoute,
   CmsIndexRoute: CmsIndexRoute,
   CmsContentSectionRoute: CmsContentSectionRoute,
 }
@@ -393,6 +434,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StoryRoute: StoryRoute,
   WorkRoute: WorkRoute,
+  ApiCollectRoute: ApiCollectRoute,
   MediaAssetIdRoute: MediaAssetIdRoute,
   WorkSlugRoute: WorkSlugRoute,
 }

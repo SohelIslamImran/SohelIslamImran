@@ -2,7 +2,12 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { Miniflare } from "miniflare";
 
-const migrations = ["0001_initial.sql", "0002_profile_links.sql", "0003_project_categories.sql"];
+const migrations = [
+	"0001_initial.sql",
+	"0002_profile_links.sql",
+	"0003_project_categories.sql",
+	"0004_analytics.sql",
+];
 
 export async function createTestD1() {
 	const miniflare = new Miniflare({
