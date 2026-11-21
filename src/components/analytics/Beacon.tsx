@@ -9,10 +9,10 @@ const tabStorageKey = "portfolio.analytics.tab";
 const uuidPattern = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
 
 interface View {
-	href: string;
 	path: string;
 	visibleSince: number | null;
-	engaged: boolean;
+	visibleMs: number;
+	engagementId: string;
 }
 
 function hostname(href: string) {
@@ -83,7 +83,7 @@ export function Beacon() {
 				...event,
 				path,
 				tab_id: getTab(),
-				event_id: event.kind === "heartbeat" ? undefined : crypto.randomUUID(),
+				event_id: event.kind === "heartbeat" ? undefined : (event.event_id ?? crypto.randomUUID()),
 			};
 			navigator.sendBeacon(
 				"/api/collect",
@@ -91,33 +91,34 @@ export function Beacon() {
 			);
 		}
 
-		function finishView() {
+		function reportEngagement() {
 			const view = current.current;
-			if (!view || view.engaged || view.visibleSince === null) return;
-			view.engaged = true;
-			const visibleMs = Math.min(
-				86_400_000,
-				Math.max(0, Math.round(performance.now() - view.visibleSince)),
-			);
-			send(view.path, { kind: "engagement", visible_ms: visibleMs });
+			if (!view || view.visibleSince === null) return;
+			view.visibleMs += performance.now() - view.visibleSince;
+			view.visibleSince = null;
+			send(view.path, {
+				kind: "engagement",
+				event_id: view.engagementId,
+				visible_ms: Math.min(86_400_000, Math.round(view.visibleMs)),
+			});
 		}
 
-		function openView(href: string, pathname: string, initial = false) {
+		function openView(pathname: string, initial = false) {
 			updateOptOut();
 			const path = canonicalAnalyticsPath(pathname);
 			if (optedOut || navigator.doNotTrack === "1" || !path) {
-				finishView();
+				reportEngagement();
 				current.current = null;
 				return;
 			}
-			if (current.current?.href === href) return;
-			finishView();
+			if (current.current?.path === path) return;
+			reportEngagement();
 			const visible = document.visibilityState === "visible";
 			current.current = {
-				href,
 				path,
 				visibleSince: visible ? performance.now() : null,
-				engaged: false,
+				visibleMs: 0,
+				engagementId: crypto.randomUUID(),
 			};
 			send(path, {
 				kind: "pageview",
@@ -133,13 +134,13 @@ export function Beacon() {
 
 		function showView() {
 			const view = current.current;
-			if (!view || document.visibilityState !== "visible") return;
-			view.visibleSince ??= performance.now();
+			if (!view || view.visibleSince !== null || document.visibilityState !== "visible") return;
+			view.visibleSince = performance.now();
 			heartbeat();
 		}
 
 		function onVisibility() {
-			if (document.visibilityState === "hidden") finishView();
+			if (document.visibilityState === "hidden") reportEngagement();
 			else showView();
 		}
 
@@ -168,37 +169,33 @@ export function Beacon() {
 			} catch {
 				return;
 			}
-			if (url.origin === window.location.origin) {
-				const id = /^\/links\/([^/]+)\/?$/u.exec(url.pathname)?.[1];
-				if (id && profileLinkIdPattern.test(id)) send(view.path, { kind: "outbound", link_id: id });
-				return;
-			}
-			const destination = hostname(url.href);
-			if (!destination) return;
 			const home = router.state.matches.find((match) => match.routeId === "/")?.loaderData as
 				| PortfolioContent
 				| undefined;
 			const href = anchor.getAttribute("href")?.trim();
 			const matches = home?.profileLinks.filter((link) => link.href.trim() === href);
-			const id = matches?.length === 1 ? matches[0]?.id : undefined;
-			send(
-				view.path,
-				id
-					? { kind: "outbound", link_id: id }
-					: { kind: "outbound", destination_host: destination },
-			);
+			const profileId = matches?.length === 1 ? matches[0]?.id : undefined;
+			if (profileId) {
+				send(view.path, { kind: "outbound", link_id: profileId });
+			} else if (url.origin === window.location.origin) {
+				const id = /^\/links\/([^/]+)\/?$/u.exec(url.pathname)?.[1];
+				if (id && profileLinkIdPattern.test(id)) send(view.path, { kind: "outbound", link_id: id });
+			} else {
+				const destination = hostname(url.href);
+				if (destination) send(view.path, { kind: "outbound", destination_host: destination });
+			}
 		}
 
 		const initial = router.state.resolvedLocation ?? router.state.location;
-		openView(initial.href, initial.pathname, true);
+		openView(initial.pathname, true);
 		const unsubscribe = router.subscribe("onResolved", ({ toLocation }) =>
-			openView(toLocation.href, toLocation.pathname),
+			openView(toLocation.pathname),
 		);
-		const timer = window.setInterval(heartbeat, 30_000);
+		const timer = window.setInterval(heartbeat, 60_000);
 		document.addEventListener("visibilitychange", onVisibility);
 		document.addEventListener("click", onClick, true);
 		document.addEventListener("auxclick", onClick, true);
-		window.addEventListener("pagehide", finishView);
+		window.addEventListener("pagehide", reportEngagement);
 		window.addEventListener("pageshow", onPageShow);
 		window.addEventListener("storage", onStorage);
 		return () => {
@@ -207,7 +204,7 @@ export function Beacon() {
 			document.removeEventListener("visibilitychange", onVisibility);
 			document.removeEventListener("click", onClick, true);
 			document.removeEventListener("auxclick", onClick, true);
-			window.removeEventListener("pagehide", finishView);
+			window.removeEventListener("pagehide", reportEngagement);
 			window.removeEventListener("pageshow", onPageShow);
 			window.removeEventListener("storage", onStorage);
 		};

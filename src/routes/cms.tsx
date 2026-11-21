@@ -7,6 +7,7 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo } from "react";
+import { LiveVisitorsProvider } from "../components/cms/analytics/LiveVisitors";
 import { CmsDraftProvider } from "../components/cms/draft/context";
 import type { DraftApi } from "../components/cms/draft/store";
 import { AccessScreen } from "../components/cms/shell/AccessScreen";
@@ -60,9 +61,11 @@ function CmsWorkspace({
 	);
 	return (
 		<CmsDraftProvider snapshot={initial.snapshot} session={session} api={api}>
-			<CmsShell>
-				<Outlet />
-			</CmsShell>
+			<LiveVisitorsProvider>
+				<CmsShell>
+					<Outlet />
+				</CmsShell>
+			</LiveVisitorsProvider>
 		</CmsDraftProvider>
 	);
 }

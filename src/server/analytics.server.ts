@@ -1,3 +1,5 @@
+import { activeWindowMs } from "../components/analytics/paths";
+
 const DAY = 86_400_000;
 const HOUR = 3_600_000;
 const dateKey = (time: number) => new Date(time).toISOString().slice(0, 10);
@@ -11,7 +13,7 @@ const dimensions = {
 	browsers: "browser",
 } as const;
 
-type Breakdown = keyof typeof dimensions | "links" | "destinations";
+type Breakdown = keyof typeof dimensions | "projects" | "links" | "destinations";
 export type AnalyticsRange = "24h" | "7d" | "30d" | "90d" | "12m";
 export type AnalyticsTotals = {
 	visitorDays: number;
@@ -152,7 +154,7 @@ function rangeWindows(range: AnalyticsRange, now: number): [Window, Window] {
 			{ start: now - DAY, end: now, hourly: true },
 			{ start: now - 2 * DAY, end: now - DAY, hourly: true },
 		];
-	const end = Date.parse(dateKey(now)) + DAY;
+	const end = Date.parse(dateKey(now));
 	if (range === "12m") {
 		const boundary = new Date(end);
 		const year = boundary.getUTCFullYear();
@@ -213,14 +215,34 @@ function metricsQuery(db: D1Database, window: Window, today: string, options: Qu
 			${options.breakdowns ? "" : "AND dimension IN ('site', 'engagement')"}
 		)
 	`;
+	// Countries, devices and browsers have bounded vocabularies. Keep the full
+	// country distribution for the map, and cap the other breakdowns in SQL.
+	const keepAll = "'site', 'engagement', 'countries', 'devices', 'browsers'";
 	const query = db.prepare(`
-		WITH ${sources}
-		SELECT '' AS day, dimension, value, metric, SUM(count) AS count
-		FROM metrics WHERE dimension != 'hour'
-		GROUP BY dimension, value, metric
+		WITH ${sources},
+		buckets AS (
+			SELECT dimension, value, metric, SUM(count) AS count
+			FROM metrics WHERE dimension != 'hour'
+			GROUP BY dimension, value, metric
+		),
+		ranked AS (
+			SELECT *, ROW_NUMBER() OVER (PARTITION BY dimension ORDER BY count DESC, value) AS rank
+			FROM (
+				SELECT * FROM buckets WHERE dimension NOT IN (${keepAll})
+				UNION ALL
+				SELECT 'projects', value, metric, count FROM buckets
+				WHERE dimension = 'pages' AND value GLOB '/work/*'
+			)
+		)
+		SELECT '' AS day, dimension, value, metric, count
+		FROM buckets WHERE dimension IN (${keepAll})
 		UNION ALL
-		SELECT CAST(day AS TEXT), dimension, value, metric, count
+		SELECT '' AS day, dimension, value, metric, count
+		FROM ranked WHERE rank <= 10
+		UNION ALL
+		SELECT CAST(day AS TEXT) AS day, dimension, value, metric, count
 		FROM metrics WHERE dimension = 'hour' OR (dimension = 'site' AND day >= ${window.hourly ? "NULL" : "?4"})
+		ORDER BY count DESC, value
 	`);
 	return window.hourly
 		? query.bind(iso(window.start), iso(window.end), window.start)
@@ -269,15 +291,10 @@ function series(rows: Metric[], window: Window, start = window.start): TrafficPo
 	});
 }
 
-function breakdown(
-	rows: Metric[],
-	dimension: Breakdown,
-	predicate?: (value: string) => boolean,
-): AnalyticsCount[] {
+function breakdown(rows: Metric[], dimension: Breakdown): AnalyticsCount[] {
 	return rows
-		.filter((row) => row.dimension === dimension && (!predicate || predicate(row.value)))
-		.map(({ value, count }) => ({ value, count }))
-		.sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+		.filter((row) => row.dimension === dimension)
+		.map(({ value, count }) => ({ value, count }));
 }
 
 export async function readAnalyticsSummary(
@@ -306,14 +323,14 @@ export async function readAnalyticsSummary(
 					: currentTotals.medianEngagedSeconds - priorTotals.medianEngagedSeconds,
 		},
 		series: series(rows, current),
-		topPages: breakdown(rows, "pages").slice(0, 10),
-		topProjects: breakdown(rows, "pages", (value) => value.startsWith("/work/")).slice(0, 10),
-		referrers: breakdown(rows, "referrers").slice(0, 10),
+		topPages: breakdown(rows, "pages"),
+		topProjects: breakdown(rows, "projects"),
+		referrers: breakdown(rows, "referrers"),
 		countries: breakdown(rows, "countries"),
 		devices: breakdown(rows, "devices"),
 		browsers: breakdown(rows, "browsers"),
 		outboundLinks: breakdown(rows, "links"),
-		outboundHosts: breakdown(rows, "destinations").slice(0, 10),
+		outboundHosts: breakdown(rows, "destinations"),
 	};
 }
 
@@ -323,25 +340,35 @@ export async function readAnalyticsOverview(db: D1Database, now = Date.now()) {
 	const all = { start: Date.parse("0000-01-01"), end: midnight + DAY };
 	// Keep the all-time KPI's sparkline to the same thirty days as the main chart.
 	const seriesStart = all.end - 30 * DAY;
-	const [recent, allTimeResult] = await Promise.all([
+	const elapsedVisitors = (offset: number) =>
+		db
+			.prepare(`
+				SELECT COUNT(DISTINCT visitor_key) AS count
+				FROM analytics_events WHERE kind = 'pageview' AND ts >= ? AND ts < ?
+			`)
+			.bind(iso(midnight - offset), iso(now - offset));
+	const [recent, [allTimeResult, elapsedToday, elapsedYesterday]] = await Promise.all([
 		readAnalyticsSummary(db, "30d", now),
-		metricsQuery(db, all, today, { breakdowns: false, seriesStart }).all<Metric>(),
+		db.batch<Metric>([
+			metricsQuery(db, all, today, { breakdowns: false, seriesStart }),
+			elapsedVisitors(0),
+			elapsedVisitors(DAY),
+		]),
 	]);
 	const points = recent.series;
-	const todayPoint = points.at(-1);
-	const yesterday = points.at(-2);
 	const week = points.slice(-7);
 	const allTimePoints = series(allTimeResult.results, all, seriesStart).map(
 		(point) => point.visitorDays,
 	);
 	const days = (bucket: TrafficPoint[]) =>
 		bucket.reduce((sum, point) => sum + point.visitorDays, 0);
+	const todayVisitors = elapsedToday.results[0]?.count ?? 0;
 	return {
 		recent,
 		today: {
-			value: todayPoint?.visitorDays ?? 0,
-			delta: (todayPoint?.visitorDays ?? 0) - (yesterday?.visitorDays ?? 0),
-			points: points.slice(-7).map((point) => point.visitorDays),
+			value: todayVisitors,
+			delta: todayVisitors - (elapsedYesterday.results[0]?.count ?? 0),
+			points: allTimePoints.slice(-7),
 		},
 		week: {
 			value: days(week),
@@ -350,7 +377,7 @@ export async function readAnalyticsOverview(db: D1Database, now = Date.now()) {
 		},
 		allTime: {
 			totals: totals(allTimeResult.results),
-			delta: allTimePoints.at(-1) ?? 0,
+			delta: todayVisitors,
 			points: allTimePoints,
 		},
 	};
@@ -362,7 +389,7 @@ export async function readLiveVisitors(db: D1Database, now = Date.now()): Promis
 		SELECT path AS value, COUNT(*) AS count FROM analytics_presence
 		WHERE last_seen >= ? GROUP BY path ORDER BY count DESC, path
 	`)
-		.bind(iso(now - 120_000))
+		.bind(iso(now - activeWindowMs))
 		.all<AnalyticsCount>();
 	return { count: paths.reduce((sum, path) => sum + path.count, 0), paths };
 }

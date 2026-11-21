@@ -1,11 +1,15 @@
 import { z } from "zod";
 import {
+	activeWindowMs,
 	analyticsHostnamePattern,
+	analyticsProjectPath,
 	canonicalAnalyticsPath,
 	profileLinkIdPattern,
 } from "../components/analytics/paths";
+import { linkableProjects, projectSlug } from "../components/work/project-utils";
 import { isCmsHostname } from "../lib/cms-host";
 import { isLoopbackRequest } from "./auth.server";
+import { getPublishedContent } from "./cms-storage.server";
 
 const BODY_LIMIT = 2048;
 const RATE_LIMIT = 60;
@@ -50,6 +54,29 @@ type CollectorEnvironment = {
 	ENVIRONMENT?: string;
 	ANALYTICS_LIMITER?: { limit(input: { key: string }): Promise<{ success: boolean }> };
 };
+
+const publishedDimensions = new WeakMap<
+	D1Database,
+	{ expires: number; paths: Set<string>; linkIds: Set<string> }
+>();
+
+async function getPublishedDimensions(db: D1Database, now: number) {
+	const cached = publishedDimensions.get(db);
+	if (cached && now < cached.expires) return cached;
+	const content = await getPublishedContent({ DB: db });
+	const dimensions = {
+		expires: now + 60_000,
+		paths: new Set(
+			linkableProjects(content.projects).map((p) => analyticsProjectPath(projectSlug(p))),
+		),
+		linkIds: new Set(
+			content.profileLinks.filter((link) => link.href.trim()).map((link) => link.id),
+		),
+	};
+	// Cache the resolved public values. D1 promises belong to the initiating request.
+	publishedDimensions.set(db, dimensions);
+	return dimensions;
+}
 
 const encoder = new TextEncoder();
 const hex = (bytes: Uint8Array) =>
@@ -187,7 +214,10 @@ async function record(
 				SELECT 1 FROM analytics_daily
 				WHERE day = ? AND dimension = 'site' AND value = '*' AND metric = 'pageviews'
 			)
-			ON CONFLICT(event_id) DO NOTHING
+			ON CONFLICT(event_id) DO UPDATE SET visible_ms = excluded.visible_ms
+			WHERE analytics_events.kind = 'engagement' AND excluded.kind = 'engagement'
+				AND analytics_events.path = excluded.path
+				AND excluded.visible_ms > analytics_events.visible_ms
 		`)
 				.bind(
 					event.event_id,
@@ -211,10 +241,40 @@ async function record(
 				),
 		);
 	}
+	if (event.kind === "engagement") {
+		// A view can resume after midnight and after its original day has rolled up.
+		// Replace that day's engagement histogram in the same transaction as the update.
+		statements.push(
+			db
+				.prepare(`
+					DELETE FROM analytics_daily
+					WHERE changes() > 0 AND dimension = 'engagement'
+						AND day = (SELECT day FROM analytics_events WHERE event_id = ?)
+						AND day IN (
+							SELECT day FROM analytics_daily
+							WHERE dimension = 'site' AND value = '*' AND metric = 'pageviews'
+						)
+				`)
+				.bind(event.event_id),
+			db
+				.prepare(`
+					INSERT INTO analytics_daily (day, dimension, value, metric, count)
+					SELECT day, 'engagement', CAST(seconds AS TEXT), 'tabs', COUNT(*)
+					FROM (
+						SELECT day, SUM(visible_ms) / 1000 AS seconds
+						FROM analytics_events
+						WHERE changes() > 0 AND kind = 'engagement'
+							AND day = (SELECT day FROM analytics_events WHERE event_id = ?)
+						GROUP BY day, tab_key
+					) GROUP BY day, seconds
+				`)
+				.bind(event.event_id),
+		);
+	}
 	if (event.kind === "heartbeat" || (event.kind === "pageview" && event.visible)) {
 		// Replace the preceding day's presence key during the two-minute overlap.
 		const midnight = Date.parse(day);
-		if (now - midnight < 120_000) {
+		if (now - midnight < activeWindowMs) {
 			const yesterday = new Date(midnight - 86_400_000).toISOString().slice(0, 10);
 			const priorSecret = await db
 				.prepare("SELECT tab_key_secret FROM analytics_salts WHERE day = ?")
@@ -285,6 +345,18 @@ export async function collectAnalytics(
 	const path = canonicalAnalyticsPath(event.path);
 	if (!path) return respond(400);
 	if (!env.DB) return respond(503);
+
+	const projectPath = path.startsWith("/work/");
+	const linkId = event.kind === "outbound" && "link_id" in event ? event.link_id : undefined;
+	if (projectPath || linkId) {
+		try {
+			const allowed = await getPublishedDimensions(env.DB, now);
+			if ((projectPath && !allowed.paths.has(path)) || (linkId && !allowed.linkIds.has(linkId)))
+				return respond(400);
+		} catch {
+			return respond(503);
+		}
+	}
 
 	const code = request.cf?.country;
 	const country =

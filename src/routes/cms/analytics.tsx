@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { CountryMap } from "../../components/cms/analytics/CountryMap";
+import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
 	AnalyticsUnavailable,
@@ -10,7 +11,6 @@ import {
 	RankedList,
 	controlClass,
 	countLabel,
-	useLiveVisitors,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
 import { useDraftSelector } from "../../components/cms/draft/context";
@@ -56,12 +56,15 @@ function Analytics() {
 						search={{ range: value }}
 						resetScroll={false}
 						activeOptions={{ exact: true, includeSearch: true }}
-						className={`${controlClass} aria-[current=page]:border-primary-text aria-[current=page]:bg-muted aria-[current=page]:text-primary-text`}
+						className={`${controlClass} aria-[current=page]:border-primary-text aria-[current=page]:bg-muted aria-[current=page]:text-primary-text aria-[current=page]:underline aria-[current=page]:underline-offset-4`}
 					>
 						{label}
 					</Link>
 				))}
 			</nav>
+			{range !== "24h" ? (
+				<p className="m-0 text-xs text-muted-foreground">Completed UTC days</p>
+			) : null}
 			{summary ? (
 				<>
 					{summary.totals.pageviews === 0 ? <NoVisits /> : null}
