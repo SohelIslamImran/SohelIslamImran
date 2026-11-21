@@ -145,6 +145,7 @@ export const SECTIONS = [
 		group: "writing",
 		paths: ["travel"],
 		summary: "Places, seasons, and reflections.",
+		collection: true,
 	},
 	{
 		id: "links",

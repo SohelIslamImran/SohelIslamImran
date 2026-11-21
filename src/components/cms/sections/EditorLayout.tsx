@@ -33,14 +33,3 @@ export function EditorGroup({
 		</section>
 	);
 }
-
-/** Placeholder until a section's editor lands. */
-export function PendingEditor() {
-	return (
-		<EditorGroup title="Editor coming next" description="This section's form is being built.">
-			<p className="m-0 text-[13px] text-muted-foreground">
-				Its content is safe and still published as it is.
-			</p>
-		</EditorGroup>
-	);
-}
