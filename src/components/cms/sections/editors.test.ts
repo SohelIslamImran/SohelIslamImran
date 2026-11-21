@@ -1,14 +1,26 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { INITIAL_PORTFOLIO_CONTENT } from "../../../content/initial";
 import { CmsDraftProvider } from "../draft/context";
 import { DateField, MediaField } from "../fields";
+import { StoryEditor } from "./object-editors";
 import { CollectionEditor } from "./CollectionEditor";
+import { LinksEditor } from "./collection-editors";
+import { sectionSearch } from "../../../routes/cms/content.$section";
+
+vi.mock("../../../server/cms-history.functions", () => ({ listMedia: vi.fn() }));
+
+vi.mock("@tanstack/react-start", async (importOriginal) => ({
+	...(await importOriginal<typeof import("@tanstack/react-start")>()),
+	useServerFn: vi.fn(),
+}));
 
 function renderEditor(
 	element: React.ReactNode,
 	draft = structuredClone(INITIAL_PORTFOLIO_CONTENT),
+	mediaEnabled = true,
 ) {
 	return renderToStaticMarkup(
 		createElement(CmsDraftProvider, {
@@ -20,14 +32,14 @@ function renderEditor(
 				draftUpdatedAt: "",
 				publishedAt: null,
 			},
-			session: { owner: "local", csrfToken: "", mediaEnabled: true },
+			session: { owner: "local", csrfToken: "", mediaEnabled },
 			api: {
 				save: async () => {
 					throw new Error("Unexpected save");
 				},
-				publish: async () => {
-					throw new Error("Unexpected publish");
-				},
+				publish: vi.fn(),
+				restore: vi.fn(),
+				discard: vi.fn(),
 			},
 			children: element,
 		}),
@@ -58,11 +70,64 @@ describe("CMS editor rendering", () => {
 		const html = renderEditor(
 			createElement(MediaField, { path: "identity.avatar", label: "Portrait" }),
 			draft,
+			false,
 		);
-		expect(html).toContain("Library default");
+		expect(html).toContain("Media storage is not connected.");
 		expect(html).toContain('value="Custom alt"');
 		expect(html).not.toContain("/media/asset-draft-only");
 		expect(html).not.toContain("private-key");
+	});
+
+	it("renders a slug editor with a URL warning and profile-specific destination hint", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.profileLinks = [{ id: "draft-new-link", label: "Link", platform: "Web", href: "/work" }];
+		const html = renderEditor(
+			createElement(LinksEditor, { item: "draft-new-link", select: vi.fn() }),
+			draft,
+		);
+		expect(html).toContain("Public link slug");
+		expect(html).toContain("Apply slug");
+		expect(html).toContain("update references to its previous URL");
+		expect(html).not.toContain("anchor like #contact");
+	});
+
+	it("ignores malformed item and tab query values", () => {
+		expect(sectionSearch.parse({ item: ["one"], tab: "bad" })).toEqual({
+			item: undefined,
+			tab: undefined,
+		});
+		expect(sectionSearch.parse({ item: "x".repeat(161), tab: "social" })).toEqual({
+			item: undefined,
+			tab: "social",
+		});
+	});
+
+	it("keeps an overflowing collection's disabled Add control inside a focusable field", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		const row = draft.profileLinks[0]!;
+		draft.profileLinks = Array.from({ length: MAX_COLLECTION_ITEMS + 1 }, (_, index) => ({
+			...row,
+			id: `link-${index}`,
+		}));
+		const html = renderEditor(createElement(LinksEditor, { select: vi.fn() }), draft);
+		expect(html).toMatch(
+			/<section[^>]*aria-label="Profile links list"[^>]*data-slot="cms-field"[^>]*tabindex="-1"/u,
+		);
+		expect(html).toMatch(/<button[^>]*id="cms-field-profileLinks"[^>]*disabled=""/u);
+		expect(html).toContain(`must contain no more than ${MAX_COLLECTION_ITEMS} items`);
+	});
+
+	it("disables Add chapter at the chapter limit and exposes move shortcuts", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		const chapter = draft.story.chapters[0]!;
+		draft.story.chapters = Array.from({ length: 30 }, (_, index) => ({
+			...chapter,
+			id: `chapter-${index}`,
+		}));
+		const html = renderEditor(createElement(StoryEditor), draft);
+		expect(html).toContain("30/30");
+		expect(html).toMatch(/<button[^>]*id="cms-field-story-chapters"[^>]*disabled=""/u);
+		expect(html).toContain('aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"');
 	});
 
 	it("renders a way back from a stale collection item URL", () => {

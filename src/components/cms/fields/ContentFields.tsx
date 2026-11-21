@@ -35,19 +35,20 @@ export function HrefField({
 	);
 }
 
-export function DateField({
-	path,
-	label,
-	optional,
-}: {
+interface DateFieldProps {
 	path: string;
 	label: string;
 	optional?: boolean;
-}) {
-	const store = useDraftStore();
-	const value = useDraftValue<string | null | undefined>(path);
+}
+
+export function DateField(props: DateFieldProps) {
+	const value = useDraftValue<string | null | undefined>(props.path);
 	const legacy = Boolean(value && !isIsoDate(value));
-	const [editingLegacy, setEditingLegacy] = useState(false);
+	const store = useDraftStore();
+	const [calendarFor, setCalendarFor] = useState<string>();
+	const editingLegacy = legacy && calendarFor === value;
+	if (calendarFor !== undefined && calendarFor !== value) setCalendarFor(undefined);
+	const { path, label, optional } = props;
 	return (
 		<div className="grid gap-2">
 			<TextField
@@ -71,7 +72,7 @@ export function DateField({
 							type="button"
 							className={editorButton}
 							onClick={() => {
-								setEditingLegacy(!editingLegacy);
+								setCalendarFor(editingLegacy ? undefined : (value ?? undefined));
 								requestAnimationFrame(() => focusField(path));
 							}}
 						>
@@ -84,7 +85,7 @@ export function DateField({
 							className={editorButton}
 							onClick={() => {
 								store.update(path, undefined);
-								setEditingLegacy(false);
+								setCalendarFor(undefined);
 								requestAnimationFrame(() => focusField(path));
 							}}
 						>

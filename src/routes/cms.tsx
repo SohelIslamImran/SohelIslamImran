@@ -11,6 +11,7 @@ import { CmsDraftProvider } from "../components/cms/draft/context";
 import type { DraftApi } from "../components/cms/draft/store";
 import { AccessScreen } from "../components/cms/shell/AccessScreen";
 import { CmsShell } from "../components/cms/shell/CmsShell";
+import { discardDraft, restoreRevision } from "../server/cms-history.functions";
 import { getCmsSnapshot, publishDraft, saveDraft } from "../server/cms.functions";
 
 export const Route = createFileRoute("/cms")({
@@ -44,6 +45,8 @@ function CmsWorkspace({
 }) {
 	const save = useServerFn(saveDraft);
 	const publish = useServerFn(publishDraft);
+	const restore = useServerFn(restoreRevision);
+	const discard = useServerFn(discardDraft);
 	const csrfToken = initial.csrfToken;
 	const api = useMemo<DraftApi>(
 		() => ({
@@ -51,8 +54,10 @@ function CmsWorkspace({
 				save({ data: { content, expectedRevision, csrfToken } }),
 			publish: ({ expectedDraftRevision }) =>
 				publish({ data: { expectedDraftRevision, csrfToken } }),
+			restore: (input) => restore({ data: { ...input, csrfToken } }),
+			discard: (input) => discard({ data: { ...input, csrfToken } }),
 		}),
-		[save, publish, csrfToken],
+		[save, publish, restore, discard, csrfToken],
 	);
 	const session = useMemo(
 		() => ({ csrfToken, owner: initial.owner, mediaEnabled: initial.mediaEnabled }),

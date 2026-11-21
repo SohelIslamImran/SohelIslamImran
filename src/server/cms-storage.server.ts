@@ -5,7 +5,6 @@ import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { CONTENT_SCHEMA_VERSION, type MediaAsset, type PortfolioContent } from "../types/content";
 import {
 	MAX_CONTENT_BYTES,
-	parsePortfolioContent,
 	parseStoredContent,
 	serializePortfolioContent,
 	upgradeStoredContent,
@@ -108,19 +107,6 @@ export class CmsInputError extends Error {
 		super(message);
 		this.name = "CmsInputError";
 	}
-}
-
-interface StoredDocumentRow {
-	id: string;
-	schema_version: number;
-	draft_json: string;
-	published_json: string;
-	draft_revision: number;
-	published_revision: number;
-	draft_updated_at: string;
-	published_at: string | null;
-	updated_by: string;
-	published_by: string | null;
 }
 
 interface PublishedDocumentRow {
@@ -256,13 +242,11 @@ export function parseStoredOrBootstrap(json: string, revision: number): Portfoli
 		return upgradeStoredContent(value);
 	}
 
-	if (revision > 1) return parseStoredContent(json);
-
-	if (blankBootstrap) {
+	if (revision <= 1 && blankBootstrap) {
 		return INITIAL_PORTFOLIO_CONTENT;
 	}
 
-	return parsePortfolioContent(value);
+	return parseStoredContent(json);
 }
 
 function referencedMediaIds(content: PortfolioContent): string[] {
@@ -317,21 +301,24 @@ function parseContentColumn(json: unknown, revision: unknown): PortfolioContent 
 	}
 }
 
-function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
+function snapshotFromRow(
+	row: typeof portfolioDocuments.$inferSelect | undefined,
+): CmsDocumentSnapshot {
+	if (!row) throw new CmsDataError();
 	try {
-		const draftRevision = integerColumn(row.draft_revision);
-		const publishedRevision = integerColumn(row.published_revision);
+		const draftRevision = integerColumn(row.draftRevision);
+		const publishedRevision = integerColumn(row.publishedRevision);
 		return {
 			id: stringColumn(row.id),
-			schemaVersion: integerColumn(row.schema_version),
+			schemaVersion: integerColumn(row.schemaVersion),
 			draftRevision,
 			publishedRevision,
-			draftUpdatedAt: stringColumn(row.draft_updated_at),
-			publishedAt: nullableStringColumn(row.published_at),
-			updatedBy: stringColumn(row.updated_by),
-			publishedBy: nullableStringColumn(row.published_by),
-			draft: parseContentColumn(row.draft_json, draftRevision),
-			published: parseContentColumn(row.published_json, publishedRevision),
+			draftUpdatedAt: stringColumn(row.draftUpdatedAt),
+			publishedAt: nullableStringColumn(row.publishedAt),
+			updatedBy: stringColumn(row.updatedBy),
+			publishedBy: nullableStringColumn(row.publishedBy),
+			draft: parseContentColumn(row.draftJson, draftRevision),
+			published: parseContentColumn(row.publishedJson, publishedRevision),
 		};
 	} catch (error) {
 		if (error instanceof CmsDataError) {
@@ -344,29 +331,17 @@ function snapshotFromRow(row: StoredDocumentRow): CmsDocumentSnapshot {
 	}
 }
 
-async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
-	const [stored] = await database(db)
+function selectSnapshot(query: ReturnType<typeof database>) {
+	return query
 		.select()
 		.from(portfolioDocuments)
 		.where(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID))
 		.limit(1);
+}
 
-	if (!stored) {
-		throw new CmsDataError();
-	}
-
-	return snapshotFromRow({
-		id: stored.id,
-		schema_version: stored.schemaVersion,
-		draft_json: stored.draftJson,
-		published_json: stored.publishedJson,
-		draft_revision: stored.draftRevision,
-		published_revision: stored.publishedRevision,
-		draft_updated_at: stored.draftUpdatedAt,
-		published_at: stored.publishedAt,
-		updated_by: stored.updatedBy,
-		published_by: stored.publishedBy,
-	});
+async function readSnapshot(db: D1Database): Promise<CmsDocumentSnapshot> {
+	const [stored] = await selectSnapshot(database(db));
+	return snapshotFromRow(stored);
 }
 
 /**
@@ -468,15 +443,7 @@ export async function saveDraft(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedRevision + 1),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const auditId = crypto.randomUUID();
 	const draftAuditSelect = query
 		.select({
@@ -490,15 +457,9 @@ export async function saveDraft(
 			createdAt: sql<string>`${now}`.as("created_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedRevision + 1),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
+	// Keep the UPDATE, history insert, and audit insert adjacent. Each insert
+	// uses SQLite changes() to check that the preceding statement wrote one row.
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -514,8 +475,8 @@ export async function saveDraft(
 					eq(portfolioDocuments.draftRevision, expectedRevision),
 				),
 			),
-		query.insert(portfolioRevisions).select(draftRevisionSelect).onConflictDoNothing(),
-		query.insert(auditEvents).select(draftAuditSelect).onConflictDoNothing(),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(draftAuditSelect),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
@@ -557,16 +518,11 @@ export async function publishDraft(
 	const mediaIds = referencedMediaIds(draft);
 	const publishedJson = serializePortfolioContent(draft);
 	const query = database(db);
-	const documentAtRevision = query
-		.select({ id: portfolioDocuments.id })
-		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-			),
-		);
+	const publishAuditId = crypto.randomUUID();
+	const publishedByThisMutation = query
+		.select({ id: auditEvents.id })
+		.from(auditEvents)
+		.where(eq(auditEvents.id, publishAuditId));
 	const publishedRevisionSelect = query
 		.select({
 			id: sql<number | null>`NULL`.as("id"),
@@ -578,15 +534,7 @@ export async function publishDraft(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedAt, now),
-				eq(portfolioDocuments.publishedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const mediaIdBatches: string[][] = [];
 	for (let index = 0; index < mediaIds.length; index += 50) {
 		mediaIdBatches.push(mediaIds.slice(index, index + 50));
@@ -595,9 +543,8 @@ export async function publishDraft(
 		query
 			.update(mediaAssets)
 			.set({ status: "published", updatedAt: now })
-			.where(and(inArray(mediaAssets.id, ids), exists(documentAtRevision))),
+			.where(and(inArray(mediaAssets.id, ids), exists(publishedByThisMutation))),
 	);
-	const publishAuditId = crypto.randomUUID();
 	const publishAuditSelect = query
 		.select({
 			id: sql<string>`${publishAuditId}`.as("id"),
@@ -610,15 +557,7 @@ export async function publishDraft(
 			createdAt: sql<string>`${now}`.as("created_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedRevision, expectedDraftRevision),
-				eq(portfolioDocuments.publishedAt, now),
-				eq(portfolioDocuments.publishedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -637,13 +576,13 @@ export async function publishDraft(
 					lt(portfolioDocuments.publishedRevision, expectedDraftRevision),
 				),
 			),
+		query.insert(portfolioRevisions).select(publishedRevisionSelect),
+		query.insert(auditEvents).select(publishAuditSelect),
 		query
 			.update(mediaAssets)
 			.set({ status: "draft", updatedAt: now })
-			.where(and(eq(mediaAssets.status, "published"), exists(documentAtRevision))),
+			.where(and(eq(mediaAssets.status, "published"), exists(publishedByThisMutation))),
 		...publishMediaStatements,
-		query.insert(portfolioRevisions).select(publishedRevisionSelect).onConflictDoNothing(),
-		query.insert(auditEvents).select(publishAuditSelect).onConflictDoNothing(),
 	]);
 
 	if (results[0]?.meta.changes === 1) {
@@ -764,7 +703,7 @@ export async function listRevisions(
 			revision: portfolioRevisions.revision,
 			changedBy: portfolioRevisions.changedBy,
 			changedAt: portfolioRevisions.changedAt,
-			bytes: sql<number>`length(cast(${portfolioRevisions.contentJson} as blob))`,
+			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
 		})
 		.from(portfolioRevisions)
 		.where(and(...conditions))
@@ -800,7 +739,7 @@ export async function getRevision(env: CmsEnvironment, id: number): Promise<Revi
 			contentJson: portfolioRevisions.contentJson,
 			changedBy: portfolioRevisions.changedBy,
 			changedAt: portfolioRevisions.changedAt,
-			bytes: sql<number>`length(cast(${portfolioRevisions.contentJson} as blob))`,
+			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
 		})
 		.from(portfolioRevisions)
 		.where(
@@ -839,7 +778,7 @@ export async function restoreRevision(
 	const source = await getRevision(env, revisionId);
 	if (!source) return { ok: false, kind: "not-found" };
 
-	const contentJson = serializePortfolioContent(source.content);
+	const contentJson = serializePortfolioContent(source.content, { fromStorage: true });
 	const now = new Date().toISOString();
 	const query = database(db);
 	const nextRevision = expectedRevision + 1;
@@ -859,15 +798,7 @@ export async function restoreRevision(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, nextRevision),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const auditId = crypto.randomUUID();
 	const auditSelect = query
 		.select({
@@ -881,15 +812,7 @@ export async function restoreRevision(
 			createdAt: sql<string>`${now}`.as("created_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, nextRevision),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -906,31 +829,39 @@ export async function restoreRevision(
 					eq(portfolioDocuments.draftRevision, expectedRevision),
 				),
 			),
-		query.insert(portfolioRevisions).select(draftRevisionSelect).onConflictDoNothing(),
-		query.insert(auditEvents).select(auditSelect).onConflictDoNothing(),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(auditSelect),
+		selectSnapshot(query),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
-		return { ok: false, kind: "conflict", current: await getAdminSnapshot(env) };
+		return { ok: false, kind: "conflict", current: snapshotFromRow(results[3][0]) };
 	}
 
-	return { ok: true, snapshot: await getAdminSnapshot(env) };
+	return { ok: true, snapshot: snapshotFromRow(results[3][0]) };
 }
 
 /** Discard draft changes by copying the published document into a new draft revision. */
 export async function discardDraft(
 	env: CmsEnvironment,
-	input: { expectedRevision: number; actor: CmsActor },
+	input: { expectedRevision: number; expectedPublishedRevision: number; actor: CmsActor },
 ): Promise<DiscardDraftResult> {
 	const db = requireDatabase(env);
 	const expectedRevision = requireRevision(input.expectedRevision, "expectedRevision");
+	const expectedPublishedRevision = requireRevision(
+		input.expectedPublishedRevision,
+		"expectedPublishedRevision",
+	);
 	const actor = requireActor(input.actor);
 	const before = await getAdminSnapshot(env);
-	if (before.draftRevision !== expectedRevision) {
+	if (
+		before.draftRevision !== expectedRevision ||
+		before.publishedRevision !== expectedPublishedRevision
+	) {
 		return { ok: false, kind: "conflict", current: before };
 	}
 
-	const contentJson = serializePortfolioContent(before.published);
+	const contentJson = serializePortfolioContent(before.published, { fromStorage: true });
 	const now = new Date().toISOString();
 	const query = database(db);
 	const nextRevision = expectedRevision + 1;
@@ -946,15 +877,7 @@ export async function discardDraft(
 			changedAt: sql<string>`${now}`.as("changed_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, nextRevision),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const auditId = crypto.randomUUID();
 	const auditSelect = query
 		.select({
@@ -968,15 +891,7 @@ export async function discardDraft(
 			createdAt: sql<string>`${now}`.as("created_at"),
 		})
 		.from(portfolioDocuments)
-		.where(
-			and(
-				eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
-				eq(portfolioDocuments.draftRevision, nextRevision),
-				eq(portfolioDocuments.draftJson, contentJson),
-				eq(portfolioDocuments.draftUpdatedAt, now),
-				eq(portfolioDocuments.updatedBy, actor.email),
-			),
-		);
+		.where(and(eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID), sql`changes() = 1`));
 	const results = await query.batch([
 		query
 			.update(portfolioDocuments)
@@ -991,17 +906,19 @@ export async function discardDraft(
 				and(
 					eq(portfolioDocuments.id, PORTFOLIO_DOCUMENT_ID),
 					eq(portfolioDocuments.draftRevision, expectedRevision),
+					eq(portfolioDocuments.publishedRevision, expectedPublishedRevision),
 				),
 			),
-		query.insert(portfolioRevisions).select(draftRevisionSelect).onConflictDoNothing(),
-		query.insert(auditEvents).select(auditSelect).onConflictDoNothing(),
+		query.insert(portfolioRevisions).select(draftRevisionSelect),
+		query.insert(auditEvents).select(auditSelect),
+		selectSnapshot(query),
 	]);
 
 	if (results[0]?.meta.changes !== 1) {
-		return { ok: false, kind: "conflict", current: await getAdminSnapshot(env) };
+		return { ok: false, kind: "conflict", current: snapshotFromRow(results[3][0]) };
 	}
 
-	return { ok: true, snapshot: await getAdminSnapshot(env) };
+	return { ok: true, snapshot: snapshotFromRow(results[3][0]) };
 }
 
 /** List owner audit events newest first, paginated with an opaque `before` cursor. */

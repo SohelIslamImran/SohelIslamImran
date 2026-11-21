@@ -46,6 +46,8 @@ export function CmsDraftProvider({
 			store: new DraftStore(snapshot, {
 				save: (input) => apiRef.current.save(input),
 				publish: (input) => apiRef.current.publish(input),
+				restore: (input) => apiRef.current.restore(input),
+				discard: (input) => apiRef.current.discard(input),
 			}),
 			session,
 		};

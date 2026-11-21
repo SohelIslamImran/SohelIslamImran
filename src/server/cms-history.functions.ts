@@ -76,6 +76,7 @@ export const discardDraft = createServerFn({ method: "POST" })
 	.validator(
 		z.object({
 			expectedRevision: revision,
+			expectedPublishedRevision: revision,
 			csrfToken,
 		}),
 	)
@@ -84,6 +85,7 @@ export const discardDraft = createServerFn({ method: "POST" })
 		const identity = await assertMutation(getRequest(), data.csrfToken);
 		return discardDraftInStorage(runtime(), {
 			expectedRevision: data.expectedRevision,
+			expectedPublishedRevision: data.expectedPublishedRevision,
 			actor: { email: identity.email, subject: identity.subject },
 		});
 	});
@@ -101,13 +103,15 @@ export const listAuditEvents = createServerFn({ method: "GET" })
 		return listAuditEventsInStorage(runtime(), data);
 	});
 
-export const listMedia = createServerFn({ method: "GET" }).handler(async () => {
-	setResponseHeader("Cache-Control", "private, no-store");
-	await requireOwner(getRequest(), runtime());
-	const environment = runtime();
-	const snapshot = await getAdminSnapshot(environment);
-	return listMediaAssets(environment, snapshot.draft);
-});
+export const listMedia = createServerFn({ method: "GET" })
+	.validator(z.object({ includeAttachments: z.boolean().optional() }).optional())
+	.handler(async ({ data }) => {
+		setResponseHeader("Cache-Control", "private, no-store");
+		await requireOwner(getRequest(), runtime());
+		const environment = runtime();
+		const snapshot = await getAdminSnapshot(environment);
+		return listMediaAssets(environment, snapshot.draft, data?.includeAttachments);
+	});
 
 export const updateMediaAlt = createServerFn({ method: "POST" })
 	.validator(

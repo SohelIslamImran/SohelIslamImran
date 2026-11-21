@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useDraftStore, useField, useIssuesUnder } from "../draft/context";
@@ -32,6 +32,9 @@ export function TagsField({
 	const nested = useIssuesUnder(path);
 	const tags = field.value ?? [];
 	const [draft, setDraft] = useState("");
+	const [limitReached, setLimitReached] = useState(false);
+	const chips = useRef<HTMLUListElement>(null);
+	const input = useRef<HTMLInputElement>(null);
 	const add = (raw: string) => {
 		const parts = raw
 			.split(",")
@@ -39,12 +42,15 @@ export function TagsField({
 			.filter(Boolean);
 		if (!parts.length) return;
 		const next = [...tags];
+		const remaining = [];
 		for (const part of parts) {
-			if (next.length >= max) break;
-			if (!next.some((tag) => tag.toLowerCase() === part.toLowerCase())) next.push(part);
+			if (next.some((tag) => tag.toLowerCase() === part.toLowerCase())) continue;
+			if (next.length >= max) remaining.push(part);
+			else next.push(part);
 		}
-		field.set(next);
-		setDraft("");
+		if (next.length !== tags.length) field.set(next);
+		setDraft(remaining.join(", "));
+		setLimitReached(remaining.length > 0);
 	};
 	return (
 		<FieldFrame
@@ -67,7 +73,11 @@ export function TagsField({
 					"flex min-h-10 flex-wrap items-center gap-1.5 px-1.5 py-1.5 focus-within:border-ring focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-focus)_28%,transparent)]",
 				)}
 			>
-				<ul className="contents" aria-label={typeof label === "string" ? label : undefined}>
+				<ul
+					ref={chips}
+					className="contents"
+					aria-label={typeof label === "string" ? label : undefined}
+				>
 					{tags.map((tag, index) => (
 						<li
 							key={`${tag}-${index}`}
@@ -76,7 +86,14 @@ export function TagsField({
 							<span className="min-w-0 wrap-anywhere">{tag}</span>
 							<button
 								type="button"
-								onClick={() => field.set(removeItem(tags, index))}
+								onClick={() => {
+									field.set(removeItem(tags, index));
+									setLimitReached(false);
+									requestAnimationFrame(() => {
+										const buttons = chips.current?.querySelectorAll("button");
+										(buttons?.[index] ?? buttons?.[index - 1] ?? input.current)?.focus();
+									});
+								}}
 								className="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] hover:text-foreground pointer-coarse:size-11"
 							>
 								<span aria-hidden="true">×</span>
@@ -86,6 +103,7 @@ export function TagsField({
 					))}
 				</ul>
 				<input
+					ref={input}
 					id={fieldId(path)}
 					value={draft}
 					placeholder={tags.length ? "" : placeholder}
@@ -94,7 +112,10 @@ export function TagsField({
 					onChange={(event) => {
 						const value = event.currentTarget.value;
 						if (value.includes(",")) add(value);
-						else setDraft(value);
+						else {
+							setDraft(value);
+							setLimitReached(false);
+						}
 					}}
 					onKeyDown={(event) => {
 						if (event.key === "Enter") {
@@ -102,12 +123,18 @@ export function TagsField({
 							add(draft);
 						} else if (event.key === "Backspace" && draft === "" && tags.length) {
 							field.set(tags.slice(0, -1));
+							setLimitReached(false);
 						}
 					}}
 					onBlur={() => add(draft)}
 					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden placeholder:text-muted-foreground/70"
 				/>
 			</div>
+			{limitReached ? (
+				<p role="status" className="m-0 text-xs text-muted-foreground">
+					Maximum {max} tags. Remove a tag to add another.
+				</p>
+			) : null}
 			{draft ? (
 				<div className="justify-self-end">
 					<Counter length={draft.trim().length} max={240} />

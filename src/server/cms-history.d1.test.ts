@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
 import { serializePortfolioContent } from "../lib/validation";
 import { createTestD1, type TestD1 } from "../test-support/d1";
@@ -12,18 +12,32 @@ import {
 	restoreRevision,
 	saveDraft,
 } from "./cms-storage.server";
-import { findMediaReferences, listMediaAssets, updateMediaAlt } from "./media.server";
+import { findMediaReferences, listMediaAssets, updateMediaAlt, uploadMedia } from "./media.server";
 
 let fixture: TestD1 | undefined;
 
 beforeEach(async () => {
-	fixture = await createTestD1();
+	fixture = await createTestD1({ media: true });
 });
 
 afterEach(async () => {
+	vi.useRealTimers();
 	await fixture?.dispose();
 	fixture = undefined;
 });
+
+// Delay the losing batch until the other session has committed against real D1.
+function afterCompetingWrite(db: D1Database, write: () => Promise<unknown>): D1Database {
+	return {
+		prepare: db.prepare.bind(db),
+		batch: async (statements) => {
+			await write();
+			return db.batch(statements);
+		},
+	} as D1Database;
+}
+
+const actor = { email: "owner@example.com" };
 
 describe("CMS history, audit events, and media storage", () => {
 	it("lists revisions with byte sizes, filters by kind, and paginates with before", async () => {
@@ -43,7 +57,7 @@ describe("CMS history, audit events, and media storage", () => {
 		expect(published).toMatchObject({ ok: true, status: "published", revision: 2 });
 
 		const draft2 = structuredClone(draft1);
-		draft2.hero.title = "Second draft edit";
+		draft2.hero.title = "Second draft edit 🐱";
 		await saveDraft(
 			{ DB: db },
 			{ content: draft2, expectedRevision: 2, actor: { email: "owner@example.com" } },
@@ -52,7 +66,9 @@ describe("CMS history, audit events, and media storage", () => {
 		const page1 = await listRevisions({ DB: db }, { limit: 2 });
 		expect(page1.items).toHaveLength(2);
 		expect(page1.items[0]).toMatchObject({ kind: "draft", revision: 3 });
-		expect(page1.items[0]!.bytes).toBeGreaterThan(100);
+		const expectedBytes = new TextEncoder().encode(serializePortfolioContent(draft2)).byteLength;
+		expect(page1.items[0]!.bytes).toBe(expectedBytes);
+		expect((await getRevision({ DB: db }, page1.items[0]!.id))?.bytes).toBe(expectedBytes);
 		expect(page1.nextBefore).toBe(page1.items[1]!.id);
 
 		const page2 = await listRevisions({ DB: db }, { limit: 2, before: page1.nextBefore! });
@@ -113,7 +129,8 @@ describe("CMS history, audit events, and media storage", () => {
 		expect(JSON.stringify(events.items[0])).not.toContain("Restored legacy hero");
 	});
 
-	it("returns conflict on stale restoreRevision and writes no audit row", async () => {
+	it("rejects identical stale saves and restores without duplicate audits", async () => {
+		vi.setSystemTime(new Date("2026-11-01T00:00:00.000Z"));
 		const db = fixture!.db;
 		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
 		draft.hero.title = "Fresh edit";
@@ -122,6 +139,8 @@ describe("CMS history, audit events, and media storage", () => {
 			{ content: draft, expectedRevision: 1, actor: { email: "owner@example.com" } },
 		);
 
+		const retry = await saveDraft({ DB: db }, { content: draft, expectedRevision: 1, actor });
+		expect(retry).toMatchObject({ ok: false, kind: "conflict" });
 		const revisions = await listRevisions({ DB: db }, { limit: 5 });
 		const target = revisions.items[0]!;
 		const stale = await restoreRevision(
@@ -131,7 +150,61 @@ describe("CMS history, audit events, and media storage", () => {
 		expect(stale).toMatchObject({ ok: false, kind: "conflict" });
 
 		const events = await listAuditEvents({ DB: db }, { limit: 10 });
-		expect(events.items.filter((item) => item.eventType === "revision.restore")).toHaveLength(0);
+		expect(events.items.map(({ eventType }) => eventType)).toEqual(["draft.save"]);
+		expect(await listRevisions({ DB: db }, { limit: 5 })).toEqual(revisions);
+	});
+
+	it("writes only one publication and audit when two sessions publish the same revision", async () => {
+		vi.setSystemTime(new Date("2026-11-01T00:00:00.000Z"));
+		const db = fixture!.db;
+		await saveDraft({ DB: db }, { expectedRevision: 1, content: INITIAL_PORTFOLIO_CONTENT, actor });
+		const input = { expectedDraftRevision: 2, actor };
+		const delayed = afterCompetingWrite(db, () => publishDraft({ DB: db }, input));
+		expect(await publishDraft({ DB: delayed }, input)).toMatchObject({
+			ok: true,
+			status: "already-published",
+		});
+		const events = await listAuditEvents({ DB: db });
+		expect(events.items.filter(({ eventType }) => eventType === "draft.publish")).toHaveLength(1);
+		const history = await listRevisions({ DB: db }, { kind: "published" });
+		expect(history.items.filter(({ revision }) => revision === 2)).toHaveLength(1);
+	});
+
+	it("rejects a discard if its confirmed publication was superseded after reading it", async () => {
+		const db = fixture!.db;
+		const edited = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		edited.hero.title = "New live title";
+		await saveDraft({ DB: db }, { expectedRevision: 1, content: edited, actor });
+		const delayed = afterCompetingWrite(db, () =>
+			publishDraft({ DB: db }, { expectedDraftRevision: 2, actor }),
+		);
+		const result = await discardDraft(
+			{ DB: delayed },
+			{ expectedRevision: 2, expectedPublishedRevision: 1, actor },
+		);
+		expect(result).toMatchObject({
+			ok: false,
+			kind: "conflict",
+			current: { draftRevision: 2, publishedRevision: 2 },
+		});
+		expect((await getAdminSnapshot({ DB: db })).draft.hero.title).toBe("New live title");
+		const events = await listAuditEvents({ DB: db });
+		expect(events.items.some(({ eventType }) => eventType === "draft.discard")).toBe(false);
+	});
+
+	it("writes only one discard and audit when competing discards copy identical content", async () => {
+		vi.setSystemTime(new Date("2026-11-01T00:00:00.000Z"));
+		const db = fixture!.db;
+		const input = { expectedRevision: 1, expectedPublishedRevision: 1, actor };
+		const delayed = afterCompetingWrite(db, () => discardDraft({ DB: db }, input));
+		expect(await discardDraft({ DB: delayed }, input)).toMatchObject({
+			ok: false,
+			kind: "conflict",
+		});
+		const events = await listAuditEvents({ DB: db });
+		expect(events.items.filter(({ eventType }) => eventType === "draft.discard")).toHaveLength(1);
+		const history = await listRevisions({ DB: db }, { kind: "draft" });
+		expect(history.items.filter(({ revision }) => revision === 2)).toHaveLength(1);
 	});
 
 	it("discards draft back to published and records audit events for save, publish, and discard", async () => {
@@ -156,7 +229,7 @@ describe("CMS history, audit events, and media storage", () => {
 
 		const discarded = await discardDraft(
 			{ DB: db },
-			{ expectedRevision: 3, actor: { email: "owner@example.com" } },
+			{ expectedRevision: 3, expectedPublishedRevision: 2, actor },
 		);
 		expect(discarded.ok).toBe(true);
 		if (!discarded.ok) return;
@@ -169,6 +242,51 @@ describe("CMS history, audit events, and media storage", () => {
 		expect(types).toContain("draft.publish");
 		expect(types).toContain("draft.discard");
 		expect(JSON.stringify(events.items)).not.toContain("Unpublished experiment");
+	});
+
+	it("offers a newly uploaded asset to attachment pickers before the draft references it", async () => {
+		const env = { DB: fixture!.db, MEDIA: fixture!.media };
+		const draft = (await getAdminSnapshot(env)).draft;
+		const file = new File(["image"], "test.webp", { type: "image/webp" });
+		const uploaded = await uploadMedia(env, file, "Default alternative text", actor.email);
+		expect(draft.media.some(({ id }) => id === uploaded.id)).toBe(false);
+		const picker = await listMediaAssets(env, draft, true);
+		expect(picker.items[0]).toMatchObject({ attachment: uploaded, usages: [], status: "draft" });
+		const library = await listMediaAssets(env, draft);
+		expect(library.items[0]).not.toHaveProperty("attachment");
+
+		draft.identity.avatar = picker.items[0]!.attachment!;
+		await saveDraft(env, { content: draft, expectedRevision: 1, actor });
+		await publishDraft(env, { expectedDraftRevision: 2, actor });
+		const published = await listMediaAssets(env, draft);
+		expect(published.items[0]).toMatchObject({ id: uploaded.id, status: "published" });
+	});
+
+	it("can restore a historical slug for editing while save and publish still enforce slug rules", async () => {
+		const db = fixture!.db;
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.projects[0]!.slug = "Legacy_Slug";
+		const row = await db
+			.prepare(
+				`INSERT INTO portfolio_revisions
+			 (document_id, kind, revision, content_json, changed_by, changed_at)
+			 VALUES ('primary', 'draft', 99, ?, ?, '2026-09-01T00:00:00.000Z')
+			 RETURNING id`,
+			)
+			.bind(JSON.stringify(draft), actor.email)
+			.first<{ id: number }>();
+		await expect(
+			saveDraft({ DB: db }, { content: draft, expectedRevision: 1, actor }),
+		).rejects.toMatchObject({
+			issues: expect.arrayContaining([expect.objectContaining({ path: "projects[0].slug" })]),
+		});
+		const restored = await restoreRevision({ DB: db }, { id: row!.id, expectedRevision: 1, actor });
+		expect(restored).toMatchObject({ ok: true, snapshot: { draftRevision: 2 } });
+		await expect(
+			publishDraft({ DB: db }, { expectedDraftRevision: 2, actor }),
+		).rejects.toMatchObject({
+			issues: expect.arrayContaining([expect.objectContaining({ path: "projects[0].slug" })]),
+		});
 	});
 
 	it("lists D1 media assets with draft references and updates alt with audit logging", async () => {
@@ -225,6 +343,22 @@ describe("CMS history, audit events, and media storage", () => {
 			{ id: "asset-portrait", alt: "Updated default alt", actor: { email: "owner@example.com" } },
 		);
 		expect(updated).toMatchObject({ ok: true, id: "asset-portrait", alt: "Updated default alt" });
+
+		expect(listed.items[0]).not.toHaveProperty("attachment");
+		expect((await listMediaAssets({ DB: db }, snapshot.draft, true)).items[0]).not.toHaveProperty(
+			"attachment",
+		);
+		const bindings = { DB: db, MEDIA: fixture!.media };
+		const picker = await listMediaAssets(bindings, snapshot.draft, true);
+		expect(picker.items[0]?.attachment).toMatchObject({
+			id: "asset-portrait",
+			key: "portfolio/media/asset-portrait.webp",
+			alt: "Updated default alt",
+			width: 800,
+			height: 800,
+		});
+		expect(snapshot.draft.identity.avatar?.alt).toBe("Portrait");
+		expect(snapshot.draft.projects[0]?.cover?.alt).toBe("Cover");
 
 		const events = await listAuditEvents({ DB: db }, { limit: 5 });
 		expect(events.items[0]).toMatchObject({

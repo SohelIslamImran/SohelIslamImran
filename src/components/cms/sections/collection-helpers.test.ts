@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { duplicateRow, newRowId, restoreRow } from "../fields/row-list";
-import { duplicateProject, itemForIssue, slugIssue, uniqueProjectSlug } from "./collection-helpers";
+import {
+	duplicateProject,
+	itemForIssue,
+	uniqueProfileLinkSlug,
+	uniqueProjectSlug,
+} from "./collection-helpers";
 
 describe("collection editor helpers", () => {
 	it("creates stable URL-safe IDs for new and duplicated rows", () => {
@@ -24,15 +29,21 @@ describe("collection editor helpers", () => {
 		expect(slug.endsWith("-2")).toBe(true);
 	});
 
+	it("generates profile link slugs from labels with unique suffixes and an 80-character limit", () => {
+		expect(uniqueProfileLinkSlug("Mastodón / Social", [{ id: "mastodon-social" }])).toBe(
+			"mastodon-social-2",
+		);
+		expect(uniqueProfileLinkSlug("東京", [{ id: "link" }])).toBe("link-2");
+		const long = "a".repeat(100);
+		expect(uniqueProfileLinkSlug(long, [{ id: long.slice(0, 80) }])).toBe(`${"a".repeat(78)}-2`);
+	});
+
 	it("duplicates projects with fresh IDs and independent slugs", () => {
 		const project = { id: "one", title: "Demo", slug: "demo" };
 		const rows = [project, { id: "two", title: "Demo (copy)", slug: "demo-copy" }];
 		const copy = duplicateProject(project, rows);
 		expect(copy).toMatchObject({ title: "Demo (copy)", slug: "demo-copy-2" });
 		expect(rows.some((row) => row.id === copy.id)).toBe(false);
-		expect(slugIssue("demo", rows, project.id)).toBeUndefined();
-		expect(slugIssue("DEMO", rows, copy.id)).toMatch(/already uses/);
-		expect(slugIssue("demo//two", rows, copy.id)).toMatch(/single hyphens/);
 	});
 
 	it("undoes a removal at its original index and preserves other edits", () => {

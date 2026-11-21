@@ -29,6 +29,7 @@ export interface MediaLibraryItem {
 	createdBy: string;
 	url: string;
 	usages: MediaReference[];
+	attachment?: MediaAsset;
 }
 
 export interface MediaLibraryResult {
@@ -81,7 +82,7 @@ export async function uploadMedia(
 	const id = crypto.randomUUID();
 	const key = `portfolio/media/${id}.${extension}`;
 	const now = new Date().toISOString();
-	await bucket.put(key, file.stream(), {
+	await bucket.put(key, file, {
 		httpMetadata: { contentType: file.type, cacheControl: "public, max-age=31536000, immutable" },
 		customMetadata: { assetId: id },
 	});
@@ -198,6 +199,7 @@ export function findMediaReferences(content: PortfolioContent): Map<string, Medi
 export async function listMediaAssets(
 	env: MediaEnvironment,
 	draft: PortfolioContent,
+	includeAttachments = false,
 ): Promise<MediaLibraryResult> {
 	if (!env.DB) {
 		throw new MediaStorageUnavailableError("Media database is not configured.");
@@ -206,6 +208,7 @@ export async function listMediaAssets(
 	const rows = await drizzle(env.DB, { logger: false })
 		.select({
 			id: mediaAssets.id,
+			objectKey: mediaAssets.objectKey,
 			alt: mediaAssets.alt,
 			mimeType: mediaAssets.mimeType,
 			width: mediaAssets.width,
@@ -232,6 +235,18 @@ export async function listMediaAssets(
 		createdBy: row.createdBy,
 		url: `/media/${encodeURIComponent(row.id)}`,
 		usages: references.get(row.id) ?? [],
+		...(includeAttachments &&
+			env.MEDIA && {
+				attachment: {
+					id: row.id,
+					key: row.objectKey,
+					alt: row.alt,
+					mimeType: row.mimeType ?? undefined,
+					width: row.width ?? undefined,
+					height: row.height ?? undefined,
+					bytes: row.bytes ?? undefined,
+				},
+			}),
 	}));
 
 	return {

@@ -1,25 +1,12 @@
 import { getAt, parsePath } from "../draft/paths";
 import { duplicateRow, rowId } from "../fields/row-list";
 
-const SLUG_LIMIT = 160;
-const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
-
-export function slugIssue(
-	slug: string,
-	rows: readonly { id: string; slug: string }[],
-	id: string,
-): string | undefined {
-	if (!slug.trim()) return undefined; // The document validator reports blank slugs.
-	if (
-		rows.some((row) => row.id !== id && row.slug.trim().toLowerCase() === slug.trim().toLowerCase())
-	) {
-		return "Another project already uses this slug.";
-	}
-	if (!SLUG_PATTERN.test(slug)) return "Use lowercase letters, numbers, and single hyphens.";
-	return undefined;
-}
-
-export function uniqueProjectSlug(title: string, existing: readonly string[]): string {
+export function uniqueSlug(
+	title: string,
+	existing: readonly string[],
+	limit: number,
+	fallback: string,
+): string {
 	const taken = new Set(existing.map((slug) => slug.trim().toLowerCase()));
 	const base =
 		title
@@ -27,13 +14,26 @@ export function uniqueProjectSlug(title: string, existing: readonly string[]): s
 			.replace(/\p{Mark}/gu, "")
 			.toLowerCase()
 			.replace(/[^a-z0-9]+/gu, "-")
-			.replace(/^-|-$/gu, "") || "project";
-	let slug = base.slice(0, SLUG_LIMIT).replace(/-$/u, "");
+			.replace(/^-|-$/gu, "") || fallback;
+	let slug = base.slice(0, limit).replace(/-$/u, "");
 	for (let n = 2; taken.has(slug); n++) {
 		const suffix = `-${n}`;
-		slug = base.slice(0, SLUG_LIMIT - suffix.length).replace(/-$/u, "") + suffix;
+		slug = base.slice(0, limit - suffix.length).replace(/-$/u, "") + suffix;
 	}
 	return slug;
+}
+
+export function uniqueProjectSlug(title: string, existing: readonly string[]): string {
+	return uniqueSlug(title, existing, 160, "project");
+}
+
+export function uniqueProfileLinkSlug(label: string, rows: readonly { id: string }[]): string {
+	return uniqueSlug(
+		label,
+		rows.map(({ id }) => id),
+		80,
+		"link",
+	);
 }
 
 export function duplicateProject<T extends { id: string; title: string; slug: string }>(

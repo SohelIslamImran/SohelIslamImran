@@ -43,12 +43,29 @@ describe("portfolio structural diff", () => {
 		expect(projectsDiff).toBeDefined();
 		expect(
 			projectsDiff!.rows.map((row) => [row.id, row.status, row.beforeIndex, row.afterIndex]),
-		).toEqual([
-			[second!.id, "reordered", 2, 1],
-			[first!.id, "reordered", 1, 2],
-		]);
+		).toEqual([[first!.id, "reordered", 1, 2]]);
 		expect(projectsDiff!.counts.edited).toBe(0);
-		expect(projectsDiff!.counts.reordered).toBe(2);
+		expect(projectsDiff!.counts.reordered).toBe(1);
+	});
+
+	it("ignores index shifts from insertions and removals", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.projects.unshift({ ...draft.projects[0]!, id: "new-project" });
+		draft.projects.splice(2, 1);
+		const diff = diffPortfolioDocuments(INITIAL_PORTFOLIO_CONTENT, draft);
+		const projects = diff.changedSections.find((entry) => entry.section.id === "projects")!;
+		expect(projects.counts).toMatchObject({ added: 1, removed: 1, reordered: 0 });
+	});
+
+	it("shows a whole-list diff when row identities are ambiguous", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.projects.push({ ...draft.projects[0]!, title: "Duplicate" });
+		const diff = diffPortfolioDocuments(INITIAL_PORTFOLIO_CONTENT, draft);
+		const projects = diff.changedSections.find((entry) => entry.section.id === "projects")!;
+		expect(projects.rows).toEqual([]);
+		expect(
+			projects.fields.map(({ path, kind, revertible }) => ({ path, kind, revertible })),
+		).toEqual([{ path: "projects", kind: "list", revertible: true }]);
 	});
 
 	it("detects added, removed, edited fields, prose, and tags diffs", () => {
