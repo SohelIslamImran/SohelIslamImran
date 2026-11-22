@@ -18,7 +18,7 @@ import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowMenu } from "./RowControls";
 import { SortableRow } from "./SortableRow";
-import { UndoRemoval } from "./UndoRemoval";
+import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
 import { pendingRowRemoval, restoreRow, sameValue, type PendingRowRemoval } from "./row-list";
 import { TextAreaField } from "./TextFields";
 
@@ -192,6 +192,8 @@ export function MediaIdsField({ path }: { path: string }) {
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const [removal, setRemoval] = useState<PendingRowRemoval<string> | null>(null);
 	const removed = pendingRowRemoval(ids, removal);
+	const restored = removed && restoreRow(ids, removed, MAX_TRAVEL_MEDIA, sameValue);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	useEffect(() => {
 		if (removal && !removed) setRemoval(null);
 	}, [removal, removed]);
@@ -218,10 +220,14 @@ export function MediaIdsField({ path }: { path: string }) {
 			description={description}
 			issues={issues}
 			changed={field.changed}
-			onRevert={() => {
-				setRemoval(null);
-				field.revert();
-			}}
+			onRevert={
+				undoRestoresLive
+					? undefined
+					: () => {
+							setRemoval(null);
+							field.revert();
+						}
+			}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
 					{ids.length}/{MAX_TRAVEL_MEDIA}
@@ -292,15 +298,16 @@ export function MediaIdsField({ path }: { path: string }) {
 					removed
 						? {
 								label: removed.label,
-								canUndo: ids.length < MAX_TRAVEL_MEDIA && !ids.includes(removed.row),
+								canUndo: restored !== null,
 							}
 						: null
 				}
-				onDismiss={() => setRemoval(null)}
+				onDismiss={() => {
+					setRemoval(null);
+					focusField(path);
+				}}
 				onUndo={() => {
-					if (!removed) return;
-					const restored = restoreRow(ids, removed, MAX_TRAVEL_MEDIA, sameValue);
-					if (!restored) return;
+					if (!removed || !restored) return;
 					field.set(restored);
 					setRemoval(null);
 					requestAnimationFrame(() =>

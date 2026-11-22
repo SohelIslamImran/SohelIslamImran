@@ -1,12 +1,13 @@
 import { AnimatePresence, Reorder } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
+import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
-import { UndoRemoval } from "./UndoRemoval";
+import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
 import { ChevronRightIcon } from "./field-icons";
 import {
 	duplicateRow,
@@ -23,6 +24,7 @@ export function RepeaterField<T extends object>({
 	label,
 	itemLabel,
 	description,
+	summaryClassName,
 	create,
 	summarize,
 	Editor,
@@ -32,6 +34,7 @@ export function RepeaterField<T extends object>({
 	label: string;
 	itemLabel: string;
 	description?: string;
+	summaryClassName?: string;
 	create: () => T;
 	summarize: (row: T) => string;
 	Editor: ComponentType<{ path: string }>;
@@ -52,6 +55,8 @@ export function RepeaterField<T extends object>({
 	useEffect(() => {
 		if (removal && !removed) setRemoved(null);
 	}, [removal, removed]);
+	const restored = removed && restoreRow(removed.remaining, removed, max);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const duplicates = duplicateIds(keys.map((id) => ({ id })));
 
 	// Assign the same initial keys in SSR and hydration. Move them with rows
@@ -128,10 +133,14 @@ export function RepeaterField<T extends object>({
 			asGroup
 			issues={issues}
 			changed={changed}
-			onRevert={() => {
-				setRemoved(null);
-				store.revertAt(path);
-			}}
+			onRevert={
+				undoRestoresLive
+					? undefined
+					: () => {
+							setRemoved(null);
+							store.revertAt(path);
+						}
+			}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
 					{keys.length}/{max}
@@ -163,6 +172,7 @@ export function RepeaterField<T extends object>({
 							index={index}
 							itemLabel={itemLabel}
 							summarize={summarize}
+							summaryClassName={summaryClassName}
 							canMoveDown={index < keys.length - 1}
 							full={keys.length >= max}
 							move={move}
@@ -191,8 +201,7 @@ export function RepeaterField<T extends object>({
 					removed
 						? {
 								label: removed.label,
-								canUndo:
-									keys.length < max && (!rowId(removed.row) || !keys.includes(rowId(removed.row))),
+								canUndo: restored !== null,
 							}
 						: null
 				}
@@ -222,6 +231,7 @@ function RepeaterRow<T extends object>({
 	index,
 	itemLabel,
 	summarize,
+	summaryClassName,
 	canMoveDown,
 	full,
 	move,
@@ -234,6 +244,7 @@ function RepeaterRow<T extends object>({
 	index: number;
 	itemLabel: string;
 	summarize: (row: T) => string;
+	summaryClassName?: string;
 	canMoveDown: boolean;
 	full: boolean;
 	move: (from: number, to: number) => void;
@@ -273,7 +284,7 @@ function RepeaterRow<T extends object>({
 							aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
 							className="cms-repeater-summary"
 						>
-							<span className="min-w-0 flex-1 wrap-anywhere">
+							<span className={cn("min-w-0 flex-1 wrap-anywhere", summaryClassName)}>
 								{name}
 								{issueCount ? (
 									<span className="ml-2 text-xs font-medium text-destructive">

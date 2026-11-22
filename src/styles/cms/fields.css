@@ -18,13 +18,16 @@
 		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
 		color: var(--theme-ink);
 		box-shadow: inset 0 1px 1px var(--theme-shadow-soft);
-		/* Lists `scale` and `color` too, so `.cms-press` keeps its press animation. */
+		/* Only button-like controls use scale for press feedback. */
 		transition:
 			background-color var(--cms-dur-fast) var(--cms-ease-out),
 			border-color var(--cms-dur-fast) var(--cms-ease-out),
 			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
-			color var(--cms-dur-fast) var(--cms-ease-out),
-			scale var(--cms-dur-fast) var(--cms-ease-out);
+			color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-control.cms-press {
+		transition-property: background-color, border-color, box-shadow, color, scale;
 	}
 
 	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
@@ -379,8 +382,12 @@
 		.cms-checkbox-check {
 			transition-property: opacity;
 		}
+		.cms-field-popup,
 		.cms-field-popup:is([data-starting-style], [data-ending-style]) {
 			scale: 1;
+			transition-property: opacity;
+			/* Keep the fade through the global reduced-motion reset. */
+			transition-duration: 150ms !important;
 		}
 		.cms-field-foot {
 			transition: none;
@@ -670,6 +677,14 @@
 		color: var(--theme-accent-text);
 	}
 
+	.cms-collection-subtitle {
+		color: var(--theme-muted);
+	}
+
+	.cms-collection-row[data-selected] .cms-collection-subtitle {
+		color: var(--theme-ink-soft);
+	}
+
 	.cms-collection-row .cms-choice-highlight {
 		box-shadow: inset 2px 0 var(--theme-accent);
 	}
@@ -682,20 +697,6 @@
 	@media (pointer: coarse) {
 		.cms-collection-chevron {
 			display: block;
-		}
-
-		/*
-		 * Touch rows reorder by dragging the handle. The move buttons stay in
-		 * the accessibility tree (screen readers, a paired keyboard) and
-		 * appear when focused, but do not crowd the title.
-		 */
-		.cms-collection-row-actions:not(:focus-within) {
-			position: absolute;
-			width: 1px;
-			height: 1px;
-			overflow: hidden;
-			clip-path: inset(50%);
-			white-space: nowrap;
 		}
 	}
 
@@ -739,6 +740,10 @@
 		.cms-collection > .cms-collection-list,
 		.cms-collection > .cms-collection-detail {
 			grid-area: pane;
+		}
+
+		.cms-collection[data-pane] {
+			overflow-anchor: none;
 		}
 
 		.cms-collection[data-pane] > .cms-collection-detail {
@@ -809,15 +814,21 @@
 			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
 		}
 
-		.cms-collection-row:is(:hover, :focus-within) .cms-collection-row-actions {
+		.cms-collection-row:is(:hover, :focus-within) .cms-collection-row-actions,
+		.cms-collection-row-actions[data-popup-open] {
 			opacity: 1;
 		}
 	}
 
 	@media (pointer: coarse) {
 		.cms-editor-button,
-		.cms-repeater-summary {
+		.cms-repeater-summary,
+		.cms-menu-item {
 			min-height: 44px;
+		}
+
+		.cms-editor-live {
+			min-width: 44px;
 		}
 
 		.cms-drag-handle,
@@ -850,12 +861,6 @@
 		.cms-disclosure-chevron {
 			transition: none;
 		}
-	}
-	.cms-editor-title {
-		font-size: clamp(1.9rem, 4vw, 2.55rem);
-		font-weight: 650;
-		letter-spacing: -0.035em;
-		line-height: 1.12;
 	}
 
 	/* Section errors: a pill in the title row that opens the list. */

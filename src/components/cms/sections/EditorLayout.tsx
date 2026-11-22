@@ -19,7 +19,7 @@ export function EditorLayout({
 		<div className="cms-editor">
 			<header className="grid min-w-0 gap-3">
 				<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
-					<h1 id="cms-section-heading" tabIndex={-1} className="cms-editor-title m-0 rounded-sm">
+					<h1 id="cms-section-heading" tabIndex={-1} className="m-0 text-headline">
 						{title}
 					</h1>
 					{/* Errors float in the title row, so they never push the fields down. */}

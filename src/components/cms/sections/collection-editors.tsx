@@ -351,35 +351,31 @@ const VISIBILITY_LABELS = { public: "Public", unlisted: "Unlisted", private: "Pr
 
 export function TravelEditor(props: EditorProps) {
 	return (
-		<>
-			<div className={props.item !== undefined ? "max-lg:hidden" : undefined}>
-				<TravelPageFields />
-			</div>
-			<CollectionEditor<TravelEntryContent>
-				{...props}
-				path="travel.entries"
-				label="Travel entries"
-				itemLabel="Entry"
-				nameLabel="Place name"
-				nameLimit={160}
-				create={(place, id) => ({
-					id,
-					place,
-					region: "",
-					season: "",
-					summary: "",
-					reflection: "",
-					visibility: "private",
-					mediaIds: [],
-				})}
-				describe={(row) => ({
-					title: row.place,
-					subtitle: row.region,
-					chips: [VISIBILITY_LABELS[row.visibility]],
-				})}
-				Editor={TravelFields}
-			/>
-		</>
+		<CollectionEditor<TravelEntryContent>
+			{...props}
+			path="travel.entries"
+			listSettings={<TravelPageFields />}
+			label="Travel entries"
+			itemLabel="Entry"
+			nameLabel="Place name"
+			nameLimit={160}
+			create={(place, id) => ({
+				id,
+				place,
+				region: "",
+				season: "",
+				summary: "",
+				reflection: "",
+				visibility: "private",
+				mediaIds: [],
+			})}
+			describe={(row) => ({
+				title: row.place,
+				subtitle: row.region,
+				chips: [VISIBILITY_LABELS[row.visibility]],
+			})}
+			Editor={TravelFields}
+		/>
 	);
 }
 
@@ -495,6 +491,7 @@ export function LinksEditor(props: EditorProps) {
 				<EditorGroup title="Résumé social links">
 					<RepeaterField<SocialLinkContent>
 						path="social"
+						summaryClassName="max-sm:truncate"
 						label="Social links"
 						itemLabel="Social link"
 						create={() => ({ label: "", platform: "", href: "" })}

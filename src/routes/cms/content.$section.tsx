@@ -5,6 +5,7 @@ import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
+import { UndoRemovalHost } from "../../components/cms/fields/UndoRemoval";
 import { sentenceCase } from "../../components/cms/fields/FieldFrame";
 import { AlertCircleIcon } from "../../components/cms/fields/field-icons";
 import { absolute } from "../../lib/seo";
@@ -56,7 +57,9 @@ function SectionRoute() {
 			liveUrl={section.livePath ? absolute(section.livePath) : undefined}
 			issues={<SectionIssues section={section} />}
 		>
-			<Editor key={sectionId} item={item} tab={tab} select={select} />
+			<UndoRemovalHost key={sectionId}>
+				<Editor item={item} tab={tab} select={select} />
+			</UndoRemovalHost>
 		</EditorLayout>
 	);
 }
