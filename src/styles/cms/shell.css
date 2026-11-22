@@ -402,7 +402,7 @@
 
 	.cms-status-pill[data-stage="synced"] {
 		--status-fill: color-mix(in srgb, var(--theme-success) 9%, var(--theme-surface-solid));
-		--status-ink: var(--theme-success);
+		--status-ink: color-mix(in srgb, var(--theme-success) 94%, var(--theme-ink));
 		--status-line: color-mix(in srgb, var(--theme-success) 24%, transparent);
 	}
 
