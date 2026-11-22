@@ -538,14 +538,6 @@ function CommandBarOpen({
 				event.preventDefault();
 				move(activeIndex - 1);
 				break;
-			case "Home":
-				event.preventDefault();
-				move(0);
-				break;
-			case "End":
-				event.preventDefault();
-				move(flat.length - 1);
-				break;
 			case "Enter":
 				if (activeItem && !activeItem.disabled) {
 					event.preventDefault();
@@ -588,8 +580,8 @@ function CommandBarOpen({
 						ref={inputRef}
 						type="text"
 						role="combobox"
-						aria-expanded={true}
-						aria-controls={listboxId}
+						aria-expanded={flat.length > 0}
+						aria-controls={flat.length > 0 ? listboxId : undefined}
 						aria-activedescendant={activeItem ? `${optionPrefix}-${activeItem.id}` : undefined}
 						aria-autocomplete="list"
 						aria-label="Search commands"
@@ -600,7 +592,7 @@ function CommandBarOpen({
 						}}
 						onKeyDown={onKeyDown}
 						placeholder="Search pages, content, and actions…"
-						className="h-12 w-full min-w-0 bg-transparent text-base md:text-[14.5px] text-foreground outline-hidden placeholder:text-muted-foreground/75"
+						className="h-12 w-full min-w-0 bg-transparent text-base md:text-[14.5px] text-foreground outline-hidden placeholder:text-ink-soft"
 					/>
 					{query ? (
 						<button
@@ -610,7 +602,7 @@ function CommandBarOpen({
 								setQuery("");
 								inputRef.current?.focus();
 							}}
-							className="cms-chrome-control cms-press min-h-8 shrink-0 rounded-full px-2.5 text-[12px] text-muted-foreground pointer-coarse:min-h-11"
+							className="cms-chrome-control cms-command-secondary cms-press min-h-8 shrink-0 rounded-full px-2.5 text-[12px] pointer-coarse:min-h-11"
 						>
 							Clear
 						</button>
@@ -623,38 +615,42 @@ function CommandBarOpen({
 					</Dialog.Close>
 				</div>
 
-				<motion.div
-					layoutScroll
-					ref={listRef}
-					id={listboxId}
-					role="listbox"
-					aria-label="Commands"
-					// Options are driven from the combobox (aria-activedescendant); keep
-					// the scrollable list itself out of the Tab sequence too.
-					tabIndex={-1}
-					className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
-				>
-					{filtered.length === 0 ? (
+				<div role="status">
+					{flat.length === 0 ? (
 						<div
-							role="status"
 							className="cms-result-enter grid justify-items-center gap-2 px-4 py-9 text-center"
 						>
 							<span className="grid size-10 place-items-center rounded-[12px] bg-primary-soft text-primary-text">
 								<SearchIcon />
 							</span>
 							<p className="m-0 text-[14px] font-semibold text-foreground">No matches</p>
-							<p className="m-0 max-w-72 text-[13px] text-muted-foreground">
+							<p className="m-0 max-w-72 cms-command-secondary text-[13px]">
 								Try a page name, a project title, or an action like “save”.
 							</p>
 						</div>
-					) : (
-						filtered.map((section, sectionIndex) => (
+					) : null}
+				</div>
+				{flat.length > 0 ? (
+					<motion.div
+						layoutScroll
+						ref={listRef}
+						id={listboxId}
+						role="listbox"
+						aria-label="Commands"
+						// Options are driven from the combobox (aria-activedescendant); keep
+						// the scrollable list itself out of the Tab sequence too.
+						tabIndex={-1}
+						className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
+					>
+						{filtered.map((section, sectionIndex) => (
 							<div
 								key={section.group ?? "results"}
+								role={section.group ? "group" : undefined}
+								aria-label={section.group ?? undefined}
 								className={cn("cms-result-enter", sectionIndex > 0 && "mt-2.5")}
 							>
 								{section.group ? (
-									<p className="m-0 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+									<p aria-hidden="true" className="cms-command-secondary m-0 px-2.5 py-1 text-[11px] font-medium">
 										{section.group}
 									</p>
 								) : null}
@@ -677,7 +673,7 @@ function CommandBarOpen({
 												onMouseDown={(event) => event.preventDefault()}
 												onClick={(event) => execute(item, event.currentTarget)}
 												className={cn(
-													"cms-command-row cms-press relative isolate flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-[10px] px-2.5 py-2 text-left",
+													"cms-command-row cms-chrome-control cms-press relative isolate flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-[10px] px-2.5 py-2 text-left",
 													item.disabled && "cursor-not-allowed opacity-45",
 												)}
 											>
@@ -729,9 +725,9 @@ function CommandBarOpen({
 									})}
 								</div>
 							</div>
-						))
-					)}
-				</motion.div>
+						))}
+					</motion.div>
+				) : null}
 
 				<footer className="cms-command-secondary flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 font-mono text-[11px] pointer-coarse:hidden">
 					<span className="flex items-center gap-3">
@@ -744,10 +740,7 @@ function CommandBarOpen({
 						<span className="hidden sm:inline">
 							<Kbd className="text-inherit">⌘S</Kbd> save
 						</span>
-						<span className="hidden sm:inline">
-							<Kbd className="text-inherit">[</Kbd> rail
 						</span>
-					</span>
 					<span>
 						<Kbd className="text-inherit">esc</Kbd> close
 					</span>
