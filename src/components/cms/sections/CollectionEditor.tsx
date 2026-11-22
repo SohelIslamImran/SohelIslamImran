@@ -361,7 +361,7 @@ export function CollectionEditor<T extends { id: string }>({
 			<section
 				ref={listPanel}
 				className={cn(
-					"cms-panel cms-collection-list grid min-w-0 gap-3 p-3",
+					"cms-panel cms-collection-list min-w-0 gap-3 p-3",
 					item !== undefined && pane === "idle" && "max-lg:hidden",
 				)}
 				inert={narrow && detailOpen}

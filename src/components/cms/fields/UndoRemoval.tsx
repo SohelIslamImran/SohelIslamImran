@@ -96,7 +96,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 			<RemovalListsContext.Provider value={removals}>{children}</RemovalListsContext.Provider>
 			{host
 				? createPortal(
-						<div className="cms-undo-stack pointer-events-none fixed inset-x-0 bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit max-w-full flex-col gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
+						<div className="cms-undo-stack pointer-events-none fixed bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit flex-col gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
 							<AnimatePresence initial={false}>
 								{toasts.map((toast) => (
 									<UndoToast key={toast.id} {...toast} />

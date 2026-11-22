@@ -731,6 +731,16 @@
 	}
 
 	/* The list's error line keeps its live region but adds no gap while closed. */
+	.cms-collection-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.cms-undo-stack {
+		inset-inline: 0;
+		max-width: 100%;
+	}
+
 	.cms-collection-list > .cms-field-foot:not([data-open]) {
 		margin-top: -12px;
 	}
@@ -801,8 +811,6 @@
 		.cms-collection-list {
 			position: sticky;
 			top: calc(var(--cms-topbar-height) + 0.75rem);
-			display: flex;
-			flex-direction: column;
 			max-height: calc(100svh - var(--cms-topbar-height) - 1.5rem);
 		}
 
