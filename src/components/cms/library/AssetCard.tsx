@@ -90,7 +90,11 @@ export function AssetCard({
 			await navigator.clipboard.writeText(publicUrl);
 			flashCopied();
 		} catch {
-			// Clipboard API unavailable in restricted contexts.
+			// Clipboard access can be blocked; say so and leave a way to get the link.
+			setFeedback({
+				tone: "error",
+				text: "Couldn’t copy the link. Open the file and copy the address from your browser.",
+			});
 		}
 	};
 
