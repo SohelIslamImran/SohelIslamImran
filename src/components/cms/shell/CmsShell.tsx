@@ -7,9 +7,8 @@
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
- * - On the Changes page, Publish requests from the shell (top bar, phone action
- *   bar, command bar) scroll to and focus the page's own gate,
- *   `#release-gate` (`RELEASE_GATE_ID`), instead of opening a second flow.
+ * - On the Changes page, the command bar and release status can focus the
+ *   page's publish gate. The gate owns the primary Publish button.
  */
 import {
 	useCallback,
@@ -869,19 +868,22 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
-	const requestPublish = () => {
-		if (!draftActionAvailability(store.getState()).canPublish) return;
-		const gate =
-			pathname === "/cms/release" || pathname === "/release"
-				? document.getElementById(RELEASE_GATE_ID)
-				: null;
-		if (!gate) {
-			setPublishDialogOpen(true);
-			return;
-		}
+	const releaseGate = () =>
+		pathname === "/cms/release" || pathname === "/release"
+			? document.getElementById(RELEASE_GATE_ID)
+			: null;
+
+	const focusReleaseGate = (gate: HTMLElement) => {
 		if (!gate.matches("a[href], button, input, select, textarea, [tabindex]")) gate.tabIndex = -1;
 		gate.scrollIntoView({ block: "start", behavior: reduceMotion ? "instant" : "smooth" });
 		gate.focus({ preventScroll: true });
+	};
+
+	const requestPublish = () => {
+		if (!draftActionAvailability(store.getState()).canPublish) return;
+		const gate = releaseGate();
+		if (gate) focusReleaseGate(gate);
+		else setPublishDialogOpen(true);
 	};
 	const conflict = useDraftSelector((state) => state.conflict);
 	const [dismissedConflict, setDismissedConflict] = useState<typeof conflict>(null);
@@ -990,6 +992,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						onOpenDrawer={openDrawer}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
+						onReviewRelease={() => {
+							const gate = releaseGate();
+							if (!gate) return false;
+							focusReleaseGate(gate);
+							return true;
+						}}
 						publishFailed={publishFailed}
 						publishSweepKey={publishSweepKey}
 					/>

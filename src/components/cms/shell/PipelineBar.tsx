@@ -86,8 +86,13 @@ function PipelineStatus({
 	stage,
 	label,
 	onResolveConflict,
-}: ReturnType<typeof usePipelineStage> & { onResolveConflict: () => void }) {
+	onReviewRelease,
+}: ReturnType<typeof usePipelineStage> & {
+	onResolveConflict: () => void;
+	onReviewRelease: () => boolean;
+}) {
 	const [open, setOpen] = useState(false);
+	const reviewingGate = useRef(false);
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const issues = useDraftSelector((state) => state.issues.all);
@@ -118,11 +123,16 @@ function PipelineStatus({
 					setOpen(false);
 					onResolveConflict();
 				} else {
+					if (next) reviewingGate.current = false;
 					setOpen(next);
 				}
 			}}
 		>
-			<PopoverTrigger className="cms-status-pill cms-chrome-control cms-press" data-stage={stage} aria-label={label}>
+			<PopoverTrigger
+				className="cms-status-pill cms-chrome-control cms-press"
+				data-stage={stage}
+				aria-label={label}
+			>
 				<span className="cms-status-content">
 					<span key={label} className="cms-status-copy" aria-hidden="true">
 						{stage === "synced" ? (
@@ -142,6 +152,7 @@ function PipelineStatus({
 				align="start"
 				sideOffset={10}
 				positionMethod="fixed"
+				finalFocus={() => !reviewingGate.current}
 				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
 				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
@@ -157,7 +168,15 @@ function PipelineStatus({
 						<Link
 							to="/cms/release"
 							preload="intent"
-							onClick={() => setOpen(false)}
+							onClick={(event) => {
+								if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+									if (onReviewRelease()) {
+										reviewingGate.current = true;
+										event.preventDefault();
+									}
+									setOpen(false);
+								}
+							}}
 							className="cms-press cms-chrome-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
 						>
 							Review changes <span aria-hidden="true">→</span>
@@ -205,6 +224,7 @@ export function PipelineBar({
 	onOpenDrawer,
 	onResolveConflict,
 	onRequestPublish,
+	onReviewRelease,
 	publishFailed,
 	publishSweepKey,
 }: {
@@ -212,6 +232,7 @@ export function PipelineBar({
 	onOpenDrawer: () => void;
 	onResolveConflict: () => void;
 	onRequestPublish: () => void;
+	onReviewRelease: () => boolean;
 	publishFailed: boolean;
 	publishSweepKey: number;
 }) {
@@ -255,7 +276,12 @@ export function PipelineBar({
 					<span className="hidden sm:inline">Draft </span>r{draftRevision}
 				</span>
 				<span aria-hidden="true" className="cms-pipeline-connector" />
-				<PipelineStatus stage={stage} label={label} onResolveConflict={onResolveConflict} />
+				<PipelineStatus
+					stage={stage}
+					label={label}
+					onResolveConflict={onResolveConflict}
+					onReviewRelease={onReviewRelease}
+				/>
 				<span aria-hidden="true" className="cms-pipeline-connector" />
 				<Link
 					to="/cms/release"
