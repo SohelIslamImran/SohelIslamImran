@@ -692,7 +692,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const drawerFrame = useRef(0);
 	const interruptedSettle = useRef(false);
 	const drawerDismissSettling = useRef(false);
-	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
 	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
@@ -702,7 +701,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		interruptedSettle.current = false;
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
-		drawer.current?.removeAttribute("data-swipe-settling");
 		drawerScrim.current?.style.removeProperty("opacity");
 		drawerScrim.current?.style.removeProperty("transition");
 	}, []);
@@ -714,7 +712,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			clearDrawerStyles();
 			if (drawerDismissSettling.current) {
 				drawerDismissSettling.current = false;
-				drawerActions.current?.unmount();
+				setDrawerOpen(false);
 			}
 		};
 		preference.addEventListener("change", onChange);
@@ -724,10 +722,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		};
 	}, [clearDrawerStyles]);
 
-	const openDrawer = () => {
+	const setDrawerVisible = (open: boolean) => {
 		drawerDismissSettling.current = false;
+		release.current = null;
 		clearDrawerStyles();
-		setDrawerOpen(true);
+		setDrawerOpen(open);
 	};
 
 	/**
@@ -782,6 +781,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 					// Leave the drawer at that position and stop writing to it.
 					cancelAnimationFrame(drawerFrame.current);
 					drawerFrame.current = 0;
+					drawerDismissSettling.current = false;
 					interruptedSettle.current = true;
 				}
 			}
@@ -842,17 +842,17 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const position = release.current;
 		release.current = null;
 		if (!open && details.reason === "swipe" && position && drawer.current) {
-			details.preventUnmountOnClose();
+			// Keep Base UI's gesture handlers and modal active until the drawer
+			// is offscreen so a new touch can still take over the spring.
+			details.cancel();
 			drawerDismissSettling.current = true;
-			drawer.current.setAttribute("data-swipe-settling", "");
 			settleDrawer(position, -drawer.current.offsetWidth, () => {
 				drawerDismissSettling.current = false;
-				drawerActions.current?.unmount();
+				setDrawerOpen(false);
 			});
-		} else if (!open && (drawerFrame.current !== 0 || interruptedSettle.current)) {
-			clearDrawerStyles();
+			return;
 		}
-		setDrawerOpen(open);
+		setDrawerVisible(open);
 	};
 	// The drawer is hidden by CSS at `lg`, but an open Base UI dialog would
 	// keep its scroll lock and focus trap. Close it when the viewport grows.
@@ -860,12 +860,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		if (!drawerOpen) return;
 		const desktop = window.matchMedia("(min-width: 1024px)");
 		const close = () => {
-			if (desktop.matches) setDrawerOpen(false);
+			if (!desktop.matches) return;
+			drawerDismissSettling.current = false;
+			release.current = null;
+			clearDrawerStyles();
+			setDrawerOpen(false);
 		};
 		close();
 		desktop.addEventListener("change", close);
 		return () => desktop.removeEventListener("change", close);
-	}, [drawerOpen]);
+	}, [clearDrawerStyles, drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 	const [publishFailed, setPublishFailed] = useState(false);
 	useEffect(() => {
@@ -1004,7 +1008,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							commandOpener.current = trigger;
 							setCommandOpen(true);
 						}}
-						onOpenDrawer={openDrawer}
+						onOpenDrawer={() => setDrawerVisible(true)}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
 						onReviewRelease={() => {
@@ -1035,12 +1039,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			</div>
 
 			{/* Phone & tablet navigation drawer */}
-			<Drawer.Root
-				open={drawerOpen}
-				onOpenChange={changeDrawerOpen}
-				actionsRef={drawerActions}
-				swipeDirection="left"
-			>
+			<Drawer.Root open={drawerOpen} onOpenChange={changeDrawerOpen} swipeDirection="left">
 				<Drawer.Portal>
 					<Drawer.Backdrop
 						ref={drawerScrim}
@@ -1069,7 +1068,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							<LayerRailContent
 								layoutScope="drawer"
 								pulseSlot={pulseSlot}
-								onNavigate={() => setDrawerOpen(false)}
+								onNavigate={() => setDrawerVisible(false)}
 							/>
 						</Drawer.Popup>
 					</Drawer.Viewport>

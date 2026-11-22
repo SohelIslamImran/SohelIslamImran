@@ -554,9 +554,6 @@
 			/* Keep the opacity transition through the site's reduced-motion reset. */
 			transition-duration: 150ms !important;
 		}
-		.cms-drawer-popup[data-swipe-settling] {
-			visibility: hidden;
-		}
 		.cms-drawer-scrim:not([data-starting-style], [data-ending-style]) {
 			opacity: 1;
 		}
