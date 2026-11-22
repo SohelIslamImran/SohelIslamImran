@@ -26,12 +26,9 @@ export function StorageDisconnectedCard({ hasAssets }: { hasAssets: boolean }) {
 					Storage isn’t connected
 				</h2>
 				<p className="m-0 max-w-[64ch] text-[13.5px] leading-relaxed text-muted-foreground">
-					Uploads need an R2 bucket bound as{" "}
-					<code className="font-mono text-[12.5px] text-foreground">MEDIA</code> in{" "}
-					<code className="font-mono text-[12.5px] text-foreground">wrangler.jsonc</code>.{" "}
 					{hasAssets
-						? "Existing assets are listed below; uploading is off until it’s connected."
-						: "Once it’s connected, upload images and PDFs here and attach them in any section."}
+						? "You can browse existing assets. Connect media storage to upload new files."
+						: "Connect media storage to upload images and PDFs."}
 				</p>
 			</div>
 		</section>

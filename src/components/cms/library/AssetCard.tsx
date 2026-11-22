@@ -10,8 +10,7 @@ import { cn } from "../../../lib/utils";
 import { updateMediaAlt } from "../../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../../server/media.server";
 import { asUtcIso } from "../analytics/RelativeTime";
-import { staggerStyle } from "../analytics/Widgets";
-import { controlClass } from "../fields";
+import { controlClass, staggerStyle } from "../analytics/Widgets";
 import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
@@ -99,7 +98,7 @@ export function AssetCard({
 	const thumbnail =
 		isImage && isPublished ? (
 			<img
-				src={asset.url}
+				src={publicUrl}
 				alt=""
 				loading="lazy"
 				className="cms-media-thumb h-full w-full object-cover"
@@ -121,7 +120,7 @@ export function AssetCard({
 			<div className="relative aspect-[16/10] overflow-hidden border-b border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)]">
 				{isPublished ? (
 					<a
-						href={asset.url}
+						href={publicUrl}
 						target="_blank"
 						rel="noreferrer"
 						aria-label={`Open ${name} in a new tab`}
@@ -199,7 +198,10 @@ export function AssetCard({
 					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
 						{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ""}
 						{formatBytes(asset.bytes)}
-						<span className="sr-only"> · uploaded {formatUtcTimestamp(asUtcIso(asset.createdAt))}</span>
+						<span className="sr-only">
+							{" "}
+							· uploaded {formatUtcTimestamp(asUtcIso(asset.createdAt))}
+						</span>
 					</p>
 					{isPublished ? (
 						<button

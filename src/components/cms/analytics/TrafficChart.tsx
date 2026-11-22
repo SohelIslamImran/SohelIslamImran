@@ -168,11 +168,11 @@ export function TrafficChart({
 
 	// The callout sits on the far side of the crosshair (flipping past the
 	// midpoint) so it never covers the point it describes.
-	const tooltipWidth = Math.min(176, Math.max(140, canvasWidth * 0.42));
+	const tooltipWidth = Math.min(176, canvasWidth / 2 - 14);
 	const crossPx = activePv ? (activePv.x / width) * canvasWidth : 0;
 	const flip = activePv ? activePv.x / width > 0.5 : false;
 	const preferredLeft = flip ? crossPx - 14 - tooltipWidth : crossPx + 14;
-	const tooltipLeft = Math.max(4, Math.min(canvasWidth - tooltipWidth - 4, preferredLeft));
+	const tooltipLeft = preferredLeft;
 
 	const clearInspection = () => {
 		setHoverIndex(null);

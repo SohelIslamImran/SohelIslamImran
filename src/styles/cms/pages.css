@@ -144,14 +144,6 @@
 			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
-	.cms-media-card[data-selected="true"] {
-		border-color: var(--theme-accent-line);
-		box-shadow:
-			0 0 0 1px color-mix(in srgb, var(--theme-accent) 32%, transparent),
-			0 8px 24px -10px var(--theme-accent-shadow),
-			inset 0 1px var(--theme-highlight);
-	}
-
 	.cms-media-thumb {
 		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
@@ -190,9 +182,6 @@
 				0 4px 12px var(--theme-shadow-soft),
 				0 16px 32px -16px var(--theme-shadow-strong),
 				inset 0 1px var(--theme-highlight);
-		}
-		.cms-media-card[data-selected="true"]:hover {
-			border-color: var(--theme-accent-line);
 		}
 		.cms-media-card:hover .cms-media-thumb {
 			scale: 1.03;
@@ -258,8 +247,6 @@
 			0 2px 6px var(--theme-shadow-soft),
 			0 12px 30px -10px var(--theme-shadow-strong),
 			inset 0 1px var(--theme-highlight);
-		animation: cms-fade var(--cms-dur-fast, 160ms)
-			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
 	}
 
 	/* Ranked list: a thin 3px data bar under each row (transform-only). */

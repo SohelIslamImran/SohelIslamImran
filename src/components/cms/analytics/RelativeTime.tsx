@@ -2,16 +2,19 @@
  * Hydration-stable relative time for CMS pages.
  *
  * One shared clock ticks every 30 seconds. During SSR and hydration the clock
- * reads `null`, so server and client markup match and the label slot renders
- * empty at a fixed minimum width; once hydrated the label fades in without
- * reflowing the line. Rows that mount later (client-fetched lists) read the
- * clock synchronously, so they never flash an absolute timestamp first.
+ * reads `null`, so server and client render the same date. The relative
+ * label fades into the same slot once hydrated.
  */
 import { useSyncExternalStore } from "react";
 import { cn } from "../../../lib/utils";
 import { formatRelativeFromNow, formatUtcTimestamp } from "../shell/time";
 
 const TICK_MS = 30_000;
+const shortDate = new Intl.DateTimeFormat("en-GB", {
+	day: "numeric",
+	month: "short",
+	timeZone: "UTC",
+});
 let now: number | null = null;
 let timer: number | undefined;
 const listeners = new Set<() => void>();
@@ -72,18 +75,16 @@ export function RelativeTime({
 	const nowMs = useNow();
 	if (!iso) return fallback ? <span className={className}>{fallback}</span> : null;
 	const utc = asUtcIso(iso);
-	const label = nowMs === null ? "" : formatRelativeFromNow(utc, nowMs);
+	const relative = nowMs === null ? "" : formatRelativeFromNow(utc, nowMs);
+	const parsed = Date.parse(utc);
+	const absolute = Number.isFinite(parsed) ? shortDate.format(parsed) : formatUtcTimestamp(utc);
 	return (
 		<time
 			dateTime={utc}
 			title={formatUtcTimestamp(utc)}
-			className={cn(
-				"inline-block min-w-[6ch] tabular-nums",
-				label ? "cms-time-in" : "opacity-0",
-				className,
-			)}
+			className={cn("inline-block w-[8ch] whitespace-nowrap tabular-nums", className)}
 		>
-			{label || " "}
+			{relative ? <span className="cms-time-in">{relative}</span> : absolute}
 		</time>
 	);
 }
