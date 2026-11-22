@@ -17,7 +17,7 @@ import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
-import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
+import { FieldMessage, sentenceCase, useActionPointer } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField } from "../fields";
@@ -95,6 +95,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const listPanel = useRef<HTMLElement>(null);
 	const detailPanel = useRef<HTMLDivElement>(null);
 	const search = useRef<HTMLInputElement>(null);
+	const pointer = useActionPointer();
 	const [query, setQuery] = useState("");
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
@@ -103,6 +104,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const pendingListFocus = useRef<{
 		id?: string;
+		touch: boolean;
 		previous: typeof listPosition.current;
 	} | null>(null);
 	const filter = query.trim().toLowerCase();
@@ -212,11 +214,10 @@ export function CollectionEditor<T extends { id: string }>({
 		const pending = pendingListFocus.current;
 		if (detailOpen || !pending) return;
 		pendingListFocus.current = null;
-		const target =
-			rowButton(pending.id) ??
-			rowButton(pending.previous?.id) ??
-			search.current ??
-			document.getElementById(fieldId(path));
+		const row = rowButton(pending.id) ?? rowButton(pending.previous?.id);
+		const target = pending.touch
+			? (row?.closest("li")?.querySelector<HTMLElement>("[data-row-menu]") ?? listPanel.current)
+			: (row ?? search.current ?? document.getElementById(fieldId(path)));
 		target?.focus({ preventScroll: true });
 		if (pending.previous) window.scrollTo({ top: pending.previous.scroll, behavior: "instant" });
 		target?.scrollIntoView({ block: "nearest" });
@@ -255,8 +256,8 @@ export function CollectionEditor<T extends { id: string }>({
 		[item, narrow, select, focusAfterNavigation, detailHeadingId],
 	);
 
-	function back(focusId = activeId, slide = true) {
-		pendingListFocus.current = { id: focusId, previous: listPosition.current };
+	function back(focusId = activeId, slide = true, touch = false) {
+		pendingListFocus.current = { id: focusId, touch, previous: listPosition.current };
 		listPosition.current = null;
 		if (narrow && slide && activeId !== undefined) {
 			leavingId.current = activeId;
@@ -298,12 +299,12 @@ export function CollectionEditor<T extends { id: string }>({
 		open(row.id);
 	}
 
-	function remove(index: number) {
+	function remove(index: number, touch: boolean) {
 		const rows = store.valueAt(path) as T[];
 		const row = rows[index];
 		if (!row) return;
 		removals.remove(index, describe(row).title || itemLabel.toLowerCase());
-		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false);
+		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false, touch);
 	}
 
 	function closeAddForm() {
@@ -360,7 +361,7 @@ export function CollectionEditor<T extends { id: string }>({
 			<section
 				ref={listPanel}
 				className={cn(
-					"cms-panel cms-collection-list grid min-w-0 gap-3 p-3",
+					"cms-panel cms-collection-list min-w-0 gap-3 p-3",
 					item !== undefined && pane === "idle" && "max-lg:hidden",
 				)}
 				inert={narrow && detailOpen}
@@ -462,7 +463,7 @@ export function CollectionEditor<T extends { id: string }>({
 						}}
 						layoutScroll
 						ref={list}
-						className="cms-collection-rows m-0 grid min-w-0 list-none gap-1 p-1 empty:hidden"
+						className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
 					>
 						<AnimatePresence initial={false}>
 							{visible.map((index) => (
@@ -505,10 +506,18 @@ export function CollectionEditor<T extends { id: string }>({
 					<RevertList
 						path={path}
 						label={label}
-						onReverted={() => {
+						onReverted={(touch) => {
 							removals.clear();
-							if (item !== undefined) back();
-							else requestAnimationFrame(() => search.current?.focus());
+							const rows = store.valueAt(path) as T[];
+							if (item !== undefined && !rows.some((row) => row.id === item)) {
+								back(rows[0]?.id, false, touch);
+							} else {
+								requestAnimationFrame(() =>
+									(touch ? listPanel.current : (rowButton(item) ?? search.current))?.focus({
+										preventScroll: true,
+									}),
+								);
+							}
 						}}
 					/>
 				)}
@@ -544,46 +553,48 @@ export function CollectionEditor<T extends { id: string }>({
 						}}
 						transition={reduced ? REDUCED : SPRING_MOVE}
 						className={cn(
-							"min-w-0",
+							"grid min-w-0 gap-3",
 							shownId === undefined && item === undefined && length === 0 && "hidden",
 						)}
 					>
 						{shownId !== undefined ? (
-							<EditorGroup
-								title={
-									<span
-										id={detailHeadingId(shownId)}
-										tabIndex={-1}
-										className="block scroll-mt-32 wrap-anywhere rounded-sm"
-									>
-										<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
-									</span>
-								}
-								actions={
-									<div className="flex flex-wrap gap-2">
-										<button
-											type="button"
-											className={editorButton}
-											disabled={full}
-											onClick={() => {
-												const rows = store.valueAt(path) as T[];
-												add(rows, duplicate(rows[shownIndex], rows), shownIndex + 1);
-											}}
+							<>
+								<EditorGroup
+									title={
+										<span
+											id={detailHeadingId(shownId)}
+											tabIndex={-1}
+											className="block scroll-mt-32 wrap-anywhere rounded-sm"
 										>
-											<DuplicateIcon className="size-3.5" />
-											Duplicate
-										</button>
-										<button
-											type="button"
-											className={`${editorButton} cms-editor-destructive`}
-											onClick={() => remove(shownIndex)}
-										>
-											<TrashIcon className="size-3.5" />
-											Remove
-										</button>
-									</div>
-								}
-							>
+											<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
+										</span>
+									}
+									actions={
+										<div className="flex flex-wrap gap-2">
+											<button
+												type="button"
+												className={editorButton}
+												disabled={full}
+												onClick={() => {
+													const rows = store.valueAt(path) as T[];
+													add(rows, duplicate(rows[shownIndex], rows), shownIndex + 1);
+												}}
+											>
+												<DuplicateIcon className="size-3.5" />
+												Duplicate
+											</button>
+											<button
+												type="button"
+												className={`${editorButton} cms-editor-destructive`}
+												onPointerDown={pointer.onPointerDown}
+												onClick={(event) => remove(shownIndex, pointer.isTouchClick(event))}
+											>
+												<TrashIcon className="size-3.5" />
+												Remove
+											</button>
+										</div>
+									}
+								/>
 								<CollectionDetails
 									key={shownId}
 									collection={path}
@@ -593,7 +604,7 @@ export function CollectionEditor<T extends { id: string }>({
 									onRename={rename}
 									Editor={Editor}
 								/>
-							</EditorGroup>
+							</>
 						) : item !== undefined ? (
 							<EditorGroup title="Item unavailable">
 								<p className="m-0 text-[14px] text-muted-foreground">
@@ -608,14 +619,14 @@ export function CollectionEditor<T extends { id: string }>({
 								</button>
 							</EditorGroup>
 						) : length ? (
-							<EditorGroup
-								title="Choose an item"
-								className="cms-collection-placeholder max-lg:hidden"
-							>
-								<p className="m-0 text-[14px] text-muted-foreground">
-									Select an item in the list to edit it.
-								</p>
-							</EditorGroup>
+							<div className="cms-panel cms-collection-empty-state max-lg:hidden">
+								<span className="cms-collection-empty-icon" aria-hidden="true">
+									<StackIcon className="size-5" />
+								</span>
+								<h2 className="m-0 text-[15px] font-semibold text-foreground">
+									Choose a {itemLabel.toLowerCase()} to edit
+								</h2>
+							</div>
 						) : null}
 					</CollectionDetailPane>
 				</AnimatePresence>
@@ -734,6 +745,7 @@ function CollectionRow<T extends { id: string }>({
 		return [summary.title, summary.subtitle, ...(summary.chips ?? [])];
 	});
 	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
+	const isNew = useDraftSelector((state, store) => store.liveValueAt(path, state) === undefined);
 	const reduced = useLiveReducedMotion();
 	return (
 		<SortableRow
@@ -764,16 +776,16 @@ function CollectionRow<T extends { id: string }>({
 						className="cms-collection-row-button cms-press"
 					>
 						<span className="grid min-w-0 flex-1 gap-[3px]">
-							<span className="wrap-anywhere text-[14px] font-medium">
+							<span className="wrap-break-word text-[14px] font-medium">
 								{title || `Untitled ${itemLabel.toLowerCase()}`}
 							</span>
 							{subtitle ? (
-								<span className="cms-collection-subtitle wrap-anywhere text-[12px]">
+								<span className="cms-collection-subtitle wrap-break-word text-[12px]">
 									{subtitle}
 								</span>
 							) : null}
 							<span className="flex flex-wrap gap-1 empty:hidden">
-								{chips.map((chip) => (
+								{(isNew ? ["New", ...chips] : chips).map((chip) => (
 									<span
 										key={chip}
 										className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
@@ -816,9 +828,10 @@ function ConfirmListAction({
 }: {
 	label: string;
 	prompt: string;
-	onConfirm: () => void;
+	onConfirm: (touch: boolean) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
+	const pointer = useActionPointer();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const cancel = useRef<HTMLButtonElement>(null);
 	const cancelConfirmation = () => {
@@ -842,9 +855,10 @@ function ConfirmListAction({
 			<button
 				type="button"
 				className={`${editorButton} text-destructive`}
-				onClick={() => {
+				onPointerDown={pointer.onPointerDown}
+				onClick={(event) => {
 					setConfirming(false);
-					onConfirm();
+					onConfirm(pointer.isTouchClick(event));
 				}}
 			>
 				{label}
@@ -854,7 +868,7 @@ function ConfirmListAction({
 		<button
 			ref={trigger}
 			type="button"
-			className={`${editorButton} justify-self-start`}
+			className={`${editorButton} self-start justify-self-start`}
 			onClick={() => {
 				setConfirming(true);
 				requestAnimationFrame(() => cancel.current?.focus());
@@ -872,7 +886,7 @@ function RevertList({
 }: {
 	path: string;
 	label: string;
-	onReverted: () => void;
+	onReverted: (touch: boolean) => void;
 }) {
 	const changed = useChangedAt(path);
 	const store = useDraftStore();
@@ -881,9 +895,9 @@ function RevertList({
 		<ConfirmListAction
 			label="Revert list to live"
 			prompt={`Revert all draft edits in ${label.toLowerCase()}?`}
-			onConfirm={() => {
+			onConfirm={(touch) => {
 				store.revertAt(path);
-				onReverted();
+				onReverted(touch);
 			}}
 		/>
 	);
@@ -906,15 +920,17 @@ const CollectionDetails = memo(function CollectionDetails({
 }) {
 	return (
 		<>
-			<div id={fieldId(path)} tabIndex={-1} className="rounded-sm">
+			<div id={fieldId(path)} tabIndex={-1} className="grid min-w-0 gap-3 rounded-sm">
 				<UndoRemovalScope collection={collection} id={id} path={path}>
 					<Editor path={path} />
 				</UndoRemovalScope>
 			</div>
 			{profile ? (
-				<ProfileSlugField path={`${path}.id`} id={id} onRename={onRename} />
+				<EditorGroup heading="h3" title="Public URL">
+					<ProfileSlugField path={`${path}.id`} id={id} onRename={onRename} />
+				</EditorGroup>
 			) : (
-				<dl className="m-0 grid gap-1 border-t border-line pt-3">
+				<dl className="m-0 grid gap-1 px-4 py-2">
 					<dt className="mono-label text-muted-foreground">Item ID</dt>
 					<dd
 						id={fieldId(`${path}.id`)}
@@ -949,7 +965,7 @@ function ProfileSlugField({
 	const inputId = fieldId(path);
 	return (
 		<form
-			className="grid gap-2 border-t border-line pt-3"
+			className="grid gap-2"
 			onSubmit={(event) => {
 				event.preventDefault();
 				if (slug !== id && !taken && slug.length <= 80 && PUBLIC_SLUG_PATTERN.test(slug))

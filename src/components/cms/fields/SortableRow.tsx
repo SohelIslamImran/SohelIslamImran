@@ -43,6 +43,7 @@ export function SortableRow({
 	return (
 		<Reorder.Item
 			{...props}
+			tabIndex={-1}
 			layout="position"
 			value={value}
 			drag={reorderable ? "y" : false}

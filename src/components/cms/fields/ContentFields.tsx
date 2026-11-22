@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useState, type ComponentType, type ReactNode } from "react";
 import type { LinkContent, MetricContent } from "../../../types/content";
 import { CheckboxField, SegmentedField } from "./ChoiceFields";
 import { focusField } from "./FieldFrame";
@@ -135,10 +135,16 @@ export function LinkRow({ path }: { path: string }) {
 	);
 }
 
-export function MetricRow({ path }: { path: string }) {
+export function MetricRow({ path, labelDescription }: { path: string; labelDescription?: string }) {
 	return (
 		<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
-			<TextField path={`${path}.label`} label="Label" maxLength={120} required />
+			<TextField
+				path={`${path}.label`}
+				label="Label"
+				description={labelDescription}
+				maxLength={120}
+				required
+			/>
 			<TextField path={`${path}.value`} label="Value" maxLength={240} />
 		</div>
 	);
@@ -169,22 +175,21 @@ export function MetricsField({
 	path,
 	label,
 	itemLabel,
-	description,
+	Editor = MetricRow,
 }: {
 	path: string;
 	label: string;
 	itemLabel: string;
-	description?: string;
+	Editor?: ComponentType<{ path: string }>;
 }) {
 	return (
 		<RepeaterField<MetricContent>
 			path={path}
 			label={label}
 			itemLabel={itemLabel}
-			description={description}
 			create={() => ({ label: "", value: "" })}
 			summarize={(row) => [row.label, row.value].filter(Boolean).join(" · ")}
-			Editor={MetricRow}
+			Editor={Editor}
 		/>
 	);
 }

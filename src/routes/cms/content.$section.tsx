@@ -6,7 +6,7 @@ import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/contex
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
 import { UndoRemovalHost } from "../../components/cms/fields/UndoRemoval";
-import { sentenceCase } from "../../components/cms/fields/FieldFrame";
+import { fieldIssueMessage } from "../../components/cms/fields/FieldFrame";
 import { AlertCircleIcon } from "../../components/cms/fields/field-icons";
 import { absolute } from "../../lib/seo";
 import { EditorLayout } from "../../components/cms/sections/EditorLayout";
@@ -90,20 +90,19 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	];
 
 	const [open, setOpen] = useState(false);
-	const pendingFocus = useRef<{ path: string; navigation: Promise<void> } | null>(null);
+	const jumping = useRef(false);
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
+	// Counts reflect the live draft. Text inputs can delay their inline feedback,
+	// but these issues still block autosave and can be opened here immediately.
 	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
 		<Popover.Root
 			open={open}
-			onOpenChange={setOpen}
-			onOpenChangeComplete={(open) => {
-				if (open) return;
-				const pending = pendingFocus.current;
-				pendingFocus.current = null;
-				if (pending) void pending.navigation.then(() => revealIssue(pending.path));
+			onOpenChange={(open) => {
+				if (open) jumping.current = false;
+				setOpen(open);
 			}}
 		>
 			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
@@ -118,7 +117,10 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 					sideOffset={8}
 					className="isolate z-(--z-overlay) outline-none"
 				>
-					<Popover.Popup className="cms-field-popup cms-issues-popup">
+					<Popover.Popup
+						className="cms-field-popup cms-issues-popup"
+						finalFocus={() => (jumping.current ? false : undefined)}
+					>
 						<Popover.Title className="m-0 px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-muted-foreground">
 							{issues.length === 1 ? "1 error to fix" : `${count} to fix`}
 						</Popover.Title>
@@ -152,26 +154,25 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												)
 													return;
 												event.preventDefault();
-												// The popup restores focus when its exit completes.
-												pendingFocus.current = {
-													path: issue.path,
-													navigation: navigate({
-														to: "/cms/content/$section",
-														params: { section: section.id },
-														search: { item, tab, field },
-														hash: fieldId(issue.path),
-														hashScrollIntoView: false,
-														replace: true,
-														resetScroll: false,
-													}),
-												};
+												// The clicked issue owns the next focus target.
+												jumping.current = true;
+												const popup = event.currentTarget.closest(".cms-issues-popup");
 												setOpen(false);
+												void navigate({
+													to: "/cms/content/$section",
+													params: { section: section.id },
+													search: { item, tab, field },
+													hash: fieldId(issue.path),
+													hashScrollIntoView: false,
+													replace: true,
+													resetScroll: false,
+												}).then(() => revealIssue(issue.path, popup));
 											}}
 											className="cms-issue-link"
 										>
 											<span className="font-semibold">{issueLabel(draftNow, issue.path)}</span>{" "}
 											<span className="text-muted-foreground">
-												{sentenceCase(issue.message).replace(/^./u, (first) => first.toLowerCase())}
+												{fieldIssueMessage(issue).replace(/^./u, (first) => first.toLowerCase())}
 											</span>
 										</Link>
 									</li>
@@ -186,11 +187,17 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 }
 
 /** Open parent disclosure rows before focusing their lazily mounted controls. */
-function revealIssue(path: string) {
+function revealIssue(path: string, popup: Element | null) {
 	const segments = parsePath(path);
 	const parents = segments.slice(1).map((_, index) => formatPath(segments.slice(0, index + 1)));
 	let attempts = 15;
+	const deadline = performance.now() + 1_000;
 	function reveal() {
+		// Wait for the closing popup's focus manager to unmount.
+		if (popup?.isConnected) {
+			if (performance.now() < deadline) requestAnimationFrame(reveal);
+			return;
+		}
 		for (const parentPath of parents) {
 			const parent = document.getElementById(fieldId(parentPath))?.parentElement;
 			if (parent instanceof HTMLDetailsElement) parent.open = true;
@@ -199,7 +206,7 @@ function revealIssue(path: string) {
 		if (disclosure instanceof HTMLDetailsElement) disclosure.open = true;
 		if (focusField(path)) return;
 		if (attempts-- > 0) requestAnimationFrame(reveal);
-		else if (!parents.reverse().some(focusField))
+		else if (!parents.reverse().some((path) => focusField(path)))
 			document.getElementById("cms-section-heading")?.focus();
 	}
 	requestAnimationFrame(reveal);

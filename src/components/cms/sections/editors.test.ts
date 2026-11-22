@@ -130,7 +130,7 @@ describe("CMS editor rendering", () => {
 			id: `chapter-${index}`,
 		}));
 		const html = renderEditor(createElement(StoryEditor), draft);
-		expect(html).toContain("30/30");
+		expect(html).toContain("30</span>/30");
 		expect(html).toMatch(/<button[^>]*id="cms-field-story-chapters"[^>]*disabled=""/u);
 		expect(html).toContain('aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"');
 	});
@@ -140,6 +140,23 @@ describe("CMS editor rendering", () => {
 		expect(html).toMatch(
 			/style="opacity:1;transform:none"[^>]*><section[^>]*data-slot="cms-editor-group"/u,
 		);
+	});
+
+	it("keeps sortable list items out of the Tab order", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.social = draft.social.slice(0, 1);
+		const single = renderEditor(
+			createElement(LinksEditor, { tab: "social", select: vi.fn() }),
+			draft,
+		);
+		const multiple = renderEditor(createElement(ProjectsEditor, { select: vi.fn() }));
+		for (const html of [single, multiple]) {
+			const rows = html.match(/<li[^>]*class="[^"]*\bcms-sortable-row\b[^"]*"[^>]*>/gu);
+			expect(rows?.length).toBeGreaterThan(0);
+			for (const row of rows ?? []) {
+				expect(row).toContain('tabindex="-1"');
+			}
+		}
 	});
 
 	it("server-renders a compact headline textarea and a persistent error region", () => {

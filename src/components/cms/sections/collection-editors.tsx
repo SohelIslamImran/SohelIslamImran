@@ -23,6 +23,7 @@ import {
 	HrefField,
 	MediaField,
 	MediaIdsField,
+	MetricRow,
 	MetricsField,
 	RepeaterField,
 	SelectField,
@@ -79,38 +80,52 @@ function ProjectSlug({ path }: { path: string }) {
 	);
 }
 
+function ProjectMetricRow({ path }: { path: string }) {
+	return <MetricRow path={path} labelDescription="Keep the measurement date in the label." />;
+}
+
 function ProjectFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-			<ProjectSlug path={path} />
-			<SelectField path={`${path}.category`} label="Category" options={CATEGORY_OPTIONS} />
-			<SwitchField path={`${path}.featured`} label="Featured project" />
-			<TextAreaField path={`${path}.summary`} label="Summary" maxLength={600} />
-			<TextAreaField path={`${path}.description`} label="Description" maxLength={2_000} />
-			<div className="grid gap-x-4 gap-y-5 xl:grid-cols-2">
-				<TextField path={`${path}.year`} label="Year" maxLength={32} />
-				<TextField path={`${path}.status`} label="Status" maxLength={120} />
-			</div>
-			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} />
-			<TagsField path={`${path}.tags`} label="Tags" />
-			<StringListField
-				path={`${path}.highlights`}
-				label="Highlights"
-				itemLabel="Highlight"
-				addLabel="Add highlight"
-				maxLength={600}
-			/>
-			<MetricsField
-				path={`${path}.metrics`}
-				label="Public metrics"
-				itemLabel="Metric"
-				description="Keep the measurement date in the label."
-			/>
-			<HrefField path={`${path}.href`} label="Project link" optional />
-			<HrefField path={`${path}.repository`} label="Repository link" optional />
-			<MediaField path={`${path}.cover`} label="Cover image" />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Basics">
+				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
+				<ProjectSlug path={path} />
+				<SelectField path={`${path}.category`} label="Category" options={CATEGORY_OPTIONS} />
+				<SwitchField path={`${path}.featured`} label="Featured project" />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Story">
+				<TextAreaField path={`${path}.summary`} label="Summary" maxLength={600} />
+				<TextAreaField path={`${path}.description`} label="Description" maxLength={2_000} />
+				<StringListField
+					path={`${path}.highlights`}
+					label="Highlights"
+					itemLabel="Highlight"
+					addLabel="Add highlight"
+					maxLength={600}
+				/>
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Details">
+				<div className="grid gap-x-4 gap-y-5 xl:grid-cols-2">
+					<TextField path={`${path}.year`} label="Year" maxLength={32} />
+					<TextField path={`${path}.status`} label="Status" maxLength={120} />
+				</div>
+				<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} />
+				<TagsField path={`${path}.tags`} label="Tags" />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Measurements">
+				<MetricsField
+					path={`${path}.metrics`}
+					label="Public metrics"
+					itemLabel="Metric"
+					Editor={ProjectMetricRow}
+				/>
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Links and media">
+				<HrefField path={`${path}.href`} label="Project link" optional />
+				<HrefField path={`${path}.repository`} label="Repository link" optional />
+				<MediaField path={`${path}.cover`} label="Cover image" />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -156,23 +171,27 @@ export function ProjectsEditor(props: EditorProps) {
 
 function ExperienceFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextField path={`${path}.company`} label="Company" maxLength={240} required />
-			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} required />
-			<TextField path={`${path}.period`} label="Period" maxLength={120} />
-			<TextField path={`${path}.location`} label="Location" maxLength={160} optional />
-			<SwitchField path={`${path}.current`} label="Current role" />
-			<TextAreaField path={`${path}.summary`} label="Summary" maxLength={1_200} />
-			<StringListField
-				path={`${path}.highlights`}
-				label="Highlights"
-				itemLabel="Highlight"
-				addLabel="Add highlight"
-				maxLength={600}
-			/>
-			<TagsField path={`${path}.technologies`} label="Technologies" />
-			<HrefField path={`${path}.href`} label="Company link" optional />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Role details">
+				<TextField path={`${path}.company`} label="Company" maxLength={240} required />
+				<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} required />
+				<TextField path={`${path}.period`} label="Period" maxLength={120} />
+				<TextField path={`${path}.location`} label="Location" maxLength={160} optional />
+				<SwitchField path={`${path}.current`} label="Current role" />
+				<HrefField path={`${path}.href`} label="Company link" optional />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Work and technologies">
+				<TextAreaField path={`${path}.summary`} label="Summary" maxLength={1_200} />
+				<StringListField
+					path={`${path}.highlights`}
+					label="Highlights"
+					itemLabel="Highlight"
+					addLabel="Add highlight"
+					maxLength={600}
+				/>
+				<TagsField path={`${path}.technologies`} label="Technologies" />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -206,11 +225,15 @@ export function ExperienceEditor(props: EditorProps) {
 
 function CapabilityFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-			<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
-			<TagsField path={`${path}.tools`} label="Tools" />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Capability details">
+				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
+				<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Tools">
+				<TagsField path={`${path}.tools`} label="Tools" />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -232,20 +255,24 @@ export function CapabilitiesEditor(props: EditorProps) {
 
 function TestimonialFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextField path={`${path}.author`} label="Author" maxLength={160} required />
-			<TextAreaField singleLine path={`${path}.role`} label="Author's role" maxLength={240} />
-			<TextAreaField path={`${path}.quote`} label="Quote" maxLength={1_200} required />
-			<TextField
-				path={`${path}.date`}
-				label="Date"
-				maxLength={80}
-				optional
-				placeholder="Nov 2022"
-				description="Shown on the résumé exactly as written."
-			/>
-			<HrefField path={`${path}.href`} label="Source link" optional />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Attribution">
+				<TextField path={`${path}.author`} label="Author" maxLength={160} required />
+				<TextAreaField singleLine path={`${path}.role`} label="Author's role" maxLength={240} />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Testimonial">
+				<TextAreaField path={`${path}.quote`} label="Quote" maxLength={1_200} required />
+				<TextField
+					path={`${path}.date`}
+					label="Date"
+					maxLength={80}
+					optional
+					placeholder="Nov 2022"
+					description="Shown on the résumé exactly as written."
+				/>
+				<HrefField path={`${path}.href`} label="Source link" optional />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -267,18 +294,22 @@ export function TestimonialsEditor(props: EditorProps) {
 
 function CredentialFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-			<TextField path={`${path}.issuer`} label="Issuer" maxLength={240} required />
-			<TextField
-				path={`${path}.issuedAt`}
-				label="Issue date"
-				maxLength={80}
-				placeholder="Apr 2021"
-				description="Shown on the résumé exactly as written."
-			/>
-			<HrefField path={`${path}.href`} label="Credential link" optional />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Credential details">
+				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
+				<TextField path={`${path}.issuer`} label="Issuer" maxLength={240} required />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Verification">
+				<TextField
+					path={`${path}.issuedAt`}
+					label="Issue date"
+					maxLength={80}
+					placeholder="Apr 2021"
+					description="Shown on the résumé exactly as written."
+				/>
+				<HrefField path={`${path}.href`} label="Credential link" optional />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -300,20 +331,24 @@ export function CredentialsEditor(props: EditorProps) {
 
 function WritingFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-			<TextAreaField path={`${path}.excerpt`} label="Excerpt" maxLength={1_200} />
-			<DateField path={`${path}.publishedAt`} label="Publication date" />
-			<TextField
-				path={`${path}.readingTime`}
-				label="Reading time"
-				placeholder="5 min read"
-				maxLength={64}
-				optional
-			/>
-			<HrefField path={`${path}.href`} label="Article link" />
-			<TagsField path={`${path}.tags`} label="Tags" />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Article">
+				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
+				<TextAreaField path={`${path}.excerpt`} label="Excerpt" maxLength={1_200} />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Publication">
+				<DateField path={`${path}.publishedAt`} label="Publication date" />
+				<TextField
+					path={`${path}.readingTime`}
+					label="Reading time"
+					placeholder="5 min read"
+					maxLength={64}
+					optional
+				/>
+				<HrefField path={`${path}.href`} label="Article link" />
+				<TagsField path={`${path}.tags`} label="Tags" />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -335,16 +370,22 @@ export function WritingEditor(props: EditorProps) {
 
 function TravelFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<TextField path={`${path}.place`} label="Place" maxLength={160} required />
-			<TextField path={`${path}.region`} label="Region" maxLength={160} />
-			<TextField path={`${path}.season`} label="Season" maxLength={120} />
-			<VisibilityField path={`${path}.visibility`} />
-			<TextAreaField path={`${path}.summary`} label="Summary" maxLength={1_200} />
-			<TextAreaField path={`${path}.reflection`} label="Reflection" maxLength={2_400} />
-			<CoordinateField path={path} />
-			<MediaIdsField path={`${path}.mediaIds`} />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Place and map">
+				<TextField path={`${path}.place`} label="Place" maxLength={160} required />
+				<TextField path={`${path}.region`} label="Region" maxLength={160} />
+				<TextField path={`${path}.season`} label="Season" maxLength={120} />
+				<CoordinateField path={path} />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Visibility">
+				<VisibilityField path={`${path}.visibility`} />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Story and photos">
+				<TextAreaField path={`${path}.summary`} label="Summary" maxLength={1_200} />
+				<TextAreaField path={`${path}.reflection`} label="Reflection" maxLength={2_400} />
+				<MediaIdsField path={`${path}.mediaIds`} />
+			</EditorGroup>
+		</>
 	);
 }
 
@@ -418,12 +459,16 @@ function SocialFields({ path, profile = false }: { path: string; profile?: boole
 
 function ProfileLinkFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-5">
-			<SocialFields path={path} profile />
-			<TextAreaField path={`${path}.description`} label="Description" maxLength={600} optional />
-			<SelectField path={`${path}.kind`} label="Kind" options={PROFILE_KINDS} optional />
-			<SwitchField path={`${path}.featured`} label="Featured link" />
-		</div>
+		<>
+			<EditorGroup heading="h3" title="Link details">
+				<SocialFields path={path} profile />
+				<TextAreaField path={`${path}.description`} label="Description" maxLength={600} optional />
+			</EditorGroup>
+			<EditorGroup heading="h3" title="Placement">
+				<SelectField path={`${path}.kind`} label="Kind" options={PROFILE_KINDS} optional />
+				<SwitchField path={`${path}.featured`} label="Featured link" />
+			</EditorGroup>
+		</>
 	);
 }
 

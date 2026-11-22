@@ -1,3 +1,4 @@
+import { Counter } from "./TextFields";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { AnimatePresence, Reorder } from "motion/react";
@@ -220,11 +221,7 @@ export function MediaIdsField({ path }: { path: string }) {
 							field.revert();
 						}
 			}
-			meta={
-				<span className="font-mono text-[11px] text-muted-foreground">
-					{ids.length}/{MAX_TRAVEL_MEDIA}
-				</span>
-			}
+			meta={<Counter length={ids.length} max={MAX_TRAVEL_MEDIA} />}
 		>
 			<Reorder.Group
 				as="ol"
@@ -244,11 +241,12 @@ export function MediaIdsField({ path }: { path: string }) {
 							index={index}
 							canMoveDown={index < ids.length - 1}
 							move={move}
-							remove={(label) => {
+							remove={(label, touch) => {
 								removals.remove(index, label);
 								requestAnimationFrame(() =>
 									focusField(
 										ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
+										touch,
 									),
 								);
 							}}
@@ -317,7 +315,7 @@ function PhotoRow({
 	index: number;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
-	remove: (label: string) => void;
+	remove: (label: string, touch: boolean) => void;
 }) {
 	const [assetIndex, alt] = useDraftSelector(({ draft }) => {
 		const index = draft.media.findIndex((asset) => asset.id === id);
@@ -356,7 +354,7 @@ function PhotoRow({
 							canMoveDown={canMoveDown}
 							onMoveUp={() => move(index, index - 1)}
 							onMoveDown={() => move(index, index + 1)}
-							onRemove={() => remove(label)}
+							onRemove={(touch) => remove(label, touch)}
 						/>
 					</div>
 					{assetIndex >= 0 ? (

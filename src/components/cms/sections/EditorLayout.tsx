@@ -55,13 +55,16 @@ export function EditorGroup({
 	actions,
 	className,
 	children,
+	heading = "h2",
 }: {
 	title: ReactNode;
 	description?: ReactNode;
 	actions?: ReactNode;
 	className?: string;
-	children: ReactNode;
+	children?: ReactNode;
+	heading?: "h2" | "h3";
 }) {
+	const Heading = heading;
 	return (
 		<section
 			data-slot="cms-editor-group"
@@ -72,14 +75,14 @@ export function EditorGroup({
 		>
 			<header className="cms-editor-group-heading flex min-w-0 flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
-					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
+					<Heading className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{title}</Heading>
 					{description ? (
 						<p className="m-0 mt-1 text-[13px] text-muted-foreground">{description}</p>
 					) : null}
 				</div>
 				{actions}
 			</header>
-			<div className="grid min-w-0 gap-6">{children}</div>
+			{children ? <div className="grid min-w-0 gap-6">{children}</div> : null}
 		</section>
 	);
 }

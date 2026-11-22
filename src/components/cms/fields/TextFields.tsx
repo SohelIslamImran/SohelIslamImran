@@ -5,7 +5,13 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
-import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
+import {
+	FieldFrame,
+	controlClass,
+	describedBy,
+	fieldId,
+	useFieldIssueFeedback,
+} from "./FieldFrame";
 import { toSingleLine } from "./field-logic";
 
 interface BaseFieldProps {
@@ -78,7 +84,7 @@ export function TextField({
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = valueOverride ?? field.value ?? "";
-	const { issues } = field;
+	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, value);
 	return (
 		<FieldFrame
 			path={path}
@@ -108,6 +114,8 @@ export function TextField({
 					spellCheck={spellCheck}
 					aria-invalid={issues.length > 0 || undefined}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
+					onFocus={onFocus}
+					onBlur={onBlur}
 					onChange={(event) => {
 						const next = event.currentTarget.value;
 						field.set(optional && next === "" ? undefined : next);
@@ -156,6 +164,7 @@ export function TextAreaField({
 	const rows = singleLine ? 1 : rowsProp;
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
+	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, value);
 	const textarea = useRef<HTMLTextAreaElement>(null);
 	useLayoutEffect(() => {
 		const element = textarea.current;
@@ -168,7 +177,7 @@ export function TextAreaField({
 			path={path}
 			label={label}
 			description={description}
-			issues={field.issues}
+			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			meta={<Counter length={value.length} max={maxLength} />}
@@ -183,8 +192,8 @@ export function TextAreaField({
 				placeholder={placeholder}
 				disabled={disabled}
 				aria-required={required || undefined}
-				aria-invalid={field.issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), field.issues)}
+				aria-invalid={issues.length > 0 || undefined}
+				aria-describedby={describedBy(path, Boolean(description), issues)}
 				onKeyDown={
 					singleLine
 						? (event) => {
@@ -192,6 +201,8 @@ export function TextAreaField({
 							}
 						: undefined
 				}
+				onFocus={onFocus}
+				onBlur={onBlur}
 				onChange={(event) => {
 					const raw = event.currentTarget.value;
 					const next = singleLine ? toSingleLine(raw) : raw;
@@ -228,12 +239,13 @@ export function NumberField({
 	step = "any",
 }: NumberFieldProps) {
 	const field = useField<number | undefined>(path);
+	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, field.value ?? "");
 	return (
 		<FieldFrame
 			path={path}
 			label={label}
 			description={description}
-			issues={field.issues}
+			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			className={className}
@@ -248,8 +260,10 @@ export function NumberField({
 				min={min}
 				max={max}
 				step={step}
-				aria-invalid={field.issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), field.issues)}
+				aria-invalid={issues.length > 0 || undefined}
+				aria-describedby={describedBy(path, Boolean(description), issues)}
+				onFocus={onFocus}
+				onBlur={onBlur}
 				onChange={(event) => {
 					const raw = event.currentTarget.value;
 					const parsed = raw === "" ? undefined : Number(raw);

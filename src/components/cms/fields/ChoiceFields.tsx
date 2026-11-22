@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useCallback, useId, useState, type ReactNode } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Radio } from "@base-ui/react/radio";
@@ -10,7 +10,13 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
-import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
+import {
+	FieldFrame,
+	controlClass,
+	describedBy,
+	fieldId,
+	useFieldIssueFeedback,
+} from "./FieldFrame";
 import { CheckIcon, ChevronDownIcon } from "./field-icons";
 
 export interface ChoiceOption<V extends string> {
@@ -197,17 +203,34 @@ export function SuggestionField({
 	const groupId = useId();
 	const reduced = useLiveReducedMotion();
 	const value = field.value ?? "";
+	const feedback = useFieldIssueFeedback(field.issues, value, null);
+	const [open, setOpen] = useState(false);
 	// Show the whole list when it opens; filter once the owner types.
 	const [typed, setTyped] = useState(false);
 	const query = value.trim().toLowerCase();
 	const filtered =
 		typed && query ? items.filter((item) => item.toLowerCase().includes(query)) : items;
+	const scrollToCurrent = useCallback(
+		(list: HTMLDivElement | null) => {
+			if (!list || !open || typed) return;
+			const current = list.querySelector<HTMLElement>("[data-current]");
+			if (!current) return;
+			const center = () => {
+				list.scrollTop = current.offsetTop - (list.clientHeight - current.offsetHeight) / 2;
+			};
+			center();
+			// Recheck once the positioner has set the available height.
+			const frame = requestAnimationFrame(center);
+			return () => cancelAnimationFrame(frame);
+		},
+		[open, typed],
+	);
 	return (
 		<FieldFrame
 			path={path}
 			label={label}
 			description={description}
-			issues={field.issues}
+			issues={feedback.issues}
 			changed={field.changed}
 			onRevert={field.revert}
 		>
@@ -217,10 +240,13 @@ export function SuggestionField({
 					filteredItems={filtered}
 					value={value}
 					onValueChange={(next, details) => {
-						setTyped(details.reason === "input-change");
+						const typing = details.reason === "input-change";
+						setTyped(typing);
+						if (!typing) feedback.commit();
 						field.set(next);
 					}}
 					onOpenChange={(open, details) => {
+						setOpen(open);
 						if (open && details.reason !== "input-change") setTyped(false);
 					}}
 					openOnInputClick
@@ -230,9 +256,11 @@ export function SuggestionField({
 						autoComplete="off"
 						spellCheck={false}
 						className={cn(controlClass, "min-h-10 pr-12 font-mono")}
-						aria-invalid={field.issues.length > 0 || undefined}
-						aria-describedby={describedBy(path, Boolean(description), field.issues)}
+						aria-invalid={feedback.issues.length > 0 || undefined}
+						aria-describedby={describedBy(path, Boolean(description), feedback.issues)}
+						onBlur={feedback.onBlur}
 						onFocus={(event) => {
+							feedback.onFocus();
 							const input = event.currentTarget;
 							// After the click that focused it places the caret.
 							requestAnimationFrame(() => {
@@ -255,11 +283,12 @@ export function SuggestionField({
 									{emptyMessage}
 								</Autocomplete.Empty>
 								<LayoutGroup id={groupId}>
-									<Autocomplete.List className="cms-popup-list">
+									<Autocomplete.List ref={scrollToCurrent} className="cms-popup-list relative">
 										{(item: string) => (
 											<Autocomplete.Item
 												key={item}
 												value={item}
+												data-current={item === value || undefined}
 												className="cms-choice-option"
 												render={(props, { highlighted }) => (
 													<div {...props}>
@@ -268,7 +297,15 @@ export function SuggestionField({
 													</div>
 												)}
 											>
-												{item}
+												<span className="flex min-w-0 items-center justify-between gap-2">
+													{item}
+													{item === value ? (
+														<>
+															<CheckIcon className="size-3.5 shrink-0 text-primary-text" />
+															<span className="sr-only"> (current value)</span>
+														</>
+													) : null}
+												</span>
 											</Autocomplete.Item>
 										)}
 									</Autocomplete.List>

@@ -1,3 +1,4 @@
+import { Counter } from "./TextFields";
 import { AnimatePresence, Reorder } from "motion/react";
 import { memo, useCallback, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
@@ -84,13 +85,13 @@ export function RepeaterField<T extends object>({
 	);
 
 	const remove = useCallback(
-		(index: number, label: string) => {
+		(index: number, label: string, touch: boolean) => {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
 			const row = rows[index];
 			if (!row) return;
 			removeRow(index, label);
 			const target = rows.length === 1 ? path : childPath(path, Math.min(index, rows.length - 2));
-			requestAnimationFrame(() => focusField(target));
+			requestAnimationFrame(() => focusField(target, touch));
 		},
 		[path, removeRow, store],
 	);
@@ -111,11 +112,7 @@ export function RepeaterField<T extends object>({
 							store.revertAt(path);
 						}
 			}
-			meta={
-				<span className="font-mono text-[11px] text-muted-foreground">
-					{keys.length}/{max}
-				</span>
-			}
+			meta={<Counter length={keys.length} max={max} />}
 		>
 			<Reorder.Group
 				as="ol"
@@ -205,7 +202,7 @@ function RepeaterRow<T extends object>({
 	canMoveDown: boolean;
 	full: boolean;
 	move: (from: number, to: number) => void;
-	remove: (index: number, label: string) => void;
+	remove: (index: number, label: string, touch: boolean) => void;
 	duplicate: (index: number) => void;
 	Editor: ComponentType<{ path: string }>;
 }) {
@@ -244,7 +241,7 @@ function RepeaterRow<T extends object>({
 						>
 							{/* The count sits beside the name so a truncated name never hides it. */}
 							<span className="flex min-w-0 flex-1 items-baseline gap-2">
-								<span className={cn("min-w-0 wrap-anywhere", summaryClassName)}>{name}</span>
+								<span className={cn("min-w-0 wrap-break-word", summaryClassName)}>{name}</span>
 								{issueCount ? (
 									<span className="shrink-0 text-xs font-medium whitespace-nowrap text-destructive">
 										{issueCount} {issueCount === 1 ? "error" : "errors"}
@@ -269,7 +266,7 @@ function RepeaterRow<T extends object>({
 							onMoveDown={() => move(index, index + 1)}
 							onDuplicate={() => duplicate(index)}
 							duplicateDisabled={full}
-							onRemove={() => remove(index, name)}
+							onRemove={(touch) => remove(index, name, touch)}
 						/>
 					</div>
 				</>

@@ -1,5 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, type ReactNode } from "react";
+import {
+	useEffect,
+	useRef,
+	useState,
+	type MouseEvent,
+	type PointerEvent,
+	type ReactNode,
+} from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
@@ -17,8 +24,8 @@ export function fieldId(path: string): string {
 	return `cms-field-${path.replace(/[^A-Za-z0-9_-]+/gu, "-").replace(/-+$/u, "")}`;
 }
 
-/** Scroll to and focus the control for a path. Returns false when it is not on screen. */
-export function focusField(path: string): boolean {
+/** Scroll to and focus the control for a path. Returns whether focus reached it. */
+export function focusField(path: string, touch = false): boolean {
 	if (typeof document === "undefined") return false;
 	const id = fieldId(path);
 	const first = document.getElementById(id);
@@ -33,12 +40,16 @@ export function focusField(path: string): boolean {
 	const visible =
 		visibleControls.find((element) => element.matches("[aria-checked=true], [data-checked]")) ??
 		visibleControls[0];
+	const touchTarget = touch
+		? (control.closest(".cms-sortable-row")?.querySelector<HTMLElement>("[data-row-menu]") ?? frame)
+		: null;
 	const target =
-		control.getAttribute("aria-hidden") === "true"
+		touchTarget ??
+		(control.getAttribute("aria-hidden") === "true"
 			? visible
 			: control.matches(":disabled")
 				? frame
-				: (visible ?? control);
+				: (visible ?? control));
 	if (!target) return false;
 	// Keep the page still when the target is already on screen, even in
 	// part (after removing a row, its neighbour is usually right there);
@@ -48,7 +59,7 @@ export function focusField(path: string): boolean {
 	const inView = rect.bottom > Math.max(0, topBar ?? 0) + 24 && rect.top < window.innerHeight - 24;
 	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest" });
 	target.focus({ preventScroll: true });
-	return true;
+	return document.activeElement === target;
 }
 
 export interface FieldFrameProps {
@@ -98,9 +109,10 @@ export function FieldFrame({
 	const errorId = `${id}-error`;
 	const reduced = useLiveReducedMotion();
 	const frame = useRef<HTMLDivElement>(null);
+	const pointer = useActionPointer();
 	const LabelTag = asGroup ? "p" : "label";
-	const canRevert = useDraftSelector(({ draft, published }) => {
-		if (!changed || !onRevert) return false;
+	const changedFromLive = useDraftSelector(({ draft, published }) => {
+		if (!changed) return false;
 		const livePath = correspondingPath(draft, published, parsePath(path));
 		if (!livePath) return false;
 		// New rows and new embeds have no published parent to revert to.
@@ -108,7 +120,7 @@ export function FieldFrame({
 		const key = livePath.at(-1);
 		return parent != null && (typeof key !== "number" || getAt(parent, [key]) !== undefined);
 	});
-	const message = issues.map((issue) => sentenceCase(issue.message)).join(" ");
+	const message = issues.map(fieldIssueMessage).join(" ");
 	const labelNode = (
 		<LabelTag
 			id={`${id}-label`}
@@ -116,21 +128,24 @@ export function FieldFrame({
 			className="m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground"
 		>
 			{label}
-			{changed ? <span className="sr-only"> (changed from live)</span> : null}
+			{changedFromLive ? <span className="sr-only"> (changed from live)</span> : null}
 		</LabelTag>
 	);
 	const revert = (
 		<AnimatePresence initial={false}>
-			{canRevert ? (
+			{changedFromLive && onRevert ? (
 				<motion.button
 					type="button"
 					initial={{ opacity: 0, x: reduced ? 0 : 4 }}
 					animate={{ opacity: 1, x: 0 }}
 					exit={{ opacity: 0, x: reduced ? 0 : 4, pointerEvents: "none" }}
 					transition={reduced ? REDUCED : SPRING_SNAPPY}
-					onClick={() => {
-						onRevert?.();
-						if (!focusField(path)) frame.current?.focus({ preventScroll: true });
+					onPointerDown={pointer.onPointerDown}
+					onClick={(event) => {
+						onRevert();
+						if (pointer.isTouchClick(event) || !focusField(path)) {
+							frame.current?.focus({ preventScroll: true });
+						}
 					}}
 					className="cms-field-revert cms-press -my-1 inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text pointer-coarse:-my-3 pointer-coarse:min-h-11"
 				>
@@ -145,7 +160,7 @@ export function FieldFrame({
 			data-slot="cms-field"
 			ref={frame}
 			tabIndex={-1}
-			data-changed={changed || undefined}
+			data-changed={changedFromLive || undefined}
 			data-invalid={issues.length > 0 || undefined}
 			data-layout={layout}
 			className={cn("cms-field group/cms-field relative grid min-w-0 content-start", className)}
@@ -235,6 +250,59 @@ export function FieldMessage({
 			</div>
 		</div>
 	);
+}
+
+/** Keyboard and assistive clicks have no pointer, even after a touch. */
+export function useActionPointer() {
+	const pointerType = useRef("");
+	return {
+		onPointerDown: (event: PointerEvent) => {
+			pointerType.current = event.pointerType;
+		},
+		isTouchClick: (event: MouseEvent) =>
+			event.detail > 0 &&
+			((event.nativeEvent as globalThis.PointerEvent).pointerType || pointerType.current) ===
+				"touch",
+	};
+}
+
+const NO_ISSUES: readonly ValidationIssue[] = [];
+
+/** Keep draft validation live. Delay the input's message and ARIA state together. */
+export function useFieldIssueFeedback(
+	issues: readonly ValidationIssue[],
+	value: string | number,
+	delay: number | null = 700,
+) {
+	const [editing, setEditing] = useState(false);
+	const [revealed, setRevealed] = useState(false);
+	const invalid = issues.length > 0;
+	useEffect(() => {
+		if (!editing || !invalid || revealed || delay === null) return;
+		const timer = setTimeout(() => setRevealed(true), delay);
+		return () => clearTimeout(timer);
+	}, [editing, invalid, revealed, value, delay]);
+
+	function commit() {
+		setEditing(false);
+	}
+
+	return {
+		issues: editing && !revealed ? NO_ISSUES : issues,
+		onFocus: () => {
+			setEditing(true);
+			setRevealed(invalid && delay !== null);
+		},
+		onBlur: commit,
+		commit,
+	};
+}
+
+export function fieldIssueMessage(issue: ValidationIssue): string {
+	if (issue.path === "site.url" && issue.message.startsWith("must be an https,")) {
+		return "Enter the full public address, such as https://example.com.";
+	}
+	return sentenceCase(issue.message);
 }
 
 /** `aria-describedby` for a control rendered inside `FieldFrame`. */
