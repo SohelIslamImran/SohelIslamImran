@@ -105,7 +105,7 @@ function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {
 				transition: reduced ? REDUCED : { duration: 0.16, ease: [0.55, 0, 1, 0.45] },
 			}}
 			transition={reduced ? REDUCED : SPRING_SURFACE}
-			className="cms-panel cms-undo pointer-events-auto flex w-fit max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-float"
+			className="cms-panel cms-undo pointer-events-auto flex w-fit max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-md"
 		>
 			<p role="status" className="m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]">
 				Removed {label}.{canUndo ? "" : " Make room in the list to undo."}
