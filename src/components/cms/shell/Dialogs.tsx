@@ -224,7 +224,8 @@ function PublishConfirmDialogBody({
 					</span>
 					<div className="grid gap-1">
 						<p className="mono-label m-0 text-[10.5px] text-primary-text">
-							Release · r{draftRevision} → Live r{publishedRevision}
+							Release · <span className="normal-case">r{draftRevision}</span> → Live{" "}
+							<span className="normal-case">r{publishedRevision}</span>
 						</p>
 						<AlertDialog.Title className="m-0 text-[17px] font-semibold tracking-[-0.015em]">
 							Publish draft to live site?

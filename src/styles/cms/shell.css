@@ -132,6 +132,10 @@
 		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
 	}
 
+	.cms-rail-desktop .cms-rail-pulse[data-empty] {
+		background: color-mix(in srgb, var(--theme-ink) calc(4% * var(--rail-opacity)), transparent);
+	}
+
 	.cms-count-tick {
 		display: inline-block;
 		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
@@ -176,6 +180,10 @@
 	}
 
 	@media (min-width: 1024px) {
+		.cms-rail-tooltip[data-show-expanded] {
+			display: block;
+		}
+
 		.cms-layout {
 			transition: none;
 		}

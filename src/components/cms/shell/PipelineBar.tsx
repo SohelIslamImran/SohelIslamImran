@@ -433,7 +433,6 @@ function PipelineActions({
 	const publishedRecently = useRevisionFeedback(publishedRevision);
 	const saving = status === "saving" || (status === "idle" && saveFeedback === "saving");
 	const publishing = status === "publishing";
-	const justSaved = saveFeedback === "saved" && status === "idle" && !dirty;
 	const justPublished = publishedRecently && !ahead && !dirty && !saving && !publishing;
 
 	return (
@@ -444,12 +443,11 @@ function PipelineActions({
 				disabled={!canSave}
 				focusableWhenDisabled
 				aria-busy={saving || undefined}
-				data-complete={justSaved || undefined}
 				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={() => saveDraftIfAvailable(store)}
 			>
-				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
-				{saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+				<SaveIcon />
+				{saving ? "Saving…" : "Save"}
 			</Button>
 			<Button
 				size="sm"

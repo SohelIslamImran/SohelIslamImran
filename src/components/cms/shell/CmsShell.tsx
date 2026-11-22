@@ -50,6 +50,7 @@ import { MobileActionBar, PipelineBar, useSaveFeedback } from "./PipelineBar";
 import { RAIL_STORAGE_KEY, type RailMode } from "./rail-preference";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { RailRouterLink } from "./RailRouterLink";
+import { RailTooltip } from "./RailTooltip";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
@@ -203,26 +204,26 @@ function RailLink({
 	onNavigate?: () => void;
 }) {
 	return (
-		<Tooltip.Root disabled={layoutScope === "drawer"}>
-			<Tooltip.Trigger
-				render={
-					<RailRouterLink
-						to={to}
-						params={params}
-						preload="intent"
-						viewTransition={layoutScope !== "drawer" ? undefined : false}
-						currentPage={active}
-						aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
-						aria-busy={pending || undefined}
-						data-pending={pending || undefined}
-						onClick={(event) => {
-							if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-								onNavigate?.();
-							}
-						}}
-						className="cms-rail-link cms-chrome-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
-					/>
-				}
+		<RailTooltip
+			disabled={layoutScope === "drawer"}
+			label={badgeLabel ? `${label} · ${badgeLabel}` : label}
+			showExpanded={to === "/cms/release" && !!badgeLabel}
+		>
+			<RailRouterLink
+				to={to}
+				params={params}
+				preload="intent"
+				viewTransition={layoutScope === "drawer" ? false : undefined}
+				currentPage={active}
+				aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
+				aria-busy={pending || undefined}
+				data-pending={pending || undefined}
+				onClick={(event) => {
+					if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+						onNavigate?.();
+					}
+				}}
+				className="cms-rail-link cms-chrome-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
 			>
 				<span className="cms-rail-icon relative z-[1] grid size-4 shrink-0 place-items-center">
 					{icon}
@@ -234,22 +235,8 @@ function RailLink({
 				</span>
 				<span className="cms-rail-label relative z-[1] ml-2.5 whitespace-nowrap">{label}</span>
 				{badge ? <span className="cms-rail-badge-full absolute right-2 z-[1]">{badge}</span> : null}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner
-					side="right"
-					sideOffset={12}
-					className="cms-rail-tooltip z-(--z-palette)"
-				>
-					<Tooltip.Popup
-						role="tooltip"
-						className="cms-rail-tooltip-popup rounded-lg border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-medium text-foreground"
-					>
-						{badgeLabel ? `${label} · ${badgeLabel}` : label}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</RailRouterLink>
+		</RailTooltip>
 	);
 }
 
@@ -439,21 +426,22 @@ function LayerRailContent({
 						<span className="text-[14px] font-semibold tracking-[-0.02em]">Control plane</span>
 					</span>
 					{onToggleRail ? (
-						<button
-							type="button"
-							onClick={onToggleRail}
-							title={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}
-							aria-keyshortcuts={"Meta+\\ Control+\\"}
-							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-							aria-expanded={!collapsed}
-							className="cms-rail-toggle cms-chrome-control cms-press absolute grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
-						>
-							<SidebarToggleIcon className="cms-rail-toggle-expanded col-start-1 row-start-1" />
-							<SidebarToggleIcon
-								collapsed
-								className="cms-rail-toggle-collapsed col-start-1 row-start-1"
-							/>
-						</button>
+						<RailTooltip label={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}>
+							<button
+								type="button"
+								onClick={onToggleRail}
+								aria-keyshortcuts={"Meta+\\ Control+\\"}
+								aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+								aria-expanded={!collapsed}
+								className="cms-rail-toggle cms-chrome-control cms-press absolute grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
+							>
+								<SidebarToggleIcon className="cms-rail-toggle-expanded col-start-1 row-start-1" />
+								<SidebarToggleIcon
+									collapsed
+									className="cms-rail-toggle-collapsed col-start-1 row-start-1"
+								/>
+							</button>
+						</RailTooltip>
 					) : null}
 				</div>
 				{pulseSlot ?? <RailPulseSlot onNavigate={onNavigate} />}
@@ -550,18 +538,23 @@ function LayerRailContent({
 				</div>
 
 				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2 lg:grid">
-					<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
-					<a
-						href={PUBLIC_SITE_ORIGIN}
-						target="_blank"
-						rel="noreferrer"
-						title="Open live site"
-						aria-label="Open live site"
-						className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
-					>
-						<ExternalArrowIcon className="size-3.5 justify-self-center" />
-						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
-					</a>
+					<RailTooltip label="Appearance" disabled={layoutScope === "drawer"}>
+						<span className="grid w-fit">
+							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
+						</span>
+					</RailTooltip>
+					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
+						<a
+							href={PUBLIC_SITE_ORIGIN}
+							target="_blank"
+							rel="noreferrer"
+							aria-label="Open live site"
+							className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
+						>
+							<ExternalArrowIcon className="size-3.5 justify-self-center" />
+							<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
+						</a>
+					</RailTooltip>
 				</div>
 			</div>
 		</div>
