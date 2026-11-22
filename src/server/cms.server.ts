@@ -37,6 +37,11 @@ export function cmsOrigin(environment: CmsRuntime = runtime()): string {
 	return origin;
 }
 
+/** The public portfolio origin the CMS links to and publishes for. */
+export function publicOrigin(environment: CmsRuntime = runtime()): string {
+	return environment.APP_ORIGIN || "https://sohelislamimran.com";
+}
+
 export async function readPublished(): Promise<PortfolioContent> {
 	return readPublishedContent(runtime());
 }
@@ -47,6 +52,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 	setCookie: string | null;
 	owner: string;
 	mediaEnabled: boolean;
+	publicOrigin: string;
 }> {
 	const identity = await requireOwner(request, runtime());
 	const csrf = getCsrfToken(request);
@@ -58,6 +64,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 		// response object to the storage layer.
 		owner: identity.email,
 		mediaEnabled: Boolean(runtime().MEDIA),
+		publicOrigin: publicOrigin(),
 	};
 }
 
