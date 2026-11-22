@@ -126,7 +126,9 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
-		let cmsTransition: { view: ViewTransition; skipped: boolean } | undefined;
+		let cmsTransition:
+			| { view: ViewTransition; skipped: boolean; outgoing: HTMLElement | null }
+			| undefined;
 		const startRouterTransition = router.startViewTransition;
 		const skipCmsTransition = () => {
 			if (!cmsTransition) return;
@@ -183,8 +185,12 @@ function useRouteViewTransitions() {
 			if (types === false) return update();
 
 			root.dataset.routeVt = direction(from?.state, to.state);
+			// Give the keyed sections separate groups so each keeps the viewport
+			// position captured on its side of scroll restoration.
+			const outgoing = document.querySelector<HTMLElement>('[data-slot="cms-section"]');
+			if (outgoing) outgoing.style.viewTransitionName = "cms-section-out";
 			const view = document.startViewTransition(types ? { update, types } : update);
-			const transition = { view, skipped: false };
+			const transition = { view, skipped: false, outgoing };
 			cmsTransition = transition;
 			const reportTransitionError = (error: unknown) => {
 				if (
@@ -198,6 +204,9 @@ function useRouteViewTransitions() {
 			};
 			void view.ready.catch(reportTransitionError);
 			const finish = () => {
+				if (cmsTransition === transition || cmsTransition?.outgoing !== outgoing) {
+					outgoing?.style.removeProperty("view-transition-name");
+				}
 				if (cmsTransition !== transition) return;
 				cmsTransition = undefined;
 				delete root.dataset.routeVt;

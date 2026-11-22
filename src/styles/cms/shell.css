@@ -629,6 +629,7 @@
 
 /* The router still drives navigation. Exclude the live shell from its route snapshot. */
 html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) {
+	--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 	view-transition-name: none;
 }
 
@@ -641,20 +642,23 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 	pointer-events: none;
 }
 
-::view-transition-group(cms-section) {
+::view-transition-group(cms-section),
+::view-transition-group(cms-section-out) {
 	animation: none;
 }
-::view-transition-old(cms-section) {
-	animation: cms-section-out 160ms ease-out both;
+::view-transition-old(cms-section-out) {
+	animation: cms-section-out 100ms ease-out both;
 	pointer-events: none;
 }
 ::view-transition-new(cms-section) {
-	animation: cms-fade 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation:
+		cms-section-rise 240ms var(--cms-ease-out) both,
+		cms-fade 140ms var(--cms-ease-out) 100ms both;
 	pointer-events: none;
 }
 @supports not (view-transition-name: none) {
 	[data-slot="cms-section"] {
-		animation: cms-fade 240ms var(--cms-ease-out) both;
+		animation: cms-enter 240ms var(--cms-ease-out) both;
 	}
 }
 
@@ -669,5 +673,10 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 @keyframes cms-section-out {
 	to {
 		opacity: 0;
+	}
+}
+@keyframes cms-section-rise {
+	from {
+		translate: 0 6px;
 	}
 }
