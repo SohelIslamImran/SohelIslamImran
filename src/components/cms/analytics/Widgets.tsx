@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "re
 import { cn } from "../../../lib/utils";
 import type { AnalyticsCount } from "../../../server/analytics.server";
 import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
+import { AlertTriangleIcon, CheckCircleIcon } from "../shell/cms-icons";
 import type { useLiveVisitors } from "./LiveVisitors";
 
 export const controlClass =
@@ -148,8 +149,9 @@ export function SegmentedControl<T extends string>({
 						type="button"
 						aria-pressed={active}
 						data-active={active ? "true" : "false"}
+						data-compact={compact ? "true" : undefined}
 						onClick={() => onChange(option.value)}
-						className={cn("cms-seg-item shrink-0", compact && "min-h-7 px-2.5 text-[12px]")}
+						className="cms-seg-item shrink-0"
 					>
 						{active ? (
 							<motion.span
@@ -169,12 +171,7 @@ export function SegmentedControl<T extends string>({
 							<span>{option.label}</span>
 						)}
 						{option.badge !== undefined ? (
-							<span
-								className={cn(
-									"font-mono text-[10.5px] tabular-nums",
-									active ? "text-primary-text" : "text-muted-foreground",
-								)}
-							>
+							<span className="cms-seg-badge" data-active={active ? "true" : "false"}>
 								{option.badge}
 							</span>
 						) : null}
@@ -185,14 +182,15 @@ export function SegmentedControl<T extends string>({
 	);
 }
 
+/** Every CMS page uses the same container width so rail navigation never shifts the header. */
+export const pageClass = "grid min-w-0 max-w-[1160px] grid-cols-1 gap-6";
+
 /** Consistent calm editorial header across CMS pages. */
 export function PageHeader({
-	eyebrow,
 	title,
 	description,
 	actions,
 }: {
-	eyebrow: string;
 	title: string;
 	description?: ReactNode;
 	actions?: ReactNode;
@@ -200,7 +198,6 @@ export function PageHeader({
 	return (
 		<header className="cms-enter flex min-w-0 flex-wrap items-end justify-between gap-4">
 			<div className="grid min-w-0 gap-1">
-				<p className="mono-label m-0 text-[11px] text-primary-text">{eyebrow}</p>
 				<h1 className="m-0 text-headline">{title}</h1>
 				{description ? (
 					<p className="m-0 max-w-[64ch] text-[14px] leading-relaxed text-muted-foreground">
@@ -363,56 +360,40 @@ export function RankedList({
 	onHoverValue?: (value: string | null) => void;
 }) {
 	if (rows.length === 0) {
-		return (
-			<div className="grid gap-2.5 py-1">
-				<div aria-hidden="true" className="grid gap-2 opacity-50">
-					{[72, 48, 30].map((pct) => (
-						<div key={pct} className="flex items-center justify-between gap-3 py-1">
-							<span className="h-2 rounded-full bg-line" style={{ width: `${pct}%` }} />
-							<span className="h-2 w-6 rounded-full bg-line" />
-						</div>
-					))}
-				</div>
-				<p className="m-0 text-[12.5px] text-muted-foreground">{empty}</p>
-			</div>
-		);
+		return <p className="m-0 text-[13px] text-muted-foreground">{empty}</p>;
 	}
 	const max = Math.max(1, ...rows.map((row) => row.count));
 	const total = rows.reduce((sum, row) => sum + row.count, 0);
 
 	return (
-		<ul className="m-0 grid list-none gap-1 p-0">
+		<ul className="m-0 grid list-none gap-0.5 p-0">
 			{rows.map((row) => {
-				const ratio = Math.max(0.03, row.count / max);
+				const ratio = Math.max(0.02, row.count / max);
 				const share = total > 0 ? Math.round((row.count / total) * 100) : 0;
 				const active = highlightedValue === row.value;
 				return (
 					<li
 						key={row.value}
+						data-active={active ? "true" : "false"}
 						onMouseEnter={onHoverValue ? () => onHoverValue(row.value) : undefined}
 						onMouseLeave={onHoverValue ? () => onHoverValue(null) : undefined}
-						className={cn(
-							"group relative flex min-w-0 items-center justify-between gap-3 rounded-[9px] px-2.5 py-2 transition-colors duration-150",
-							active
-								? "bg-primary-soft/65"
-								: "hover:bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)]",
-						)}
+						className="cms-ranked-row grid min-w-0 gap-1.5 rounded-[9px] px-2.5 pt-2 pb-2.5"
 					>
-						<span
-							aria-hidden="true"
-							className="cms-bar-fill pointer-events-none"
-							style={{ transform: `scaleX(${ratio})` }}
-						/>
-						<span className="relative z-[1] min-w-0 text-[13.5px] font-medium text-foreground [overflow-wrap:anywhere]">
-							{row.label ?? row.value}
-						</span>
-						<span className="relative z-[1] flex shrink-0 items-baseline gap-2 font-mono text-[12px] tabular-nums">
-							<span className="font-semibold text-foreground">{countLabel(row.count)}</span>
-							{rows.length > 1 ? (
-								<span className="hidden w-8 text-right text-[11px] text-muted-foreground sm:inline">
-									{share}%
-								</span>
-							) : null}
+						<div className="flex min-w-0 items-baseline justify-between gap-3">
+							<span className="min-w-0 text-[13.5px] font-medium text-foreground [overflow-wrap:anywhere]">
+								{row.label ?? row.value}
+							</span>
+							<span className="flex shrink-0 items-baseline gap-2 font-mono text-[12px] tabular-nums">
+								<span className="font-semibold text-foreground">{countLabel(row.count)}</span>
+								{rows.length > 1 ? (
+									<span className="hidden w-8 text-right text-[11px] text-muted-foreground sm:inline">
+										{share}%
+									</span>
+								) : null}
+							</span>
+						</div>
+						<span aria-hidden="true" className="cms-bar-track">
+							<span className="cms-bar-fill" style={{ transform: `scaleX(${ratio})` }} />
 						</span>
 					</li>
 				);
@@ -421,40 +402,47 @@ export function RankedList({
 	);
 }
 
-export function NoVisits({ allTime = false }: { allTime?: boolean }) {
+/**
+ * One quiet line for an empty or informational state: an icon, a sentence, and
+ * an optional inline action. Used instead of stacked empty cards.
+ */
+export function QuietNote({
+	children,
+	action,
+	className,
+}: {
+	children: ReactNode;
+	action?: ReactNode;
+	className?: string;
+}) {
 	return (
-		<div className="cms-enter flex flex-wrap items-center justify-between gap-3 rounded-[14px] border border-line bg-surface-solid px-4 py-3 shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]">
-			<div className="flex min-w-0 items-center gap-3">
-				<span
-					aria-hidden="true"
-					className="grid size-8 shrink-0 place-items-center rounded-full border border-line-strong bg-surface-raised text-muted-foreground"
+		<div
+			className={cn(
+				"cms-enter flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[14px] border border-line bg-surface-solid px-4 py-3 text-[13.5px] text-muted-foreground shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]",
+				className,
+			)}
+		>
+			<span
+				aria-hidden="true"
+				className="grid size-6 shrink-0 place-items-center rounded-full border border-line-strong bg-surface-raised text-muted-foreground"
+			>
+				<svg
+					viewBox="0 0 20 20"
+					className="size-3.5 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
 				>
-					<svg
-						viewBox="0 0 20 20"
-						className="size-4 fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round]"
-					>
-						<path d="M3.25 14.5h13.5" />
-						<path d="M4.5 11.5h11" strokeDasharray="2.5 2.5" />
-					</svg>
-				</span>
-				<div className="min-w-0">
-					<p className="m-0 text-[13.5px] font-medium text-foreground">
-						{allTime ? "No visits recorded yet" : "No visits in this period"}
-					</p>
-					<p className="m-0 text-[12.5px] text-muted-foreground">
-						{allTime
-							? "First-party cookieless visits appear automatically once visitors browse the public site."
-							: "Flat tracks below reflect zero recorded pageviews for the selected UTC range."}
-					</p>
-				</div>
-			</div>
-			<span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-muted px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-				<span aria-hidden="true" className="size-1.5 rounded-full bg-muted-foreground/50" />
-				<span>Awaiting signal</span>
+					<path d="M3.25 14.5h13.5" />
+					<path d="M4.5 10.5h11" strokeDasharray="2.5 2.5" />
+				</svg>
 			</span>
+			<span className="min-w-0 flex-1">{children}</span>
+			{action ? <span className="shrink-0">{action}</span> : null}
 		</div>
 	);
 }
+
+/** Inline text link styled for quiet notes; 44px tall on coarse pointers. */
+export const inlineLinkClass =
+	"cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11";
 
 export function AnalyticsUnavailable() {
 	const router = useRouter();
@@ -534,18 +522,19 @@ export function Kpi({
 	points,
 	delta,
 	comparison,
-	live = false,
-	paused = false,
+	suffix,
+	unit,
 	stagger,
 	title,
 }: {
 	label: string;
 	value: number | null;
-	points: number[];
-	delta: number | null;
-	comparison: string;
-	live?: boolean;
-	paused?: boolean;
+	/** Sparkline samples; omitted or a single sample draws no sparkline. */
+	points?: number[];
+	delta?: number | null;
+	comparison?: string;
+	suffix?: string;
+	unit?: string;
 	stagger?: number;
 	title?: string;
 }) {
@@ -558,15 +547,14 @@ export function Kpi({
 				stagger !== undefined && "cms-enter",
 			)}
 		>
-			<div className="flex items-center justify-between gap-2">
-				<h2 className="mono-label m-0 text-[10.5px] text-muted-foreground">{label}</h2>
-				{live || paused ? <LiveDot active={live} paused={paused} /> : null}
-			</div>
+			<h2 className="m-0 text-[12.5px] font-medium text-muted-foreground">{label}</h2>
 			<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-				<TickingNumber value={value} />
+				<TickingNumber value={value} suffix={suffix} />
 			</div>
-			<Sparkline points={points} />
-			<Delta value={delta} comparison={comparison} />
+			{points && points.length > 1 ? <Sparkline points={points} /> : null}
+			{comparison !== undefined && delta !== undefined ? (
+				<Delta value={delta} comparison={comparison} unit={unit} />
+			) : null}
 		</div>
 	);
 }
@@ -577,21 +565,57 @@ export function LiveControls({
 	failed,
 }: Pick<ReturnType<typeof useLiveVisitors>, "paused" | "setPaused" | "failed">) {
 	return (
-		<div className="flex flex-wrap items-center gap-2.5">
+		<div className="flex flex-wrap items-center gap-2">
+			{failed && !paused ? (
+				<span className="text-[12.5px] text-muted-foreground">Retrying…</span>
+			) : null}
 			<button
 				type="button"
 				className={controlClass}
 				aria-pressed={paused}
 				onClick={() => setPaused(!paused)}
 			>
-				<LiveDot active={!paused && !failed} paused={paused} />
-				<span>{paused ? "Resume live" : "Live updates"}</span>
+				{paused ? "Resume updates" : "Pause updates"}
 			</button>
-			{failed && !paused ? (
-				<span className="inline-flex items-center gap-1 rounded-full border border-line bg-muted px-2.5 py-1 font-mono text-[11px] text-muted-foreground">
-					Live feed retrying
-				</span>
-			) : null}
+		</div>
+	);
+}
+
+/** Status notice with a 44px-on-touch Dismiss button. */
+export function PageNotice({
+	tone,
+	text,
+	onDismiss,
+}: {
+	tone: "ok" | "error";
+	text: string;
+	onDismiss: () => void;
+}) {
+	return (
+		<div
+			role="status"
+			className={cn(
+				"cms-enter flex items-center justify-between gap-3 rounded-[12px] border py-1.5 pr-1.5 pl-4 text-[13px]",
+				tone === "ok"
+					? "border-success/35 bg-success/10 text-success"
+					: "border-destructive/35 bg-destructive/10 text-destructive",
+			)}
+		>
+			<span className="flex items-center gap-2">
+				{tone === "ok" ? (
+					<CheckCircleIcon className="size-4 shrink-0" />
+				) : (
+					<AlertTriangleIcon className="size-4 shrink-0" />
+				)}
+				<span>{text}</span>
+			</span>
+			<button
+				type="button"
+				onClick={onDismiss}
+				className="cms-press cms-page-focus inline-flex min-h-9 shrink-0 items-center rounded-full px-3 text-[12.5px] font-medium hover:bg-[color-mix(in_srgb,currentColor_10%,transparent)] pointer-coarse:min-h-11"
+			>
+				Dismiss
+			</button>
 		</div>
 	);
 }

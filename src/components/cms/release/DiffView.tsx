@@ -5,9 +5,11 @@
  */
 import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { mediaHref } from "../../../lib/media";
 import { cn } from "../../../lib/utils";
 import { EmptyState, staggerStyle } from "../analytics/Widgets";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { CheckCircleIcon, SectionIcon } from "../shell/cms-icons";
 import {
 	asMediaAsset,
@@ -121,7 +123,7 @@ function StatusChip({ status, detail }: { status: RowDiffStatus; detail?: string
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10.5px] font-medium",
+				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11.5px] font-medium",
 				meta.className,
 			)}
 		>
@@ -178,40 +180,55 @@ function TagsDiff({ before, after }: { before: unknown; after: unknown }) {
 				</span>
 			))}
 			{kept.length > 0 ? (
-				<span className="font-mono text-[11px] text-muted-foreground">{kept.length} unchanged</span>
+				<span className="text-[12px] text-muted-foreground">{kept.length} unchanged</span>
 			) : null}
 		</div>
 	);
 }
 
-function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
-	const left = typeof before === "string" ? before : "";
-	const right = typeof after === "string" ? after : "";
-	const parts = diffWords(left, right);
+/** Split a changed run into leading space, the changed words, and trailing space. */
+function splitEdges(text: string): [string, string, string] {
+	const match = /^(\s*)([\s\S]*?)(\s*)$/u.exec(text);
+	return match ? [match[1] ?? "", match[2] ?? "", match[3] ?? ""] : ["", text, ""];
+}
 
+/** Inline word diff. Whitespace around a change stays outside the highlight. */
+function WordDiffText({ before, after }: { before: string; after: string }) {
+	const parts = diffWords(before, after);
 	return (
-		<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
+		<>
 			{parts.map((part, index) => {
 				if (part.kind === "same") return <span key={index}>{part.text}</span>;
-				if (part.kind === "del") {
-					return (
-						<del
-							key={index}
-							className="rounded-[4px] bg-destructive/12 px-1 py-0.5 text-destructive decoration-destructive/75 line-through"
-						>
-							{part.text}
-						</del>
-					);
-				}
+				const [lead, core, trail] = splitEdges(part.text);
 				return (
-					<ins
-						key={index}
-						className="rounded-[4px] bg-success/14 px-1 py-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2"
-					>
-						{part.text}
-					</ins>
+					<span key={index}>
+						{lead}
+						{core ? (
+							part.kind === "del" ? (
+								<del className="rounded-[4px] bg-destructive/12 px-0.5 text-destructive decoration-destructive/75 line-through [box-decoration-break:clone]">
+									{core}
+								</del>
+							) : (
+								<ins className="rounded-[4px] bg-success/14 px-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2 [box-decoration-break:clone]">
+									{core}
+								</ins>
+							)
+						) : null}
+						{trail}
+					</span>
 				);
 			})}
+		</>
+	);
+}
+
+function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
+	return (
+		<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
+			<WordDiffText
+				before={typeof before === "string" ? before : ""}
+				after={typeof after === "string" ? after : ""}
+			/>
 		</p>
 	);
 }
@@ -236,13 +253,10 @@ function MediaCard({ value, label }: { value: unknown; label: string }) {
 				</span>
 			)}
 			<div className="min-w-0">
-				<p className="mono-label m-0 text-[10px] text-muted-foreground">{label}</p>
+				<p className="m-0 text-[11.5px] font-medium text-muted-foreground">{label}</p>
 				<p className="m-0 truncate text-[12.5px] font-medium text-foreground">
-					{asset ? asset.alt || asset.id : "None"}
+					{asset ? asset.alt || "Untitled asset" : "None"}
 				</p>
-				{asset ? (
-					<p className="m-0 truncate font-mono text-[11px] text-muted-foreground">{asset.id}</p>
-				) : null}
 			</div>
 		</div>
 	);
@@ -270,6 +284,16 @@ function MediaDiff({
 	);
 }
 
+/** Multi-word strings past this length read better as an inline word diff. */
+const WORD_DIFF_MIN_LENGTH = 24;
+
+function wantsWordDiff(before: unknown, after: unknown): before is string {
+	if (typeof before !== "string" || typeof after !== "string") return false;
+	if (!before || !after) return false;
+	const long = before.length > WORD_DIFF_MIN_LENGTH || after.length > WORD_DIFF_MIN_LENGTH;
+	return long && (/\s/u.test(before) || /\s/u.test(after));
+}
+
 function ShortDiff({
 	before,
 	after,
@@ -281,31 +305,37 @@ function ShortDiff({
 	beforeLabel: string;
 	afterLabel: string;
 }) {
+	if (wantsWordDiff(before, after)) {
+		return (
+			<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-2.5 text-[13.5px] leading-[1.6] text-ink-soft [overflow-wrap:anywhere]">
+				<WordDiffText before={before} after={after as string} />
+			</p>
+		);
+	}
+	// Stacked on narrow screens (no arrow), inline with an arrow from `sm`.
 	return (
-		<div className="flex flex-wrap items-center gap-2 text-[13px]">
+		<div className="grid gap-1.5 text-[13px] sm:flex sm:flex-wrap sm:items-center sm:gap-2">
 			<span
 				className={cn(
-					"inline-flex max-w-full items-center gap-1.5 rounded-[9px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
+					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[9px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
 					isEmptyScalar(before) && "italic",
 				)}
 			>
-				<span className="font-mono text-[10px] uppercase tracking-[0.06em] opacity-75">
-					{beforeLabel}
-				</span>
+				<span className="shrink-0 text-[11.5px] font-medium not-italic">{beforeLabel}</span>
 				<span className="line-through decoration-destructive/65 [overflow-wrap:anywhere]">
 					{formatScalar(before)}
 				</span>
 			</span>
-			<span aria-hidden="true" className="font-mono text-[12px] text-primary-text">
+			<span aria-hidden="true" className="hidden text-[12px] text-primary-text sm:inline">
 				→
 			</span>
 			<span
 				className={cn(
-					"inline-flex max-w-full items-center gap-1.5 rounded-[9px] border border-primary-line bg-primary-soft px-2.5 py-1 font-medium text-foreground",
+					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[9px] border border-primary-line bg-primary-soft px-2.5 py-1 font-medium text-foreground",
 					isEmptyScalar(after) && "italic text-muted-foreground",
 				)}
 			>
-				<span className="font-mono text-[10px] uppercase tracking-[0.06em] text-primary-text">
+				<span className="shrink-0 text-[11.5px] font-medium text-primary-text not-italic">
 					{afterLabel}
 				</span>
 				<span className="[overflow-wrap:anywhere]">{formatScalar(after)}</span>
@@ -376,7 +406,9 @@ function ListDiff({
 				if (typeof l === "string" && typeof r === "string" && (l.length >= 60 || r.length >= 60)) {
 					return (
 						<li key={index} className="grid gap-1">
-							<span className="font-mono text-[11px] text-muted-foreground">#{index + 1}</span>
+							<span className="text-[11.5px] font-medium text-muted-foreground">
+								Item {index + 1}
+							</span>
 							<ProseDiff before={l} after={r} />
 						</li>
 					);
@@ -386,8 +418,8 @@ function ListDiff({
 						<ShortDiff
 							before={summarize(l)}
 							after={summarize(r)}
-							beforeLabel={`${beforeLabel} #${index + 1}`}
-							afterLabel={`${afterLabel} #${index + 1}`}
+							beforeLabel={`${beforeLabel}, item ${index + 1}`}
+							afterLabel={`${afterLabel}, item ${index + 1}`}
 						/>
 					</li>
 				);
@@ -410,15 +442,12 @@ function FieldDiffRow({
 	return (
 		<div className="grid gap-2.5 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex min-w-0 flex-wrap items-baseline gap-2">
-					<span className="text-[13px] font-medium text-foreground">{field.label}</span>
-					<code className="truncate font-mono text-[11px] text-muted-foreground">{field.path}</code>
-				</div>
+				<span className="min-w-0 text-[13px] font-medium text-foreground">{field.label}</span>
 				{onRevertField && field.revertible ? (
 					<button
 						type="button"
 						onClick={() => onRevertField(field.path)}
-						className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 text-[12px] font-medium text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span aria-hidden="true">↺</span>
 						<span>Revert</span>
@@ -473,7 +502,7 @@ function RowDiffCard({
 }) {
 	const movedLabel =
 		row.beforeIndex !== null && row.afterIndex !== null && row.beforeIndex !== row.afterIndex
-			? `#${row.beforeIndex} → #${row.afterIndex}`
+			? `from ${row.beforeIndex} to ${row.afterIndex}`
 			: null;
 
 	return (
@@ -490,14 +519,13 @@ function RowDiffCard({
 					<span className="min-w-0 truncate text-[14px] font-medium text-foreground">
 						{row.title}
 					</span>
-					<code className="font-mono text-[11px] text-muted-foreground">{row.id}</code>
 				</div>
 				{showEditLinks && row.status !== "removed" ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: sectionId }}
 						search={row.itemId ? { item: row.itemId } : {}}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[11.5px] text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
 					>
 						<span>Edit</span>
 						<span aria-hidden="true">→</span>
@@ -543,85 +571,112 @@ function SectionDiffCard({
 	showEditLinks: boolean;
 	stagger: number;
 }) {
+	const reduced = useReducedMotion();
+	const bodyId = `cms-diff-${entry.section.id}`;
 	return (
-		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0 overflow-hidden">
-			<div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 sm:px-5">
-				<button
-					type="button"
-					aria-expanded={open}
-					onClick={onToggle}
-					className="cms-page-focus group flex min-h-9 min-w-0 flex-1 items-center gap-3 rounded-[10px] text-left pointer-coarse:min-h-11"
-				>
-					<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
-						<SectionIcon id={entry.section.id} className="size-4" />
-					</span>
-					<div className="grid min-w-0 flex-1 gap-1">
-						<div className="flex items-center gap-2">
-							<h3 className="m-0 truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+		// `layout` animates size and position with transforms; the header is
+		// scale-corrected so it never stretches while the body collapses.
+		<motion.section
+			layout={!reduced}
+			transition={SPRING_MOVE}
+			style={{ ...staggerStyle(stagger), borderRadius: 18 }}
+			className="cms-panel cms-enter min-w-0 overflow-hidden"
+		>
+			<motion.div
+				layout={reduced ? false : "position"}
+				transition={SPRING_MOVE}
+				className="flex items-center gap-2 px-4 py-3 sm:px-5"
+			>
+				<h3 className="m-0 min-w-0 flex-1">
+					<button
+						type="button"
+						aria-expanded={open}
+						aria-controls={bodyId}
+						onClick={onToggle}
+						className="cms-inset-focus group flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[12px] text-left"
+					>
+						<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
+							<SectionIcon id={entry.section.id} className="size-4" />
+						</span>
+						<span className="grid min-w-0 flex-1 gap-1">
+							<span className="truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
 								{entry.section.label}
-							</h3>
+							</span>
+							<span className="flex flex-wrap items-center gap-1.5">
+								{entry.counts.added > 0 ? (
+									<StatusChip status="added" detail={`${entry.counts.added}`} />
+								) : null}
+								{entry.counts.edited > 0 ? (
+									<StatusChip status="edited" detail={`${entry.counts.edited}`} />
+								) : null}
+								{entry.counts.removed > 0 ? (
+									<StatusChip status="removed" detail={`${entry.counts.removed}`} />
+								) : null}
+								{entry.counts.reordered > 0 ? (
+									<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
+								) : null}
+								{entry.rows.length === 0 && entry.counts.fields > 0 ? (
+									<StatusChip
+										status="edited"
+										detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
+									/>
+								) : null}
+							</span>
+						</span>
+						<span className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-150 group-hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] group-hover:text-foreground">
 							<ChevronIcon open={open} />
-						</div>
-						<div className="flex flex-wrap items-center gap-1.5">
-							{entry.counts.added > 0 ? (
-								<StatusChip status="added" detail={`${entry.counts.added}`} />
-							) : null}
-							{entry.counts.edited > 0 ? (
-								<StatusChip status="edited" detail={`${entry.counts.edited}`} />
-							) : null}
-							{entry.counts.removed > 0 ? (
-								<StatusChip status="removed" detail={`${entry.counts.removed}`} />
-							) : null}
-							{entry.counts.reordered > 0 ? (
-								<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
-							) : null}
-							{entry.rows.length === 0 && entry.counts.fields > 0 ? (
-								<StatusChip
-									status="edited"
-									detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
-								/>
-							) : null}
-						</div>
-					</div>
-				</button>
+						</span>
+					</button>
+				</h3>
 
 				{showEditLinks ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: entry.section.id }}
-						className="cms-press cms-page-focus inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 font-mono text-[11.5px] text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 text-[12.5px] font-medium text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span>Edit</span>
-						<span aria-hidden="true">→</span>
+						<span className="sr-only"> {entry.section.label}</span>
 					</Link>
 				) : null}
-			</div>
+			</motion.div>
 
-			{open ? (
-				<div className="cms-collapse-panel grid gap-2.5 border-t border-line px-4 py-4 sm:px-5">
-					{entry.fields.map((field) => (
-						<FieldDiffRow
-							key={field.path}
-							field={field}
-							beforeLabel={beforeLabel}
-							afterLabel={afterLabel}
-							onRevertField={onRevertField}
-						/>
-					))}
-					{entry.rows.map((row) => (
-						<RowDiffCard
-							key={`${row.status}-${row.id}`}
-							sectionId={entry.section.id}
-							row={row}
-							beforeLabel={beforeLabel}
-							afterLabel={afterLabel}
-							onRevertField={onRevertField}
-							showEditLinks={showEditLinks}
-						/>
-					))}
-				</div>
-			) : null}
-		</section>
+			<AnimatePresence initial={false}>
+				{open ? (
+					<motion.div
+						key="body"
+						id={bodyId}
+						layout={reduced ? false : "position"}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0, transition: { duration: reduced ? 0.12 : 0.1 } }}
+						transition={reduced ? REDUCED : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+						className="grid gap-2.5 border-t border-line px-4 py-4 sm:px-5"
+					>
+						{entry.fields.map((field) => (
+							<FieldDiffRow
+								key={field.path}
+								field={field}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+							/>
+						))}
+						{entry.rows.map((row) => (
+							<RowDiffCard
+								key={`${row.status}-${row.id}`}
+								sectionId={entry.section.id}
+								row={row}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+								showEditLinks={showEditLinks}
+							/>
+						))}
+					</motion.div>
+				) : null}
+			</AnimatePresence>
+		</motion.section>
 	);
 }
 
@@ -636,6 +691,7 @@ export function DiffView({
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
 }: DiffViewProps) {
+	const reduced = useReducedMotion();
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 
@@ -675,15 +731,11 @@ export function DiffView({
 	return (
 		<div className="grid gap-4">
 			{diff.changedSections.length > 1 ? (
-				<div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-						{diff.changedSections.length} changed sections · {diff.totalChanges}{" "}
-						{diff.totalChanges === 1 ? "change" : "changes"}
-					</p>
+				<div className="flex flex-wrap items-center justify-end gap-2 px-0.5">
 					<button
 						type="button"
 						onClick={toggleAll}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center rounded-full border border-line bg-surface-solid px-3 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-9 items-center rounded-full px-3 text-[12.5px] font-medium text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 					>
 						{allCollapsed ? "Expand all" : "Collapse all"}
 					</button>
@@ -705,12 +757,16 @@ export function DiffView({
 			))}
 
 			{showUnchanged && diff.unchangedSections.length > 0 ? (
-				<div className="overflow-hidden rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
+				<motion.div
+					layout={reduced ? false : "position"}
+					transition={SPRING_MOVE}
+					className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]"
+				>
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
 						onClick={() => setUnchangedOpen((open) => !open)}
-						className="cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
+						className="cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 rounded-[13px] px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
 					>
 						<span className="flex items-center gap-2">
 							<CheckCircleIcon className="size-3.5 text-success" />
@@ -719,10 +775,7 @@ export function DiffView({
 								{diff.unchangedSections.length === 1 ? "section" : "sections"}
 							</span>
 						</span>
-						<span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
-							<span>{unchangedOpen ? "Hide" : "Show"}</span>
-							<ChevronIcon open={unchangedOpen} />
-						</span>
+						<ChevronIcon open={unchangedOpen} />
 					</button>
 					{unchangedOpen ? (
 						<ul className="cms-collapse-panel m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3">
@@ -738,10 +791,7 @@ export function DiffView({
 												<SectionIcon id={section.id} className="size-3.5 text-muted-foreground" />
 												<span className="truncate">{section.label}</span>
 											</span>
-											<span
-												aria-hidden="true"
-												className="font-mono text-[11px] text-muted-foreground"
-											>
+											<span aria-hidden="true" className="text-[12px] text-muted-foreground">
 												→
 											</span>
 										</Link>
@@ -755,7 +805,7 @@ export function DiffView({
 							))}
 						</ul>
 					) : null}
-				</div>
+				</motion.div>
 			) : null}
 		</div>
 	);

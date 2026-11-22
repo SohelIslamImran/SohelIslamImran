@@ -2,17 +2,17 @@ import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
-import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
+import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import {
 	AnalyticsUnavailable,
 	EmptyState,
-	Kpi,
-	LiveControls,
-	NoVisits,
 	PageHeader,
 	Panel,
-	RankedList,
+	QuietNote,
+	TickingNumber,
 	controlClass,
+	inlineLinkClass,
+	pageClass,
 	staggerStyle,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
@@ -22,7 +22,6 @@ import { SECTION_GROUPS, SECTIONS } from "../../components/cms/sections/registry
 import {
 	ActivityIcon,
 	AlertTriangleIcon,
-	AnalyticsIcon,
 	CheckCircleIcon,
 	DiscardIcon,
 	HistoryIcon,
@@ -33,7 +32,6 @@ import {
 	SectionIcon,
 	UploadIcon,
 } from "../../components/cms/shell/cms-icons";
-import { formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import { getAnalyticsOverview } from "../../server/analytics.functions";
@@ -48,17 +46,16 @@ export const Route = createFileRoute("/cms/")({
 
 function OverviewSkeleton() {
 	return (
-		<div className="grid min-w-0 max-w-[1160px] grid-cols-1 gap-6">
+		<div className={pageClass}>
 			<div className="grid gap-2">
-				<div className="cms-skeleton h-3.5 w-36" />
 				<div className="cms-skeleton h-8 w-44" />
 				<div className="cms-skeleton h-4 w-72 max-w-full" />
 			</div>
-			<div className="grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
 				<div className="cms-panel grid gap-3 p-5">
 					<div className="cms-skeleton h-4 w-32" />
 					<div className="cms-skeleton h-7 w-56" />
-					<div className="cms-skeleton h-16 w-full" />
+					<div className="cms-skeleton h-9 w-40" />
 				</div>
 				<div className="cms-panel grid gap-2.5 p-5">
 					<div className="cms-skeleton h-4 w-28" />
@@ -67,19 +64,10 @@ function OverviewSkeleton() {
 					))}
 				</div>
 			</div>
-			<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-				{[0, 1, 2, 3, 4].map((slot) => (
-					<div key={slot} className="cms-panel grid gap-3 p-4">
-						<div className="cms-skeleton h-3 w-16" />
-						<div className="cms-skeleton h-7 w-14" />
-						<div className="cms-skeleton h-7 w-full" />
-						<div className="cms-skeleton h-3.5 w-24" />
-					</div>
-				))}
-			</div>
+			<div className="cms-skeleton h-[84px] w-full rounded-[18px]" />
 			<div className="cms-panel grid gap-4 p-5">
 				<div className="cms-skeleton h-5 w-32" />
-				<div className="cms-skeleton h-48 w-full" />
+				<div className="cms-skeleton h-32 w-full" />
 			</div>
 		</div>
 	);
@@ -138,10 +126,9 @@ function describeCompactEvent(event: AuditEventItem): {
 
 function RecentActivityRow({ event }: { event: AuditEventItem }) {
 	const meta = describeCompactEvent(event);
-	const relative = useRelativeTime(event.createdAt, 30_000);
 
 	return (
-		<li className="cms-row-hover flex min-w-0 items-center justify-between gap-3 rounded-[10px] px-2 py-2">
+		<li className="cms-row-hover flex min-w-0 items-center justify-between gap-3 rounded-[10px] px-2 py-1.5">
 			<div className="flex min-w-0 items-center gap-2.5">
 				<span
 					aria-hidden="true"
@@ -152,28 +139,22 @@ function RecentActivityRow({ event }: { event: AuditEventItem }) {
 				>
 					{meta.icon}
 				</span>
-				<div className="min-w-0">
-					<div className="flex flex-wrap items-center gap-1.5">
-						<span className="truncate text-[13px] font-medium text-foreground">{meta.label}</span>
-						{event.revision !== null ? (
-							<Link
-								to="/cms/history"
-								search={{ revision: event.revision }}
-								className="cms-page-focus inline-flex items-center rounded-full border border-line bg-surface-solid px-1.5 py-0.5 font-mono text-[10.5px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft"
-							>
-								r{event.revision}
-							</Link>
-						) : null}
-					</div>
-				</div>
+				<span className="truncate text-[13px] font-medium text-foreground">{meta.label}</span>
+				{event.revision !== null ? (
+					<Link
+						to="/cms/history"
+						search={{ revision: event.revision }}
+						aria-label={`Revision ${event.revision} in history`}
+						className="cms-press cms-page-focus inline-flex min-h-7 shrink-0 items-center rounded-full border border-line bg-surface-solid px-2 font-mono text-[11px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center"
+					>
+						r{event.revision}
+					</Link>
+				) : null}
 			</div>
-			<time
-				dateTime={event.createdAt}
-				title={formatUtcTimestamp(event.createdAt)}
-				className="shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground"
-			>
-				{relative ?? formatUtcTimestamp(event.createdAt)}
-			</time>
+			<RelativeTime
+				iso={event.createdAt}
+				className="shrink-0 text-right font-mono text-[11.5px] text-muted-foreground"
+			/>
 		</li>
 	);
 }
@@ -181,127 +162,90 @@ function RecentActivityRow({ event }: { event: AuditEventItem }) {
 function DraftVsLiveCard() {
 	const draft = useDraftSelector((state) => state.draft);
 	const published = useDraftSelector((state) => state.published);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
-	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const publishedAt = useDraftSelector((state) => state.publishedAt);
 	const dirty = useDraftSelector((state) => state.dirty);
 	const errors = useDraftSelector((state) => state.issues.all.length);
 
 	const diff = useMemo(() => diffPortfolioDocuments(published, draft), [published, draft]);
-	const relativePublished = useRelativeTime(publishedAt, 30_000);
 	const changedSections = diff.changedSections;
 	const hasChanges = changedSections.length > 0 || dirty;
+	const tone = errors > 0 ? "error" : hasChanges ? "changes" : "synced";
 
 	return (
 		<section
 			style={staggerStyle(0)}
-			className="cms-panel cms-enter grid min-w-0 content-between gap-4 p-4 sm:p-5"
+			className="cms-panel cms-enter grid min-w-0 content-start gap-4 p-4 sm:p-5"
 		>
-			<div className="grid gap-3">
-				<div className="flex flex-wrap items-center justify-between gap-2">
-					<span className="mono-label text-[10.5px] text-muted-foreground">Release status</span>
-					{errors > 0 ? (
-						<span className="inline-flex items-center gap-1.5 rounded-full border border-destructive/35 bg-destructive/10 px-2.5 py-0.5 font-mono text-[11px] font-medium text-destructive">
-							<AlertTriangleIcon className="size-3.5" />
-							<span>
-								{errors} {errors === 1 ? "issue" : "issues"}
-							</span>
-						</span>
-					) : hasChanges ? (
-						<span className="inline-flex items-center gap-1.5 rounded-full border border-primary-line bg-primary-soft px-2.5 py-0.5 font-mono text-[11px] font-medium text-primary-text">
-							<ReleaseChangesIcon className="size-3.5" />
-							<span>
-								{changedSections.length}{" "}
-								{changedSections.length === 1 ? "section ahead" : "sections ahead"}
-							</span>
-						</span>
-					) : (
-						<span className="inline-flex items-center gap-1.5 rounded-full border border-success/35 bg-success/10 px-2.5 py-0.5 font-mono text-[11px] font-medium text-success">
-							<CheckCircleIcon className="size-3.5" />
-							<span>Synced with live</span>
-						</span>
+			<div className="flex min-w-0 items-start gap-3">
+				<span
+					aria-hidden="true"
+					className={cn(
+						"grid size-9 shrink-0 place-items-center rounded-[10px] border",
+						tone === "error"
+							? "border-destructive/35 bg-destructive/10 text-destructive"
+							: tone === "changes"
+								? "border-primary-line bg-primary-soft text-primary-text"
+								: "border-success/35 bg-success/10 text-success",
 					)}
-				</div>
-
-				<div className="grid gap-1">
-					<h2 className="m-0 text-[18px] font-semibold tracking-[-0.02em] text-foreground">
-						{errors > 0
-							? "Resolve validation issues before publishing"
-							: hasChanges
-								? `Draft r${draftRevision} has ${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} since Live r${publishedRevision}`
-								: `Live r${publishedRevision} is up to date`}
+				>
+					{tone === "error" ? (
+						<AlertTriangleIcon className="size-4" />
+					) : tone === "changes" ? (
+						<ReleaseChangesIcon className="size-4" />
+					) : (
+						<CheckCircleIcon className="size-4" />
+					)}
+				</span>
+				<div className="grid min-w-0 gap-0.5">
+					<h2 className="m-0 text-[17px] font-semibold tracking-[-0.018em] text-foreground">
+						{tone === "error"
+							? `Fix ${errors} ${errors === 1 ? "issue" : "issues"} before publishing`
+							: tone === "changes"
+								? diff.totalChanges > 0
+									? `${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} ready to publish`
+									: "Unsaved edits in your draft"
+								: "Your live site is up to date"}
 					</h2>
-					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-						Draft r{draftRevision}
-						{dirty ? " (unsaved)" : ""} · Live r{publishedRevision}
+					<p className="m-0 text-[13px] text-muted-foreground">
 						{publishedAt ? (
 							<>
-								{" · "}
-								<time dateTime={publishedAt} title={formatUtcTimestamp(publishedAt)}>
-									{relativePublished ?? formatUtcTimestamp(publishedAt)}
-								</time>
+								Last published <RelativeTime iso={publishedAt} />
 							</>
 						) : (
-							" · Never published"
+							"Not published yet"
 						)}
 					</p>
 				</div>
-
-				{/* What changed since publish */}
-				{changedSections.length > 0 ? (
-					<div className="grid gap-2 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3">
-						<p className="mono-label m-0 text-[10px] text-muted-foreground">
-							Changed since publish
-						</p>
-						<ul className="m-0 flex list-none flex-wrap gap-1.5 p-0">
-							{changedSections.slice(0, 6).map((entry) => {
-								const total =
-									entry.counts.added +
-									entry.counts.removed +
-									entry.counts.reordered +
-									entry.counts.fields;
-								return (
-									<li key={entry.section.id}>
-										<Link
-											to="/cms/content/$section"
-											params={{ section: entry.section.id }}
-											className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-strong bg-surface-solid px-2.5 text-[12px] font-medium text-foreground no-underline hover:border-primary-line hover:text-primary-text pointer-coarse:min-h-11"
-										>
-											<SectionIcon id={entry.section.id} className="size-3.5 text-primary-text" />
-											<span>{entry.section.label}</span>
-											<span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
-												{total}
-											</span>
-										</Link>
-									</li>
-								);
-							})}
-							{changedSections.length > 6 ? (
-								<li>
-									<Link
-										to="/cms/release"
-										className="cms-page-focus inline-flex min-h-8 items-center rounded-full border border-line bg-muted px-2.5 font-mono text-[11px] text-muted-foreground no-underline hover:text-foreground pointer-coarse:min-h-11"
-									>
-										+{changedSections.length - 6} more
-									</Link>
-								</li>
-							) : null}
-						</ul>
-					</div>
-				) : (
-					<div className="flex items-center gap-3 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] px-3.5 py-3 text-[13px] text-muted-foreground">
-						<span
-							aria-hidden="true"
-							className="grid size-7 shrink-0 place-items-center rounded-full border border-success/30 bg-success/10 text-success"
-						>
-							<CheckCircleIcon className="size-3.5" />
-						</span>
-						<span>Every content section in your draft matches what visitors see right now.</span>
-					</div>
-				)}
 			</div>
 
-			<div className="flex flex-wrap items-center gap-2 pt-1">
+			{changedSections.length > 0 ? (
+				<ul aria-label="Changed sections" className="m-0 flex list-none flex-wrap gap-1.5 p-0">
+					{changedSections.slice(0, 6).map((entry) => (
+						<li key={entry.section.id}>
+							<Link
+								to="/cms/content/$section"
+								params={{ section: entry.section.id }}
+								className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1.5 rounded-full border border-line-strong bg-surface-solid px-2.5 text-[12.5px] font-medium text-foreground no-underline hover:border-primary-line hover:text-primary-text pointer-coarse:min-h-11"
+							>
+								<SectionIcon id={entry.section.id} className="size-3.5 text-primary-text" />
+								<span>{entry.section.label}</span>
+							</Link>
+						</li>
+					))}
+					{changedSections.length > 6 ? (
+						<li>
+							<Link
+								to="/cms/release"
+								className="cms-press cms-page-focus inline-flex min-h-8 items-center rounded-full border border-line bg-muted px-2.5 text-[12.5px] text-ink-soft no-underline hover:text-foreground pointer-coarse:min-h-11"
+							>
+								{changedSections.length - 6} more
+							</Link>
+						</li>
+					) : null}
+				</ul>
+			) : null}
+
+			<div className="flex flex-wrap items-center gap-2">
 				{hasChanges ? (
 					<Button
 						variant="default"
@@ -311,14 +255,9 @@ function DraftVsLiveCard() {
 						className="no-underline pointer-coarse:min-h-11"
 					>
 						<ReleaseChangesIcon className="size-3.5" />
-						<span>Review &amp; publish</span>
+						<span>Review changes</span>
 					</Button>
-				) : (
-					<Link to="/cms/release" className={controlClass}>
-						<ReleaseChangesIcon className="size-3.5 text-muted-foreground" />
-						<span>Inspect release</span>
-					</Link>
-				)}
+				) : null}
 				<Link to="/cms/history" className={controlClass}>
 					<HistoryIcon className="size-3.5 text-muted-foreground" />
 					<span>History</span>
@@ -352,10 +291,7 @@ function RecentActivityCard() {
 			title="Recent activity"
 			stagger={1}
 			action={
-				<Link
-					to="/cms/activity"
-					className="cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[11px] text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
-				>
+				<Link to="/cms/activity" className={inlineLinkClass}>
 					<span>View all</span>
 					<span aria-hidden="true">→</span>
 				</Link>
@@ -406,17 +342,13 @@ function QuickJumpSections() {
 	const changedSet = useMemo(() => new Set<string>(changedIds), [changedIds]);
 
 	return (
-		<Panel
-			title="Quick jumps"
-			description="Jump straight into any portfolio content section."
-			stagger={6}
-		>
+		<Panel title="Sections" stagger={3}>
 			<div className="grid gap-5">
 				{SECTION_GROUPS.map((group) => {
 					const groupSections = SECTIONS.filter((section) => section.group === group.id);
 					return (
 						<div key={group.id} className="grid gap-2.5">
-							<p className="mono-label m-0 text-[10.5px] text-muted-foreground">{group.label}</p>
+							<h3 className="m-0 text-[12.5px] font-medium text-muted-foreground">{group.label}</h3>
 							<div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
 								{groupSections.map((section) => {
 									const isChanged = changedSet.has(section.id);
@@ -458,7 +390,7 @@ function QuickJumpSections() {
 															! {errors}
 														</span>
 													) : isChanged ? (
-														<span className="inline-flex shrink-0 items-center gap-1 font-mono text-[10.5px] text-primary-text">
+														<span className="inline-flex shrink-0 items-center gap-1 text-[11.5px] font-medium text-primary-text">
 															<span
 																aria-hidden="true"
 																className="size-1.5 rounded-full bg-primary"
@@ -468,7 +400,7 @@ function QuickJumpSections() {
 													) : (
 														<span
 															aria-hidden="true"
-															className="shrink-0 font-mono text-[11px] text-muted-foreground transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground"
+															className="shrink-0 font-mono text-[11px] text-muted-foreground transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground"
 														>
 															→
 														</span>
@@ -491,102 +423,89 @@ function QuickJumpSections() {
 }
 
 function CmsOverview() {
-	const overview = Route.useLoaderData();
-	const live = useLiveVisitors();
-	const samples = live.data?.samples ?? [];
-	const previous = samples.at(-2);
-	const active = live.data?.live.count ?? null;
-
 	return (
-		<div className="grid min-w-0 max-w-[1160px] grid-cols-1 gap-6">
+		<div className={pageClass}>
 			<PageHeader
-				eyebrow="Control plane · Overview"
 				title="Overview"
-				description="Draft release status, live signals, and direct access to every portfolio section."
-				actions={
-					<>
-						<LiveControls {...live} />
-						<Link to="/cms/analytics" className={controlClass}>
-							<AnalyticsIcon className="size-3.5 text-primary-text" />
-							<span>Analytics</span>
-							<span aria-hidden="true" className="font-mono text-[11px] text-muted-foreground">
-								→
-							</span>
-						</Link>
-					</>
-				}
+				description="What’s ready to publish, what changed recently, and how the site is doing."
 			/>
 
-			{/* Draft vs live status + Recent activity */}
-			<div className="grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
 				<DraftVsLiveCard />
 				<RecentActivityCard />
 			</div>
 
-			{/* Traffic KPIs & chart */}
-			{overview ? (
-				<div className="grid min-w-0 gap-4">
-					{overview.allTime.totals.pageviews === 0 ? <NoVisits allTime /> : null}
-
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<p
-							className="m-0 font-mono text-[11.5px] text-muted-foreground"
-							title={visitorDayDescription}
-						>
-							Traffic in visitor-days · UTC · 7- and 30-day totals use completed days
-						</p>
-					</div>
-
-					<div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-						<Kpi
-							label="Active now"
-							value={active}
-							points={samples}
-							delta={previous === undefined || active === null ? null : active - previous}
-							comparison="since last check"
-							live={!live.paused && (active ?? 0) > 0}
-							paused={live.paused}
-							stagger={2}
-						/>
-						<Kpi label="Today" {...overview.today} comparison="vs yesterday" stagger={3} />
-						<Kpi label="7 days" {...overview.week} comparison="vs prior 7d" stagger={4} />
-						<Kpi
-							label="30 days"
-							value={overview.recent.totals.visitorDays}
-							points={overview.recent.series.map((point) => point.visitorDays)}
-							delta={overview.recent.deltas.visitorDays}
-							comparison="vs prior 30d"
-							stagger={5}
-						/>
-						<Kpi
-							label="All time"
-							value={overview.allTime.totals.visitorDays}
-							points={overview.allTime.points}
-							delta={overview.allTime.delta}
-							comparison="since midnight UTC"
-							stagger={6}
-						/>
-					</div>
-
-					<TrafficChart points={overview.recent.series} title="30-day traffic" stagger={4} />
-
-					<div className="grid gap-4 md:grid-cols-2">
-						<Panel title="Top pages" stagger={5}>
-							<RankedList rows={overview.recent.topPages} empty="No page visits recorded yet." />
-						</Panel>
-						<Panel title="Top projects" stagger={5}>
-							<RankedList
-								rows={overview.recent.topProjects}
-								empty="No project visits recorded yet."
-							/>
-						</Panel>
-					</div>
-				</div>
-			) : (
-				<AnalyticsUnavailable />
-			)}
+			<TrafficSummary />
 
 			<QuickJumpSections />
 		</div>
+	);
+}
+
+/** One compact traffic row (Active now, Today, Past 7 days) that opens Analytics. */
+function TrafficSummary() {
+	const overview = Route.useLoaderData();
+	const live = useLiveVisitors();
+	const active = live.data?.live.count ?? null;
+
+	if (!overview) return <AnalyticsUnavailable />;
+
+	if (overview.allTime.totals.pageviews === 0 && (active ?? 0) === 0) {
+		return (
+			<QuietNote
+				action={
+					<Link to="/cms/analytics" className={inlineLinkClass}>
+						<span>Analytics</span>
+						<span aria-hidden="true">→</span>
+					</Link>
+				}
+			>
+				No visits yet. Traffic shows up here once people browse your site.
+			</QuietNote>
+		);
+	}
+
+	const stats = [
+		{ label: "Active now", value: active, title: "Open tabs in the last 2 minutes" },
+		{ label: "Today", value: overview.today.value, title: "Visitors since midnight UTC" },
+		{
+			label: "Past 7 days",
+			value: overview.week.value,
+			title: `Visitor-days over the last 7 completed UTC days. ${visitorDayDescription}`,
+		},
+	];
+
+	return (
+		<Link
+			to="/cms/analytics"
+			style={staggerStyle(2)}
+			aria-label={`Traffic: ${stats.map((stat) => `${stat.label} ${stat.value ?? "unknown"}`).join(", ")}. Open analytics`}
+			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex min-w-0 items-center gap-4 p-4 no-underline sm:px-5"
+		>
+			<dl className="m-0 grid min-w-0 flex-1 grid-cols-3 gap-3">
+				{stats.map((stat) => (
+					<div key={stat.label} title={stat.title} className="grid min-w-0 gap-1">
+						<dt className="truncate text-[12.5px] font-medium text-muted-foreground">
+							{stat.label}
+						</dt>
+						<dd className="m-0 text-[24px] leading-none font-semibold tracking-[-0.03em] text-foreground">
+							<TickingNumber value={stat.value} />
+						</dd>
+					</div>
+				))}
+			</dl>
+			<span className="hidden shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text sm:inline-flex">
+				Analytics
+				<span
+					aria-hidden="true"
+					className="transition-[translate] duration-150 group-hover:translate-x-0.5"
+				>
+					→
+				</span>
+			</span>
+			<span aria-hidden="true" className="text-[15px] text-muted-foreground sm:hidden">
+				→
+			</span>
+		</Link>
 	);
 }

@@ -6,11 +6,13 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import {
 	EmptyState,
 	PageHeader,
 	SegmentedControl,
 	controlClass,
+	pageClass,
 	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
 import {
@@ -23,7 +25,6 @@ import {
 	SaveIcon,
 	UploadIcon,
 } from "../../components/cms/shell/cms-icons";
-import { formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import { listAuditEvents } from "../../server/cms-history.functions";
@@ -31,7 +32,7 @@ import type { AuditEventItem } from "../../server/cms-storage.server";
 
 export const Route = createFileRoute("/cms/activity")({
 	head: () => ({
-		meta: [{ title: "Activity log · Control plane" }],
+		meta: [{ title: "Activity · Control plane" }],
 	}),
 	component: ActivityRoute,
 });
@@ -95,25 +96,21 @@ function describeEvent(event: AuditEventItem): {
 					: null;
 			return {
 				label: "Discarded draft",
-				detail: liveRev !== null ? `reset to live r${liveRev}` : undefined,
+				detail: liveRev !== null ? `back to live r${liveRev}` : undefined,
 				icon: <DiscardIcon className="size-4" />,
 				toneClass: "border-destructive/35 bg-destructive/10 text-destructive",
 			};
 		}
 		case "media.upload": {
-			const assetId = typeof event.details?.assetId === "string" ? event.details.assetId : null;
 			return {
 				label: "Uploaded media",
-				detail: assetId ? `asset ${assetId.slice(0, 12)}` : undefined,
 				icon: <UploadIcon className="size-4" />,
 				toneClass: "border-line-strong bg-muted text-foreground",
 			};
 		}
 		case "media.update_alt": {
-			const assetId = typeof event.details?.assetId === "string" ? event.details.assetId : null;
 			return {
 				label: "Updated media alt text",
-				detail: assetId ? `asset ${assetId.slice(0, 12)}` : undefined,
 				icon: <MediaLibraryIcon className="size-4" />,
 				toneClass: "border-line-strong bg-muted text-foreground",
 			};
@@ -139,12 +136,11 @@ function matchesFilter(event: AuditEventItem, filter: FilterKind): boolean {
 
 function EventRow({ event, stagger }: { event: AuditEventItem; stagger: number }) {
 	const meta = describeEvent(event);
-	const relative = useRelativeTime(event.createdAt, 30_000);
 
 	return (
 		<li
 			style={staggerStyle(stagger)}
-			className="cms-enter cms-row-hover flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
+			className="cms-enter cms-row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5"
 		>
 			<div className="flex min-w-0 items-center gap-3">
 				<span
@@ -156,36 +152,28 @@ function EventRow({ event, stagger }: { event: AuditEventItem; stagger: number }
 				>
 					{meta.icon}
 				</span>
-				<div className="min-w-0">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="text-[13.5px] font-medium text-foreground">{meta.label}</span>
-						{meta.detail ? (
-							<span className="font-mono text-[11.5px] text-muted-foreground">{meta.detail}</span>
-						) : null}
-						{event.revision !== null ? (
-							<Link
-								to="/cms/history"
-								search={{ revision: event.revision }}
-								className="cms-press cms-page-focus inline-flex min-h-6 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 py-0.5 font-mono text-[11px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
-							>
-								<span>r{event.revision}</span>
-								<span aria-hidden="true">→</span>
-							</Link>
-						) : null}
-					</div>
-					<p className="m-0 mt-0.5 truncate font-mono text-[11.5px] text-muted-foreground">
-						{event.actorEmail}
-					</p>
+				<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+					<span className="text-[13.5px] font-medium text-foreground">{meta.label}</span>
+					{meta.detail ? (
+						<span className="text-[12.5px] text-muted-foreground">{meta.detail}</span>
+					) : null}
+					{event.revision !== null ? (
+						<Link
+							to="/cms/history"
+							search={{ revision: event.revision }}
+							aria-label={`Revision ${event.revision} in history`}
+							className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
+						>
+							r{event.revision}
+						</Link>
+					) : null}
 				</div>
 			</div>
 
-			<time
-				dateTime={event.createdAt}
-				title={formatUtcTimestamp(event.createdAt)}
-				className="shrink-0 font-mono text-[11.5px] tabular-nums text-muted-foreground"
-			>
-				{relative ?? formatUtcTimestamp(event.createdAt)}
-			</time>
+			<RelativeTime
+				iso={event.createdAt}
+				className="shrink-0 text-right text-[12.5px] text-muted-foreground"
+			/>
 		</li>
 	);
 }
@@ -271,14 +259,21 @@ function ActivityRoute() {
 		[events],
 	);
 
-	let rowCounter = 0;
+	// Stagger index of each group's first row, so rows enter in reading order.
+	const groupOffsets = useMemo(() => {
+		let offset = 0;
+		return groupedByDay.map((group) => {
+			const start = offset;
+			offset += group.items.length;
+			return start;
+		});
+	}, [groupedByDay]);
 
 	return (
-		<div className="grid min-w-0 max-w-[960px] grid-cols-1 gap-6">
+		<div className={pageClass}>
 			<PageHeader
-				eyebrow="Release · Audit trail"
-				title="Activity log"
-				description="Recorded metadata for every save, publish, restore, discard, and media update, grouped by UTC day."
+				title="Activity"
+				description="Every save, publish, restore, and media change, newest first."
 				actions={
 					<SegmentedControl
 						layoutId="cms-activity-filter-pill"
@@ -350,7 +345,7 @@ function ActivityRoute() {
 									Show all activity
 								</button>
 							) : (
-								<Link to="/cms" className={controlClass}>
+								<Link to="/cms" activeOptions={{ exact: true }} className={controlClass}>
 									Back to overview
 								</Link>
 							)
@@ -359,28 +354,24 @@ function ActivityRoute() {
 				</section>
 			) : (
 				<div className="grid gap-5">
-					{groupedByDay.map((group) => (
+					{groupedByDay.map((group, groupIndex) => (
 						<section key={group.dayKey} className="grid gap-2">
-							<header className="flex items-center justify-between gap-2 px-1">
-								<h2 className="mono-label m-0 text-[11px] text-muted-foreground">
-									{formatDayHeading(
-										group.dayKey,
-										todayKeys?.today ?? null,
-										todayKeys?.yesterday ?? null,
-									)}
-								</h2>
-								<span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
-									{group.items.length} {group.items.length === 1 ? "event" : "events"} ·{" "}
-									{group.dayKey}
-								</span>
-							</header>
+							<h2 className="m-0 px-1 text-[13px] font-semibold text-muted-foreground">
+								{formatDayHeading(
+									group.dayKey,
+									todayKeys?.today ?? null,
+									todayKeys?.yesterday ?? null,
+								)}
+							</h2>
 							<div className="cms-panel overflow-hidden">
 								<ul className="m-0 list-none divide-y divide-line p-0">
-									{group.items.map((event) => {
-										const stagger = Math.min(rowCounter, 10);
-										rowCounter += 1;
-										return <EventRow key={event.id} event={event} stagger={stagger} />;
-									})}
+									{group.items.map((event, index) => (
+										<EventRow
+											key={event.id}
+											event={event}
+											stagger={Math.min((groupOffsets[groupIndex] ?? 0) + index, 10)}
+										/>
+									))}
 								</ul>
 							</div>
 						</section>
