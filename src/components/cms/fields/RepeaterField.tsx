@@ -1,5 +1,5 @@
 import { AnimatePresence, Reorder } from "motion/react";
-import { memo, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
+import { memo, useCallback, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
@@ -7,15 +7,9 @@ import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../dr
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
-import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
+import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { ChevronRightIcon } from "./field-icons";
-import {
-	duplicateRow,
-	pendingRowRemoval,
-	restoreRow,
-	rowId,
-	type PendingRowRemoval,
-} from "./row-list";
+import { duplicateRow, rowId, sameRow } from "./row-list";
 
 const EMPTY: readonly never[] = [];
 
@@ -48,15 +42,8 @@ export function RepeaterField<T extends object>({
 	const changed = useChangedAt(path);
 	const localKeys = useRef<number[]>([]);
 	const nextKey = useRef(0);
-	const [removal, setRemoved] = useState<PendingRowRemoval<T> | null>(null);
-	const removed = useDraftSelector((_state, store) =>
-		pendingRowRemoval((store.valueAt(path) as T[] | undefined) ?? EMPTY, removal),
-	);
-	useEffect(() => {
-		if (removal && !removed) setRemoved(null);
-	}, [removal, removed]);
-	const restored = removed && restoreRow(removed.remaining, removed, max);
-	const undoRestoresLive = useUndoRestoresLive(path, restored);
+	const removals = usePendingRemovals<T>(path, { max, same: sameRow, match: sameRow });
+	const addRemoval = removals.add;
 	const duplicates = duplicateIds(keys.map((id) => ({ id })));
 
 	// Assign the same initial keys in SSR and hydration. Move them with rows
@@ -116,13 +103,12 @@ export function RepeaterField<T extends object>({
 			const row = rows[index];
 			if (!row) return;
 			localKeys.current = removeItem(localKeys.current, index);
-			const remaining = removeItem(rows, index);
-			store.update(path, remaining);
-			setRemoved({ row, index, label, remaining });
+			store.update(path, removeItem(rows, index));
+			addRemoval(rows, index, label);
 			const target = rows.length === 1 ? path : childPath(path, Math.min(index, rows.length - 2));
 			requestAnimationFrame(() => focusField(target));
 		},
-		[path, store],
+		[addRemoval, path, store],
 	);
 
 	return (
@@ -134,10 +120,10 @@ export function RepeaterField<T extends object>({
 			issues={issues}
 			changed={changed}
 			onRevert={
-				undoRestoresLive
+				removals.restoresLive
 					? undefined
 					: () => {
-							setRemoved(null);
+							removals.clear();
 							store.revertAt(path);
 						}
 			}
@@ -196,31 +182,24 @@ export function RepeaterField<T extends object>({
 					Add {itemLabel.toLowerCase()}
 				</AddButton>
 			</div>
-			<UndoRemoval
-				removal={
-					removed
-						? {
-								label: removed.label,
-								canUndo: restored !== null,
-							}
-						: null
-				}
-				onDismiss={() => {
-					setRemoved(null);
-					requestAnimationFrame(() => focusField(path));
-				}}
-				onUndo={() => {
-					const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
-					if (!removed || !pendingRowRemoval(current, removed)) return;
-					const restored = restoreRow(current, removed, max);
-					if (!restored) return;
-					const index = Math.min(removed.index, current.length);
-					localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
-					store.update(path, restored);
-					setRemoved(null);
-					requestAnimationFrame(() => focusField(childPath(path, index)));
-				}}
-			/>
+			{removals.removals.map((removal) => (
+				<UndoRemoval
+					key={removal.id}
+					removal={removal}
+					onDismiss={() => {
+						removals.dismiss(removal.id);
+						requestAnimationFrame(() => focusField(path));
+					}}
+					onUndo={() => {
+						const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+						const restored = removals.take(removal.id, current);
+						if (!restored) return;
+						localKeys.current = insertItem(localKeys.current, restored.index, nextKey.current++);
+						store.update(path, restored.rows);
+						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+					}}
+				/>
+			))}
 		</FieldFrame>
 	);
 }

@@ -18,8 +18,8 @@ import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowMenu } from "./RowControls";
 import { SortableRow } from "./SortableRow";
-import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
-import { pendingRowRemoval, restoreRow, sameValue, type PendingRowRemoval } from "./row-list";
+import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
+import { sameValue } from "./row-list";
 import { TextAreaField } from "./TextFields";
 
 const MAX_TRAVEL_MEDIA = 30;
@@ -190,13 +190,11 @@ export function MediaIdsField({ path }: { path: string }) {
 		JSON.stringify([id, ids.slice(0, index).filter((value) => value === id).length]),
 	);
 	const available = library.filter((asset) => !ids.includes(asset.id));
-	const [removal, setRemoval] = useState<PendingRowRemoval<string> | null>(null);
-	const removed = pendingRowRemoval(ids, removal);
-	const restored = removed && restoreRow(ids, removed, MAX_TRAVEL_MEDIA, sameValue);
-	const undoRestoresLive = useUndoRestoresLive(path, restored);
-	useEffect(() => {
-		if (removal && !removed) setRemoval(null);
-	}, [removal, removed]);
+	const removals = usePendingRemovals<string>(path, {
+		max: MAX_TRAVEL_MEDIA,
+		same: sameValue,
+		match: sameValue,
+	});
 	const move = (from: number, to: number) => {
 		if (to < 0 || to >= ids.length) return;
 		const handle = document.activeElement
@@ -221,10 +219,10 @@ export function MediaIdsField({ path }: { path: string }) {
 			issues={issues}
 			changed={field.changed}
 			onRevert={
-				undoRestoresLive
+				removals.restoresLive
 					? undefined
 					: () => {
-							setRemoval(null);
+							removals.clear();
 							field.revert();
 						}
 			}
@@ -253,9 +251,8 @@ export function MediaIdsField({ path }: { path: string }) {
 							canMoveDown={index < ids.length - 1}
 							move={move}
 							remove={(label) => {
-								const remaining = removeItem(ids, index);
-								field.set(remaining);
-								setRemoval({ row: id, index, label, remaining });
+								field.set(removeItem(ids, index));
+								removals.add(ids, index, label);
 								requestAnimationFrame(() =>
 									focusField(
 										ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
@@ -293,28 +290,22 @@ export function MediaIdsField({ path }: { path: string }) {
 					Media library <ExternalArrowIcon className="size-3.5" />
 				</Link>
 			) : null}
-			<UndoRemoval
-				removal={
-					removed
-						? {
-								label: removed.label,
-								canUndo: restored !== null,
-							}
-						: null
-				}
-				onDismiss={() => {
-					setRemoval(null);
-					focusField(path);
-				}}
-				onUndo={() => {
-					if (!removed || !restored) return;
-					field.set(restored);
-					setRemoval(null);
-					requestAnimationFrame(() =>
-						focusField(childPath(path, Math.min(removed.index, ids.length))),
-					);
-				}}
-			/>
+			{removals.removals.map((removal) => (
+				<UndoRemoval
+					key={removal.id}
+					removal={removal}
+					onDismiss={() => {
+						removals.dismiss(removal.id);
+						focusField(path);
+					}}
+					onUndo={() => {
+						const restored = removals.take(removal.id, ids);
+						if (!restored) return;
+						field.set(restored.rows);
+						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+					}}
+				/>
+			))}
 		</FieldFrame>
 	);
 }

@@ -1,6 +1,7 @@
 import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
 import {
 	createContext,
+	useCallback,
 	useContext,
 	useEffect,
 	useId,
@@ -10,9 +11,18 @@ import {
 } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createPortal } from "react-dom";
-import { useDraftSelector } from "../draft/context";
-import { jsonEqual } from "../draft/paths";
+import { useDraftSelector, useDraftStore } from "../draft/context";
+import { getAt, jsonEqual } from "../draft/paths";
+import type { DraftState } from "../draft/store";
 import { REDUCED, SPRING_SURFACE } from "../motion";
+import {
+	createRemoval,
+	replacedDraft,
+	restoreAll,
+	restoreRemoval,
+	type PendingRemoval,
+	type RemovalRules,
+} from "./row-list";
 
 export const editorButton = "cms-editor-button cms-press";
 
@@ -88,6 +98,73 @@ export function useUndoRestoresLive(path: string, restored: readonly unknown[] |
 	return useDraftSelector(
 		(state, store) => restored !== null && jsonEqual(restored, store.liveValueAt(path, state)),
 	);
+}
+
+/**
+ * One Undo per removed row. Removals survive later edits to the list; each
+ * puts its row back beside its old neighbours. A removal ends when its row
+ * is back, when the owner dismisses it or reverts the field, or when the
+ * whole draft is replaced (history restore, discard, conflict resolution).
+ */
+export function usePendingRemovals<T>(path: string, rules: RemovalRules<T>) {
+	const store = useDraftStore();
+	const [all, setAll] = useState<PendingRemoval<T>[]>([]);
+	const nextId = useRef(0);
+	const { max, same, match } = rules;
+	const rowsAt = (state: DraftState) => (getAt(state.draft, path) as T[] | undefined) ?? [];
+	// Subscribe to what the toasts show, not to every edit inside the list.
+	const back = useDraftSelector((state) => {
+		const rows = rowsAt(state);
+		return all.map((removal) => (rows.some((row) => same(row, removal.row)) ? "1" : "0")).join("");
+	});
+	const full = useDraftSelector((state) => rowsAt(state).length >= max);
+	const restoresLive = useDraftSelector((state, store) => {
+		if (!all.length) return false;
+		const restored = restoreAll(rowsAt(state), all, { max, same, match });
+		return restored !== null && jsonEqual(restored, store.liveValueAt(path, state));
+	});
+	const removals = all.filter((_, index) => back[index] !== "1");
+	const stale = removals.length !== all.length;
+	useEffect(() => {
+		if (stale) setAll((current) => current.filter((removal) => removals.includes(removal)));
+	});
+	useEffect(() => {
+		let previous = store.getState();
+		return store.subscribe(() => {
+			const next = store.getState();
+			if (replacedDraft(previous, next)) setAll([]);
+			previous = next;
+		});
+	}, [store]);
+
+	const add = useCallback(
+		(before: readonly T[], index: number, label: string) => {
+			const id = nextId.current++;
+			setAll((current) => [...current, createRemoval(before, index, label, current, match, id)]);
+		},
+		[match],
+	);
+	const dismiss = useCallback(
+		(id: number) => setAll((current) => current.filter((removal) => removal.id !== id)),
+		[],
+	);
+	const clear = useCallback(() => setAll([]), []);
+	return {
+		removals: removals.map((removal) => ({ ...removal, canUndo: !full })),
+		add,
+		dismiss,
+		clear,
+		/** Undo one removal against the current list, and drop its toast. */
+		take(id: number, current: readonly T[]) {
+			const removal = removals.find((entry) => entry.id === id);
+			const restored = removal && restoreRemoval(current, removal, { max, same, match });
+			if (!restored) return null;
+			dismiss(id);
+			return restored;
+		},
+		/** Undo would return the field to its live value, so Revert adds nothing. */
+		restoresLive,
+	};
 }
 
 function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {

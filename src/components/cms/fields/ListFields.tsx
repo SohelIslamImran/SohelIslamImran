@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, Reorder, useIsPresent, useReducedMotion } from "motion/react";
-import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useRef, useState, type ReactNode } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import {
@@ -13,7 +13,7 @@ import {
 import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { SortableRow } from "./SortableRow";
-import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
+import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { Counter } from "./TextFields";
 import {
 	FieldFrame,
@@ -27,25 +27,9 @@ import {
 import { AddButton, RowMenu } from "./RowControls";
 import { CloseIcon } from "../shell/cms-icons";
 import { tagBackspace, toSingleLine } from "./field-logic";
-import {
-	neverSame,
-	pendingRowRemoval,
-	restoreRow,
-	sameTag,
-	type PendingRowRemoval,
-} from "./row-list";
+import { neverSame, sameRow, sameTag } from "./row-list";
 
 const EMPTY: readonly never[] = [];
-
-/** Keep a removal's undo only while its list is the one the removal produced. */
-function usePendingRemoval<T>(rows: readonly T[]) {
-	const [removal, setRemoval] = useState<PendingRowRemoval<T> | null>(null);
-	const pending = pendingRowRemoval(rows, removal);
-	useEffect(() => {
-		if (removal && !pending) setRemoval(null);
-	}, [removal, pending]);
-	return [pending, setRemoval] as const;
-}
 
 export interface TagsFieldProps {
 	path: string;
@@ -76,9 +60,7 @@ export function TagsField({
 	const [draft, setDraft] = useState("");
 	const [limitReached, setLimitReached] = useState(false);
 	const [armed, setArmed] = useState(false);
-	const [removal, setRemoval] = usePendingRemoval(tags);
-	const restored = removal && restoreRow(tags, removal, max, sameTag);
-	const undoRestoresLive = useUndoRestoresLive(path, restored);
+	const removals = usePendingRemovals(path, { max, same: sameTag, match: sameTag });
 	const chips = useRef<HTMLUListElement>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const composing = useRef(false);
@@ -102,9 +84,8 @@ export function TagsField({
 	const remove = (index: number) => {
 		const tag = tags[index];
 		if (tag === undefined) return;
-		const remaining = removeItem(tags, index);
-		field.set(remaining);
-		setRemoval({ row: tag, index, label: tag, remaining });
+		field.set(removeItem(tags, index));
+		removals.add(tags, index, tag);
 		setLimitReached(false);
 		setArmed(false);
 	};
@@ -115,7 +96,14 @@ export function TagsField({
 			description={description}
 			issues={nested}
 			changed={field.changed}
-			onRevert={undoRestoresLive ? undefined : field.revert}
+			onRevert={
+				removals.restoresLive
+					? undefined
+					: () => {
+							removals.clear();
+							field.revert();
+						}
+			}
 			meta={
 				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
 					{tags.length}/{max}
@@ -229,26 +217,22 @@ export function TagsField({
 					<Counter length={draft.trim().length} max={240} />
 				</div>
 			) : null}
-			<UndoRemoval
-				removal={
-					removal
-						? {
-								label: removal.label,
-								canUndo: restored !== null,
-							}
-						: null
-				}
-				onDismiss={() => {
-					setRemoval(null);
-					input.current?.focus({ preventScroll: true });
-				}}
-				onUndo={() => {
-					if (!restored) return;
-					field.set(restored);
-					setRemoval(null);
-					requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
-				}}
-			/>
+			{removals.removals.map((removal) => (
+				<UndoRemoval
+					key={removal.id}
+					removal={removal}
+					onDismiss={() => {
+						removals.dismiss(removal.id);
+						input.current?.focus({ preventScroll: true });
+					}}
+					onUndo={() => {
+						const restored = removals.take(removal.id, tags);
+						if (!restored) return;
+						field.set(restored.rows);
+						requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
+					}}
+				/>
+			))}
 		</FieldFrame>
 	);
 }
@@ -309,12 +293,8 @@ export function StringListField({
 	);
 	const issues = useIssuesAt(path);
 	const changed = useChangedAt(path);
-	const rows = useDraftSelector(
-		(_state, store) => (store.valueAt(path) as string[] | undefined) ?? EMPTY,
-	);
-	const [removal, setRemoval] = usePendingRemoval(rows);
-	const restored = removal && restoreRow(rows, removal, max, neverSame);
-	const undoRestoresLive = useUndoRestoresLive(path, restored);
+	const removals = usePendingRemovals<string>(path, { max, same: neverSame, match: sameRow });
+	const addRemoval = removals.add;
 	const nextKey = useRef(0);
 	const keys = useRef<number[]>([]);
 	keys.current = Array.from(
@@ -344,13 +324,12 @@ export function StringListField({
 			const row = items[index];
 			if (row === undefined) return;
 			keys.current = removeItem(keys.current, index);
-			const remaining = removeItem(items, index);
-			store.update(path, remaining);
-			setRemoval({ row, index, label: label.toLowerCase(), remaining });
+			store.update(path, removeItem(items, index));
+			addRemoval(items, index, label.toLowerCase());
 			const target = items.length > 1 ? childPath(path, Math.min(index, items.length - 2)) : path;
 			requestAnimationFrame(() => focusField(target));
 		},
-		[path, setRemoval, store],
+		[addRemoval, path, store],
 	);
 
 	return (
@@ -361,10 +340,10 @@ export function StringListField({
 			issues={issues}
 			changed={changed}
 			onRevert={
-				undoRestoresLive
+				removals.restoresLive
 					? undefined
 					: () => {
-							setRemoval(null);
+							removals.clear();
 							store.revertAt(path);
 						}
 			}
@@ -422,24 +401,24 @@ export function StringListField({
 					{addLabel}
 				</AddButton>
 			</div>
-			<UndoRemoval
-				removal={removal ? { label: removal.label, canUndo: restored !== null } : null}
-				onDismiss={() => {
-					setRemoval(null);
-					focusField(path);
-				}}
-				onUndo={() => {
-					const current = (store.valueAt(path) as string[] | undefined) ?? EMPTY;
-					if (!removal || !pendingRowRemoval(current, removal)) return;
-					const restored = restoreRow(current, removal, max, neverSame);
-					if (!restored) return;
-					const index = Math.min(removal.index, current.length);
-					keys.current = insertItem(keys.current, index, nextKey.current++);
-					store.update(path, restored);
-					setRemoval(null);
-					requestAnimationFrame(() => focusField(childPath(path, index)));
-				}}
-			/>
+			{removals.removals.map((removal) => (
+				<UndoRemoval
+					key={removal.id}
+					removal={removal}
+					onDismiss={() => {
+						removals.dismiss(removal.id);
+						focusField(path);
+					}}
+					onUndo={() => {
+						const current = (store.valueAt(path) as string[] | undefined) ?? EMPTY;
+						const restored = removals.take(removal.id, current);
+						if (!restored) return;
+						keys.current = insertItem(keys.current, restored.index, nextKey.current++);
+						store.update(path, restored.rows);
+						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+					}}
+				/>
+			))}
 		</FieldFrame>
 	);
 }
