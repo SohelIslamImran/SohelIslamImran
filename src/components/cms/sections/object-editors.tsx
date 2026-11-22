@@ -13,6 +13,7 @@ import {
 import { useDraftValue } from "../draft/context";
 import { newRowId } from "../fields/row-list";
 import type { StoryChapterContent } from "../../../types/content";
+import { SuggestionField } from "../fields/ChoiceFields";
 import { EditorGroup } from "./EditorLayout";
 
 export function SiteEditor() {
@@ -60,6 +61,8 @@ export function SiteEditor() {
 	);
 }
 
+const TIME_ZONES = ["UTC", ...Intl.supportedValuesOf("timeZone")];
+
 export function IdentityEditor() {
 	return (
 		<>
@@ -76,11 +79,10 @@ export function IdentityEditor() {
 				<TextField path="identity.email" label="Email" type="email" maxLength={320} required />
 				<div className="grid gap-4 sm:grid-cols-2">
 					<TextField path="identity.location" label="Résumé location" maxLength={160} />
-					<TextField
+					<SuggestionField
 						path="identity.timezone"
 						label="Time zone"
-						maxLength={80}
-						mono
+						items={TIME_ZONES}
 						description="Use an IANA time zone ID, such as Asia/Dhaka."
 					/>
 				</div>

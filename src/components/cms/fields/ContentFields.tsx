@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import type { LinkContent, MetricContent } from "../../../types/content";
-import { SelectField, SwitchField } from "./ChoiceFields";
+import { CheckboxField, SegmentedField } from "./ChoiceFields";
 import { focusField } from "./FieldFrame";
 import { RepeaterField } from "./RepeaterField";
 import { NumberField, TextField } from "./TextFields";
@@ -130,7 +130,7 @@ export function LinkRow({ path }: { path: string }) {
 		<>
 			<TextField path={`${path}.label`} label="Label" maxLength={120} required />
 			<HrefField path={`${path}.href`} label="Destination" />
-			<SwitchField path={`${path}.external`} label="External link" />
+			<CheckboxField path={`${path}.external`} label="External link" />
 		</>
 	);
 }
@@ -196,5 +196,5 @@ const VISIBILITY_OPTIONS = [
 ] as const;
 
 export function VisibilityField({ path }: { path: string }) {
-	return <SelectField path={path} label="Visibility" options={VISIBILITY_OPTIONS} />;
+	return <SegmentedField path={path} label="Visibility" options={VISIBILITY_OPTIONS} />;
 }

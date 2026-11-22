@@ -1,3 +1,6 @@
+import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { useId } from "react";
+import { SPRING_MOVE } from "../motion";
 import { Tabs } from "@base-ui/react/tabs";
 import { categoryLabels } from "../../work/project-utils";
 import type {
@@ -414,30 +417,36 @@ function ProfileLinkFields({ path }: { path: string }) {
 	);
 }
 
-const tabClass =
-	"min-h-9 rounded-[9px] px-3 text-[13px] font-medium text-ink-soft hover:bg-muted data-[active]:bg-primary-soft data-[active]:text-primary-text pointer-coarse:min-h-11";
-
 export function LinksEditor(props: EditorProps) {
+	const tab = props.tab ?? "profile";
+	const groupId = useId();
+	const reduced = useReducedMotion();
 	return (
 		<Tabs.Root
-			value={props.tab ?? "profile"}
+			value={tab}
 			onValueChange={(tab) =>
 				void props.select(undefined, tab === "social" ? "social" : undefined, true)
 			}
 			className="grid min-w-0 gap-4"
 		>
-			<Tabs.List
-				aria-label="Link editors"
-				className="flex flex-wrap gap-1 justify-self-start rounded-[12px] border border-line bg-surface-solid p-1"
-			>
-				<Tabs.Tab value="profile" className={tabClass}>
-					Profile links
-				</Tabs.Tab>
-				<Tabs.Tab value="social" className={tabClass}>
-					Social
-				</Tabs.Tab>
-			</Tabs.List>
-			<Tabs.Panel value="profile" className="min-w-0">
+			<LayoutGroup id={groupId}>
+				<Tabs.List aria-label="Link editors" className="cms-segments flex justify-self-start">
+					{(["profile", "social"] as const).map((value) => (
+						<Tabs.Tab key={value} value={value} className="cms-segment cms-press">
+							{tab === value ? (
+								<motion.span
+									aria-hidden="true"
+									className="cms-choice-highlight"
+									layoutId={reduced ? undefined : "tab"}
+									transition={SPRING_MOVE}
+								/>
+							) : null}
+							{value === "profile" ? "Profile links" : "Social"}
+						</Tabs.Tab>
+					))}
+				</Tabs.List>
+			</LayoutGroup>
+			<Tabs.Panel value="profile" className="cms-enter min-w-0">
 				<CollectionEditor<ProfileLinkContent>
 					{...props}
 					path="profileLinks"
@@ -469,7 +478,7 @@ export function LinksEditor(props: EditorProps) {
 					Editor={ProfileLinkFields}
 				/>
 			</Tabs.Panel>
-			<Tabs.Panel value="social" className="min-w-0">
+			<Tabs.Panel value="social" className="cms-enter min-w-0">
 				<EditorGroup title="Résumé social links">
 					<RepeaterField<SocialLinkContent>
 						path="social"
