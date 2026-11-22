@@ -22,7 +22,6 @@ export function RailPulseSlot({
 		<Link
 			to="/cms/analytics"
 			preload="intent"
-			resetScroll={false}
 			onClick={onNavigate}
 			data-slot="cms-rail-pulse"
 			title={label}
