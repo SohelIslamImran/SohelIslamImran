@@ -7,9 +7,8 @@
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
- * - On the Changes page, Publish requests from the shell (top bar, phone action
- *   bar, command bar) scroll to and focus the page's own gate,
- *   `#release-gate` (`RELEASE_GATE_ID`), instead of opening a second flow.
+ * - On the Changes page, the command bar and release status can focus the
+ *   page's publish gate. The gate owns the primary Publish button.
  */
 import {
 	useCallback,
@@ -119,6 +118,7 @@ import {
 } from "./cms-icons";
 import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar } from "./PipelineBar";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
@@ -335,22 +335,17 @@ function SectionRailItem({
 	);
 }
 
-function ChangesRailBadge() {
-	const changedCount = useDraftSelector((state, store) =>
-		SECTIONS.reduce(
-			(count, section) =>
-				count + (section.paths.some((path) => store.changedAt(path, state)) ? 1 : 0),
-			0,
-		),
-	);
+function ChangesRailBadge({ changedCount }: { changedCount: number }) {
 	if (changedCount === 0) return null;
 	return (
-		<span className="inline-flex items-center gap-0.5 rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text tabular-nums">
+		<span
+			aria-hidden="true"
+			className="inline-flex items-center gap-0.5 rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text tabular-nums"
+		>
 			<span aria-hidden="true">Δ</span>
 			<span key={changedCount} className="cms-count-tick">
 				{changedCount}
 			</span>
-			<span className="sr-only"> sections changed</span>
 		</span>
 	);
 }
@@ -394,6 +389,32 @@ function LayerRailContent({
 		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
 	});
 	const normalized = pathname;
+	const railScroll = useRef<HTMLElement>(null);
+	const changedCount = useDraftSelector((state, store) =>
+		SECTIONS.reduce(
+			(count, section) =>
+				count + (section.paths.some((path) => store.changedAt(path, state)) ? 1 : 0),
+			0,
+		),
+	);
+
+	useLayoutEffect(() => {
+		const nav = railScroll.current;
+		const link = nav?.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
+		if (!nav || !link) return;
+		const reveal = () => {
+			if (!nav.clientHeight) return;
+			const viewport = nav.getBoundingClientRect();
+			const item = link.getBoundingClientRect();
+			if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top;
+			else if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom;
+		};
+		reveal();
+		// Also reveal when a previously hidden desktop rail gains a viewport.
+		const observer = new ResizeObserver(reveal);
+		observer.observe(nav);
+		return () => observer.disconnect();
+	}, [pathname]);
 
 	const isPathActive = (to: string) => {
 		if (to === "/cms") return normalized === "/cms" || normalized === "/";
@@ -434,7 +455,11 @@ function LayerRailContent({
 			</div>
 
 			{/* Scrollable middle sections */}
-			<nav aria-label="CMS" className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+			<nav
+				ref={railScroll}
+				aria-label="CMS"
+				className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+			>
 				<div className="cms-rail-region relative">
 					<RailIndicator active={pathname} />
 					<RailHeading>Signals</RailHeading>
@@ -500,7 +525,16 @@ function LayerRailContent({
 							to={item.to}
 							icon={<NavIconFor to={item.to} />}
 							label={item.label}
-							badge={item.to === "/cms/release" ? <ChangesRailBadge /> : undefined}
+							badge={
+								item.to === "/cms/release" ? (
+									<ChangesRailBadge changedCount={changedCount} />
+								) : undefined
+							}
+							badgeLabel={
+								item.to === "/cms/release" && changedCount > 0
+									? `${changedCount} ${changedCount === 1 ? "section" : "sections"} changed`
+									: undefined
+							}
 							compactBadge={item.to === "/cms/release" ? <ChangesCompactBadge /> : undefined}
 							active={isPathActive(item.to)}
 							pending={isPending(item.to)}
@@ -609,7 +643,7 @@ function SessionBanners({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={publishFailed ? onRetryPublish : () => void store.save()}
+					onClick={publishFailed ? onRetryPublish : () => saveDraftIfAvailable(store)}
 					className="pointer-coarse:min-h-11"
 				>
 					{publishFailed ? "Retry publish" : "Retry save"}
@@ -644,12 +678,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const drawer = useRef<HTMLDivElement>(null);
 	const drawerScrim = useRef<HTMLDivElement>(null);
 	const drawerFrame = useRef(0);
+	const interruptedSettle = useRef(false);
 	const drawerDismissSettling = useRef(false);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
 	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
 	const clearDrawerStyles = useCallback(() => {
+		cancelAnimationFrame(drawerFrame.current);
+		drawerFrame.current = 0;
+		interruptedSettle.current = false;
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
 		drawer.current?.removeAttribute("data-swipe-settling");
@@ -661,7 +699,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
 		const onChange = () => {
 			release.current = null;
-			cancelAnimationFrame(drawerFrame.current);
 			clearDrawerStyles();
 			if (drawerDismissSettling.current) {
 				drawerDismissSettling.current = false;
@@ -676,7 +713,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [clearDrawerStyles]);
 
 	const openDrawer = () => {
-		cancelAnimationFrame(drawerFrame.current);
 		drawerDismissSettling.current = false;
 		clearDrawerStyles();
 		setDrawerOpen(true);
@@ -708,8 +744,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const tick = () => {
 			const { value, done } = trajectory.next(performance.now() - time);
 			place(value);
-			if (done) onComplete();
-			else drawerFrame.current = requestAnimationFrame(tick);
+			if (done) {
+				drawerFrame.current = 0;
+				onComplete();
+			} else {
+				drawerFrame.current = requestAnimationFrame(tick);
+			}
 		};
 		// Sample now, then before each paint. The first frame uses elapsed time
 		// since release and the measured velocity, even if Base UI took a beat.
@@ -723,7 +763,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			if (!touch || !(event.target instanceof Node) || !drawer.current?.contains(event.target)) {
 				return;
 			}
-			if (event.type === "touchstart") swipe.current = [];
+			if (event.type === "touchstart") {
+				swipe.current = [];
+				if (drawerFrame.current !== 0 || release.current) {
+					// Base UI reads the current transform when the next drag starts.
+					// Leave the drawer at that position and stop writing to it.
+					cancelAnimationFrame(drawerFrame.current);
+					drawerFrame.current = 0;
+					interruptedSettle.current = true;
+				}
+			}
 			const samples = swipe.current;
 			samples.push({ x: touch.clientX, time: event.timeStamp });
 			// Velocity over the last ~100ms of movement, not just the last event pair.
@@ -741,12 +790,15 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [drawerOpen]);
 
 	const finishSwipe = (event: TouchEvent) => {
+		const interrupted = interruptedSettle.current;
+		interruptedSettle.current = false;
 		const popup = drawer.current;
 		const samples = swipe.current;
 		swipe.current = [];
 		release.current = null;
 		if (
-			!popup?.hasAttribute("data-swiping") ||
+			!popup ||
+			(!popup.hasAttribute("data-swiping") && !interrupted) ||
 			window.matchMedia("(prefers-reduced-motion: reduce)").matches
 		) {
 			return;
@@ -754,7 +806,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const first = samples[0];
 		const last = samples.at(-1);
 		const velocity =
-			first && last && last.time > first.time && event.timeStamp - last.time < 100
+			event.type !== "touchcancel" &&
+			first &&
+			last &&
+			last.time > first.time &&
+			event.timeStamp - last.time < 100
 				? (1000 * (last.x - first.x)) / (last.time - first.time)
 				: 0;
 		const position = { x: popup.getBoundingClientRect().x, velocity, time: performance.now() };
@@ -781,6 +837,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				drawerDismissSettling.current = false;
 				drawerActions.current?.unmount();
 			});
+		} else if (!open && (drawerFrame.current !== 0 || interruptedSettle.current)) {
+			clearDrawerStyles();
 		}
 		setDrawerOpen(open);
 	};
@@ -811,18 +869,22 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
-	const requestPublish = () => {
-		const gate =
-			pathname === "/cms/release" || pathname === "/release"
-				? document.getElementById(RELEASE_GATE_ID)
-				: null;
-		if (!gate) {
-			setPublishDialogOpen(true);
-			return;
-		}
+	const releaseGate = () =>
+		pathname === "/cms/release" || pathname === "/release"
+			? document.getElementById(RELEASE_GATE_ID)
+			: null;
+
+	const focusReleaseGate = (gate: HTMLElement) => {
 		if (!gate.matches("a[href], button, input, select, textarea, [tabindex]")) gate.tabIndex = -1;
 		gate.scrollIntoView({ block: "start", behavior: reduceMotion ? "instant" : "smooth" });
 		gate.focus({ preventScroll: true });
+	};
+
+	const requestPublish = () => {
+		if (!draftActionAvailability(store.getState()).canPublish) return;
+		const gate = releaseGate();
+		if (gate) focusReleaseGate(gate);
+		else setPublishDialogOpen(true);
 	};
 	const conflict = useDraftSelector((state) => state.conflict);
 	const [dismissedConflict, setDismissedConflict] = useState<typeof conflict>(null);
@@ -874,10 +936,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			}
 			if (key === "s" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
 				event.preventDefault();
-				const state = store.getState();
-				if (!state.conflict && state.issues.all.length === 0) {
-					void store.save();
-				}
+				saveDraftIfAvailable(store);
 				return;
 			}
 			if (
@@ -934,6 +993,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						onOpenDrawer={openDrawer}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
+						onReviewRelease={() => {
+							const gate = releaseGate();
+							if (!gate) return false;
+							focusReleaseGate(gate);
+							return true;
+						}}
 						publishFailed={publishFailed}
 						publishSweepKey={publishSweepKey}
 					/>
@@ -971,10 +1036,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						<Drawer.Popup
 							ref={drawer}
 							onTouchEndCapture={finishSwipe}
-							onTouchCancelCapture={() => {
-								swipe.current = [];
-								release.current = null;
-							}}
+							onTouchCancelCapture={finishSwipe}
 							data-slot="cms-mobile-drawer"
 							className="cms-drawer-popup cms-overlay cms-glass pointer-events-auto fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
 						>

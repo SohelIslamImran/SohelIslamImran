@@ -23,7 +23,7 @@
 		scroll-padding-top: calc(56px + env(safe-area-inset-top));
 	}
 
-	.cms-root :is(.cms-chrome-control, .cms-status-pill, .cms-action):focus-visible,
+	.cms-root :is(.cms-chrome-control, .cms-action):focus-visible,
 	.cms-overlay :is(a, button):focus-visible {
 		outline: 2px solid var(--theme-accent);
 		outline-offset: 2px;
@@ -38,7 +38,7 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-chrome-control:hover {
+		.cms-chrome-control:not(.cms-status-pill):hover {
 			background-color: color-mix(in srgb, var(--theme-ink) 6%, transparent);
 			color: var(--theme-ink);
 		}
@@ -282,6 +282,19 @@
 		.cms-rail-desktop .cms-rail-toggle {
 			right: 0;
 		}
+	}
+
+	[data-slot="cms-section"] > * {
+		width: 100%;
+		margin-inline: auto;
+	}
+
+	.cms-topbar-inner {
+		max-width: 1160px;
+	}
+
+	.cms-layout:has([data-slot="cms-section"] > .cms-editor) .cms-topbar-inner {
+		max-width: 69rem;
 	}
 
 	.cms-topbar {
@@ -558,18 +571,22 @@
 }
 
 @layer utilities {
-	.cms-action:is([aria-busy="true"], [data-complete="true"]):disabled {
+	.cms-root:has(#main-content #release-gate) .cms-publish-action {
+		display: none;
+	}
+
+	.cms-action:is([aria-busy="true"], [data-complete="true"]):is(:disabled, [aria-disabled="true"]) {
 		opacity: 1;
 	}
 
-	.cms-action[data-complete="true"]:disabled {
+	.cms-action[data-complete="true"]:is(:disabled, [aria-disabled="true"]) {
 		border-color: color-mix(in srgb, var(--theme-success) 32%, transparent);
 		background: color-mix(in srgb, var(--theme-success) 10%, var(--theme-surface-solid));
 		color: var(--theme-success);
 		box-shadow: none;
 	}
 
-	.cms-publish-action:disabled:not([data-complete], [aria-busy]) {
+	.cms-publish-action:is(:disabled, [aria-disabled="true"]):not([data-complete], [aria-busy]) {
 		background: var(--theme-surface-raised);
 		color: var(--theme-ink-soft);
 		box-shadow: none;

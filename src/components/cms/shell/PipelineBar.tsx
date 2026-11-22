@@ -7,7 +7,7 @@
  * hydration-safe relative save timestamp, ⌘K trigger, single accent Publish
  * button, and the phone top bar + bottom glass action bar.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "../../ui/button";
@@ -31,6 +31,7 @@ import {
 	SaveIcon,
 	SearchIcon,
 } from "./cms-icons";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useRelativeTime } from "./time";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -85,8 +86,13 @@ function PipelineStatus({
 	stage,
 	label,
 	onResolveConflict,
-}: ReturnType<typeof usePipelineStage> & { onResolveConflict: () => void }) {
+	onReviewRelease,
+}: ReturnType<typeof usePipelineStage> & {
+	onResolveConflict: () => void;
+	onReviewRelease: () => boolean;
+}) {
 	const [open, setOpen] = useState(false);
+	const reviewingGate = useRef(false);
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const issues = useDraftSelector((state) => state.issues.all);
@@ -117,11 +123,16 @@ function PipelineStatus({
 					setOpen(false);
 					onResolveConflict();
 				} else {
+					if (next) reviewingGate.current = false;
 					setOpen(next);
 				}
 			}}
 		>
-			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage} aria-label={label}>
+			<PopoverTrigger
+				className="cms-status-pill cms-chrome-control cms-press"
+				data-stage={stage}
+				aria-label={label}
+			>
 				<span className="cms-status-content">
 					<span key={label} className="cms-status-copy" aria-hidden="true">
 						{stage === "synced" ? (
@@ -141,6 +152,7 @@ function PipelineStatus({
 				align="start"
 				sideOffset={10}
 				positionMethod="fixed"
+				finalFocus={() => !reviewingGate.current}
 				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
 				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
@@ -156,7 +168,15 @@ function PipelineStatus({
 						<Link
 							to="/cms/release"
 							preload="intent"
-							onClick={() => setOpen(false)}
+							onClick={(event) => {
+								if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+									if (onReviewRelease()) {
+										reviewingGate.current = true;
+										event.preventDefault();
+									}
+									setOpen(false);
+								}
+							}}
 							className="cms-press cms-chrome-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
 						>
 							Review changes <span aria-hidden="true">→</span>
@@ -204,6 +224,7 @@ export function PipelineBar({
 	onOpenDrawer,
 	onResolveConflict,
 	onRequestPublish,
+	onReviewRelease,
 	publishFailed,
 	publishSweepKey,
 }: {
@@ -211,6 +232,7 @@ export function PipelineBar({
 	onOpenDrawer: () => void;
 	onResolveConflict: () => void;
 	onRequestPublish: () => void;
+	onReviewRelease: () => boolean;
 	publishFailed: boolean;
 	publishSweepKey: number;
 }) {
@@ -233,61 +255,68 @@ export function PipelineBar({
 			data-slot="cms-pipeline-bar"
 			data-stage={stage}
 			data-scrolled={scrolled || undefined}
-			className="cms-topbar sticky top-0 z-(--z-sticky) flex min-h-14 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] lg:px-5"
+			className="cms-topbar sticky top-0 z-(--z-sticky) px-3 pt-[env(safe-area-inset-top)] lg:px-8"
 		>
-			<button
-				type="button"
-				onClick={onOpenDrawer}
-				aria-label="Open navigation menu"
-				aria-haspopup="dialog"
-				className="cms-press cms-chrome-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
-			>
-				<MenuIcon className="size-5" />
-			</button>
-
-			<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
-				<span
-					className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
-					aria-label={`Draft revision ${draftRevision}`}
-					title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
-				>
-					<span className="hidden sm:inline">Draft </span>r{draftRevision}
-				</span>
-				<span aria-hidden="true" className="cms-pipeline-connector" />
-				<PipelineStatus stage={stage} label={label} onResolveConflict={onResolveConflict} />
-				<span aria-hidden="true" className="cms-pipeline-connector" />
-				<Link
-					to="/cms/release"
-					preload="intent"
-					aria-label={`Live revision ${publishedRevision}`}
-					className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
-				>
-					<span className="hidden sm:inline">Live </span>r{publishedRevision}
-				</Link>
-				<span role="status" className="sr-only">
-					{label}
-				</span>
-			</div>
-
-			<div className="flex shrink-0 items-center gap-2">
+			<div className="cms-topbar-inner mx-auto flex min-h-14 items-center justify-between gap-2">
 				<button
 					type="button"
-					onClick={(event) => onOpenCommandBar(event.currentTarget)}
-					aria-label="Search and commands"
+					onClick={onOpenDrawer}
+					aria-label="Open navigation menu"
 					aria-haspopup="dialog"
-					aria-keyshortcuts="Meta+K Control+K"
-					data-slot="cms-command-trigger"
-					className="cms-press cms-chrome-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
+					className="cms-press cms-chrome-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
 				>
-					<SearchIcon />
-					<span className="hidden text-[12px] xl:inline">Search</span>
-					<span className="hidden lg:inline">
-						<Kbd>⌘K</Kbd>
-					</span>
+					<MenuIcon className="size-5" />
 				</button>
 
-				<div className="hidden items-center gap-2 lg:flex">
-					<PipelineActions onRequestPublish={onRequestPublish} />
+				<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
+					<span
+						className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
+						aria-label={`Draft revision ${draftRevision}`}
+						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
+					>
+						<span className="hidden sm:inline">Draft </span>r{draftRevision}
+					</span>
+					<span aria-hidden="true" className="cms-pipeline-connector" />
+					<PipelineStatus
+						stage={stage}
+						label={label}
+						onResolveConflict={onResolveConflict}
+						onReviewRelease={onReviewRelease}
+					/>
+					<span aria-hidden="true" className="cms-pipeline-connector" />
+					<Link
+						to="/cms/release"
+						preload="intent"
+						aria-label={`Live revision ${publishedRevision}`}
+						className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
+					>
+						<span className="hidden sm:inline">Live </span>r{publishedRevision}
+					</Link>
+					<span role="status" className="sr-only">
+						{label}
+					</span>
+				</div>
+
+				<div className="flex shrink-0 items-center gap-2">
+					<button
+						type="button"
+						onClick={(event) => onOpenCommandBar(event.currentTarget)}
+						aria-label="Search and commands"
+						aria-haspopup="dialog"
+						aria-keyshortcuts="Meta+K Control+K"
+						data-slot="cms-command-trigger"
+						className="cms-press cms-chrome-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
+					>
+						<SearchIcon />
+						<span className="hidden text-[12px] xl:inline">Search</span>
+						<span className="hidden lg:inline">
+							<Kbd>⌘K</Kbd>
+						</span>
+					</button>
+
+					<div className="hidden items-center gap-2 lg:flex">
+						<PipelineActions onRequestPublish={onRequestPublish} />
+					</div>
 				</div>
 			</div>
 
@@ -315,13 +344,10 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 	const store = useDraftStore();
 	const { dirty, ahead, canSave, canPublish, status, draftRevision, publishedRevision } =
 		useDraftSelector((state) => {
-			const busy = state.status === "saving" || state.status === "publishing";
-			const ready = !state.conflict && !busy && !state.authExpired && state.issues.all.length === 0;
 			return {
 				dirty: state.dirty,
 				ahead: state.ahead,
-				canSave: ready && state.dirty,
-				canPublish: ready && (state.dirty || state.ahead),
+				...draftActionAvailability(state),
 				status: state.status,
 				draftRevision: state.draftRevision,
 				publishedRevision: state.publishedRevision,
@@ -340,10 +366,11 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				variant="outline"
 				size="sm"
 				disabled={!canSave}
+				focusableWhenDisabled
 				aria-busy={saving || undefined}
 				data-complete={justSaved || undefined}
 				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
-				onClick={() => void store.save()}
+				onClick={() => saveDraftIfAvailable(store)}
 			>
 				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
 				{saving ? "Saving…" : justSaved ? "Saved" : "Save"}
@@ -351,6 +378,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 			<Button
 				size="sm"
 				disabled={!canPublish}
+				focusableWhenDisabled
 				aria-busy={publishing || undefined}
 				data-complete={justPublished || undefined}
 				className="cms-action cms-publish-action min-h-11 min-w-[128px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
@@ -366,6 +394,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 /** Keep mobile actions visible while there are draft changes to save or publish. */
 export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
 	const reduce = useLiveReducedMotion();
+	const bar = useRef<HTMLDivElement>(null);
 	const visible = useDraftSelector(
 		(state) =>
 			state.dirty ||
@@ -375,10 +404,17 @@ export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => 
 			state.status === "publishing",
 	);
 
+	useLayoutEffect(() => {
+		if (!visible && bar.current?.contains(document.activeElement)) {
+			document.querySelector<HTMLElement>(".cms-status-pill")?.focus({ preventScroll: true });
+		}
+	}, [visible]);
+
 	return (
 		<AnimatePresence initial={false}>
 			{visible ? (
 				<motion.div
+					ref={bar}
 					data-slot="cms-mobile-action-bar"
 					className="cms-overlay cms-glass fixed inset-x-0 bottom-0 z-(--z-dock) flex items-center gap-2 border-t px-3 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden"
 					initial={{ y: reduce ? 0 : 20, opacity: 0 }}
