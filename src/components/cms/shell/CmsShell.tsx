@@ -7,17 +7,102 @@
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
+ * - On the Changes page, Publish requests from the shell (top bar, phone action
+ *   bar, command bar) scroll to and focus the page's own gate,
+ *   `#release-gate` (`RELEASE_GATE_ID`), instead of opening a second flow.
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+	type ReactNode,
+	type TouchEvent,
+} from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { animate, motion, useReducedMotion } from "motion/react";
+import { animate, motion, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
-import { REDUCED, SPRING_MOMENTUM, SPRING_MOVE } from "../motion";
+import { REDUCED, SPRING_MOVE } from "../motion";
+
+const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
+
+/** Near-critically damped; physics options so the release velocity carries over. */
+const DRAWER_SPRING = { type: "spring", stiffness: 300, damping: 34 } as const;
+
+/**
+ * The active-link pill of one rail region (the scrolling nav, or the pinned
+ * Release group). It slides between links of its own region and fades out or
+ * in when the active link moves to the other region, so it never has to cross
+ * two clipping scroll containers.
+ *
+ * Its position is the link's `offsetTop` inside the region, which neither the
+ * window scroll (reset by the router on navigation) nor the nav's own scroll
+ * changes. Shared-layout (`layoutId`) measurement mixed the pre- and
+ * post-navigation window scroll and started the slide from the wrong place.
+ */
+function RailIndicator({ active }: { active: string }) {
+	const ref = useRef<HTMLSpanElement>(null);
+	const y = useMotionValue(0);
+	const opacity = useMotionValue(0);
+	const shown = useRef(false);
+	const reduce = useLiveReducedMotion();
+
+	useLayoutEffect(() => {
+		const indicator = ref.current;
+		const region = indicator?.parentElement;
+		if (!indicator || !region) return;
+		const link = region.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
+		region.dataset.indicator = "";
+		if (!link) {
+			if (shown.current) animate(opacity, 0, reduce ? REDUCED : RAIL_PILL_FADE);
+			shown.current = false;
+			return;
+		}
+		indicator.style.height = `${link.offsetHeight}px`;
+		if (shown.current && !reduce) {
+			animate(y, link.offsetTop, SPRING_MOVE);
+		} else {
+			y.jump(link.offsetTop);
+			animate(opacity, 1, reduce ? REDUCED : RAIL_PILL_FADE);
+		}
+		shown.current = true;
+	}, [active, opacity, reduce, y]);
+
+	// Link heights change with the pointer type; keep the pill on its link.
+	useEffect(() => {
+		const indicator = ref.current;
+		const region = indicator?.parentElement;
+		if (!indicator || !region) return;
+		let size = "";
+		const observer = new ResizeObserver(() => {
+			const next = `${region.offsetWidth}x${region.offsetHeight}`;
+			if (next === size) return;
+			const first = size === "";
+			size = next;
+			const link = region.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
+			if (first || !link) return;
+			indicator.style.height = `${link.offsetHeight}px`;
+			y.jump(link.offsetTop);
+		});
+		observer.observe(region);
+		return () => observer.disconnect();
+	}, [y]);
+
+	return (
+		<motion.span
+			ref={ref}
+			aria-hidden="true"
+			className="cms-rail-pill pointer-events-none absolute inset-x-0 top-0 rounded-[10px]"
+			style={{ y, opacity }}
+		/>
+	);
+}
 import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
 import {
 	ActivityIcon,
@@ -36,10 +121,14 @@ import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { MobileActionBar, PipelineBar } from "./PipelineBar";
 import { RailPulseSlot } from "./RailPulseSlot";
+import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export { RailPulseSlot };
 
 export const PUBLIC_SITE_ORIGIN = "https://sohelislamimran.com";
+
+/** Element id of the Changes page's publish gate. See the file comment. */
+export const RELEASE_GATE_ID = "release-gate";
 
 export const CMS_NAV = {
 	signals: [
@@ -98,7 +187,6 @@ function RailLink({
 	active,
 	pending,
 	layoutScope,
-	region = "scroll",
 	onNavigate,
 }: {
 	to: string;
@@ -111,10 +199,8 @@ function RailLink({
 	active: boolean;
 	pending?: boolean;
 	layoutScope: "desktop" | "drawer";
-	region?: "scroll" | "footer";
 	onNavigate?: () => void;
 }) {
-	const reduce = useReducedMotion();
 	return (
 		<Tooltip.Root disabled={layoutScope === "drawer"}>
 			<Tooltip.Trigger
@@ -138,17 +224,6 @@ function RailLink({
 					/>
 				}
 			>
-				{active ? (
-					<motion.span
-						layoutId={reduce ? undefined : `cms-rail-active-${layoutScope}-${region}`}
-						initial={{ opacity: 0.35 }}
-						animate={{ opacity: 1 }}
-						transition={reduce ? REDUCED : SPRING_MOVE}
-						aria-hidden="true"
-						className="cms-rail-pill pointer-events-none absolute inset-0 rounded-[10px]"
-						style={{ borderRadius: 10 }}
-					/>
-				) : null}
 				<span className="cms-rail-icon relative z-[1] grid size-4 shrink-0 place-items-center">
 					{icon}
 				</span>
@@ -359,66 +434,66 @@ function LayerRailContent({
 			</div>
 
 			{/* Scrollable middle sections */}
-			<motion.nav
-				layoutScroll
-				aria-label="CMS"
-				className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3"
-			>
-				<RailHeading>Signals</RailHeading>
-				<div className="grid gap-0.5">
-					{CMS_NAV.signals.map((item) => (
-						<RailLink
-							key={item.to}
-							to={item.to}
-							icon={<NavIconFor to={item.to} />}
-							label={item.label}
-							active={isPathActive(item.to)}
-							pending={isPending(item.to)}
-							layoutScope={layoutScope}
-							onNavigate={onNavigate}
-						/>
-					))}
-				</div>
-
-				{SECTION_GROUPS.map((group) => (
-					<div key={group.id} className="grid gap-0.5">
-						<RailHeading>{group.label}</RailHeading>
-						{SECTIONS.filter((section) => section.group === group.id).map((section) => (
-							<SectionRailItem
-								key={section.id}
-								id={section.id}
-								label={section.label}
-								paths={section.paths}
-								active={isPathActive(`/cms/content/${section.id}`)}
-								pending={isPending(`/cms/content/${section.id}`)}
+			<nav aria-label="CMS" className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+				<div className="cms-rail-region relative">
+					<RailIndicator active={pathname} />
+					<RailHeading>Signals</RailHeading>
+					<div className="grid gap-0.5">
+						{CMS_NAV.signals.map((item) => (
+							<RailLink
+								key={item.to}
+								to={item.to}
+								icon={<NavIconFor to={item.to} />}
+								label={item.label}
+								active={isPathActive(item.to)}
+								pending={isPending(item.to)}
 								layoutScope={layoutScope}
 								onNavigate={onNavigate}
 							/>
 						))}
 					</div>
-				))}
 
-				<RailHeading>Assets</RailHeading>
-				<div className="grid gap-0.5">
-					{CMS_NAV.assets.map((item) => (
-						<RailLink
-							key={item.to}
-							to={item.to}
-							icon={<NavIconFor to={item.to} />}
-							label={item.label}
-							active={isPathActive(item.to)}
-							pending={isPending(item.to)}
-							layoutScope={layoutScope}
-							onNavigate={onNavigate}
-						/>
+					{SECTION_GROUPS.map((group) => (
+						<div key={group.id} className="grid gap-0.5">
+							<RailHeading>{group.label}</RailHeading>
+							{SECTIONS.filter((section) => section.group === group.id).map((section) => (
+								<SectionRailItem
+									key={section.id}
+									id={section.id}
+									label={section.label}
+									paths={section.paths}
+									active={isPathActive(`/cms/content/${section.id}`)}
+									pending={isPending(`/cms/content/${section.id}`)}
+									layoutScope={layoutScope}
+									onNavigate={onNavigate}
+								/>
+							))}
+						</div>
 					))}
+
+					<RailHeading>Assets</RailHeading>
+					<div className="grid gap-0.5">
+						{CMS_NAV.assets.map((item) => (
+							<RailLink
+								key={item.to}
+								to={item.to}
+								icon={<NavIconFor to={item.to} />}
+								label={item.label}
+								active={isPathActive(item.to)}
+								pending={isPending(item.to)}
+								layoutScope={layoutScope}
+								onNavigate={onNavigate}
+							/>
+						))}
+					</div>
 				</div>
-			</motion.nav>
+			</nav>
 
 			{/* Bottom pinned Release zone + Appearance & Live site */}
 			<div className="cms-rail-footer shrink-0 border-t border-line px-2 pb-2.5">
 				<RailHeading>Release</RailHeading>
-				<div className="grid gap-0.5">
+				<div className="cms-rail-region relative grid gap-0.5">
+					<RailIndicator active={pathname} />
 					{CMS_NAV.release.map((item) => (
 						<RailLink
 							key={item.to}
@@ -430,21 +505,20 @@ function LayerRailContent({
 							active={isPathActive(item.to)}
 							pending={isPending(item.to)}
 							layoutScope={layoutScope}
-							region="footer"
 							onNavigate={onNavigate}
 						/>
 					))}
 				</div>
 
-				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2">
-					<AccentSwitcher className="cms-rail-appearance size-9 pointer-coarse:size-11" />
+				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2 lg:grid">
+					<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
 					<a
 						href={PUBLIC_SITE_ORIGIN}
 						target="_blank"
 						rel="noreferrer"
 						title="Open live site"
 						aria-label="Open live site"
-						className="cms-rail-live cms-press cms-chrome-control grid min-h-9 grid-cols-[36px_auto] items-center rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
 					>
 						<ExternalArrowIcon className="size-3.5 justify-self-center" />
 						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
@@ -557,66 +631,103 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const commandOpener = useRef<HTMLElement | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const drawer = useRef<HTMLDivElement>(null);
+	const drawerScrim = useRef<HTMLDivElement>(null);
+	const drawerSettle = useRef<ReturnType<typeof animate> | null>(null);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
-	const swipe = useRef<{ x: number; time: number; velocity: number } | null>(null);
+	const swipe = useRef<{ x: number; time: number }[]>([]);
 	const release = useRef<{ x: number; velocity: number } | null>(null);
+
+	useEffect(() => () => drawerSettle.current?.stop(), []);
+
+	const clearDrawerStyles = () => {
+		drawer.current?.style.removeProperty("transform");
+		drawer.current?.style.removeProperty("transition");
+		drawerScrim.current?.style.removeProperty("opacity");
+		drawerScrim.current?.style.removeProperty("transition");
+	};
+
+	const openDrawer = () => {
+		drawerSettle.current?.stop();
+		clearDrawerStyles();
+		setDrawerOpen(true);
+	};
+
+	/**
+	 * After a swipe, Motion carries the drawer from where the finger left it,
+	 * starting at the finger's speed, so release never jumps or stalls. Used for
+	 * both outcomes: dismissed (to off-screen) and not dismissed (back to 0).
+	 */
+	const settleDrawer = (from: number, to: number, velocity: number, onComplete: () => void) => {
+		const popup = drawer.current;
+		if (!popup) return;
+		const scrim = drawerScrim.current;
+		const width = popup.offsetWidth;
+		drawerSettle.current?.stop();
+		popup.style.transition = "none";
+		if (scrim) scrim.style.transition = "none";
+		const place = (value: number) => {
+			const x = Math.min(0, value);
+			popup.style.transform = `translateX(${x}px)`;
+			if (scrim) scrim.style.opacity = String(Math.max(0, 1 + x / width));
+		};
+		place(from);
+		drawerSettle.current = animate(from, to, {
+			...DRAWER_SPRING,
+			velocity,
+			onUpdate: place,
+			onComplete,
+		});
+	};
 
 	const trackSwipe = (event: TouchEvent) => {
 		const touch = event.touches[0];
 		if (!touch) return;
-		const previous = event.type === "touchstart" ? null : swipe.current;
-		const elapsed = previous ? event.timeStamp - previous.time : 0;
-		swipe.current = {
-			x: touch.clientX,
-			time: event.timeStamp,
-			velocity: previous && elapsed > 0 ? (1000 * (touch.clientX - previous.x)) / elapsed : 0,
-		};
+		if (event.type === "touchstart") swipe.current = [];
+		const samples = swipe.current;
+		samples.push({ x: touch.clientX, time: event.timeStamp });
+		// Velocity over the last ~100ms of movement, not just the last event pair.
+		while (samples.length > 2 && event.timeStamp - (samples[0]?.time ?? 0) > 100) samples.shift();
 		release.current = null;
 	};
 
 	const finishSwipe = (event: TouchEvent) => {
 		const popup = drawer.current;
-		const sample = swipe.current;
-		release.current = popup?.hasAttribute("data-swiping")
-			? {
-					x: popup.getBoundingClientRect().x,
-					velocity: sample && event.timeStamp - sample.time < 80 ? sample.velocity : 0,
-				}
-			: null;
-		swipe.current = null;
+		const samples = swipe.current;
+		swipe.current = [];
+		release.current = null;
+		if (
+			!popup?.hasAttribute("data-swiping") ||
+			window.matchMedia("(prefers-reduced-motion: reduce)").matches
+		) {
+			return;
+		}
+		const first = samples[0];
+		const last = samples.at(-1);
+		const velocity =
+			first && last && last.time > first.time && event.timeStamp - last.time < 100
+				? (1000 * (last.x - first.x)) / (last.time - first.time)
+				: 0;
+		const position = { x: popup.getBoundingClientRect().x, velocity };
+		release.current = position;
+		// Hold the drawer where the finger left it while Base UI decides, in this
+		// same touchend, whether the swipe dismisses it (see changeDrawerOpen).
+		popup.style.transition = "none";
+		popup.style.transform = `translateX(${position.x}px)`;
+		requestAnimationFrame(() => {
+			if (release.current !== position) return;
+			release.current = null;
+			settleDrawer(position.x, 0, velocity, clearDrawerStyles);
+		});
 	};
 
 	const changeDrawerOpen = (open: boolean, details: Drawer.Root.ChangeEventDetails) => {
-		const popup = drawer.current;
 		const position = release.current;
 		release.current = null;
-		if (
-			!open &&
-			details.reason === "swipe" &&
-			popup &&
-			position &&
-			!window.matchMedia("(prefers-reduced-motion: reduce)").matches
-		) {
+		if (!open && details.reason === "swipe" && position && drawer.current) {
 			details.preventUnmountOnClose();
-			const scrim = popup.closest(".cms-drawer-viewport")?.previousElementSibling;
-			const width = popup.offsetWidth;
-			popup.style.transition = "none";
-			const place = (x: number) => {
-				popup.style.transform = `translateX(${x}px)`;
-				if (scrim instanceof HTMLElement) {
-					scrim.style.opacity = String(Math.max(0, 1 + x / width));
-				}
-			};
-			place(position.x);
-			animate(position.x, -width, {
-				...SPRING_MOMENTUM,
-				// Physics-based options retain the release velocity.
-				stiffness: 220,
-				damping: 30,
-				velocity: position.velocity,
-				onUpdate: place,
-				onComplete: () => drawerActions.current?.unmount(),
-			});
+			settleDrawer(position.x, -drawer.current.offsetWidth, position.velocity, () =>
+				drawerActions.current?.unmount(),
+			);
 		}
 		setDrawerOpen(open);
 	};
@@ -633,6 +744,21 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		return () => desktop.removeEventListener("change", close);
 	}, [drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+	const pathname = useCommittedPathname();
+	const reduceMotion = useLiveReducedMotion();
+	const requestPublish = () => {
+		const gate =
+			pathname === "/cms/release" || pathname === "/release"
+				? document.getElementById(RELEASE_GATE_ID)
+				: null;
+		if (!gate) {
+			setPublishDialogOpen(true);
+			return;
+		}
+		if (!gate.matches("a[href], button, input, select, textarea, [tabindex]")) gate.tabIndex = -1;
+		gate.scrollIntoView({ block: "start", behavior: reduceMotion ? "instant" : "smooth" });
+		gate.focus({ preventScroll: true });
+	};
 	const conflict = useDraftSelector((state) => state.conflict);
 	const [dismissedConflict, setDismissedConflict] = useState<typeof conflict>(null);
 	const conflictOpen = conflict !== null && dismissedConflict !== conflict;
@@ -740,9 +866,9 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							commandOpener.current = trigger;
 							setCommandOpen(true);
 						}}
-						onOpenDrawer={() => setDrawerOpen(true)}
+						onOpenDrawer={openDrawer}
 						onResolveConflict={() => setDismissedConflict(null)}
-						onRequestPublish={() => setPublishDialogOpen(true)}
+						onRequestPublish={requestPublish}
 						publishSweepKey={publishSweepKey}
 					/>
 					<SessionBanners />
@@ -767,13 +893,20 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				swipeDirection="left"
 			>
 				<Drawer.Portal>
-					<Drawer.Backdrop className="cms-backdrop cms-drawer-scrim fixed inset-0 z-(--z-palette) lg:hidden" />
-					<Drawer.Viewport className="cms-drawer-viewport pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
+					<Drawer.Backdrop
+						ref={drawerScrim}
+						className="cms-backdrop cms-drawer-scrim fixed inset-0 z-(--z-palette) lg:hidden"
+					/>
+					<Drawer.Viewport className="pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
 						<Drawer.Popup
 							ref={drawer}
 							onTouchStartCapture={trackSwipe}
 							onTouchMoveCapture={trackSwipe}
 							onTouchEndCapture={finishSwipe}
+							onTouchCancelCapture={() => {
+								swipe.current = [];
+								release.current = null;
+							}}
 							data-slot="cms-mobile-drawer"
 							className="cms-drawer-popup cms-overlay cms-glass pointer-events-auto fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
 						>
@@ -799,13 +932,13 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				</Drawer.Portal>
 			</Drawer.Root>
 
-			<MobileActionBar onRequestPublish={() => setPublishDialogOpen(true)} />
+			<MobileActionBar onRequestPublish={requestPublish} />
 
 			<CommandBar
 				opener={commandOpener}
 				open={commandOpen}
 				onOpenChange={setCommandOpen}
-				onRequestPublish={() => setPublishDialogOpen(true)}
+				onRequestPublish={requestPublish}
 				onToggleRail={toggleRail}
 			/>
 

@@ -26,6 +26,13 @@
 		box-shadow: var(--cms-ring);
 	}
 
+	/* Programmatic focus targets after a command-bar jump (the destination
+	   heading) or a Publish hand-off (the release gate) are not controls. */
+	#main-content h1[tabindex="-1"]:focus,
+	#release-gate[tabindex="-1"]:focus {
+		outline: none;
+	}
+
 	@media (hover: hover) and (pointer: fine) {
 		.cms-chrome-control:hover {
 			background-color: color-mix(in srgb, var(--theme-ink) 6%, transparent);
@@ -68,9 +75,17 @@
 	}
 
 	.cms-rail-pill,
-	.cms-command-highlight {
+	.cms-command-highlight,
+	.cms-rail-region:not([data-indicator]) .cms-rail-link[aria-current="page"] {
 		background: color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface-solid));
 		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 17%, var(--theme-line));
+	}
+
+	/* The pill sits under the link: keep hover from tinting over it. */
+	@media (hover: hover) and (pointer: fine) {
+		.cms-rail-region[data-indicator] .cms-rail-link[aria-current="page"]:hover {
+			background-color: transparent;
+		}
 	}
 
 	.cms-rail-link[data-pending]::before {
@@ -119,6 +134,19 @@
 
 	.cms-drawer-popup .cms-rail-badge-dot {
 		display: none;
+	}
+
+	/* The arrow keeps a target-sized column so it lines up with the icon rail. */
+	.cms-rail-live {
+		--rail-footer-target: 36px;
+		grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
+		padding-inline-end: 12px;
+	}
+
+	@media (pointer: coarse) {
+		.cms-rail-live {
+			--rail-footer-target: 44px;
+		}
 	}
 
 	@media (min-width: 1024px) {
@@ -183,24 +211,24 @@
 			padding-inline: 14px;
 		}
 
-		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-footer-row {
-			position: relative;
-			display: flex;
-			min-height: calc(2 * var(--rail-footer-target) + 8px);
-			padding-top: 6px;
-			justify-content: flex-start;
-			align-items: flex-start;
+		/* Icon rail: Appearance above Live site, both on the link icon column.
+		   Expanded rail: one row, Appearance then Live site. Plain grid flow. */
+		.cms-rail-desktop .cms-rail-footer-row {
 			--rail-footer-target: 36px;
+			grid-template-columns: minmax(0, 1fr);
+			gap: 6px;
+			padding-inline: 2px;
 		}
 
-		.cms-rail-desktop .cms-rail-appearance {
-			margin-inline-start: 2px;
+		.cms-layout[data-rail="expanded"] .cms-rail-desktop .cms-rail-footer-row {
+			grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
 		}
 
-		.cms-rail-desktop .cms-rail-live {
-			position: absolute;
-			top: calc(var(--rail-footer-target) + 6px);
-			left: 0;
+		.cms-layout[data-rail="expanded"] .cms-rail-desktop .cms-rail-live {
+			justify-self: end;
+			grid-template-columns: auto auto;
+			column-gap: 6px;
+			padding-inline-start: 10px;
 		}
 
 		.cms-rail-desktop .cms-rail-toggle {
@@ -222,6 +250,18 @@
 			display: block;
 		}
 	}
+	@media (min-width: 1280px) {
+		.cms-layout[data-rail="auto"] .cms-rail-desktop .cms-rail-footer-row {
+			grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
+		}
+
+		.cms-layout[data-rail="auto"] .cms-rail-desktop .cms-rail-live {
+			justify-self: end;
+			grid-template-columns: auto auto;
+			column-gap: 6px;
+			padding-inline-start: 10px;
+		}
+	}
 	@media (1024px <= width < 1280px) {
 		.cms-layout[data-rail="auto"] .cms-rail-desktop {
 			--rail-opacity: 0;
@@ -234,7 +274,7 @@
 		}
 	}
 	@media (min-width: 1024px) and (pointer: coarse) {
-		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-footer-row {
+		.cms-rail-desktop .cms-rail-footer-row {
 			--rail-footer-target: 44px;
 		}
 
@@ -274,11 +314,16 @@
 		--status-fill: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-paper));
 		--status-ink: var(--theme-ink);
 		--status-line: var(--theme-line);
-		position: relative;
-		isolation: isolate;
+		flex: none;
+		/* Fixed per breakpoint and sized to the longest label ("Publishing…",
+		   "Draft ahead"), so label changes never move the revision labels. */
+		inline-size: 116px;
 		min-height: 30px;
-		padding-inline: 10px;
+		padding-inline: 8px;
+		border: 1px solid var(--status-line);
 		border-radius: 24px;
+		background: var(--status-fill);
+		transition: border-color var(--cms-dur-fast);
 		color: var(--status-ink);
 		font-size: 12px;
 		font-weight: 570;
@@ -303,28 +348,10 @@
 		--status-line: color-mix(in srgb, var(--theme-destructive) 30%, transparent);
 	}
 
-	.cms-status-fill {
-		position: absolute;
-		z-index: -1;
-		inset: 0;
-		border: 1px solid var(--status-line);
-		background: var(--status-fill);
-		pointer-events: none;
-		transition:
-			background-color var(--cms-dur-fast),
-			border-color var(--cms-dur-fast);
-	}
-
-	.cms-status-content {
-		position: relative;
-		display: grid;
-		overflow: clip;
-	}
-
 	.cms-status-copy {
-		inset-inline-start: 0;
 		display: flex;
 		align-items: center;
+		justify-content: center;
 		gap: 5px;
 		white-space: nowrap;
 	}
@@ -337,13 +364,19 @@
 		line-height: 1;
 	}
 
-	.cms-status-pill[aria-expanded="true"] .cms-status-fill {
-		background: color-mix(in srgb, var(--status-fill) 88%, var(--status-ink));
+	@media (hover: hover) and (pointer: fine) {
+		.cms-status-pill:hover {
+			border-color: color-mix(in srgb, var(--status-ink) 50%, transparent);
+		}
 	}
 
-	@media (hover: hover) and (pointer: fine) {
-		.cms-status-pill:hover .cms-status-fill {
-			background: color-mix(in srgb, var(--status-fill) 92%, var(--status-ink));
+	.cms-status-pill[aria-expanded="true"] {
+		border-color: var(--status-ink);
+	}
+
+	@media (max-width: 639px) {
+		.cms-status-pill {
+			inline-size: 112px;
 		}
 	}
 
@@ -414,10 +447,10 @@
 
 	.cms-drawer-popup {
 		touch-action: pan-y;
-		/* Base UI takes over transform during tracking and supplies the release speed. */
+		/* Base UI tracks the gesture. A dismissed swipe settles with Motion. */
 		transform: translateX(var(--drawer-swipe-movement-x, 0px));
 		transition:
-			transform calc(360ms * var(--drawer-swipe-strength, 1)) cubic-bezier(0.19, 0.82, 0.26, 1),
+			transform 360ms cubic-bezier(0.19, 0.82, 0.26, 1),
 			opacity 150ms ease-out;
 	}
 
@@ -575,18 +608,21 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 	pointer-events: none;
 }
 ::view-transition-new(cms-section) {
-	animation: cms-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	animation: cms-fade 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
 	pointer-events: none;
 }
 @supports not (view-transition-name: none) {
 	[data-slot="cms-section"] {
-		animation: cms-enter 240ms var(--cms-ease-out) both;
+		animation: cms-fade 240ms var(--cms-ease-out) both;
 	}
 }
 
+/* Reduced motion keeps the short opacity fade (no movement). The site-wide
+   reset shortens every animation to 0.01ms, so this one opts back in. */
 @media (prefers-reduced-motion: reduce) {
 	[data-slot="cms-section"] {
 		animation: cms-fade 150ms linear both;
+		animation-duration: 150ms !important;
 	}
 }
 @keyframes cms-section-out {
