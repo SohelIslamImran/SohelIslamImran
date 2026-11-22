@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
@@ -90,12 +90,22 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	];
 
 	const [open, setOpen] = useState(false);
+	const pendingFocus = useRef<{ path: string; navigation: Promise<void> } | null>(null);
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
 	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
-		<Popover.Root open={open} onOpenChange={setOpen}>
+		<Popover.Root
+			open={open}
+			onOpenChange={setOpen}
+			onOpenChangeComplete={(open) => {
+				if (open) return;
+				const pending = pendingFocus.current;
+				pendingFocus.current = null;
+				if (pending) void pending.navigation.then(() => revealIssue(pending.path));
+			}}
+		>
 			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
 				<AlertCircleIcon className="size-3.5" />
 				{count}
@@ -142,16 +152,20 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												)
 													return;
 												event.preventDefault();
+												// The popup restores focus when its exit completes.
+												pendingFocus.current = {
+													path: issue.path,
+													navigation: navigate({
+														to: "/cms/content/$section",
+														params: { section: section.id },
+														search: { item, tab, field },
+														hash: fieldId(issue.path),
+														hashScrollIntoView: false,
+														replace: true,
+														resetScroll: false,
+													}),
+												};
 												setOpen(false);
-												void navigate({
-													to: "/cms/content/$section",
-													params: { section: section.id },
-													search: { item, tab, field },
-													hash: fieldId(issue.path),
-													hashScrollIntoView: false,
-													replace: true,
-													resetScroll: false,
-												}).then(() => revealIssue(issue.path));
 											}}
 											className="cms-issue-link"
 										>
