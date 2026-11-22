@@ -1,27 +1,56 @@
+/**
+ * Live visitor count shared by the CMS. The provider polls every 15 seconds
+ * only while at least one consumer (the rail's Live now, for example) is
+ * mounted and the tab is visible, so pages that don't show live data cost
+ * nothing.
+ */
 import { useServerFn } from "@tanstack/react-start";
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 import { getLiveVisitors } from "../../../server/analytics.functions";
 import type { LiveVisitors } from "../../../server/analytics.server";
 import { isValidLiveVisitors } from "./live-visitors-guard";
 
+const POLL_MS = 15_000;
+
 interface LiveState {
-	data: { live: LiveVisitors; samples: number[] } | null;
+	data: { live: LiveVisitors } | null;
 	paused: boolean;
 	setPaused: (paused: boolean) => void;
 	failed: boolean;
 }
 
-const LiveContext = createContext<LiveState | null>(null);
+interface LiveContextValue extends LiveState {
+	/** Registers a consumer; returns its unsubscribe. */
+	subscribe: () => () => void;
+}
+
+const LiveContext = createContext<LiveContextValue | null>(null);
 
 export function LiveVisitorsProvider({ children }: { children: ReactNode }) {
 	const query = useServerFn(getLiveVisitors);
 	const [paused, setPaused] = useState(false);
 	const [data, setData] = useState<LiveState["data"]>(null);
 	const [failed, setFailed] = useState(false);
+	const [subscribers, setSubscribers] = useState(0);
 	const pending = useRef<Promise<unknown> | null>(null);
 
+	const subscribe = useCallback(() => {
+		setSubscribers((count) => count + 1);
+		return () => setSubscribers((count) => count - 1);
+	}, []);
+
+	const active = subscribers > 0 && !paused;
+
 	useEffect(() => {
-		if (paused) return;
+		if (!active) return;
 		let stopped = false;
 		let polling = false;
 		let timer: number | undefined;
@@ -37,20 +66,16 @@ export function LiveVisitorsProvider({ children }: { children: ReactNode }) {
 					if (!stopped) setFailed(true);
 					return;
 				}
-				const live = raw;
 				if (!stopped) {
 					setFailed(false);
-					setData((previous) => ({
-						live,
-						samples: [...(previous?.samples ?? []).slice(-11), live.count],
-					}));
+					setData({ live: raw });
 				}
 			} catch {
 				if (!stopped) setFailed(true);
 			} finally {
 				polling = false;
 				if (!stopped && document.visibilityState === "visible") {
-					timer = window.setTimeout(poll, 15_000);
+					timer = window.setTimeout(poll, POLL_MS);
 				}
 			}
 		}
@@ -67,17 +92,20 @@ export function LiveVisitorsProvider({ children }: { children: ReactNode }) {
 			window.clearTimeout(timer);
 			document.removeEventListener("visibilitychange", onVisibility);
 		};
-	}, [paused, query]);
+	}, [active, query]);
 
 	return (
-		<LiveContext.Provider value={{ data, paused, setPaused, failed }}>
+		<LiveContext.Provider value={{ data, paused, setPaused, failed, subscribe }}>
 			{children}
 		</LiveContext.Provider>
 	);
 }
 
-export function useLiveVisitors() {
+/** Live visitor state; mounting a consumer starts polling, unmounting the last one stops it. */
+export function useLiveVisitors(): LiveState {
 	const live = useContext(LiveContext);
 	if (!live) throw new Error("Live visitors must be rendered within the CMS workspace");
+	const { subscribe } = live;
+	useEffect(() => subscribe(), [subscribe]);
 	return live;
 }

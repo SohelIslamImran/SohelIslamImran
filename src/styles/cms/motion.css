@@ -21,7 +21,8 @@
 		 * meets WCAG 1.4.11) inside a soft halo.
 		 */
 		--cms-ring:
-			0 0 0 2px var(--theme-accent), 0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
 	}
 
 	/* Keep the page width stable when content grows tall enough to scroll. */

@@ -1,12 +1,18 @@
 import { useRouter } from "@tanstack/react-router";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode, type Ref } from "react";
+import {
+	useEffect,
+	useRef,
+	type CSSProperties,
+	type ReactNode,
+	type Ref,
+	type RefObject,
+} from "react";
 import { cn } from "../../../lib/utils";
 import type { AnalyticsCount } from "../../../server/analytics.server";
 import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
 import { AlertTriangleIcon, CheckCircleIcon } from "../shell/cms-icons";
-import type { useLiveVisitors } from "./LiveVisitors";
 
 export const controlClass =
 	"cms-press cms-page-focus inline-flex min-h-9 items-center justify-center gap-1.5 rounded-full border border-line-strong bg-surface-solid px-3.5 text-[13px] font-medium text-foreground no-underline shadow-[0_1px_2px_var(--theme-shadow-soft)] hover:border-[color-mix(in_srgb,var(--theme-ink)_28%,transparent)] hover:bg-surface-raised pointer-coarse:min-h-11";
@@ -77,44 +83,48 @@ export function TickingNumber({
 	);
 }
 
-/** Gentle <= 1 Hz live status dot, always decorative and kept outside aria-live. */
-export function LiveDot({
-	active,
-	paused = false,
-	className,
-}: {
-	active: boolean;
-	paused?: boolean;
-	className?: string;
-}) {
-	return (
-		<span
-			aria-hidden="true"
-			className={cn("relative inline-grid size-2.5 shrink-0 place-items-center", className)}
-		>
-			{active && !paused ? (
-				<span className="cms-live-ring absolute inset-0 rounded-full bg-success/45" />
-			) : null}
-			<span
-				className={cn(
-					"relative size-2 rounded-full transition-colors duration-200",
-					active && !paused
-						? "bg-success"
-						: paused
-							? "border border-line-strong bg-transparent"
-							: "border border-line-strong bg-muted-foreground/35",
-				)}
-			/>
-		</span>
-	);
-}
-
 export interface SegmentedOption<T extends string> {
 	value: T;
 	label: string;
 	shortLabel?: string;
 	badge?: string | number;
 	icon?: ReactNode;
+}
+
+/**
+ * Marks a horizontally scrolling track with `data-fade="start|end|both"` so
+ * CSS can fade the clipped edge, and keeps the active item in view.
+ */
+function useOverflowFade(ref: RefObject<HTMLElement | null>) {
+	useEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+		const update = () => {
+			const max = element.scrollWidth - element.clientWidth;
+			if (max <= 1) {
+				delete element.dataset.fade;
+				return;
+			}
+			const start = element.scrollLeft > 1;
+			const end = element.scrollLeft < max - 1;
+			element.dataset.fade = start && end ? "both" : start ? "start" : end ? "end" : "";
+		};
+		const active = element.querySelector<HTMLElement>('[data-active="true"]');
+		if (active && element.scrollWidth > element.clientWidth) {
+			element.scrollLeft = Math.max(
+				0,
+				active.offsetLeft - (element.clientWidth - active.offsetWidth) / 2,
+			);
+		}
+		update();
+		const observer = new ResizeObserver(update);
+		observer.observe(element);
+		element.addEventListener("scroll", update, { passive: true });
+		return () => {
+			observer.disconnect();
+			element.removeEventListener("scroll", update);
+		};
+	}, [ref]);
 }
 
 /**
@@ -140,8 +150,15 @@ export function SegmentedControl<T extends string>({
 	className?: string;
 }) {
 	const reduced = useLiveReducedMotion();
+	const trackRef = useRef<HTMLDivElement>(null);
+	useOverflowFade(trackRef);
 	return (
-		<div role="group" aria-label={ariaLabel} className={cn("cms-seg-track", className)}>
+		<div
+			ref={trackRef}
+			role="group"
+			aria-label={ariaLabel}
+			className={cn("cms-seg-track", className)}
+		>
 			{options.map((option) => {
 				const active = option.value === value;
 				return (
@@ -258,50 +275,35 @@ export function EmptyState({
 export function Delta({
 	value,
 	comparison,
-	unit,
+	format = countLabel,
 }: {
 	value: number | null;
+	/** Read to screen readers after the change ("vs previous period"). */
 	comparison: string;
-	unit?: string;
+	format?: (value: number) => string;
 }) {
-	if (value === null) {
+	if (value === null || value === 0) {
 		return (
-			<span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-				<span aria-hidden="true" className="font-mono text-[10px] opacity-65">
-					·
-				</span>
-				<span>No comparison</span>
-			</span>
-		);
-	}
-	if (value === 0) {
-		return (
-			<span className="inline-flex items-center gap-1 text-[12px] text-muted-foreground">
-				<span aria-hidden="true" className="font-mono text-[10px] opacity-65">
-					—
-				</span>
-				<span>No change</span>
+			<span className="text-[11.5px] text-muted-foreground">
+				{value === null ? "No comparison" : "No change"}
+				<span className="sr-only"> {comparison}</span>
 			</span>
 		);
 	}
 	const up = value > 0;
 	return (
-		<span className="inline-flex flex-wrap items-center gap-1.5 text-[12px] text-muted-foreground">
-			<span
-				className={cn(
-					"inline-flex items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-mono text-[10.5px] font-medium tabular-nums",
-					up
-						? "border-success/30 bg-success/10 text-success"
-						: "border-line-strong bg-muted text-ink-soft",
-				)}
-			>
-				<span aria-hidden="true">{up ? "↑" : "↓"}</span>
-				<span>
-					{countLabel(Math.abs(value))}
-					{unit ? ` ${unit}` : ""}
-				</span>
-			</span>
-			<span className="truncate">{comparison}</span>
+		<span
+			className={cn(
+				"inline-flex w-fit items-center gap-0.5 rounded-full border px-1.5 py-0.5 font-mono text-[10.5px] font-medium tabular-nums",
+				up
+					? "border-success/30 bg-success/10 text-success"
+					: "border-line-strong bg-muted text-ink-soft",
+			)}
+		>
+			<span aria-hidden="true">{up ? "↑" : "↓"}</span>
+			<span className="sr-only">{up ? "Up " : "Down "}</span>
+			<span>{format(Math.abs(value))}</span>
+			<span className="sr-only"> {comparison}</span>
 		</span>
 	);
 }
@@ -376,6 +378,7 @@ export function RankedList({
 					<li
 						key={row.value}
 						data-active={active ? "true" : "false"}
+						data-linked={onHoverValue ? "true" : undefined}
 						onMouseEnter={onHoverValue ? () => onHoverValue(row.value) : undefined}
 						onMouseLeave={onHoverValue ? () => onHoverValue(null) : undefined}
 						className="cms-ranked-row grid min-w-0 gap-1.5 rounded-[9px] px-2.5 pt-2 pb-2.5"
@@ -394,7 +397,7 @@ export function RankedList({
 							</span>
 						</div>
 						<span aria-hidden="true" className="cms-bar-track">
-							<span className="cms-bar-fill" style={{ transform: `scaleX(${ratio})` }} />
+							<span className="cms-bar-fill" style={{ "--cms-bar": ratio } as CSSProperties} />
 						</span>
 					</li>
 				);
@@ -472,115 +475,71 @@ export function AnalyticsUnavailable() {
 	);
 }
 
-export function Sparkline({ points }: { points: number[] }) {
-	const gradId = useId();
-	const data = points.length > 1 ? points : [points[0] ?? 0, points[0] ?? 0];
-	const max = Math.max(...data, 0);
-	const isFlat = max === 0;
-	const scaleMax = Math.max(1, max);
-	const coords = data.map((point, index) => ({
-		x: (index / (data.length - 1)) * 108,
-		y: isFlat ? 22 : 22 - (point / scaleMax) * 18,
-	}));
-	const linePath = coords
-		.map((pt, i) => `${i === 0 ? "M" : "L"}${pt.x.toFixed(1)},${pt.y.toFixed(1)}`)
-		.join(" ");
-	const areaPath = `${linePath} L108,26 L0,26 Z`;
-
-	return (
-		<svg
-			aria-hidden="true"
-			viewBox="0 0 108 26"
-			preserveAspectRatio="none"
-			className={cn("h-7 w-full", isFlat ? "text-line-strong" : "text-primary-text")}
-		>
-			{!isFlat ? (
-				<defs>
-					<linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
-						<stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
-						<stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-					</linearGradient>
-				</defs>
-			) : null}
-			{!isFlat ? <path d={areaPath} fill={`url(#${gradId})`} /> : null}
-			<path
-				d={linePath}
-				fill="none"
-				stroke="currentColor"
-				strokeWidth={isFlat ? "1.25" : "1.75"}
-				strokeDasharray={isFlat ? "3 3" : undefined}
-				strokeLinecap="round"
-				strokeLinejoin="round"
-				vectorEffect="non-scaling-stroke"
-			/>
-		</svg>
-	);
+/** "45s", "1m 25s", "2m". */
+export function formatDuration(seconds: number): string {
+	const total = Math.round(Math.abs(seconds));
+	if (total < 60) return `${total}s`;
+	const minutes = Math.floor(total / 60);
+	const rest = total % 60;
+	return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
 }
 
-export function Kpi({
-	label,
-	value,
-	points,
-	delta,
-	comparison,
-	suffix,
-	unit,
-	stagger,
-	title,
-}: {
+export interface KpiItem {
 	label: string;
 	value: number | null;
-	/** Sparkline samples; omitted or a single sample draws no sparkline. */
-	points?: number[];
-	delta?: number | null;
-	comparison?: string;
-	suffix?: string;
-	unit?: string;
-	stagger?: number;
+	delta: number | null;
+	format?: (value: number) => string;
+	/** Shown in place of the value when it is null (no data yet). */
+	emptyLabel?: string;
 	title?: string;
+}
+
+/**
+ * Three numbers in one quiet strip, three-up at every width. Read-only: no
+ * hover lift, since nothing here is clickable.
+ */
+export function KpiStrip({
+	items,
+	comparison,
+	stagger,
+}: {
+	items: readonly KpiItem[];
+	comparison: string;
+	stagger?: number;
 }) {
 	return (
-		<div
-			title={title}
+		<section
+			aria-label="Totals"
 			style={stagger !== undefined ? staggerStyle(stagger) : undefined}
 			className={cn(
-				"cms-panel cms-kpi-card grid min-w-0 content-between gap-2.5 p-4",
+				"cms-panel grid min-w-0 grid-cols-3 divide-x divide-line",
 				stagger !== undefined && "cms-enter",
 			)}
 		>
-			<h2 className="m-0 text-[12.5px] font-medium text-muted-foreground">{label}</h2>
-			<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-				<TickingNumber value={value} suffix={suffix} />
-			</div>
-			{points && points.length > 1 && points.some((point) => point > 0) ? (
-				<Sparkline points={points} />
-			) : null}
-			{comparison !== undefined && delta !== undefined ? (
-				<Delta value={delta} comparison={comparison} unit={unit} />
-			) : null}
-		</div>
-	);
-}
-
-export function LiveControls({
-	paused,
-	setPaused,
-	failed,
-}: Pick<ReturnType<typeof useLiveVisitors>, "paused" | "setPaused" | "failed">) {
-	return (
-		<div className="flex flex-wrap items-center gap-2">
-			{failed && !paused ? (
-				<span className="text-[12.5px] text-muted-foreground">Retrying…</span>
-			) : null}
-			<button
-				type="button"
-				className={controlClass}
-				aria-pressed={paused}
-				onClick={() => setPaused(!paused)}
-			>
-				{paused ? "Resume updates" : "Pause updates"}
-			</button>
-		</div>
+			{items.map((item) => (
+				<div
+					key={item.label}
+					title={item.title}
+					className="grid min-w-0 content-start gap-1.5 p-3 sm:p-4"
+				>
+					<h2 className="m-0 truncate text-[12px] font-medium text-muted-foreground sm:text-[12.5px]">
+						{item.label}
+					</h2>
+					<div className="text-[21px] leading-none font-semibold tracking-[-0.03em] text-foreground sm:text-[28px]">
+						{item.value === null && item.emptyLabel ? (
+							<span className="text-[13px] font-medium tracking-normal text-muted-foreground sm:text-[14px]">
+								{item.emptyLabel}
+							</span>
+						) : (
+							<TickingNumber value={item.value} format={item.format} />
+						)}
+					</div>
+					{item.value !== null ? (
+						<Delta value={item.delta} comparison={comparison} format={item.format} />
+					) : null}
+				</div>
+			))}
+		</section>
 	);
 }
 

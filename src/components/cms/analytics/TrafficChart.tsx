@@ -11,6 +11,12 @@ const height = 188;
 const padX = 12;
 const padTop = 14;
 const padBottom = 14;
+/** Height of the readout band above the plot: legend at rest, callout while inspecting. */
+const BAND_PX = 50;
+const HOUR_MS = 3_600_000;
+
+const plural = (count: number, one: string, many: string) =>
+	`${countLabel(count)} ${count === 1 ? one : many}`;
 
 const date = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", timeZone: "UTC" });
 const hour = new Intl.DateTimeFormat("en", {
@@ -105,11 +111,14 @@ export function TrafficChart({
 	points,
 	hourly = false,
 	title = "Traffic",
+	rangeLabel = "this range",
 	stagger,
 }: {
 	points: TrafficPoint[];
 	hourly?: boolean;
 	title?: string;
+	/** "the last 30 days", for the screen-reader summary. */
+	rangeLabel?: string;
 	stagger?: number;
 }) {
 	const reduced = useLiveReducedMotion();
@@ -147,8 +156,33 @@ export function TrafficChart({
 	const xOf = (i: number) => (points.length <= 1 ? padX : padX + (i / last) * (width - 2 * padX));
 	const yOf = (value: number) => plotBottom - (value / max) * (plotBottom - plotTop);
 
-	const format = (point: TrafficPoint | undefined) =>
-		point ? (hourly ? hour : date).format(new Date(point.at)) : "";
+	// Hourly buckets roll with the clock; label each by the hour it falls in.
+	const format = (point: TrafficPoint | undefined) => {
+		if (!point) return "";
+		const at = Date.parse(point.at);
+		return hourly ? hour.format(Math.floor(at / HOUR_MS) * HOUR_MS) : date.format(at);
+	};
+
+	const summary = useMemo(() => {
+		if (points.length === 0) return "";
+		const pageviews = points.reduce((sum, point) => sum + point.pageviews, 0);
+		const visitorDays = points.reduce((sum, point) => sum + point.visitorDays, 0);
+		const totals = `${title}, ${rangeLabel}: ${plural(pageviews, "pageview", "pageviews")} and ${plural(visitorDays, "visitor-day", "visitor-days")}.`;
+		if (pageviews === 0) return totals;
+		const peak = points.reduce((best, point) => (point.pageviews > best.pageviews ? point : best));
+		const half = Math.floor(points.length / 2);
+		const early = points.slice(0, half).reduce((sum, point) => sum + point.pageviews, 0);
+		const late = points
+			.slice(points.length - half)
+			.reduce((sum, point) => sum + point.pageviews, 0);
+		const trend =
+			half === 0 || Math.abs(late - early) <= Math.max(1, early * 0.1)
+				? "held steady"
+				: late > early
+					? "rose"
+					: "fell";
+		return `${totals} Busiest ${hourly ? "hour" : "day"}: ${format(peak)} UTC with ${plural(peak.pageviews, "pageview", "pageviews")}. Pageviews ${trend} from the first half of the range to the second.`;
+	}, [points, title, rangeLabel, hourly]);
 
 	const { pvCoords, vdCoords, pvLine, vdLine, pvArea } = useMemo(() => {
 		const pv = points.map((point, i) => ({ x: xOf(i), y: yOf(point.pageviews) }));
@@ -167,13 +201,11 @@ export function TrafficChart({
 	const activePv = activeIndex !== null ? pvCoords[activeIndex] : undefined;
 	const activeVd = activeIndex !== null ? vdCoords[activeIndex] : undefined;
 
-	// The callout sits on the far side of the crosshair (flipping past the
-	// midpoint) so it never covers the point it describes.
-	const tooltipWidth = Math.min(176, canvasWidth / 2 - 14);
+	// The callout lives in its own band above the plot, centred on the
+	// crosshair and clamped to the edges, so it never covers the data.
+	const tooltipWidth = Math.min(236, canvasWidth);
 	const crossPx = activePv ? (activePv.x / width) * canvasWidth : 0;
-	const flip = activePv ? activePv.x / width > 0.5 : false;
-	const preferredLeft = flip ? crossPx - 14 - tooltipWidth : crossPx + 14;
-	const tooltipLeft = preferredLeft;
+	const tooltipLeft = Math.max(0, Math.min(canvasWidth - tooltipWidth, crossPx - tooltipWidth / 2));
 
 	const clearInspection = () => {
 		setHoverIndex(null);
@@ -202,6 +234,7 @@ export function TrafficChart({
 	const gridLines = [plotTop, (plotTop + plotBottom) / 2, plotBottom];
 	const axisLabels = [max, max / 2, 0];
 	const keyboardPoint = keyboardIndex !== null ? points[keyboardIndex] : undefined;
+	const summaryId = `${id}-summary`;
 
 	return (
 		<section
@@ -213,21 +246,9 @@ export function TrafficChart({
 			)}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="grid gap-1">
-					<h2 id={id} className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
-						{title}
-					</h2>
-					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
-						<span className="inline-flex items-center gap-1.5">
-							<SeriesSwatch kind="pageviews" />
-							<span>Pageviews</span>
-						</span>
-						<span className="inline-flex items-center gap-1.5">
-							<SeriesSwatch kind="visitors" />
-							<span>{visitorLabel}</span>
-						</span>
-					</div>
-				</div>
+				<h2 id={id} className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+					{title}
+				</h2>
 
 				<SegmentedControl
 					layoutId={`${id}-view-mode`}
@@ -284,13 +305,13 @@ export function TrafficChart({
 					</table>
 				</div>
 			) : (
-				<div className="grid min-w-0 gap-2.5">
-					<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2.5">
-						{/* Y-axis labels sit exactly on their gridlines. */}
-						<div
-							aria-hidden="true"
-							className="relative min-w-[2ch] font-mono text-[10.5px] tabular-nums text-muted-foreground"
-						>
+				<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-2">
+					{/* Y-axis labels sit exactly on their gridlines, below the readout band. */}
+					<div
+						aria-hidden="true"
+						className="relative min-w-[2ch] font-mono text-[10.5px] tabular-nums text-muted-foreground"
+					>
+						<div className="absolute inset-x-0 bottom-0" style={{ top: BAND_PX }}>
 							{axisLabels.map((value, index) => (
 								<span
 									key={index}
@@ -300,53 +321,109 @@ export function TrafficChart({
 									{countLabel(value)}
 								</span>
 							))}
-							<span className="invisible block leading-none">{countLabel(max)}</span>
 						</div>
+						<span className="invisible block leading-none">{countLabel(max)}</span>
+					</div>
 
+					<div
+						ref={wrapRef}
+						role="group"
+						tabIndex={0}
+						aria-label={`${title}. Use the left and right arrow keys to read each ${hourly ? "hour" : "day"}.`}
+						aria-describedby={summaryId}
+						onPointerMove={(event) => {
+							if (event.pointerType !== "mouse" && event.buttons === 0) return;
+							updateFromPointer(event.clientX, event.currentTarget);
+						}}
+						onPointerDown={(event) => {
+							updateFromPointer(event.clientX, event.currentTarget);
+						}}
+						onPointerLeave={clearInspection}
+						onPointerCancel={clearInspection}
+						onFocus={(event) => {
+							if (
+								keyboardIndex === null &&
+								points.length > 0 &&
+								event.currentTarget.matches(":focus-visible")
+							) {
+								setKeyboardIndex(last);
+							}
+						}}
+						onBlur={clearInspection}
+						onKeyDown={(event) => {
+							const current = keyboardIndex ?? hoverIndex ?? last;
+							if (event.key === "ArrowLeft") {
+								event.preventDefault();
+								stepTo(current - 1);
+							} else if (event.key === "ArrowRight") {
+								event.preventDefault();
+								stepTo(current + 1);
+							} else if (event.key === "Home") {
+								event.preventDefault();
+								stepTo(0);
+							} else if (event.key === "End") {
+								event.preventDefault();
+								stepTo(last);
+							} else if (event.key === "Escape") {
+								clearInspection();
+							}
+						}}
+						className="cms-page-focus relative min-w-0 cursor-crosshair touch-pan-y select-none rounded-[12px]"
+						style={{ paddingTop: BAND_PX }}
+					>
+						{/* Readout band: the legend at rest, the callout while inspecting. */}
 						<div
-							ref={wrapRef}
-							role="group"
-							tabIndex={0}
-							aria-label={`${title}. Use the left and right arrow keys to read each ${hourly ? "hour" : "day"}.`}
-							onPointerMove={(event) => {
-								if (event.pointerType !== "mouse" && event.buttons === 0) return;
-								updateFromPointer(event.clientX, event.currentTarget);
-							}}
-							onPointerDown={(event) => {
-								updateFromPointer(event.clientX, event.currentTarget);
-							}}
-							onPointerLeave={clearInspection}
-							onPointerCancel={clearInspection}
-							onFocus={(event) => {
-								if (
-									keyboardIndex === null &&
-									points.length > 0 &&
-									event.currentTarget.matches(":focus-visible")
-								) {
-									setKeyboardIndex(last);
-								}
-							}}
-							onBlur={clearInspection}
-							onKeyDown={(event) => {
-								const current = keyboardIndex ?? hoverIndex ?? last;
-								if (event.key === "ArrowLeft") {
-									event.preventDefault();
-									stepTo(current - 1);
-								} else if (event.key === "ArrowRight") {
-									event.preventDefault();
-									stepTo(current + 1);
-								} else if (event.key === "Home") {
-									event.preventDefault();
-									stepTo(0);
-								} else if (event.key === "End") {
-									event.preventDefault();
-									stepTo(last);
-								} else if (event.key === "Escape") {
-									clearInspection();
-								}
-							}}
-							className="cms-page-focus relative min-w-0 cursor-crosshair touch-pan-y select-none rounded-[12px]"
+							aria-hidden="true"
+							className={cn(
+								"absolute inset-x-0 top-0 flex items-center gap-x-4 text-[12px] text-muted-foreground transition-opacity duration-150",
+								activePoint ? "opacity-0" : "opacity-100",
+							)}
+							style={{ height: BAND_PX - 8 }}
 						>
+							<span className="inline-flex items-center gap-1.5">
+								<SeriesSwatch kind="pageviews" />
+								<span>Pageviews</span>
+							</span>
+							<span className="inline-flex items-center gap-1.5">
+								<SeriesSwatch kind="visitors" />
+								<span>{visitorLabel}</span>
+							</span>
+						</div>
+						{activePoint ? (
+							<div
+								aria-hidden="true"
+								className="cms-chart-tooltip grid content-center gap-1 px-3"
+								style={{
+									width: `${tooltipWidth}px`,
+									left: `${tooltipLeft}px`,
+									height: BAND_PX - 8,
+								}}
+							>
+								<p className="m-0 truncate text-[11px] leading-none font-medium text-muted-foreground">
+									{format(activePoint)} UTC
+								</p>
+								<div className="flex items-center gap-3 text-[12px] leading-none whitespace-nowrap tabular-nums">
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="pageviews" />
+										<span className="font-mono font-semibold text-foreground">
+											{countLabel(activePoint.pageviews)}
+										</span>
+										<span className="text-[11px] text-muted-foreground">views</span>
+									</span>
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="visitors" />
+										<span className="font-mono font-semibold text-primary-text">
+											{countLabel(activePoint.visitorDays)}
+										</span>
+										<span className="text-[11px] text-muted-foreground">
+											{hourly ? "visitor-days/hr" : "visitor-days"}
+										</span>
+									</span>
+								</div>
+							</div>
+						) : null}
+
+						<div className="relative">
 							<svg
 								aria-hidden="true"
 								viewBox={`0 0 ${width} ${height}`}
@@ -424,7 +501,7 @@ export function TrafficChart({
 								</motion.g>
 							</svg>
 
-							{/* Crosshair, dots, and callout move together in one frame. */}
+							{/* Crosshair and dots move together in one frame. */}
 							{activePoint && activePv && activeVd ? (
 								<>
 									<span
@@ -452,41 +529,18 @@ export function TrafficChart({
 											top: `${(activePv.y / height) * 100}%`,
 										}}
 									/>
-									<div
-										aria-hidden="true"
-										className="cms-chart-tooltip px-3 py-2"
-										style={{ width: `${tooltipWidth}px`, left: `${tooltipLeft}px` }}
-									>
-										<p className="m-0 mb-1.5 text-[11.5px] font-medium text-muted-foreground">
-											{format(activePoint)} UTC
-										</p>
-										<div className="grid gap-1 text-[12px] tabular-nums">
-											<div className="flex items-center justify-between gap-3">
-												<span className="inline-flex items-center gap-1.5 text-ink-soft">
-													<SeriesSwatch kind="pageviews" />
-													Pageviews
-												</span>
-												<span className="font-mono font-semibold text-foreground">
-													{countLabel(activePoint.pageviews)}
-												</span>
-											</div>
-											<div className="flex items-center justify-between gap-3">
-												<span className="inline-flex items-center gap-1.5 text-ink-soft">
-													<SeriesSwatch kind="visitors" />
-													{visitorLabel}
-												</span>
-												<span className="font-mono font-semibold text-primary-text">
-													{countLabel(activePoint.visitorDays)}
-												</span>
-											</div>
-										</div>
-									</div>
 								</>
 							) : null}
 						</div>
 					</div>
 
-					<div className="flex items-center justify-between gap-3 pl-7 font-mono text-[11px] text-muted-foreground">
+					{/* X-axis labels share the plot's column, so they line up with it. */}
+					<span aria-hidden="true" />
+					<div
+						aria-hidden="true"
+						className="flex items-center justify-between gap-3 font-mono text-[11px] text-muted-foreground"
+						style={{ paddingInline: `${(padX / width) * 100}%` }}
+					>
 						<span>{format(points[0])}</span>
 						{points.length > 4 ? (
 							<span className="hidden sm:inline">{format(points[midIndex])}</span>
@@ -494,9 +548,12 @@ export function TrafficChart({
 						<span>{format(points[last])} UTC</span>
 					</div>
 
+					<p id={summaryId} className="sr-only">
+						{summary}
+					</p>
 					<p className="sr-only" aria-live="polite">
 						{keyboardPoint
-							? `${format(keyboardPoint)} UTC: ${countLabel(keyboardPoint.pageviews)} pageviews, ${countLabel(keyboardPoint.visitorDays)} ${visitorLabel.toLowerCase()}`
+							? `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, "pageview", "pageviews")}, ${plural(keyboardPoint.visitorDays, hourly ? "visitor-day this hour" : "visitor-day", hourly ? "visitor-days this hour" : "visitor-days")}`
 							: ""}
 					</p>
 				</div>
