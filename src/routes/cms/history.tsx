@@ -31,12 +31,28 @@ import { RevisionRow } from "../../components/cms/history/RevisionRow";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { AlertTriangleIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
+import { cn } from "../../lib/utils";
 import { getRevision, listRevisions } from "../../server/cms-history.functions";
 import type {
 	RevisionDetail,
 	RevisionKind,
 	RevisionSummary,
 } from "../../server/cms-storage.server";
+
+/**
+ * Publishing copies draft rN to published rN, so "All" would list every
+ * published revision twice. Show the published row and hide its identical draft.
+ */
+function visibleRevisions(
+	items: readonly RevisionSummary[],
+	filter: "all" | RevisionKind,
+): RevisionSummary[] {
+	if (filter !== "all") return [...items];
+	const published = new Map(
+		items.filter((row) => row.kind === "published").map((row) => [row.revision, row.bytes]),
+	);
+	return items.filter((row) => row.kind !== "draft" || published.get(row.revision) !== row.bytes);
+}
 
 export const Route = createFileRoute("/cms/history")({
 	validateSearch: z.object({
@@ -80,15 +96,7 @@ function HistoryRoute() {
 	const noticeRef = useRef<HTMLDivElement>(null);
 	const restoredRef = useRef(false);
 
-	// Publishing copies draft rN to published rN, so "All" would list every
-	// published revision twice. Show the published row and hide its identical draft.
-	const visibleItems = useMemo(() => {
-		if (filter !== "all") return items;
-		const published = new Map(
-			items.filter((row) => row.kind === "published").map((row) => [row.revision, row.bytes]),
-		);
-		return items.filter((row) => row.kind !== "draft" || published.get(row.revision) !== row.bytes);
-	}, [filter, items]);
+	const visibleItems = useMemo(() => visibleRevisions(items, filter), [filter, items]);
 
 	const baselineBytes = useMemo(() => {
 		const match = items.find((row) => row.kind === "draft" && row.revision === draftRevision);
@@ -128,17 +136,9 @@ function HistoryRoute() {
 				}
 
 				const current = store.getState();
-				let defaultId = result.items[0]!.id;
-				const isMergedDraft = (row: RevisionSummary) =>
-					row.kind === "draft" &&
-					result.items.some(
-						(other) =>
-							other.kind === "published" &&
-							other.revision === row.revision &&
-							other.bytes === row.bytes,
-					);
-				for (const row of result.items) {
-					if (isMergedDraft(row)) continue;
+				const visible = visibleRevisions(result.items, kindFilter);
+				let defaultId = (visible[0] ?? result.items[0]!).id;
+				for (const row of visible) {
 					if (!current.dirty && row.revision === current.draftRevision) continue;
 					try {
 						const candidate = await loadDetail(row.id);
@@ -151,7 +151,15 @@ function HistoryRoute() {
 					break;
 				}
 				if (request === listRequest.current) {
-					setSelectedId((prev) => (result.items.some((row) => row.id === prev) ? prev : defaultId));
+					setSelectedId((prev) => {
+						if (visible.some((row) => row.id === prev)) return prev;
+						// A draft hidden behind its identical published row selects that row.
+						const hidden = result.items.find((row) => row.id === prev);
+						const merged = hidden
+							? visible.find((row) => row.kind === "published" && row.revision === hidden.revision)
+							: undefined;
+						return merged?.id ?? defaultId;
+					});
 				}
 			} catch {
 				if (request === listRequest.current) setListError("Could not load revision history.");
@@ -328,7 +336,13 @@ function HistoryRoute() {
 						/>
 					) : (
 						<>
-							<div className="relative">
+							<div
+								aria-busy={loadingList || undefined}
+								className={cn(
+									"relative transition-opacity duration-150",
+									loadingList && "opacity-60",
+								)}
+							>
 								<span
 									aria-hidden="true"
 									className="absolute top-5 bottom-5 left-[10.5px] w-px bg-line-strong"

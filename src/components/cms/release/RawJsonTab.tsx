@@ -146,6 +146,7 @@ export function RawJsonTab() {
 							copiedLabel="Copied"
 							variant="outline"
 							size="sm"
+							className="pointer-coarse:min-h-11"
 						/>
 						<Button
 							variant="outline"
@@ -279,7 +280,11 @@ export function RawJsonTab() {
 						{formatted.split("\n").length} lines
 					</span>
 				</header>
-				<pre className="m-0 max-h-[540px] overflow-auto bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-4 font-mono text-[12px] leading-[1.6] text-ink-soft">
+				<pre
+					tabIndex={0}
+					aria-label={`Draft r${draftRevision} JSON`}
+					className="cms-page-focus m-0 max-h-[540px] overflow-auto bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-4 font-mono text-[12px] leading-[1.6] text-ink-soft"
+				>
 					<code>{formatted}</code>
 				</pre>
 			</section>

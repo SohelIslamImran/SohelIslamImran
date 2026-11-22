@@ -147,15 +147,14 @@
 		scale: 0.985;
 	}
 
-	.cms-media-card {
-		transition:
-			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-	}
-
 	.cms-media-thumb {
 		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		a:hover > .cms-media-thumb {
+			scale: 1;
+		}
 	}
 
 	.cms-row-hover {
@@ -178,15 +177,8 @@
 				0 10px 24px -12px var(--theme-shadow),
 				inset 0 1px var(--theme-highlight);
 		}
-		.cms-media-card:hover {
-			border-color: var(--theme-line-strong);
-			translate: 0 -2px;
-			box-shadow:
-				0 4px 12px var(--theme-shadow-soft),
-				0 16px 32px -16px var(--theme-shadow-strong),
-				inset 0 1px var(--theme-highlight);
-		}
-		.cms-media-card:hover .cms-media-thumb {
+		/* Only the published thumbnail is a link, so only it reacts to hover. */
+		a:hover > .cms-media-thumb {
 			scale: 1.03;
 		}
 		.cms-row-hover:hover,
@@ -238,7 +230,7 @@
 	/* Chart callout: glass chrome in the readout band above the plot. */
 	.cms-chart-tooltip {
 		position: absolute;
-		top: 0;
+		top: 4px;
 		pointer-events: none;
 		z-index: 10;
 		border-radius: 12px;

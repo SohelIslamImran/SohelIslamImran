@@ -104,7 +104,6 @@ export function CountryMap({ rows }: { rows: AnalyticsCount[] }) {
 								key={value}
 								onMouseEnter={() => setActiveCountry(value)}
 								onMouseLeave={() => setActiveCountry(null)}
-								className="cursor-pointer"
 							>
 								{/* Dots grow with `scale` (fill-box origin) rather than `r`, so the change animates. */}
 								<circle

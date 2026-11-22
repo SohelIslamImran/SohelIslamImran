@@ -179,7 +179,7 @@ function ActivityRoute() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Activity"
-				description="Every save, publish, restore, and media change, newest first."
+				description="Every save, publish, restore, discard, and media change, newest first."
 				actions={
 					<SegmentedControl
 						layoutId="cms-activity-filter-pill"

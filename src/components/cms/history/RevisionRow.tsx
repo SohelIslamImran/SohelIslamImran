@@ -41,7 +41,9 @@ export function RevisionRow({
 				aria-hidden="true"
 				className={cn(
 					"absolute top-1/2 left-[7px] z-[1] size-2 -translate-y-1/2 rounded-full border-2 transition-[background-color,border-color,scale] duration-150",
-					selected ? "scale-125 border-primary bg-primary" : "border-line-strong bg-surface-solid",
+					selected
+						? "scale-125 border-primary bg-primary motion-reduce:scale-100"
+						: "border-line-strong bg-surface-solid",
 				)}
 			/>
 			<button

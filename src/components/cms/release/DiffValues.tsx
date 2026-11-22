@@ -300,7 +300,10 @@ export function ListDiff({
 							<span className="mt-0.5 text-success">
 								<StatusGlyph status="added" />
 							</span>
-							<span className="min-w-0 break-words">{summarize(r)}</span>
+							<span className="min-w-0 break-words">
+								<span className="sr-only">Added: </span>
+								{summarize(r)}
+							</span>
 						</li>
 					);
 				}
@@ -313,7 +316,10 @@ export function ListDiff({
 							<span className="mt-0.5">
 								<StatusGlyph status="removed" />
 							</span>
-							<span className="min-w-0 break-words">{summarize(l)}</span>
+							<span className="min-w-0 break-words">
+								<span className="sr-only">Removed: </span>
+								{summarize(l)}
+							</span>
 						</li>
 					);
 				}

@@ -12,7 +12,7 @@ const padX = 12;
 const padTop = 14;
 const padBottom = 14;
 /** Height of the readout band above the plot: legend at rest, callout while inspecting. */
-const BAND_PX = 50;
+const BAND_PX = 54;
 const HOUR_MS = 3_600_000;
 
 const plural = (count: number, one: string, many: string) =>
@@ -203,9 +203,13 @@ export function TrafficChart({
 
 	// The callout lives in its own band above the plot, centred on the
 	// crosshair and clamped to the edges, so it never covers the data.
-	const tooltipWidth = Math.min(236, canvasWidth);
+	const tooltipWidth = Math.min(264, Math.max(0, canvasWidth - 8));
 	const crossPx = activePv ? (activePv.x / width) * canvasWidth : 0;
-	const tooltipLeft = Math.max(0, Math.min(canvasWidth - tooltipWidth, crossPx - tooltipWidth / 2));
+	// Inset 4px so the callout never touches the chart's focus ring.
+	const tooltipLeft = Math.max(
+		4,
+		Math.min(canvasWidth - tooltipWidth - 4, crossPx - tooltipWidth / 2),
+	);
 
 	const clearInspection = () => {
 		setHoverIndex(null);
@@ -286,7 +290,7 @@ export function TrafficChart({
 						</thead>
 						<tbody>
 							{points.map((point) => (
-								<tr key={point.at} className="cms-row-hover border-t border-line">
+								<tr key={point.at} className="border-t border-line">
 									<th
 										scope="row"
 										className="px-3 py-2 font-mono text-[12px] font-normal text-ink-soft"

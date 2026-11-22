@@ -95,7 +95,7 @@ export interface SegmentedOption<T extends string> {
  * Marks a horizontally scrolling track with `data-fade="start|end|both"` so
  * CSS can fade the clipped edge, and keeps the active item in view.
  */
-function useOverflowFade(ref: RefObject<HTMLElement | null>) {
+function useOverflowFade(ref: RefObject<HTMLElement | null>, contentKey: string) {
 	useEffect(() => {
 		const element = ref.current;
 		if (!element) return;
@@ -124,7 +124,8 @@ function useOverflowFade(ref: RefObject<HTMLElement | null>) {
 			observer.disconnect();
 			element.removeEventListener("scroll", update);
 		};
-	}, [ref]);
+		// Re-measure when the options or the selection change without a resize.
+	}, [ref, contentKey]);
 }
 
 /**
@@ -151,7 +152,7 @@ export function SegmentedControl<T extends string>({
 }) {
 	const reduced = useLiveReducedMotion();
 	const trackRef = useRef<HTMLDivElement>(null);
-	useOverflowFade(trackRef);
+	useOverflowFade(trackRef, `${options.map((option) => option.value).join(",")}|${value}`);
 	return (
 		<div
 			ref={trackRef}

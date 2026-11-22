@@ -178,13 +178,23 @@ export function RestoreDialog({
 						</div>
 					</div>
 					<div className="flex items-center justify-end gap-2 pt-1">
-						<AlertDialog.Close render={<Button variant="outline" size="sm" disabled={restoring} />}>
+						<AlertDialog.Close
+							render={
+								<Button
+									variant="outline"
+									size="sm"
+									disabled={restoring}
+									className="pointer-coarse:min-h-11"
+								/>
+							}
+						>
 							Cancel
 						</AlertDialog.Close>
 						{/* aria-disabled, not disabled: the button keeps focus while restoring. */}
 						<Button
 							variant="default"
 							size="sm"
+							className="pointer-coarse:min-h-11"
 							aria-disabled={restoring}
 							onClick={() => {
 								if (!restoring) onConfirm();

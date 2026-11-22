@@ -44,7 +44,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 			viewBox="0 0 16 16"
 			aria-hidden="true"
 			className={cn(
-				"size-4 shrink-0 fill-none stroke-current stroke-[1.7] text-muted-foreground transition-transform duration-200 ease-trace [stroke-linecap:round] [stroke-linejoin:round]",
+				"size-4 shrink-0 fill-none stroke-current stroke-[1.7] text-muted-foreground transition-transform duration-200 ease-trace motion-reduce:transition-none [stroke-linecap:round] [stroke-linejoin:round]",
 				open && "rotate-180",
 			)}
 		>
@@ -186,7 +186,7 @@ function RowDiffBlock({
 						to="/cms/content/$section"
 						params={{ section: sectionId }}
 						search={{ item: row.itemId }}
-						className="cms-page-focus min-w-0 truncate rounded-[6px] text-[14px] font-medium text-foreground no-underline decoration-line-strong underline-offset-4 hover:underline"
+						className="cms-page-focus min-w-0 truncate rounded-[6px] text-[14px] font-medium text-foreground no-underline decoration-line-strong underline-offset-4 hover:underline pointer-coarse:inline-flex pointer-coarse:min-h-11 pointer-coarse:items-center"
 					>
 						<span className="sr-only">Edit </span>
 						{row.title}

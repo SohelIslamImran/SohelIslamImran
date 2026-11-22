@@ -347,7 +347,7 @@ function TrafficSummary() {
 				Analytics
 				<span
 					aria-hidden="true"
-					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground"
+					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
 				>
 					→
 				</span>

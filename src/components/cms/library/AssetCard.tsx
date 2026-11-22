@@ -9,7 +9,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { cn } from "../../../lib/utils";
 import { updateMediaAlt } from "../../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../../server/media.server";
-import { controlClass, staggerStyle } from "../analytics/Widgets";
+import { staggerStyle } from "../analytics/Widgets";
+import { controlClass } from "../fields/FieldFrame";
 import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
@@ -48,6 +49,7 @@ export function AssetCard({
 	const [alt, setAlt] = useState(asset.alt);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 	const [copied, flashCopied] = useCopied();
 
 	useEffect(() => {
@@ -99,18 +101,23 @@ export function AssetCard({
 	};
 
 	const thumbnail =
-		isImage && isPublished ? (
+		isImage && isPublished && failedUrl !== publicUrl ? (
 			<img
 				src={publicUrl}
 				alt=""
 				loading="lazy"
+				onError={() => setFailedUrl(publicUrl)}
 				className="cms-media-thumb h-full w-full object-cover"
 			/>
 		) : (
 			<span className="grid place-items-center gap-1.5 px-4 text-center">
 				<MediaLibraryIcon className="size-6 text-muted-foreground" />
 				<span className="text-[12px] text-muted-foreground">
-					{isPublished ? (asset.mimeType ?? "File") : "Not published yet"}
+					{!isPublished
+						? "Not published yet"
+						: isImage
+							? "Preview unavailable"
+							: (asset.mimeType ?? "File")}
 				</span>
 			</span>
 		);
@@ -164,10 +171,7 @@ export function AssetCard({
 								if (feedback) setFeedback(null);
 							}}
 							placeholder="Describe what this shows"
-							className={cn(
-								controlClass,
-								"min-h-9 flex-1 py-1.5 text-[13px] pointer-coarse:min-h-11",
-							)}
+							className={cn(controlClass, "min-h-9 flex-1 py-1.5 text-[13px]")}
 						/>
 						<Button
 							type="submit"
@@ -233,7 +237,7 @@ export function AssetCard({
 										<span>{usage.label}</span>
 										<span
 											aria-hidden="true"
-											className="text-[11px] transition-[translate] duration-150 group-hover/usage:translate-x-0.5"
+											className="text-[11px] transition-[translate] duration-150 group-hover/usage:translate-x-0.5 motion-reduce:group-hover/usage:translate-x-0"
 										>
 											→
 										</span>

@@ -187,8 +187,8 @@ function Analytics() {
 				</nav>
 
 				<span className="text-[12.5px] text-muted-foreground">
-					{range === "24h" ? "Rolling 24 hours" : "Completed days, today excluded"} · changes vs the
-					previous period
+					{range === "24h" ? "Rolling 24 hours" : "Completed days, today excluded"}
+					{noVisits ? null : " · changes vs the previous period"}
 				</span>
 			</div>
 

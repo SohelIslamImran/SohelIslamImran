@@ -266,13 +266,21 @@ function ReleaseRoute() {
 						</div>
 						<div className="flex items-center justify-end gap-2 pt-1">
 							<AlertDialog.Close
-								render={<Button variant="outline" size="sm" disabled={discarding} />}
+								render={
+									<Button
+										variant="outline"
+										size="sm"
+										disabled={discarding}
+										className="pointer-coarse:min-h-11"
+									/>
+								}
 							>
 								Keep editing
 							</AlertDialog.Close>
 							<Button
 								variant="destructive"
 								size="sm"
+								className="pointer-coarse:min-h-11"
 								disabled={discarding}
 								onClick={() => void handleConfirmDiscard()}
 							>
