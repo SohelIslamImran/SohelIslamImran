@@ -8,16 +8,16 @@
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
  */
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { animate, motion, useReducedMotion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
-import { REDUCED, SPRING_MOVE } from "../motion";
+import { REDUCED, SPRING_MOMENTUM, SPRING_MOVE } from "../motion";
 import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
 import {
 	ActivityIcon,
@@ -98,6 +98,7 @@ function RailLink({
 	active,
 	pending,
 	layoutScope,
+	region = "scroll",
 	onNavigate,
 }: {
 	to: string;
@@ -110,6 +111,7 @@ function RailLink({
 	active: boolean;
 	pending?: boolean;
 	layoutScope: "desktop" | "drawer";
+	region?: "scroll" | "footer";
 	onNavigate?: () => void;
 }) {
 	const reduce = useReducedMotion();
@@ -121,7 +123,6 @@ function RailLink({
 						to={to}
 						params={params}
 						preload="intent"
-						resetScroll={false}
 						activeOptions={{ exact: to === "/cms", includeSearch: false }}
 						activeProps={{ "aria-current": active ? "page" : undefined }}
 						aria-current={active ? "page" : undefined}
@@ -139,8 +140,8 @@ function RailLink({
 			>
 				{active ? (
 					<motion.span
-						layoutId={reduce ? undefined : `cms-rail-active-${layoutScope}`}
-						initial={reduce ? { opacity: 0 } : false}
+						layoutId={reduce ? undefined : `cms-rail-active-${layoutScope}-${region}`}
+						initial={{ opacity: 0.35 }}
 						animate={{ opacity: 1 }}
 						transition={reduce ? REDUCED : SPRING_MOVE}
 						aria-hidden="true"
@@ -429,6 +430,7 @@ function LayerRailContent({
 							active={isPathActive(item.to)}
 							pending={isPending(item.to)}
 							layoutScope={layoutScope}
+							region="footer"
 							onNavigate={onNavigate}
 						/>
 					))}
@@ -442,9 +444,9 @@ function LayerRailContent({
 						rel="noreferrer"
 						title="Open live site"
 						aria-label="Open live site"
-						className="cms-rail-live cms-press cms-chrome-control inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						className="cms-rail-live cms-press cms-chrome-control grid min-h-9 grid-cols-[36px_auto] items-center rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
-						<ExternalArrowIcon className="size-3.5" />
+						<ExternalArrowIcon className="size-3.5 justify-self-center" />
 						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
 					</a>
 				</div>
@@ -552,7 +554,72 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		return () => query.removeEventListener("change", sync);
 	}, []);
 	const [commandOpen, setCommandOpen] = useState(false);
+	const commandOpener = useRef<HTMLElement | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
+	const drawer = useRef<HTMLDivElement>(null);
+	const drawerActions = useRef<Drawer.Root.Actions>(null);
+	const swipe = useRef<{ x: number; time: number; velocity: number } | null>(null);
+	const release = useRef<{ x: number; velocity: number } | null>(null);
+
+	const trackSwipe = (event: TouchEvent) => {
+		const touch = event.touches[0];
+		if (!touch) return;
+		const previous = event.type === "touchstart" ? null : swipe.current;
+		const elapsed = previous ? event.timeStamp - previous.time : 0;
+		swipe.current = {
+			x: touch.clientX,
+			time: event.timeStamp,
+			velocity: previous && elapsed > 0 ? (1000 * (touch.clientX - previous.x)) / elapsed : 0,
+		};
+		release.current = null;
+	};
+
+	const finishSwipe = (event: TouchEvent) => {
+		const popup = drawer.current;
+		const sample = swipe.current;
+		release.current = popup?.hasAttribute("data-swiping")
+			? {
+					x: popup.getBoundingClientRect().x,
+					velocity: sample && event.timeStamp - sample.time < 80 ? sample.velocity : 0,
+				}
+			: null;
+		swipe.current = null;
+	};
+
+	const changeDrawerOpen = (open: boolean, details: Drawer.Root.ChangeEventDetails) => {
+		const popup = drawer.current;
+		const position = release.current;
+		release.current = null;
+		if (
+			!open &&
+			details.reason === "swipe" &&
+			popup &&
+			position &&
+			!window.matchMedia("(prefers-reduced-motion: reduce)").matches
+		) {
+			details.preventUnmountOnClose();
+			const scrim = popup.closest(".cms-drawer-viewport")?.previousElementSibling;
+			const width = popup.offsetWidth;
+			popup.style.transition = "none";
+			const place = (x: number) => {
+				popup.style.transform = `translateX(${x}px)`;
+				if (scrim instanceof HTMLElement) {
+					scrim.style.opacity = String(Math.max(0, 1 + x / width));
+				}
+			};
+			place(position.x);
+			animate(position.x, -width, {
+				...SPRING_MOMENTUM,
+				// Physics-based options retain the release velocity.
+				stiffness: 220,
+				damping: 30,
+				velocity: position.velocity,
+				onUpdate: place,
+				onComplete: () => drawerActions.current?.unmount(),
+			});
+		}
+		setDrawerOpen(open);
+	};
 	// The drawer is hidden by CSS at `lg`, but an open Base UI dialog would
 	// keep its scroll lock and focus trap. Close it when the viewport grows.
 	useEffect(() => {
@@ -608,7 +675,10 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			if (key === "k" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
 				event.preventDefault();
 				if (drawerOpen || publishDialogOpen || conflictOpen) return;
-				setCommandOpen((open) => !open);
+				if (!commandOpen && document.activeElement instanceof HTMLElement) {
+					commandOpener.current = document.activeElement;
+				}
+				setCommandOpen(!commandOpen);
 				return;
 			}
 			if (key === "s" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
@@ -666,7 +736,10 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 
 				<div className="flex min-w-0 flex-col">
 					<PipelineBar
-						onOpenCommandBar={() => setCommandOpen(true)}
+						onOpenCommandBar={(trigger) => {
+							commandOpener.current = trigger;
+							setCommandOpen(true);
+						}}
 						onOpenDrawer={() => setDrawerOpen(true)}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={() => setPublishDialogOpen(true)}
@@ -687,11 +760,20 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			</div>
 
 			{/* Phone & tablet navigation drawer */}
-			<Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen} swipeDirection="left">
+			<Drawer.Root
+				open={drawerOpen}
+				onOpenChange={changeDrawerOpen}
+				actionsRef={drawerActions}
+				swipeDirection="left"
+			>
 				<Drawer.Portal>
 					<Drawer.Backdrop className="cms-backdrop cms-drawer-scrim fixed inset-0 z-(--z-palette) lg:hidden" />
-					<Drawer.Viewport className="pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
+					<Drawer.Viewport className="cms-drawer-viewport pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
 						<Drawer.Popup
+							ref={drawer}
+							onTouchStartCapture={trackSwipe}
+							onTouchMoveCapture={trackSwipe}
+							onTouchEndCapture={finishSwipe}
 							data-slot="cms-mobile-drawer"
 							className="cms-drawer-popup cms-overlay cms-glass pointer-events-auto fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
 						>
@@ -720,6 +802,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			<MobileActionBar onRequestPublish={() => setPublishDialogOpen(true)} />
 
 			<CommandBar
+				opener={commandOpener}
 				open={commandOpen}
 				onOpenChange={setCommandOpen}
 				onRequestPublish={() => setPublishDialogOpen(true)}

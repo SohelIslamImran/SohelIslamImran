@@ -126,12 +126,41 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
+		let cmsNavigation = false;
+		let cmsTransition: ViewTransition | undefined;
+		const startRouterTransition = router.startViewTransition;
+		const skipCmsTransition = () => cmsTransition?.skipTransition();
+		const onMotionChange = () => {
+			if (reduced.matches) skipCmsTransition();
+		};
+		reduced.addEventListener("change", onMotionChange);
+
+		// The router awaits the update (including scroll restoration). Handle the
+		// cosmetic promises here, since a new navigation can skip the snapshot.
+		router.startViewTransition = async (update) => {
+			if (!cmsNavigation) return startRouterTransition(update);
+			if (!supported || reduced.matches || !router.options.defaultViewTransition) {
+				return update();
+			}
+			const transition = document.startViewTransition(update);
+			cmsTransition = transition;
+			void transition.ready.catch(() => {});
+			const finish = () => {
+				if (cmsTransition === transition) cmsTransition = undefined;
+			};
+			void transition.finished.then(finish, finish);
+			await transition.updateCallbackDone;
+		};
+		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
 				? (state as { __TSR_index: number }).__TSR_index
 				: null;
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
 			window.clearTimeout(clearTimer);
+			cmsNavigation =
+				isCmsPath(event.fromLocation?.pathname) === true && isCmsPath(event.toLocation.pathname) === true;
+			if (cmsNavigation) skipCmsTransition();
 			const animate = supported && !reduced.matches && event.pathChanged;
 			router.options.defaultViewTransition = animate;
 			routeViewTransitionPending = animate;
@@ -150,6 +179,9 @@ function useRouteViewTransitions() {
 			clearTimer = window.setTimeout(() => delete root.dataset.routeVt, 700);
 		});
 		return () => {
+			skipCmsTransition();
+			reduced.removeEventListener("change", onMotionChange);
+			router.startViewTransition = startRouterTransition;
 			unsubscribeStart();
 			unsubscribeEnd();
 			window.clearTimeout(clearTimer);
