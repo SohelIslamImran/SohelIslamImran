@@ -162,11 +162,10 @@ function PipelineStatus({
 				</span>
 			</PopoverTrigger>
 			<PopoverContent
-				data-slot="cms-issues-popover"
 				sideOffset={10}
 				positionMethod="fixed"
 				finalFocus={() => !reviewingGate.current && !jumping.current}
-				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
+				className="cms-issues-popover w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
 				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
 					<PopoverHeader className="flex flex-row items-center justify-between px-1.5 pt-0.5">

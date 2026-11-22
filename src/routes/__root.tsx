@@ -138,7 +138,7 @@ function useRouteViewTransitions() {
 		};
 		const sectionSelector = '[data-slot="cms-section"]';
 		const cmsOverlaySelector =
-			'[data-slot="cms-mobile-drawer"], [data-slot="cms-command-bar"], [data-slot="cms-publish-dialog"], [data-slot="cms-conflict-dialog"], [data-slot="cms-issues-popover"], .appearance-pop';
+			'[data-slot="cms-mobile-drawer"], [data-slot="cms-command-bar"], [data-slot="cms-publish-dialog"], [data-slot="cms-conflict-dialog"], .cms-issues-popover, .appearance-pop';
 		let navigateWithOverlay = false;
 		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
@@ -171,17 +171,20 @@ function useRouteViewTransitions() {
 			router.shouldViewTransition = undefined;
 			// A search-only update (an editor selecting its first item) commits
 			// without a snapshot and leaves a running content fade alone.
-			if (!supported || reduced.matches || from?.pathname === to.pathname) {
+			if (reduced.matches || from?.pathname === to.pathname) {
 				return update();
 			}
 			const outgoing = document.querySelector<HTMLElement>(sectionSelector);
 			if (!requested || navigateWithOverlay || document.querySelector(cmsOverlaySelector)) {
 				// Leave the closing layer in the live paint tree, above the page.
 				await update();
-				const incoming = document.querySelector<HTMLElement>(sectionSelector);
-				if (incoming && incoming !== outgoing) incoming.dataset.cmsFade = "";
+				if (router.stores.resolvedLocation.get()?.pathname === to.pathname) {
+					const incoming = document.querySelector<HTMLElement>(sectionSelector);
+					if (incoming && incoming !== outgoing) incoming.dataset.cmsFade = "";
+				}
 				return;
 			}
+			if (!supported) return update();
 			const types =
 				typeof requested === "object" &&
 				window.CSS?.supports?.("selector(:active-view-transition-type(a))")
