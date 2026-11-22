@@ -45,6 +45,11 @@ Each workstream edits only its files, plus its own stylesheet. `src/components/c
 | **Fields** | `src/components/cms/fields/*`, `src/components/cms/sections/*`, `src/routes/cms/content.$section.tsx` | `src/styles/cms/fields.css` |
 | **Pages** | `src/routes/cms/{index,analytics,release,history,activity,library}.tsx`, `src/components/cms/analytics/*`, `src/components/cms/release/*` | `src/styles/cms/pages.css` |
 
+### Shell hooks for pages
+
+- `#release-gate` (`RELEASE_GATE_ID` in `src/components/cms/shell/CmsShell.tsx`): put this id on the Changes page's publish gate. On `/cms/release`, the top-bar Publish, the phone action bar, and the command bar's Publish scroll to the gate and focus it instead of opening a second publish dialog. Without the id they fall back to the dialog.
+- After a command-bar navigation, focus moves to the destination's first `h1` inside `#main-content` (or to `main`), so every page should render one `h1`.
+
 ## Review loop
 
 Every builder's branch is reviewed by an agent from a different builder, page by page and control by control, against this brief, with screenshots in both themes at 1440px and 390px. Findings go back to the builder; the loop repeats until a review returns no findings at the "must fix" or "should fix" level. Rounds are recorded in `docs/cms/REVIEW.md`.
