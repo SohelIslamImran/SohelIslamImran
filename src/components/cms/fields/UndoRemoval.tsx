@@ -1,5 +1,4 @@
-export const editorButton =
-	"pressable inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[10px] border border-line-strong px-3 text-[13px] font-medium text-foreground hover:bg-muted disabled:opacity-45 pointer-coarse:min-h-11";
+export const editorButton = "cms-editor-button cms-press";
 
 export function UndoRemoval({
 	label,
@@ -13,7 +12,7 @@ export function UndoRemoval({
 	onDismiss: () => void;
 }) {
 	return (
-		<div className="cms-panel fixed inset-x-3 bottom-24 z-(--z-toast) mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 p-2 shadow-float lg:bottom-6">
+		<div className="cms-panel cms-enter fixed inset-x-3 bottom-24 z-(--z-toast) mx-auto flex w-fit max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-2 p-2 shadow-float lg:bottom-6">
 			<p role="status" className="m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]">
 				Removed {label}.{canUndo ? "" : " Make room in the list to undo."}
 			</p>

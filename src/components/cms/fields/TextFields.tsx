@@ -1,5 +1,8 @@
+import { Input } from "@base-ui/react/input";
+import { motion, useReducedMotion } from "motion/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { cn } from "../../../lib/utils";
+import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
 import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
 
@@ -29,16 +32,24 @@ export interface TextFieldProps extends BaseFieldProps {
 }
 
 export function Counter({ length, max }: { length: number; max?: number }) {
-	if (!max) return null;
-	const over = length > max;
+	const reduced = useReducedMotion();
+	if (!max || length < Math.ceil(max * 0.8)) return null;
 	return (
 		<span
 			className={cn(
-				"font-mono text-[11px] tabular-nums",
-				over ? "text-destructive" : "text-muted-foreground",
+				"cms-counter inline-flex font-mono text-[11px] tabular-nums",
+				length > max ? "text-destructive" : "text-muted-foreground",
 			)}
 		>
-			{length}/{max}
+			<motion.span
+				key={length}
+				initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
+				animate={{ opacity: 1, y: 0 }}
+				transition={reduced ? REDUCED : SPRING_SNAPPY}
+			>
+				{length}
+			</motion.span>
+			/{max}
 		</span>
 	);
 }
@@ -81,7 +92,7 @@ export function TextField({
 						{prefix}
 					</span>
 				) : null}
-				<input
+				<Input
 					id={fieldId(path)}
 					type={type}
 					value={value}
@@ -133,10 +144,10 @@ export function TextAreaField({
 }: TextAreaFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
-	const ref = useRef<HTMLTextAreaElement>(null);
+	const textarea = useRef<HTMLTextAreaElement>(null);
 	useLayoutEffect(() => {
-		const element = ref.current;
-		if (!element) return;
+		const element = textarea.current;
+		if (!element || CSS.supports("field-sizing", "content")) return;
 		element.style.height = "auto";
 		element.style.height = `${element.scrollHeight + 2}px`;
 	}, [value]);
@@ -152,9 +163,10 @@ export function TextAreaField({
 			className={className}
 		>
 			<textarea
-				ref={ref}
+				ref={textarea}
 				id={fieldId(path)}
 				rows={rows}
+				style={{ minBlockSize: `calc(${rows}lh + 22px)` }}
 				value={value}
 				placeholder={placeholder}
 				disabled={disabled}
@@ -165,7 +177,7 @@ export function TextAreaField({
 					const next = event.currentTarget.value;
 					field.set(optional && next === "" ? undefined : next);
 				}}
-				className={cn(controlClass, "min-h-20 resize-y py-2.5 leading-relaxed")}
+				className={cn(controlClass, "cms-textarea resize-y py-2.5 leading-relaxed")}
 			/>
 		</FieldFrame>
 	);
@@ -200,7 +212,7 @@ export function NumberField({
 			onRevert={field.revert}
 			className={className}
 		>
-			<input
+			<Input
 				id={fieldId(path)}
 				type="number"
 				inputMode="decimal"

@@ -146,6 +146,7 @@ export const SECTIONS = [
 		paths: ["travel"],
 		summary: "Places, seasons, and reflections.",
 		collection: true,
+		livePath: "/field-notes",
 	},
 	{
 		id: "links",

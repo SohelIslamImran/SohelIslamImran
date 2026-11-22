@@ -1,6 +1,48 @@
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
 
+export function EditorLayout({
+	title,
+	description,
+	liveUrl,
+	issues,
+	children,
+}: {
+	title: string;
+	description: string;
+	liveUrl?: string;
+	issues?: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<div className="cms-editor">
+			<header className="grid min-w-0 gap-3">
+				<div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2">
+					<h1 id="cms-section-heading" tabIndex={-1} className="cms-editor-title m-0 rounded-sm">
+						{title}
+					</h1>
+					{liveUrl ? (
+						<a
+							href={liveUrl}
+							target="_blank"
+							rel="noreferrer"
+							className="cms-editor-button cms-editor-live cms-press"
+						>
+							View live <span aria-hidden="true">↗</span>
+							<span className="sr-only"> (opens in a new tab)</span>
+						</a>
+					) : null}
+					<p className="col-span-full m-0 text-[14px] leading-relaxed text-muted-foreground">
+						{description}
+					</p>
+				</div>
+				{issues}
+			</header>
+			{children}
+		</div>
+	);
+}
+
 /** A titled group of fields on a solid CMS panel. */
 export function EditorGroup({
 	title,
@@ -18,18 +60,21 @@ export function EditorGroup({
 	return (
 		<section
 			data-slot="cms-editor-group"
-			className={cn("cms-panel grid min-w-0 gap-5 p-[clamp(16px,2.2vw,24px)]", className)}
+			className={cn(
+				"cms-panel cms-editor-group grid min-w-0 gap-6 p-[clamp(16px,2.2vw,26px)]",
+				className,
+			)}
 		>
-			<header className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+			<header className="cms-editor-group-heading flex min-w-0 flex-wrap items-start justify-between gap-3">
 				<div className="min-w-0">
-					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em]">{title}</h2>
+					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em]">{title}</h2>
 					{description ? (
 						<p className="m-0 mt-1 text-[13px] text-muted-foreground">{description}</p>
 					) : null}
 				</div>
 				{actions}
 			</header>
-			<div className="grid min-w-0 gap-5">{children}</div>
+			<div className="grid min-w-0 gap-6">{children}</div>
 		</section>
 	);
 }

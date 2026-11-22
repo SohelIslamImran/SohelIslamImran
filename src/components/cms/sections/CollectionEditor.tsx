@@ -1,8 +1,12 @@
+import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion } from "motion/react";
 import { memo, useCallback, useId, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
+import { REDUCED, SPRING_MOVE } from "../motion";
+import { SortableRow } from "../fields/SortableRow";
+import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField, RowActions } from "../fields";
 import { UndoRemoval, editorButton } from "../fields/UndoRemoval";
 import { duplicateRow, newRowId, restoreRow, type RemovedRow } from "../fields/row-list";
@@ -52,10 +56,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const current = rowIds.indexOf(item ?? "");
 	const detailPath = childPath(path, current);
 	const activeId = rowIds[current];
-	const activeTitle = useDraftSelector((_state, store) => {
-		const active = current >= 0 ? (store.valueAt(detailPath) as T | undefined) : undefined;
-		return active ? describe(active).title : "";
-	});
+
 	const profile = path === "profileLinks";
 	const listId = useId();
 	const queryId = useId();
@@ -70,6 +71,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
 	const full = length >= MAX_COLLECTION_ITEMS;
+	const reduced = useReducedMotion();
 	const issues = useIssuesAt(path);
 	const visible = useDraftSelector((_state, store) =>
 		(store.valueAt(path) as T[]).flatMap((row, index) => {
@@ -80,11 +82,12 @@ export function CollectionEditor<T extends { id: string }>({
 		}),
 	);
 	const duplicates = duplicateIds(rowIds.map((id) => ({ id })));
+	const rowKeys = rowIds.map((id, index) => (duplicates.has(id) ? `${id}:${index}` : id));
 
 	const rowButton = useCallback(
 		(id: string | undefined) =>
 			Array.from(list.current?.querySelectorAll<HTMLButtonElement>("button[data-row]") ?? []).find(
-				(button) => button.dataset.row === id,
+				(button) => button.dataset.row === id && !button.closest("[inert]"),
 			),
 		[],
 	);
@@ -139,8 +142,19 @@ export function CollectionEditor<T extends { id: string }>({
 			const rows = store.valueAt(path) as T[];
 			const row = rows[from];
 			if (!row || to < 0 || to >= rows.length || filter) return;
+			const focused = document.activeElement;
 			store.update(path, moveItem(rows, from, to));
-			requestAnimationFrame(() => rowButton(row.id)?.focus());
+			requestAnimationFrame(() => {
+				if (
+					focused instanceof HTMLElement &&
+					focused.isConnected &&
+					!focused.matches(":disabled")
+				) {
+					focused.focus({ preventScroll: true });
+				} else {
+					rowButton(row.id)?.focus({ preventScroll: true });
+				}
+			});
 		},
 		[filter, path, rowButton, store],
 	);
@@ -174,10 +188,15 @@ export function CollectionEditor<T extends { id: string }>({
 	);
 
 	return (
-		<div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(232px,280px)_minmax(0,1fr)]">
+		<div
+			className={cn(
+				"cms-collection grid min-w-0 items-start gap-4",
+				!length && item === undefined && "cms-collection-empty",
+			)}
+		>
 			<section
 				className={cn(
-					"cms-panel grid min-w-0 gap-3 p-3 lg:sticky lg:top-16",
+					"cms-panel cms-collection-list grid min-w-0 gap-3 p-3",
 					item !== undefined && "max-lg:hidden",
 				)}
 				aria-label={`${label} list`}
@@ -186,8 +205,9 @@ export function CollectionEditor<T extends { id: string }>({
 				tabIndex={-1}
 			>
 				<header className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-					<p className="mono-label m-0 text-muted-foreground">
-						{length} / {MAX_COLLECTION_ITEMS} items
+					<p className="m-0 text-xs font-medium tabular-nums text-muted-foreground">
+						{length} {length === 1 ? "item" : "items"}
+						{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
 					</p>
 					<button
 						id={fieldId(path)}
@@ -195,20 +215,26 @@ export function CollectionEditor<T extends { id: string }>({
 						aria-expanded={adding}
 						aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
 						type="button"
-						className={editorButton}
+						className={cn(editorButton, !adding && "cms-editor-primary")}
 						disabled={full && !adding}
 						onClick={() => {
 							setAdding(!adding);
 							if (!adding) requestAnimationFrame(() => document.getElementById(nameId)?.focus());
 						}}
 					>
-						{adding ? "Cancel" : `Add ${itemLabel.toLowerCase()}`}
+						{adding ? (
+							"Cancel"
+						) : (
+							<>
+								<span aria-hidden="true">+</span> Add {itemLabel.toLowerCase()}
+							</>
+						)}
 					</button>
 				</header>
 				{adding ? (
 					<form
 						id={`${nameId}-form`}
-						className="grid min-w-0 gap-2 rounded-[12px] border border-line p-2"
+						className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
 						onSubmit={(event) => {
 							event.preventDefault();
 							if (!name.trim() || full) return;
@@ -236,7 +262,8 @@ export function CollectionEditor<T extends { id: string }>({
 						</button>
 					</form>
 				) : null}
-				<div className="grid gap-1.5">
+				<div className="relative grid gap-1.5">
+					<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
 					<label htmlFor={queryId} className="sr-only">
 						Search {label.toLowerCase()}
 					</label>
@@ -246,7 +273,7 @@ export function CollectionEditor<T extends { id: string }>({
 						type="search"
 						placeholder={`Search ${label.toLowerCase()}`}
 						value={query}
-						className={`${controlClass} min-h-10`}
+						className={`${controlClass} min-h-10 pl-9`}
 						onChange={(event) => setQuery(event.currentTarget.value)}
 					/>
 				</div>
@@ -259,32 +286,55 @@ export function CollectionEditor<T extends { id: string }>({
 						{issues.map((issue) => issue.message).join(". ")}
 					</p>
 				) : null}
-				{visible.length ? (
-					<ol
+				<LayoutGroup id={listId}>
+					<Reorder.Group
+						as="ol"
+						axis="y"
+						values={visible.map((index) => rowKeys[index])}
+						onReorder={(next) => {
+							if (filter || duplicates.size) return;
+							const rows = store.valueAt(path) as T[];
+							const byId = new Map(rows.map((row) => [row.id, row]));
+							store.update(
+								path,
+								next.map((id) => byId.get(id)!),
+							);
+						}}
+						layoutScroll
 						ref={list}
-						className="m-0 grid min-w-0 list-none gap-1 p-1 lg:max-h-[max(16rem,calc(100svh-17rem))] lg:overflow-y-auto"
+						className="cms-collection-rows m-0 grid min-w-0 list-none gap-1 p-1"
 					>
-						{visible.map((index) => (
-							<MemoCollectionRow
-								key={duplicates.has(rowIds[index]) ? `${rowIds[index]}:${index}` : rowIds[index]}
-								id={rowIds[index]}
-								index={index}
-								path={childPath(path, index)}
-								itemLabel={itemLabel}
-								describe={describe}
-								selected={index === current}
-								reorderable={!filter && length > 1}
-								last={index === length - 1}
-								open={open}
-								move={move}
-							/>
-						))}
-					</ol>
-				) : (
-					<p className="m-0 rounded-[12px] border border-dashed border-line-strong p-3 text-[13px] text-muted-foreground">
-						{filter ? "No matching items." : `No items yet.`}
-					</p>
-				)}
+						<AnimatePresence initial={false}>
+							{visible.map((index) => (
+								<MemoCollectionRow
+									key={rowKeys[index]}
+									rowKey={rowKeys[index]}
+									id={rowIds[index]}
+									index={index}
+									path={childPath(path, index)}
+									itemLabel={itemLabel}
+									describe={describe}
+									selected={index === current}
+									reorderable={!filter && length > 1}
+									draggable={!duplicates.size}
+									last={index === length - 1}
+									open={open}
+									move={move}
+								/>
+							))}
+						</AnimatePresence>
+					</Reorder.Group>
+				</LayoutGroup>
+				{visible.length === 0 ? (
+					<div className="cms-editor-empty">
+						<p className="m-0 font-medium text-foreground">
+							{filter ? "No matches" : `No ${label.toLowerCase()} yet`}
+						</p>
+						<p className="m-0 mt-1">
+							{filter ? "Try another search." : `Add a ${itemLabel.toLowerCase()} to get started.`}
+						</p>
+					</div>
+				) : null}
 				<RevertList
 					path={path}
 					label={label}
@@ -297,54 +347,62 @@ export function CollectionEditor<T extends { id: string }>({
 			</section>
 			<div className={cn("grid min-w-0 gap-3", item === undefined && "max-lg:hidden")}>
 				{item !== undefined ? (
-					<div className="sticky top-14 z-10 rounded-[10px] bg-background py-1 lg:hidden">
+					<div className="cms-collection-back sticky top-14 z-10 rounded-[10px] bg-background py-1">
 						<button type="button" className={editorButton} onClick={() => back()}>
 							<span aria-hidden="true">←</span> {label}
 						</button>
 					</div>
 				) : null}
 				{activeId !== undefined ? (
-					<EditorGroup
-						title={
-							<span
-								id={detailHeadingId(activeId)}
-								tabIndex={-1}
-								className="block scroll-mt-32 wrap-anywhere rounded-sm"
-							>
-								{activeTitle || `Untitled ${itemLabel.toLowerCase()}`}
-							</span>
-						}
-						actions={
-							<div className="flex flex-wrap gap-2">
-								<button
-									type="button"
-									className={editorButton}
-									disabled={full}
-									onClick={() => {
-										const rows = store.valueAt(path) as T[];
-										add(rows, duplicate(rows[current], rows), current + 1);
-									}}
-								>
-									Duplicate
-								</button>
-								<ConfirmListAction
-									key={activeId}
-									label="Remove"
-									prompt="Remove this item?"
-									onConfirm={() => remove(current)}
-								/>
-							</div>
-						}
+					<motion.div
+						key={activeId}
+						initial={{ opacity: 0, y: reduced ? 0 : 6 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={reduced ? REDUCED : SPRING_MOVE}
+						className="min-w-0"
 					>
-						<CollectionDetails
-							key={activeId}
-							path={detailPath}
-							id={activeId}
-							profile={profile}
-							onRename={rename}
-							Editor={Editor}
-						/>
-					</EditorGroup>
+						<EditorGroup
+							title={
+								<span
+									id={detailHeadingId(activeId)}
+									tabIndex={-1}
+									className="block scroll-mt-32 wrap-anywhere rounded-sm"
+								>
+									<CollectionTitle path={detailPath} describe={describe} itemLabel={itemLabel} />
+								</span>
+							}
+							actions={
+								<div className="flex flex-wrap gap-2">
+									<button
+										type="button"
+										className={editorButton}
+										disabled={full}
+										onClick={() => {
+											const rows = store.valueAt(path) as T[];
+											add(rows, duplicate(rows[current], rows), current + 1);
+										}}
+									>
+										Duplicate
+									</button>
+									<ConfirmListAction
+										key={activeId}
+										label="Remove"
+										prompt="Remove this item?"
+										onConfirm={() => remove(current)}
+									/>
+								</div>
+							}
+						>
+							<CollectionDetails
+								key={activeId}
+								path={detailPath}
+								id={activeId}
+								profile={profile}
+								onRename={rename}
+								Editor={Editor}
+							/>
+						</EditorGroup>
+					</motion.div>
 				) : item !== undefined ? (
 					<EditorGroup title="Item unavailable">
 						<p className="m-0 text-[14px] text-muted-foreground">
@@ -358,13 +416,13 @@ export function CollectionEditor<T extends { id: string }>({
 							Return to list
 						</button>
 					</EditorGroup>
-				) : (
-					<EditorGroup title="Choose an item">
+				) : length ? (
+					<EditorGroup title="Choose an item" className="cms-collection-placeholder max-lg:hidden">
 						<p className="m-0 text-[14px] text-muted-foreground">
 							Select an item in the list to edit it.
 						</p>
 					</EditorGroup>
-				)}
+				) : null}
 			</div>
 			{removed ? (
 				<UndoRemoval
@@ -387,9 +445,26 @@ export function CollectionEditor<T extends { id: string }>({
 	);
 }
 
+function CollectionTitle<T extends { id: string }>({
+	path,
+	describe,
+	itemLabel,
+}: {
+	path: string;
+	describe: (row: T) => CollectionSummary;
+	itemLabel: string;
+}) {
+	const title = useDraftSelector((_state, store) => {
+		const row = store.valueAt(path) as T | undefined;
+		return row ? describe(row).title : "";
+	});
+	return title || `Untitled ${itemLabel.toLowerCase()}`;
+}
+
 // memo preserves the row component across unrelated draft edits. Each row
 // reads its own data and validation count.
 function CollectionRow<T extends { id: string }>({
+	rowKey,
 	id,
 	index,
 	path,
@@ -397,10 +472,12 @@ function CollectionRow<T extends { id: string }>({
 	describe,
 	selected,
 	reorderable,
+	draggable,
 	last,
 	open,
 	move,
 }: {
+	rowKey: string;
 	id: string;
 	index: number;
 	path: string;
@@ -408,6 +485,7 @@ function CollectionRow<T extends { id: string }>({
 	describe: (row: T) => CollectionSummary;
 	selected: boolean;
 	reorderable: boolean;
+	draggable: boolean;
 	last: boolean;
 	open: (id: string) => void;
 	move: (from: number, to: number) => void;
@@ -419,60 +497,74 @@ function CollectionRow<T extends { id: string }>({
 		return [summary.title, summary.subtitle, ...(summary.chips ?? [])];
 	});
 	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
+	const reduced = useReducedMotion();
 	return (
-		<li
-			className={cn(
-				"flex min-w-0 items-center rounded-[10px] border border-transparent",
-				selected && "border-line-strong bg-primary-soft",
-			)}
+		<SortableRow
+			value={rowKey}
+			label={title || itemLabel}
+			reorderable={reorderable && draggable}
+			data-selected={selected || undefined}
+			className="cms-collection-row"
+			onKeyDown={(event) => {
+				if (!reorderable || !event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
+				event.preventDefault();
+				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
+			}}
 		>
-			<button
-				type="button"
-				data-row={id}
-				aria-current={selected ? "true" : undefined}
-				onClick={() => open(id)}
-				onKeyDown={(event) => {
-					if (!reorderable || !event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key))
-						return;
-					event.preventDefault();
-					move(index, index + (event.key === "ArrowUp" ? -1 : 1));
-				}}
-				aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-				className="grid min-h-11 min-w-0 flex-1 gap-1 rounded-[10px] px-2.5 py-2 text-left hover:bg-muted aria-[current=true]:text-primary-text"
-			>
-				<span className="wrap-anywhere text-[14px] font-medium">
-					{title || `Untitled ${itemLabel.toLowerCase()}`}
-				</span>
-				{subtitle ? (
-					<span className="wrap-anywhere text-[12px] text-muted-foreground">{subtitle}</span>
-				) : null}
-				<span className="flex flex-wrap gap-1">
-					{chips.map((chip) => (
-						<span
-							key={chip}
-							className="rounded-full border border-line-strong px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
-						>
-							{chip}
-						</span>
-					))}
-					{issueCount ? (
-						<span className="rounded-full border border-line-strong px-1.5 py-0.5 text-[11px] leading-tight text-destructive">
-							{issueCount} {issueCount === 1 ? "error" : "errors"}
-						</span>
+			{(handle) => (
+				<>
+					{selected ? (
+						<motion.span
+							aria-hidden="true"
+							className="cms-choice-highlight"
+							layoutId={reduced ? undefined : "selected-row"}
+							transition={SPRING_MOVE}
+						/>
 					) : null}
-				</span>
-			</button>
-			{reorderable ? (
-				<RowActions
-					className="justify-end pr-1"
-					label={title || `${itemLabel} ${index + 1}`}
-					canMoveUp={index > 0}
-					canMoveDown={!last}
-					onMoveUp={() => move(index, index - 1)}
-					onMoveDown={() => move(index, index + 1)}
-				/>
-			) : null}
-		</li>
+					<button
+						type="button"
+						data-row={id}
+						aria-current={selected ? "true" : undefined}
+						onClick={() => open(id)}
+						aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+						className="cms-collection-row-button cms-press"
+					>
+						<span className="wrap-anywhere text-[14px] font-medium">
+							{title || `Untitled ${itemLabel.toLowerCase()}`}
+						</span>
+						{subtitle ? (
+							<span className="wrap-anywhere text-[12px] text-muted-foreground">{subtitle}</span>
+						) : null}
+						<span className="flex flex-wrap gap-1 empty:hidden">
+							{chips.map((chip) => (
+								<span
+									key={chip}
+									className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
+								>
+									{chip}
+								</span>
+							))}
+							{issueCount ? (
+								<span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-destructive">
+									{issueCount} {issueCount === 1 ? "error" : "errors"}
+								</span>
+							) : null}
+						</span>
+					</button>
+					{handle}
+					{reorderable ? (
+						<RowActions
+							className="cms-collection-row-actions justify-end pr-1 pointer-fine:grid pointer-fine:gap-0 pointer-fine:pr-0 pointer-fine:[&>button]:size-6"
+							label={title || `${itemLabel} ${index + 1}`}
+							canMoveUp={index > 0}
+							canMoveDown={!last}
+							onMoveUp={() => move(index, index - 1)}
+							onMoveDown={() => move(index, index + 1)}
+						/>
+					) : null}
+				</>
+			)}
+		</SortableRow>
 	);
 }
 
