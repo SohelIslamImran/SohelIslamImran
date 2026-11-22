@@ -645,12 +645,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const drawer = useRef<HTMLDivElement>(null);
 	const drawerScrim = useRef<HTMLDivElement>(null);
 	const drawerFrame = useRef(0);
+	const interruptedSettle = useRef(false);
 	const drawerDismissSettling = useRef(false);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
 	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
 	const clearDrawerStyles = useCallback(() => {
+		cancelAnimationFrame(drawerFrame.current);
+		drawerFrame.current = 0;
+		interruptedSettle.current = false;
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
 		drawer.current?.removeAttribute("data-swipe-settling");
@@ -662,7 +666,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
 		const onChange = () => {
 			release.current = null;
-			cancelAnimationFrame(drawerFrame.current);
 			clearDrawerStyles();
 			if (drawerDismissSettling.current) {
 				drawerDismissSettling.current = false;
@@ -677,7 +680,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [clearDrawerStyles]);
 
 	const openDrawer = () => {
-		cancelAnimationFrame(drawerFrame.current);
 		drawerDismissSettling.current = false;
 		clearDrawerStyles();
 		setDrawerOpen(true);
@@ -709,8 +711,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const tick = () => {
 			const { value, done } = trajectory.next(performance.now() - time);
 			place(value);
-			if (done) onComplete();
-			else drawerFrame.current = requestAnimationFrame(tick);
+			if (done) {
+				drawerFrame.current = 0;
+				onComplete();
+			} else {
+				drawerFrame.current = requestAnimationFrame(tick);
+			}
 		};
 		// Sample now, then before each paint. The first frame uses elapsed time
 		// since release and the measured velocity, even if Base UI took a beat.
@@ -724,7 +730,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			if (!touch || !(event.target instanceof Node) || !drawer.current?.contains(event.target)) {
 				return;
 			}
-			if (event.type === "touchstart") swipe.current = [];
+			if (event.type === "touchstart") {
+				swipe.current = [];
+				if (drawerFrame.current !== 0) {
+					// Base UI reads the current transform when the next drag starts.
+					// Leave the drawer at that position and stop writing to it.
+					cancelAnimationFrame(drawerFrame.current);
+					drawerFrame.current = 0;
+					interruptedSettle.current = true;
+				}
+			}
 			const samples = swipe.current;
 			samples.push({ x: touch.clientX, time: event.timeStamp });
 			// Velocity over the last ~100ms of movement, not just the last event pair.
@@ -742,6 +757,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	}, [drawerOpen]);
 
 	const finishSwipe = (event: TouchEvent) => {
+		const interrupted = interruptedSettle.current;
+		interruptedSettle.current = false;
 		const popup = drawer.current;
 		const samples = swipe.current;
 		swipe.current = [];
@@ -755,7 +772,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const first = samples[0];
 		const last = samples.at(-1);
 		const velocity =
-			first && last && last.time > first.time && event.timeStamp - last.time < 100
+			event.type !== "touchcancel" &&
+			first &&
+			last &&
+			last.time > first.time &&
+			event.timeStamp - last.time < 100
 				? (1000 * (last.x - first.x)) / (last.time - first.time)
 				: 0;
 		const position = { x: popup.getBoundingClientRect().x, velocity, time: performance.now() };
@@ -782,6 +803,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				drawerDismissSettling.current = false;
 				drawerActions.current?.unmount();
 			});
+		} else if (!open && (drawerFrame.current !== 0 || interruptedSettle.current)) {
+			clearDrawerStyles();
 		}
 		setDrawerOpen(open);
 	};
@@ -970,10 +993,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						<Drawer.Popup
 							ref={drawer}
 							onTouchEndCapture={finishSwipe}
-							onTouchCancelCapture={() => {
-								swipe.current = [];
-								release.current = null;
-							}}
+							onTouchCancelCapture={finishSwipe}
 							data-slot="cms-mobile-drawer"
 							className="cms-drawer-popup cms-overlay cms-glass pointer-events-auto fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
 						>
