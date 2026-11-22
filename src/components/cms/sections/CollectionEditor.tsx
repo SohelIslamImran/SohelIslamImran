@@ -5,6 +5,7 @@ import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
+import { FieldMessage } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField, RowActions } from "../fields";
@@ -245,13 +246,19 @@ export function CollectionEditor<T extends { id: string }>({
 						<label htmlFor={nameId} className="text-[13px] font-medium">
 							{nameLabel}
 						</label>
-						<input
+						<textarea
 							id={nameId}
-							className={`${controlClass} min-h-10`}
+							className={`${controlClass} cms-textarea min-h-[calc(1lh+22px)] py-2.5 leading-relaxed`}
+							rows={1}
 							required
 							value={name}
 							maxLength={nameLimit}
-							onChange={(event) => setName(event.currentTarget.value)}
+							onChange={(event) => setName(event.currentTarget.value.replace(/\n/gu, ""))}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.currentTarget.form?.requestSubmit();
+							}}
 						/>
 						<button
 							type="submit"
@@ -281,11 +288,10 @@ export function CollectionEditor<T extends { id: string }>({
 				{filter ? (
 					<p className="m-0 text-[12px] text-muted-foreground">Clear search to reorder.</p>
 				) : null}
-				{issues.length ? (
-					<p id={`${fieldId(path)}-error`} className="m-0 text-[13px] text-destructive">
-						{issues.map((issue) => issue.message).join(". ")}
-					</p>
-				) : null}
+				<FieldMessage
+					id={`${fieldId(path)}-error`}
+					message={issues.map((issue) => issue.message).join(". ")}
+				/>
 				<LayoutGroup id={listId}>
 					<Reorder.Group
 						as="ol"
@@ -353,76 +359,81 @@ export function CollectionEditor<T extends { id: string }>({
 						</button>
 					</div>
 				) : null}
-				{activeId !== undefined ? (
-					<motion.div
-						key={activeId}
-						initial={{ opacity: 0, y: reduced ? 0 : 6 }}
-						animate={{ opacity: 1, y: 0 }}
-						transition={reduced ? REDUCED : SPRING_MOVE}
-						className="min-w-0"
-					>
-						<EditorGroup
-							title={
-								<span
-									id={detailHeadingId(activeId)}
-									tabIndex={-1}
-									className="block scroll-mt-32 wrap-anywhere rounded-sm"
-								>
-									<CollectionTitle path={detailPath} describe={describe} itemLabel={itemLabel} />
-								</span>
-							}
-							actions={
-								<div className="flex flex-wrap gap-2">
-									<button
-										type="button"
-										className={editorButton}
-										disabled={full}
-										onClick={() => {
-											const rows = store.valueAt(path) as T[];
-											add(rows, duplicate(rows[current], rows), current + 1);
-										}}
+				<AnimatePresence initial={false}>
+					{activeId !== undefined ? (
+						<motion.div
+							key={activeId}
+							initial={{ opacity: 0, y: reduced ? 0 : 6 }}
+							animate={{ opacity: 1, y: 0 }}
+							transition={reduced ? REDUCED : SPRING_MOVE}
+							className="min-w-0"
+						>
+							<EditorGroup
+								title={
+									<span
+										id={detailHeadingId(activeId)}
+										tabIndex={-1}
+										className="block scroll-mt-32 wrap-anywhere rounded-sm"
 									>
-										Duplicate
-									</button>
-									<ConfirmListAction
-										key={activeId}
-										label="Remove"
-										prompt="Remove this item?"
-										onConfirm={() => remove(current)}
-									/>
-								</div>
-							}
-						>
-							<CollectionDetails
-								key={activeId}
-								path={detailPath}
-								id={activeId}
-								profile={profile}
-								onRename={rename}
-								Editor={Editor}
-							/>
+										<CollectionTitle path={detailPath} describe={describe} itemLabel={itemLabel} />
+									</span>
+								}
+								actions={
+									<div className="flex flex-wrap gap-2">
+										<button
+											type="button"
+											className={editorButton}
+											disabled={full}
+											onClick={() => {
+												const rows = store.valueAt(path) as T[];
+												add(rows, duplicate(rows[current], rows), current + 1);
+											}}
+										>
+											Duplicate
+										</button>
+										<ConfirmListAction
+											key={activeId}
+											label="Remove"
+											prompt="Remove this item?"
+											onConfirm={() => remove(current)}
+										/>
+									</div>
+								}
+							>
+								<CollectionDetails
+									key={activeId}
+									path={detailPath}
+									id={activeId}
+									profile={profile}
+									onRename={rename}
+									Editor={Editor}
+								/>
+							</EditorGroup>
+						</motion.div>
+					) : item !== undefined ? (
+						<EditorGroup title="Item unavailable">
+							<p className="m-0 text-[14px] text-muted-foreground">
+								This item is no longer in the draft. Return to the list to choose another.
+							</p>
+							<button
+								type="button"
+								className={`${editorButton} justify-self-start`}
+								onClick={() => back()}
+							>
+								Return to list
+							</button>
 						</EditorGroup>
-					</motion.div>
-				) : item !== undefined ? (
-					<EditorGroup title="Item unavailable">
-						<p className="m-0 text-[14px] text-muted-foreground">
-							This item is no longer in the draft. Return to the list to choose another.
-						</p>
-						<button
-							type="button"
-							className={`${editorButton} justify-self-start`}
-							onClick={() => back()}
+					) : length ? (
+						<EditorGroup
+							title="Choose an item"
+							className="cms-collection-placeholder max-lg:hidden"
 						>
-							Return to list
-						</button>
-					</EditorGroup>
-				) : length ? (
-					<EditorGroup title="Choose an item" className="cms-collection-placeholder max-lg:hidden">
-						<p className="m-0 text-[14px] text-muted-foreground">
-							Select an item in the list to edit it.
-						</p>
-					</EditorGroup>
-				) : null}
+							<p className="m-0 text-[14px] text-muted-foreground">
+								Select an item in the list to edit it.
+							</p>
+						</EditorGroup>
+					) : null}
+				</AnimatePresence>
 			</div>
 			{removed ? (
 				<UndoRemoval
@@ -505,11 +516,7 @@ function CollectionRow<T extends { id: string }>({
 			reorderable={reorderable && draggable}
 			data-selected={selected || undefined}
 			className="cms-collection-row"
-			onKeyDown={(event) => {
-				if (!reorderable || !event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
-				event.preventDefault();
-				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
-			}}
+			onMove={reorderable ? (offset) => move(index, index + offset) : undefined}
 		>
 			{(handle) => (
 				<>
@@ -524,6 +531,7 @@ function CollectionRow<T extends { id: string }>({
 					<button
 						type="button"
 						data-row={id}
+						data-row-reorder=""
 						aria-current={selected ? "true" : undefined}
 						onClick={() => open(id)}
 						aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
@@ -582,18 +590,22 @@ function ConfirmListAction({
 	const [confirming, setConfirming] = useState(false);
 	const trigger = useRef<HTMLButtonElement>(null);
 	const cancel = useRef<HTMLButtonElement>(null);
+	const cancelConfirmation = () => {
+		setConfirming(false);
+		requestAnimationFrame(() => trigger.current?.focus());
+	};
 	return confirming ? (
-		<div className="flex flex-wrap items-center gap-2">
+		<div
+			className="flex flex-wrap items-center gap-2"
+			onKeyDown={(event) => {
+				if (event.key !== "Escape") return;
+				event.preventDefault();
+				event.stopPropagation();
+				cancelConfirmation();
+			}}
+		>
 			<p className="m-0 text-xs">{prompt}</p>
-			<button
-				ref={cancel}
-				type="button"
-				className={editorButton}
-				onClick={() => {
-					setConfirming(false);
-					requestAnimationFrame(() => trigger.current?.focus());
-				}}
-			>
+			<button ref={cancel} type="button" className={editorButton} onClick={cancelConfirmation}>
 				Cancel
 			</button>
 			<button

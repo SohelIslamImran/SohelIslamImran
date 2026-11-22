@@ -100,7 +100,7 @@ export function FieldFrame({
 			className={cn("cms-field group/cms-field relative grid min-w-0 gap-2", className)}
 		>
 			<span aria-hidden="true" data-slot="cms-trace-mark" className="cms-trace-mark" />
-			<div className="flex min-h-6 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0">
+			<div className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0 pointer-coarse:min-h-11">
 				<LabelTag
 					id={`${id}-label`}
 					{...(asGroup ? {} : { htmlFor: id })}
@@ -149,27 +149,22 @@ export function FieldFrame({
 	);
 }
 
-/** The collapse wrapper takes up no space when the field is valid. */
+/** Keep the live region mounted and its space reserved while the field is valid. */
 export function FieldMessage({ id, message }: { id: string; message: string }) {
-	const lastMessage = useRef(message);
-	if (message) lastMessage.current = message;
 	return (
-		<div
-			className="cms-field-message"
-			data-open={Boolean(message) || undefined}
-			aria-hidden={!message}
-		>
-			<div>
-				<p
-					id={id}
-					className="m-0 flex items-start gap-1.5 text-[12.5px] leading-normal text-destructive"
-				>
+		<div className="cms-field-message" aria-live="polite" aria-atomic="true">
+			<p
+				id={id}
+				data-open={Boolean(message) || undefined}
+				className="m-0 flex items-start gap-1.5 wrap-anywhere text-destructive"
+			>
+				{message ? (
 					<span aria-hidden="true" className="font-mono">
 						!
 					</span>
-					<span>{lastMessage.current}</span>
-				</p>
-			</div>
+				) : null}
+				<span>{message}</span>
+			</p>
 		</div>
 	);
 }

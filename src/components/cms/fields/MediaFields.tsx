@@ -17,7 +17,7 @@ import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowActions } from "./ListFields";
 import { SortableRow } from "./SortableRow";
-import { TextField } from "./TextFields";
+import { TextAreaField } from "./TextFields";
 
 const MAX_TRAVEL_MEDIA = 30;
 const NO_ASSET = "none";
@@ -159,7 +159,12 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 				</div>
 				{field.value ? (
 					<div className="cms-enter">
-						<TextField path={`${path}.alt`} label="Alt text for this image" maxLength={240} />
+						<TextAreaField
+							rows={1}
+							path={`${path}.alt`}
+							label="Alt text for this image"
+							maxLength={240}
+						/>
 					</div>
 				) : null}
 				{mediaEnabled && !loading ? (
@@ -184,8 +189,15 @@ export function MediaIdsField({ path }: { path: string }) {
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const move = (from: number, to: number) => {
 		if (to < 0 || to >= ids.length) return;
+		const handle = document.activeElement
+			?.closest(".cms-sortable-row")
+			?.querySelector<HTMLButtonElement>("[data-row-handle]");
 		field.set(moveItem(ids, from, to));
-		requestAnimationFrame(() => focusField(childPath(path, to)));
+		requestAnimationFrame(() => {
+			if (handle?.isConnected && !handle.closest("[inert]")) {
+				handle.focus({ preventScroll: true });
+			} else focusField(childPath(path, to));
+		});
 	};
 	const description =
 		libraryDescription ??
@@ -294,11 +306,7 @@ function PhotoRow({
 			reorderable={index > 0 || canMoveDown}
 			label={label}
 			className="cms-repeater-row p-2"
-			onKeyDown={(event) => {
-				if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
-				event.preventDefault();
-				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
-			}}
+			onMove={(offset) => move(index, index + offset)}
 		>
 			{(handle) => (
 				<>
@@ -333,7 +341,8 @@ function PhotoRow({
 								Edit alt text
 							</summary>
 							<div className="cms-enter px-2 pb-2">
-								<TextField
+								<TextAreaField
+									rows={1}
 									path={`media[${assetIndex}].alt`}
 									label="Alt text"
 									description="Used wherever this photo appears in travel entries."

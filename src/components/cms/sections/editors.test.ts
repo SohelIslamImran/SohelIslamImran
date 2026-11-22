@@ -5,9 +5,9 @@ import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { INITIAL_PORTFOLIO_CONTENT } from "../../../content/initial";
 import { CmsDraftProvider } from "../draft/context";
 import { DateField, MediaField } from "../fields";
-import { StoryEditor } from "./object-editors";
+import { HeroEditor, StoryEditor } from "./object-editors";
 import { CollectionEditor } from "./CollectionEditor";
-import { LinksEditor } from "./collection-editors";
+import { LinksEditor, ProjectsEditor } from "./collection-editors";
 import { sectionSearch } from "../../../routes/cms/content.$section";
 
 vi.mock("../../../server/cms-history.functions", () => ({ listMedia: vi.fn() }));
@@ -73,7 +73,7 @@ describe("CMS editor rendering", () => {
 			false,
 		);
 		expect(html).toContain("Media storage is not connected.");
-		expect(html).toContain('value="Custom alt"');
+		expect(html).toMatch(/<textarea[^>]*>Custom alt<\/textarea>/u);
 		expect(html).not.toContain("/media/asset-draft-only");
 		expect(html).not.toContain("private-key");
 	});
@@ -128,6 +128,19 @@ describe("CMS editor rendering", () => {
 		expect(html).toContain("30/30");
 		expect(html).toMatch(/<button[^>]*id="cms-field-story-chapters"[^>]*disabled=""/u);
 		expect(html).toContain('aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"');
+	});
+
+	it("shows the project detail immediately in server-rendered HTML", () => {
+		const html = renderEditor(createElement(ProjectsEditor, { item: "kuno", select: vi.fn() }));
+		expect(html).toMatch(
+			/style="opacity:1;transform:none"[^>]*><section[^>]*data-slot="cms-editor-group"/u,
+		);
+	});
+
+	it("server-renders a compact headline textarea and a persistent error region", () => {
+		const html = renderEditor(createElement(HeroEditor));
+		expect(html).toMatch(/<textarea[^>]*id="cms-field-hero-title"[^>]*rows="1"/u);
+		expect(html).toMatch(/aria-live="polite"[^>]*><p id="cms-field-hero-title-error"/u);
 	});
 
 	it("renders a way back from a stale collection item URL", () => {

@@ -1,5 +1,5 @@
 import { Input } from "@base-ui/react/input";
-import { motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
@@ -41,14 +41,16 @@ export function Counter({ length, max }: { length: number; max?: number }) {
 				length > max ? "text-destructive" : "text-muted-foreground",
 			)}
 		>
-			<motion.span
-				key={length}
-				initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
-				animate={{ opacity: 1, y: 0 }}
-				transition={reduced ? REDUCED : SPRING_SNAPPY}
-			>
-				{length}
-			</motion.span>
+			<AnimatePresence initial={false}>
+				<motion.span
+					key={length}
+					initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
+					animate={{ opacity: 1, y: 0 }}
+					transition={reduced ? REDUCED : SPRING_SNAPPY}
+				>
+					{length}
+				</motion.span>
+			</AnimatePresence>
 			/{max}
 		</span>
 	);

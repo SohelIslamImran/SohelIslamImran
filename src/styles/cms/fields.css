@@ -60,25 +60,18 @@
 	}
 
 	.cms-field-message {
-		display: grid;
-		grid-template-rows: 0fr;
-		margin-top: -0.5rem;
+		font-size: 12.5px;
+		line-height: 1.5;
+		block-size: 2lh;
+		overflow: auto;
+	}
+
+	.cms-field-message > p {
 		opacity: 0;
-		transition:
-			grid-template-rows var(--cms-dur-base) var(--cms-ease-out),
-			opacity var(--cms-dur-fast) var(--cms-ease-out);
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-field-message > div {
-		overflow: hidden;
-	}
-
-	.cms-field-message p {
-		padding-top: 0.5rem;
-	}
-
-	.cms-field-message[data-open] {
-		grid-template-rows: 1fr;
+	.cms-field-message > p[data-open] {
 		opacity: 1;
 	}
 
@@ -103,11 +96,6 @@
 		}
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		.cms-field-message {
-			transition-property: opacity;
-		}
-	}
 	.cms-field-popup {
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
@@ -555,15 +543,6 @@
 		white-space: nowrap;
 	}
 
-	.cms-field-message p {
-		translate: 0 -3px;
-		transition: translate var(--cms-dur-base) var(--cms-ease-out);
-	}
-
-	.cms-field-message[data-open] p {
-		translate: 0 0;
-	}
-
 	@media (min-width: 48rem) and (pointer: fine) {
 		.cms-string-row {
 			grid-template-columns: minmax(0, 1fr) auto;
@@ -574,13 +553,6 @@
 		}
 		.cms-string-tools {
 			padding-top: 4px;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.cms-field-message p {
-			translate: none;
-			transition: none;
 		}
 	}
 }
