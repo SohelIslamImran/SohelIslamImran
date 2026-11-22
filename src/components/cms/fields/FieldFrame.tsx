@@ -11,6 +11,7 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useDraftSelector } from "../draft/context";
+import { ISSUE_IDLE_MS } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { correspondingPath, getAt, parsePath } from "../draft/paths";
 import { AlertCircleIcon, RevertIcon } from "./field-icons";
@@ -269,19 +270,19 @@ export function useActionPointer() {
 const NO_ISSUES: readonly ValidationIssue[] = [];
 
 /** Keep draft validation live. Delay the input's message and ARIA state together. */
-export function useFieldIssueFeedback(
-	issues: readonly ValidationIssue[],
-	value: string | number,
-	delay: number | null = 700,
-) {
+export function useFieldIssueFeedback(issues: readonly ValidationIssue[], value: string | number) {
 	const [editing, setEditing] = useState(false);
 	const [revealed, setRevealed] = useState(false);
 	const invalid = issues.length > 0;
 	useEffect(() => {
-		if (!editing || !invalid || revealed || delay === null) return;
-		const timer = setTimeout(() => setRevealed(true), delay);
+		if (!invalid) {
+			setRevealed(false);
+			return;
+		}
+		if (!editing || revealed) return;
+		const timer = setTimeout(() => setRevealed(true), ISSUE_IDLE_MS);
 		return () => clearTimeout(timer);
-	}, [editing, invalid, revealed, value, delay]);
+	}, [editing, invalid, revealed, value]);
 
 	function commit() {
 		setEditing(false);

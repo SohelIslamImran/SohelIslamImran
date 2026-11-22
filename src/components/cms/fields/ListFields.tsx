@@ -454,6 +454,7 @@ const StringRow = memo(function StringRow({
 												event.preventDefault();
 										}
 							}
+							data-settle-issues=""
 							onFocus={onFocus}
 							onBlur={onBlur}
 							onChange={(event) => {

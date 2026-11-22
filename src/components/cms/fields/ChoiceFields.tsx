@@ -203,7 +203,7 @@ export function SuggestionField({
 	const groupId = useId();
 	const reduced = useLiveReducedMotion();
 	const value = field.value ?? "";
-	const feedback = useFieldIssueFeedback(field.issues, value, null);
+	const feedback = useFieldIssueFeedback(field.issues, value);
 	const [open, setOpen] = useState(false);
 	// Show the whole list when it opens; filter once the owner types.
 	const [typed, setTyped] = useState(false);
@@ -263,6 +263,7 @@ export function SuggestionField({
 						className={cn(controlClass, "min-h-10 pr-12 font-mono")}
 						aria-invalid={feedback.issues.length > 0 || undefined}
 						aria-describedby={describedBy(path, Boolean(description), feedback.issues)}
+						data-settle-issues=""
 						onBlur={feedback.onBlur}
 						onFocus={(event) => {
 							feedback.onFocus();

@@ -27,6 +27,7 @@ import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
+import { SettledIssuesProvider, useSettledIssues } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_MOVE } from "../motion";
 
 import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
@@ -241,9 +242,8 @@ function RailLink({
 }
 
 function useSectionState(paths: readonly string[]) {
-	const errors = useDraftSelector((state) =>
-		paths.reduce((total, path) => total + state.issues.under(path).length, 0),
-	);
+	const issues = useSettledIssues();
+	const errors = paths.reduce((total, path) => total + issues.under(path).length, 0);
 	const changed = useDraftSelector((state, store) =>
 		paths.some((path) => store.changedAt(path, state)),
 	);
@@ -652,7 +652,15 @@ export function useCommittedPathname() {
 	});
 }
 
-export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSlot?: ReactNode }) {
+export function CmsShell(props: { children: ReactNode; pulseSlot?: ReactNode }) {
+	return (
+		<SettledIssuesProvider>
+			<CmsShellLayout {...props} />
+		</SettledIssuesProvider>
+	);
+}
+
+function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlot?: ReactNode }) {
 	const store = useDraftStore();
 	const saveFeedback = useSaveFeedback();
 	const [railMode, setRailMode] = useState<RailMode>("auto");
