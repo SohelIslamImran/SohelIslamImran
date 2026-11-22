@@ -405,10 +405,6 @@
 		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
 	}
 
-	.cms-root:has(#main-content #release-gate) .cms-publish-action {
-		display: none;
-	}
-
 	[data-slot="cms-mobile-action-bar"] .cms-action {
 		flex: 1;
 	}
@@ -575,6 +571,10 @@
 }
 
 @layer utilities {
+	.cms-root:has(#main-content #release-gate) .cms-publish-action {
+		display: none;
+	}
+
 	.cms-action:is([aria-busy="true"], [data-complete="true"]):is(:disabled, [aria-disabled="true"]) {
 		opacity: 1;
 	}
