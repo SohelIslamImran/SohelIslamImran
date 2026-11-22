@@ -38,7 +38,7 @@ export function SiteEditor() {
 				/>
 			</EditorGroup>
 			<EditorGroup title="Document">
-				<div className="grid gap-4 sm:grid-cols-2">
+				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 					<TextField
 						path="site.locale"
 						label="Locale"
@@ -67,7 +67,7 @@ export function IdentityEditor() {
 	return (
 		<>
 			<EditorGroup title="Profile">
-				<div className="grid gap-4 sm:grid-cols-2">
+				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 					<TextField path="identity.name" label="Name" maxLength={160} required />
 					<TextField path="identity.handle" label="Handle" maxLength={160} mono required />
 				</div>
@@ -82,7 +82,7 @@ export function IdentityEditor() {
 			</EditorGroup>
 			<EditorGroup title="Contact details">
 				<TextField path="identity.email" label="Email" type="email" maxLength={320} required />
-				<div className="grid gap-4 sm:grid-cols-2">
+				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 					<TextField path="identity.location" label="Résumé location" maxLength={160} />
 					<SuggestionField
 						path="identity.timezone"

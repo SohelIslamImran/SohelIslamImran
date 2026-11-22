@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
+import { ExternalArrowIcon } from "../shell/cms-icons";
 
 export function EditorLayout({
 	title,
@@ -21,24 +22,28 @@ export function EditorLayout({
 					<h1 id="cms-section-heading" tabIndex={-1} className="cms-editor-title m-0 rounded-sm">
 						{title}
 					</h1>
-					{liveUrl ? (
-						<a
-							href={liveUrl}
-							target="_blank"
-							rel="noreferrer"
-							className="cms-editor-button cms-editor-live cms-press"
-						>
-							View live <span aria-hidden="true">↗</span>
-							<span className="sr-only"> (opens in a new tab)</span>
-						</a>
-					) : null}
+					{/* Errors float in the title row, so they never push the fields down. */}
+					<div className="flex items-center gap-1.5">
+						{issues}
+						{liveUrl ? (
+							<a
+								href={liveUrl}
+								target="_blank"
+								rel="noreferrer"
+								className="cms-editor-button cms-editor-live cms-press"
+							>
+								<span className="max-sm:sr-only">View live</span>
+								<ExternalArrowIcon className="size-3.5" />
+								<span className="sr-only"> (opens in a new tab)</span>
+							</a>
+						) : null}
+					</div>
 					<p className="col-span-full m-0 text-[14px] leading-relaxed text-muted-foreground">
 						{description}
 					</p>
 				</div>
 			</header>
 			{children}
-			{issues}
 		</div>
 	);
 }

@@ -1,12 +1,15 @@
-import { useCallback } from "react";
+import { Popover } from "@base-ui/react/popover";
+import { useCallback, useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
+import { sentenceCase } from "../../components/cms/fields/FieldFrame";
+import { AlertCircleIcon } from "../../components/cms/fields/field-icons";
 import { absolute } from "../../lib/seo";
 import { EditorLayout } from "../../components/cms/sections/EditorLayout";
-import { itemForIssue } from "../../components/cms/sections/collection-helpers";
+import { issueLabel, itemForIssue } from "../../components/cms/sections/collection-helpers";
 import { SECTION_EDITORS } from "../../components/cms/sections/editors";
 import { findSection, isSectionId, type SectionMeta } from "../../components/cms/sections/registry";
 
@@ -78,64 +81,82 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 		...media.filter((issue) => itemForMediaIssue(issue.path)),
 	];
 
+	const [open, setOpen] = useState(false);
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
+	const draftNow = store.getState().draft;
+	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
-		<section aria-labelledby="cms-section-errors" className="cms-section-issues">
-			<h2 id="cms-section-errors" className="m-0 text-[13px] font-semibold text-destructive">
-				{issues.length} {issues.length === 1 ? "error to fix" : "errors to fix"}
-			</h2>
-			<ul className="m-0 mt-1 grid list-none p-0 text-[13px]">
-				{issues.map((issue, index) => {
-					const item = section.collection
-						? (itemForIssue(store.getState().draft, collectionPath, issue.path) ??
-							itemForMediaIssue(issue.path))
-						: undefined;
-					const tab =
-						section.id === "links" && isPathWithin(issue.path, "social")
-							? ("social" as const)
-							: undefined;
-					return (
-						<li key={`${issue.path}-${index}`}>
-							<Link
-								to="/cms/content/$section"
-								params={{ section: section.id }}
-								search={{ item, tab }}
-								hash={fieldId(issue.path)}
-								replace
-								resetScroll={false}
-								onClick={(event) => {
-									if (
-										event.button !== 0 ||
-										event.metaKey ||
-										event.ctrlKey ||
-										event.shiftKey ||
-										event.altKey
-									)
-										return;
-									event.preventDefault();
-									void navigate({
-										to: "/cms/content/$section",
-										params: { section: section.id },
-										search: { item, tab },
-										replace: true,
-										resetScroll: false,
-									}).then(() => revealIssue(issue.path));
-								}}
-								className="cms-press -mx-1 inline-flex min-h-8 max-w-full flex-wrap items-center gap-x-2 rounded-md px-1 py-1 text-foreground hover:bg-surface-solid pointer-coarse:min-h-11"
-							>
-								<span className="wrap-anywhere text-primary-text underline underline-offset-2">
-									{issue.message}
-								</span>
-								<span className="wrap-anywhere font-mono text-[11px] text-muted-foreground">
-									{issue.path}
-								</span>
-							</Link>
-						</li>
-					);
-				})}
-			</ul>
-		</section>
+		<Popover.Root open={open} onOpenChange={setOpen}>
+			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
+				<AlertCircleIcon className="size-3.5" />
+				{count}
+				<span className="sr-only"> to fix</span>
+			</Popover.Trigger>
+			<Popover.Portal>
+				<Popover.Positioner
+					side="bottom"
+					align="end"
+					sideOffset={8}
+					className="isolate z-(--z-overlay) outline-none"
+				>
+					<Popover.Popup className="cms-field-popup cms-issues-popup">
+						<Popover.Title className="m-0 px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-muted-foreground">
+							{issues.length === 1 ? "1 error to fix" : `${count} to fix`}
+						</Popover.Title>
+						<ul className="cms-popup-list m-0 grid list-none p-0">
+							{issues.map((issue, index) => {
+								const item = section.collection
+									? (itemForIssue(draftNow, collectionPath, issue.path) ??
+										itemForMediaIssue(issue.path))
+									: undefined;
+								const tab =
+									section.id === "links" && isPathWithin(issue.path, "social")
+										? ("social" as const)
+										: undefined;
+								return (
+									<li key={`${issue.path}-${index}`}>
+										<Link
+											to="/cms/content/$section"
+											params={{ section: section.id }}
+											search={{ item, tab }}
+											hash={fieldId(issue.path)}
+											replace
+											resetScroll={false}
+											onClick={(event) => {
+												if (
+													event.button !== 0 ||
+													event.metaKey ||
+													event.ctrlKey ||
+													event.shiftKey ||
+													event.altKey
+												)
+													return;
+												event.preventDefault();
+												setOpen(false);
+												void navigate({
+													to: "/cms/content/$section",
+													params: { section: section.id },
+													search: { item, tab },
+													replace: true,
+													resetScroll: false,
+												}).then(() => revealIssue(issue.path));
+											}}
+											className="cms-issue-link"
+										>
+											<span className="font-semibold">{issueLabel(draftNow, issue.path)}</span>{" "}
+											<span className="text-muted-foreground">
+												{sentenceCase(issue.message).replace(/^./u, (first) => first.toLowerCase())}
+											</span>
+										</Link>
+									</li>
+								);
+							})}
+						</ul>
+					</Popover.Popup>
+				</Popover.Positioner>
+			</Popover.Portal>
+		</Popover.Root>
 	);
 }
 

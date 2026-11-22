@@ -110,11 +110,16 @@ describe("CMS editor rendering", () => {
 			id: `link-${index}`,
 		}));
 		const html = renderEditor(createElement(LinksEditor, { select: vi.fn() }), draft);
+		const heading = /<h2 id="([^"]+)"[^>]*>Profile links<\/h2>/u.exec(html)?.[1];
+		expect(heading).toBeTruthy();
 		expect(html).toMatch(
-			/<section[^>]*aria-label="Profile links list"[^>]*data-slot="cms-field"[^>]*tabindex="-1"/u,
+			new RegExp(
+				`<section[^>]*aria-labelledby="${heading}"[^>]*data-slot="cms-field"[^>]*tabindex="-1"`,
+				"u",
+			),
 		);
 		expect(html).toMatch(/<button[^>]*id="cms-field-profileLinks"[^>]*disabled=""/u);
-		expect(html).toContain(`must contain no more than ${MAX_COLLECTION_ITEMS} items`);
+		expect(html).toContain(`Must contain no more than ${MAX_COLLECTION_ITEMS} items.`);
 	});
 
 	it("disables Add chapter at the chapter limit and exposes move shortcuts", () => {

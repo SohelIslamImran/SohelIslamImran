@@ -106,7 +106,7 @@ function isIsoDate(value: string): boolean {
 
 export function CoordinateField({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4 sm:grid-cols-2">
+		<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 			<NumberField
 				path={`${path}.latitude`}
 				label="Latitude"
@@ -137,7 +137,7 @@ export function LinkRow({ path }: { path: string }) {
 
 export function MetricRow({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4 sm:grid-cols-2">
+		<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 			<TextField path={`${path}.label`} label="Label" maxLength={120} required />
 			<TextField path={`${path}.value`} label="Value" maxLength={240} />
 		</div>

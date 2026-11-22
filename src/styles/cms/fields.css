@@ -644,8 +644,9 @@
 	}
 
 	.cms-collection-row-button {
-		display: grid;
-		gap: 3px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		flex: 1;
 		min-width: 0;
 		min-height: 44px;
@@ -663,6 +664,65 @@
 		box-shadow: inset 2px 0 var(--theme-accent);
 	}
 
+	/* Rows open a detail pane; touch screens show the disclosure chevron. */
+	.cms-collection-chevron {
+		display: none;
+	}
+
+	@media (pointer: coarse) {
+		.cms-collection-chevron {
+			display: block;
+		}
+	}
+
+	/* The list's error line keeps its live region but adds no gap while closed. */
+	.cms-collection-list > .cms-field-foot:not([data-open]) {
+		margin-top: -12px;
+	}
+
+	.cms-collection-empty-state {
+		display: grid;
+		justify-items: center;
+		gap: 12px;
+		padding: 2rem 1rem 1.75rem;
+		text-align: center;
+	}
+
+	.cms-collection-empty-icon {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 14px;
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
+	}
+
+	.cms-editor-button.cms-editor-destructive {
+		color: var(--theme-destructive);
+	}
+
+	/*
+	 * Phones show one pane at a time in a single grid cell, so the detail
+	 * pane can slide over the list (and back) while both are painted.
+	 */
+	@media (max-width: 63.999rem) {
+		.cms-collection {
+			grid-template-areas: "pane";
+			overflow-x: clip;
+		}
+
+		.cms-collection > .cms-collection-list,
+		.cms-collection > .cms-collection-detail {
+			grid-area: pane;
+		}
+
+		.cms-collection[data-pane] > .cms-collection-detail {
+			align-self: stretch;
+			background: var(--theme-paper);
+		}
+	}
+
 	.cms-collection-placeholder {
 		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-paper));
 	}
@@ -673,7 +733,6 @@
 		}
 
 		.cms-collection-empty {
-			max-width: 46rem;
 			grid-template-columns: minmax(0, 1fr);
 		}
 
@@ -710,7 +769,15 @@
 		}
 
 		.cms-collection-row:not([data-selected]):hover {
-			background: var(--theme-accent-soft);
+			background: color-mix(in srgb, var(--theme-ink) 5%, transparent);
+		}
+
+		.cms-editor-button.cms-editor-destructive:hover:not(:disabled) {
+			background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		}
+
+		.cms-issue-link:hover {
+			background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
 		}
 
 		.cms-collection-row-actions {
@@ -767,15 +834,58 @@
 		line-height: 1.12;
 	}
 
-	.cms-section-issues {
-		border-inline-start: 2px solid var(--theme-destructive);
-		border-radius: 8px 12px 12px 8px;
-		background: color-mix(in srgb, var(--theme-destructive) 5%, var(--theme-surface-solid));
-		padding: 0.75rem 0.9rem;
+	/* Section errors: a pill in the title row that opens the list. */
+	.cms-issues-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 32px;
+		padding-inline: 10px 12px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		color: var(--theme-destructive);
+		font-size: 13px;
+		font-weight: 600;
+		white-space: nowrap;
 	}
 
+	.cms-issues-pill[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-destructive) 16%, var(--theme-surface-solid));
+	}
+
+	.cms-issues-popup {
+		width: min(24rem, var(--available-width));
+		padding: 5px;
+	}
+
+	.cms-issue-link {
+		display: block;
+		padding: 0.5rem 0.625rem;
+		border-radius: 9px;
+		color: var(--theme-ink);
+		font-size: 13px;
+		line-height: 1.45;
+		overflow-wrap: anywhere;
+		outline: none;
+	}
+
+	.cms-issue-link:focus-visible {
+		box-shadow: var(--cms-ring);
+	}
+
+	@media (pointer: coarse) {
+		.cms-issues-pill {
+			min-height: 44px;
+		}
+		.cms-issue-link {
+			padding-block: 0.75rem;
+		}
+	}
+
+	/* Editor groups lay title beside fields on wide screens, wherever they sit
+	   on the page (tabs, wrappers), but not inside a collection's detail pane. */
 	@media (min-width: 76rem) {
-		.cms-editor > .cms-editor-group {
+		.cms-editor .cms-editor-group:not(.cms-collection *) {
 			grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
 			align-items: start;
 			gap: clamp(1.5rem, 3vw, 2.5rem);
