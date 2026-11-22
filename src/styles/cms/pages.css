@@ -360,9 +360,11 @@
 		.cms-collapse-panel {
 			animation: cms-fade 140ms linear both;
 		}
-		.cms-time-in,
-		.cms-chart-tooltip {
+		.cms-time-in {
 			animation: cms-fade 120ms linear both;
+		}
+		.cms-chart-series {
+			clip-path: none;
 		}
 		.cms-kpi-card,
 		.cms-jump-card,

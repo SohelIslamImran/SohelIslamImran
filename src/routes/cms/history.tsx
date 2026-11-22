@@ -6,9 +6,9 @@
  * skeleton; below `lg` selecting a row scrolls the inspector into view.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useReducedMotion } from "motion/react";
 import { z } from "zod";
 import {
 	EmptyState,
@@ -49,7 +49,7 @@ export const Route = createFileRoute("/cms/history")({
 });
 
 function HistoryRoute() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const { revision: searchRevision } = Route.useSearch();
 	const store = useDraftStore();
 	const draft = useDraftSelector((state) => state.draft);

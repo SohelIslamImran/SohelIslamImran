@@ -6,10 +6,11 @@
  * the receipt replaces the page body.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import {
 	PageHeader,
 	PageNotice,
@@ -42,7 +43,7 @@ const tabs = [
 ] as const;
 
 function ReleaseRoute() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const store = useDraftStore();
 	const publicOrigin = usePublicOrigin();
 	const host = new URL(publicOrigin).host;

@@ -1,4 +1,5 @@
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import type { TrafficPoint } from "../../../server/analytics.server";
@@ -111,7 +112,7 @@ export function TrafficChart({
 	title?: string;
 	stagger?: number;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 	const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
 	const [mode, setMode] = useState<"chart" | "table">("chart");
@@ -388,6 +389,7 @@ export function TrafficChart({
 
 								{/* Series revealed left to right once; reduced motion fades instead. */}
 								<motion.g
+									className="cms-chart-series"
 									clipPath={reduced ? undefined : `url(#${clipId})`}
 									initial={reduced ? { opacity: 0 } : undefined}
 									animate={reduced ? { opacity: 1 } : undefined}

@@ -5,7 +5,8 @@
  * returns focus to Publish, and a successful publish focuses the receipt.
  */
 import { useId, useLayoutEffect, useRef, type Ref } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
+import { motion } from "motion/react";
 import { controlClass } from "../analytics/Widgets";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import {
@@ -50,7 +51,7 @@ export function PublishGate({
 	onDiscard,
 	discardDisabled,
 }: PublishGateProps) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const publishRef = useRef<HTMLButtonElement>(null);
 	const confirmRef = useRef<HTMLButtonElement>(null);
 	const gateRef = useRef<HTMLElement>(null);
@@ -182,7 +183,7 @@ export function PublishGate({
 }
 
 function AnimatedCheckBadge() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<span
 			aria-hidden="true"
@@ -214,7 +215,7 @@ export function PublishedReceipt({
 	onDismiss: () => void;
 	ref?: Ref<HTMLElement>;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const host = new URL(publicOrigin).host;
 	return (
 		<motion.section

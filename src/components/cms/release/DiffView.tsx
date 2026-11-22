@@ -4,8 +4,9 @@
  * (never hue alone) and supports smooth collapsible section groups.
  */
 import { useId, useState, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { Link } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { EmptyState, staggerStyle } from "../analytics/Widgets";
 import { REDUCED, SPRING_MOVE } from "../motion";
@@ -232,7 +233,7 @@ function SectionDiffCard({
 	showEditLinks: boolean;
 	stagger: number;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const bodyId = useId();
 	return (
 		// `layout` animates size and position with transforms; the header is
@@ -352,7 +353,7 @@ export function DiffView({
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
 }: DiffViewProps) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 

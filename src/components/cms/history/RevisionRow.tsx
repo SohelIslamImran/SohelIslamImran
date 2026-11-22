@@ -1,5 +1,6 @@
 /** One revision in the History timeline: "r3 · Published · 6h ago". */
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import type { RevisionSummary } from "../../../server/cms-storage.server";
 import { RelativeTime } from "../analytics/RelativeTime";
@@ -31,7 +32,7 @@ export function RevisionRow({
 	stagger: number;
 	onSelect: () => void;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const label = revisionStateLabel(item, isCurrentLive, isCurrentDraft);
 
 	return (

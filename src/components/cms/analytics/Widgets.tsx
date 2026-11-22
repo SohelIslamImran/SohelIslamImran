@@ -1,5 +1,6 @@
 import { useRouter } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
 import { cn } from "../../../lib/utils";
 import type { AnalyticsCount } from "../../../server/analytics.server";
@@ -37,7 +38,7 @@ export function TickingNumber({
 	suffix?: string;
 	className?: string;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const prevRef = useRef<number | null | undefined>(undefined);
 	const directionRef = useRef<1 | -1>(1);
 
@@ -138,7 +139,7 @@ export function SegmentedControl<T extends string>({
 	compact?: boolean;
 	className?: string;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<div role="group" aria-label={ariaLabel} className={cn("cms-seg-track", className)}>
 			{options.map((option) => {

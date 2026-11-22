@@ -1,5 +1,6 @@
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
+import { motion } from "motion/react";
 import { CountryMap } from "../../components/cms/analytics/CountryMap";
 import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
@@ -101,7 +102,7 @@ function AnalyticsSkeleton() {
 }
 
 function Analytics() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
 	const { summary, hasVisitsToday } = Route.useLoaderData();
 	const isPending = useRouterState({ select: (state) => state.status === "pending" });
