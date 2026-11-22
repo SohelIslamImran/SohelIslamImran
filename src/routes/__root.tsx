@@ -192,6 +192,7 @@ function useRouteViewTransitions() {
 				if (event.pathChanged) {
 					skipCmsTransition();
 					window.clearTimeout(clearTimer);
+					if (!cmsTransition) delete root.dataset.routeVt;
 				}
 				return;
 			}

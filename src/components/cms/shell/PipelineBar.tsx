@@ -342,7 +342,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				disabled={!canSave}
 				aria-busy={saving || undefined}
 				data-complete={justSaved || undefined}
-				className="cms-action cms-save-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={() => void store.save()}
 			>
 				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
@@ -353,7 +353,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				disabled={!canPublish}
 				aria-busy={publishing || undefined}
 				data-complete={justPublished || undefined}
-				className="cms-action cms-publish-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				className="cms-action cms-publish-action min-h-11 min-w-[128px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={onRequestPublish}
 			>
 				{justPublished ? <CheckCircleIcon /> : <PublishIcon />}

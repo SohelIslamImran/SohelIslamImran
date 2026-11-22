@@ -388,12 +388,6 @@
 		}
 	}
 
-	.cms-save-action {
-		min-width: 104px;
-	}
-	.cms-publish-action {
-		min-width: 128px;
-	}
 	.cms-action[data-complete="true"] svg {
 		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
 	}
