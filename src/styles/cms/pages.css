@@ -210,7 +210,7 @@
 	/* Inset focus ring for full-bleed controls inside clipped containers. */
 	.cms-inset-focus:focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--theme-accent) 55%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
 	}
 
 	/* Relative time labels fade in after hydration instead of swapping text. */
