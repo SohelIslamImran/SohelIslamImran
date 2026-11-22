@@ -731,7 +731,6 @@
 		}
 	}
 
-	/* The list's error line keeps its live region but adds no gap while closed. */
 	.cms-collection-list {
 		display: flex;
 		flex-direction: column;
@@ -742,6 +741,7 @@
 		max-width: 100%;
 	}
 
+	/* The list’s error line keeps its live region but adds no gap while closed. */
 	.cms-collection-list > .cms-field-foot:not([data-open]) {
 		margin-top: -12px;
 	}
@@ -812,7 +812,9 @@
 		.cms-collection-list {
 			position: sticky;
 			top: calc(var(--cms-topbar-height) + 0.75rem);
-			max-height: calc(100svh - var(--cms-topbar-height) - 1.5rem);
+			max-height: calc(
+				100svh - max(var(--cms-collection-offset, 0px), var(--cms-topbar-height) + 0.75rem) - 1.5rem
+			);
 		}
 
 		.cms-collection-rows {
