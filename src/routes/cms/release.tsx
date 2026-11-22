@@ -115,6 +115,7 @@ function ReleaseRoute() {
 		const state = store.getState();
 		if (ok) {
 			setReviewedDraft(null);
+			setTab("changes");
 			focusAfterRender.current = "empty";
 			setNotice({ tone: "ok", text: "Changes discarded. Your draft matches the live site again." });
 		} else if (state.error) {
@@ -123,36 +124,38 @@ function ReleaseRoute() {
 	};
 
 	return (
-		<div className={pageClass}>
+		<Tabs.Root
+			className={pageClass}
+			value={tab}
+			onValueChange={(value: "changes" | "json") => setTab(value)}
+		>
 			<PageHeader
 				title="Changes"
 				description="Everything in your draft that differs from the live site."
 				actions={
-					<Tabs.Root value={tab} onValueChange={(value) => setTab(value as "changes" | "json")}>
-						<Tabs.List className="cms-seg-track">
-							{tabs.map((item) => {
-								const active = tab === item.value;
-								return (
-									<Tabs.Tab
-										key={item.value}
-										value={item.value}
-										data-active={active ? "true" : "false"}
-										className="cms-seg-item"
-									>
-										{active ? (
-											<motion.span
-												layoutId="cms-release-tab-pill"
-												aria-hidden="true"
-												transition={reduced ? REDUCED : SPRING_MOVE}
-												className="cms-seg-pill"
-											/>
-										) : null}
-										<span>{item.label}</span>
-									</Tabs.Tab>
-								);
-							})}
-						</Tabs.List>
-					</Tabs.Root>
+					<Tabs.List className="cms-seg-track">
+						{tabs.map((item) => {
+							const active = tab === item.value;
+							return (
+								<Tabs.Tab
+									key={item.value}
+									value={item.value}
+									data-active={active ? "true" : "false"}
+									className="cms-seg-item"
+								>
+									{active ? (
+										<motion.span
+											layoutId="cms-release-tab-pill"
+											aria-hidden="true"
+											transition={reduced ? REDUCED : SPRING_MOVE}
+											className="cms-seg-pill"
+										/>
+									) : null}
+									<span>{item.label}</span>
+								</Tabs.Tab>
+							);
+						})}
+					</Tabs.List>
 				}
 			/>
 
@@ -183,33 +186,37 @@ function ReleaseRoute() {
 					revision={publishedReceipt.revision}
 					publicOrigin={publicOrigin}
 					onDismiss={() => {
+						setTab("changes");
 						focusAfterRender.current = "empty";
 						setPublishedReceipt(null);
 					}}
 				/>
 			) : null}
 
-			{tab === "json" ? (
+			<Tabs.Panel value="changes" hidden={tab !== "changes"} className="min-w-0 empty:hidden">
+				{hasChanges ? (
+					diff.changedSections.length > 0 ? (
+						<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
+					) : null
+				) : publishedReceipt ? null : (
+					<div ref={emptyRef} tabIndex={-1} className="outline-none">
+						<DiffView
+							diff={diff}
+							emptyTitle="Your live site is up to date"
+							emptyDescription="Edits you make show up here for review before you publish."
+							emptyAction={
+								<Link to="/cms/history" className={controlClass}>
+									<HistoryIcon className="size-3.5 text-muted-foreground" />
+									<span>Revision history</span>
+								</Link>
+							}
+						/>
+					</div>
+				)}
+			</Tabs.Panel>
+			<Tabs.Panel value="json" className="min-w-0">
 				<RawJsonTab />
-			) : hasChanges ? (
-				diff.changedSections.length > 0 ? (
-					<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
-				) : null
-			) : publishedReceipt ? null : (
-				<div ref={emptyRef} tabIndex={-1} className="outline-none">
-					<DiffView
-						diff={diff}
-						emptyTitle="Your live site is up to date"
-						emptyDescription="Edits you make show up here for review before you publish."
-						emptyAction={
-							<Link to="/cms/history" className={controlClass}>
-								<HistoryIcon className="size-3.5 text-muted-foreground" />
-								<span>Revision history</span>
-							</Link>
-						}
-					/>
-				</div>
-			)}
+			</Tabs.Panel>
 
 			<AlertDialog.Root
 				open={discardReview !== null}
@@ -254,6 +261,6 @@ function ReleaseRoute() {
 					</AlertDialog.Popup>
 				</AlertDialog.Portal>
 			</AlertDialog.Root>
-		</div>
+		</Tabs.Root>
 	);
 }

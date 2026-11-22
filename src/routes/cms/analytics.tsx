@@ -29,6 +29,15 @@ import {
 	getAnalyticsSummary,
 } from "../../server/analytics.functions";
 
+const pageLabels = new Map([
+	["/", "Home"],
+	["/work", "Work"],
+	["/story", "Story"],
+	["/resume", "Résumé"],
+	["/links", "Links"],
+	["/field-notes", "Field notes"],
+]);
+
 const ranges = [
 	["24h", "24 hours"],
 	["7d", "7 days"],
@@ -59,7 +68,8 @@ function AnalyticsSkeleton() {
 	return (
 		<div className={pageClass}>
 			<div className="grid gap-2">
-				<div className="cms-skeleton h-8 w-40" />
+				<h1 className="sr-only">Analytics</h1>
+				<div aria-hidden="true" className="cms-skeleton h-8 w-40" />
 				<div className="cms-skeleton h-4 w-64" />
 			</div>
 			<div className="cms-skeleton h-10 w-[380px] max-w-full rounded-full" />
@@ -98,11 +108,16 @@ function Analytics() {
 	const publicOrigin = usePublicOrigin();
 	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);
 	const links = new Map(profileLinks.map((link) => [link.id, link.label]));
+	const projects = new Map(summary?.topProjects.map((row) => [row.value, row.label]));
+	const pageLabel = (path: string) => pageLabels.get(path) ?? projects.get(path) ?? path;
 	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
 
 	const breakdowns = summary
 		? [
-				{ title: "Top pages", rows: summary.topPages },
+				{
+					title: "Top pages",
+					rows: summary.topPages.map((row) => ({ ...row, label: pageLabel(row.value) })),
+				},
 				{ title: "Top projects", rows: summary.topProjects },
 				{ title: "Referrers", rows: summary.referrers },
 				{ title: "Devices", rows: summary.devices },
@@ -245,7 +260,7 @@ function Analytics() {
 					)}
 
 					<div className="grid items-start gap-4 md:grid-cols-2">
-						<LivePanel />
+						<LivePanel pageLabel={pageLabel} />
 						{filled.map((entry, index) => (
 							<Panel key={entry.title} title={entry.title} stagger={Math.min(4 + index, 8)}>
 								<RankedList rows={entry.rows} />
@@ -266,7 +281,7 @@ function Analytics() {
 }
 
 /** One card for live presence: a single live dot, the count, the pages, and the pause toggle. */
-function LivePanel() {
+function LivePanel({ pageLabel }: { pageLabel: (path: string) => string }) {
 	const live = useLiveVisitors();
 	const active = live.data?.live.count ?? null;
 	const isLive = !live.paused && !live.failed && (active ?? 0) > 0;
@@ -289,7 +304,9 @@ function LivePanel() {
 				</span>
 			</div>
 			{live.data && live.data.live.paths.length > 0 ? (
-				<RankedList rows={live.data.live.paths} />
+				<RankedList
+					rows={live.data.live.paths.map((row) => ({ ...row, label: pageLabel(row.value) }))}
+				/>
 			) : null}
 		</Panel>
 	);

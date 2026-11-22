@@ -48,7 +48,8 @@ function OverviewSkeleton() {
 	return (
 		<div className={pageClass}>
 			<div className="grid gap-2">
-				<div className="cms-skeleton h-8 w-44" />
+				<h1 className="sr-only">Overview</h1>
+				<div aria-hidden="true" className="cms-skeleton h-8 w-44" />
 				<div className="cms-skeleton h-4 w-72 max-w-full" />
 			</div>
 			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
