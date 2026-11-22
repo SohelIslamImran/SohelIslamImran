@@ -1,4 +1,4 @@
-import { useId, useRef, useState, type ReactNode } from "react";
+import { useCallback, useId, useState, type ReactNode } from "react";
 import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Radio } from "@base-ui/react/radio";
@@ -204,12 +204,27 @@ export function SuggestionField({
 	const reduced = useLiveReducedMotion();
 	const value = field.value ?? "";
 	const feedback = useFieldIssueFeedback(field.issues, value, null);
-	const list = useRef<HTMLDivElement>(null);
+	const [open, setOpen] = useState(false);
 	// Show the whole list when it opens; filter once the owner types.
 	const [typed, setTyped] = useState(false);
 	const query = value.trim().toLowerCase();
 	const filtered =
 		typed && query ? items.filter((item) => item.toLowerCase().includes(query)) : items;
+	const scrollToCurrent = useCallback(
+		(list: HTMLDivElement | null) => {
+			if (!list || !open || typed) return;
+			const current = list.querySelector<HTMLElement>("[data-current]");
+			if (!current) return;
+			const center = () => {
+				list.scrollTop = current.offsetTop - (list.clientHeight - current.offsetHeight) / 2;
+			};
+			center();
+			// Recheck once the positioner has set the available height.
+			const frame = requestAnimationFrame(center);
+			return () => cancelAnimationFrame(frame);
+		},
+		[open, typed],
+	);
 	return (
 		<FieldFrame
 			path={path}
@@ -231,17 +246,8 @@ export function SuggestionField({
 						field.set(next);
 					}}
 					onOpenChange={(open, details) => {
+						setOpen(open);
 						if (open && details.reason !== "input-change") setTyped(false);
-					}}
-					onOpenChangeComplete={(open) => {
-						if (!open || typed) return;
-						const current = list.current?.querySelector<HTMLElement>("[data-current]");
-						if (current && list.current) {
-							list.current.scrollTop +=
-								current.getBoundingClientRect().top -
-								list.current.getBoundingClientRect().top -
-								(list.current.clientHeight - current.offsetHeight) / 2;
-						}
 					}}
 					openOnInputClick
 				>
@@ -277,7 +283,7 @@ export function SuggestionField({
 									{emptyMessage}
 								</Autocomplete.Empty>
 								<LayoutGroup id={groupId}>
-									<Autocomplete.List ref={list} className="cms-popup-list">
+									<Autocomplete.List ref={scrollToCurrent} className="cms-popup-list relative">
 										{(item: string) => (
 											<Autocomplete.Item
 												key={item}

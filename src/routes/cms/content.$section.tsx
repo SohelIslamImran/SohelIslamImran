@@ -90,7 +90,7 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	];
 
 	const [open, setOpen] = useState(false);
-	const pendingFocus = useRef<{ path: string; navigation: Promise<void> } | null>(null);
+	const jumping = useRef(false);
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
@@ -100,12 +100,9 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	return (
 		<Popover.Root
 			open={open}
-			onOpenChange={setOpen}
-			onOpenChangeComplete={(open) => {
-				if (open) return;
-				const pending = pendingFocus.current;
-				pendingFocus.current = null;
-				if (pending) void pending.navigation.then(() => revealIssue(pending.path));
+			onOpenChange={(open) => {
+				if (open) jumping.current = false;
+				setOpen(open);
 			}}
 		>
 			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
@@ -120,7 +117,10 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 					sideOffset={8}
 					className="isolate z-(--z-overlay) outline-none"
 				>
-					<Popover.Popup className="cms-field-popup cms-issues-popup">
+					<Popover.Popup
+						className="cms-field-popup cms-issues-popup"
+						finalFocus={() => (jumping.current ? false : undefined)}
+					>
 						<Popover.Title className="m-0 px-2.5 pt-1.5 pb-1 text-[12px] font-semibold text-muted-foreground">
 							{issues.length === 1 ? "1 error to fix" : `${count} to fix`}
 						</Popover.Title>
@@ -154,20 +154,18 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												)
 													return;
 												event.preventDefault();
-												// The popup restores focus when its exit completes.
-												pendingFocus.current = {
-													path: issue.path,
-													navigation: navigate({
-														to: "/cms/content/$section",
-														params: { section: section.id },
-														search: { item, tab, field },
-														hash: fieldId(issue.path),
-														hashScrollIntoView: false,
-														replace: true,
-														resetScroll: false,
-													}),
-												};
+												// The clicked issue owns the next focus target.
+												jumping.current = true;
 												setOpen(false);
+												void navigate({
+													to: "/cms/content/$section",
+													params: { section: section.id },
+													search: { item, tab, field },
+													hash: fieldId(issue.path),
+													hashScrollIntoView: false,
+													replace: true,
+													resetScroll: false,
+												}).then(() => revealIssue(issue.path));
 											}}
 											className="cms-issue-link"
 										>
