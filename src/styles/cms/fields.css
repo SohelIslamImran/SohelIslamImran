@@ -467,28 +467,173 @@
 		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
 	}
 
+	/* Disclosure rows: one line with a chevron that turns as the body opens. */
 	.cms-repeater-summary {
-		min-height: 40px;
-		padding: 0.65rem 0.8rem;
-		border-radius: 10px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 0.6rem 0.8rem;
+		border-radius: 12px;
+		font-size: 14px;
 		font-weight: 550;
 		cursor: pointer;
+		list-style: none;
 		overflow-wrap: anywhere;
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-repeater-summary::marker {
-		color: var(--theme-ink-soft);
-		font-size: 10px;
+	.cms-repeater-summary::-webkit-details-marker {
+		display: none;
 	}
 
+	.cms-repeater-row .cms-repeater-summary {
+		padding-inline-end: 48px;
+	}
+
+	.cms-repeater-row[data-handle] .cms-repeater-summary {
+		padding-inline-start: 40px;
+	}
+
+	.cms-repeater-summary:active {
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+	}
+
+	.cms-disclosure-chevron {
+		transition: rotate var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-disclosure[open] > summary .cms-disclosure-chevron {
+		rotate: 90deg;
+	}
+
+	/* Open and close the body smoothly where the browser can size to auto. */
+	.cms-disclosure {
+		interpolate-size: allow-keywords;
+	}
+
+	.cms-disclosure::details-content {
+		block-size: 0;
+		opacity: 0;
+		overflow: clip;
+		transition:
+			block-size var(--cms-dur-base) var(--cms-ease-out),
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			content-visibility var(--cms-dur-base) allow-discrete;
+	}
+
+	.cms-disclosure[open]::details-content {
+		block-size: auto;
+		opacity: 1;
+	}
+
+	/* The handle and menu sit over the summary row, outside the <summary>. */
+	.cms-repeater-tool {
+		position: absolute;
+		top: 0;
+		display: flex;
+		align-items: center;
+		height: 44px;
+	}
+
+	.cms-repeater-handle {
+		inset-inline-start: 6px;
+	}
+
+	.cms-repeater-menu {
+		inset-inline-end: 6px;
+	}
+
+	.cms-row-tool {
+		display: inline-grid;
+		place-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
+		border-radius: 999px;
+		color: var(--theme-muted);
+	}
+
+	.cms-row-tool[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-ink) 8%, transparent);
+		color: var(--theme-ink);
+	}
+
+	.cms-menu-popup {
+		min-width: 11rem;
+		padding: 5px;
+	}
+
+	.cms-menu-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 34px;
+		padding-inline: 10px;
+		border-radius: 8px;
+		color: var(--theme-ink);
+		font-size: 13.5px;
+		cursor: default;
+		outline: none;
+		transition: background-color var(--cms-dur-press) var(--cms-ease-out);
+	}
+
+	.cms-menu-item svg {
+		color: var(--theme-muted);
+	}
+
+	.cms-menu-item[data-highlighted] {
+		background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+	}
+
+	.cms-menu-item[data-destructive],
+	.cms-menu-item[data-destructive] svg {
+		color: var(--theme-destructive);
+	}
+
+	.cms-menu-item[data-destructive][data-highlighted] {
+		background: color-mix(in srgb, var(--theme-destructive) 10%, transparent);
+	}
+
+	.cms-menu-item[data-disabled] {
+		opacity: 0.4;
+	}
+
+	.cms-menu-separator {
+		height: 1px;
+		margin: 4px 6px;
+		background: var(--theme-line);
+	}
+
+	/* String list rows: handle | control | menu. */
 	.cms-string-row {
 		display: grid;
-		gap: 4px;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: start;
 		border-radius: 11px;
 	}
 
-	.cms-string-row .cms-field-message {
-		margin-top: -4px;
+	.cms-string-handle {
+		display: flex;
+		align-items: center;
+		min-height: 40px;
+		margin-inline-end: 4px;
+	}
+
+	.cms-string-menu {
+		grid-column: 3;
+		margin-top: 4px;
+		margin-inline-start: 4px;
+	}
+
+	.cms-tag-chip[data-armed] {
+		background: var(--theme-accent);
+		color: var(--theme-accent-foreground);
+		box-shadow: 0 0 0 2px var(--theme-accent-soft);
+	}
+
+	.cms-tag-chip[data-armed] button {
+		color: inherit;
 	}
 
 	.cms-collection-row {
@@ -552,7 +697,12 @@
 		.cms-editor-button:hover:not(:disabled),
 		.cms-drag-handle:hover,
 		.cms-repeater-summary:hover {
-			background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+			background: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		}
+
+		.cms-row-tool:hover {
+			background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+			color: var(--theme-ink);
 		}
 
 		.cms-editor-button.cms-editor-primary:hover:not(:disabled) {
@@ -579,9 +729,35 @@
 			min-height: 44px;
 		}
 
-		.cms-drag-handle {
+		.cms-drag-handle,
+		.cms-row-tool {
 			width: 44px;
 			height: 44px;
+		}
+
+		.cms-repeater-handle {
+			inset-inline-start: 0;
+		}
+
+		.cms-repeater-menu {
+			inset-inline-end: 0;
+		}
+
+		.cms-repeater-row[data-handle] .cms-repeater-summary {
+			padding-inline-start: 48px;
+		}
+
+		.cms-string-menu {
+			margin-top: -2px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-disclosure::details-content {
+			transition-property: opacity, content-visibility;
+		}
+		.cms-disclosure-chevron {
+			transition: none;
 		}
 	}
 	.cms-editor-title {
@@ -640,18 +816,5 @@
 		color: var(--theme-ink-soft);
 		background: transparent;
 		white-space: nowrap;
-	}
-
-	@media (min-width: 48rem) and (pointer: fine) {
-		.cms-string-row {
-			grid-template-columns: minmax(0, 1fr) auto;
-			align-items: start;
-		}
-		.cms-string-row .cms-field-message {
-			grid-column: 1 / -1;
-		}
-		.cms-string-tools {
-			padding-top: 4px;
-		}
 	}
 }

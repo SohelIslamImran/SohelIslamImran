@@ -1,5 +1,5 @@
 import { AnimatePresence, motion, Reorder, useIsPresent, useReducedMotion } from "motion/react";
-import { memo, useCallback, useRef, useState, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import {
@@ -10,10 +10,10 @@ import {
 	useIssuesAt,
 	useIssuesUnder,
 } from "../draft/context";
-import { childPath, moveItem, removeItem } from "../draft/paths";
+import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { SortableRow } from "./SortableRow";
-import { editorButton } from "./UndoRemoval";
+import { UndoRemoval } from "./UndoRemoval";
 import { Counter } from "./TextFields";
 import {
 	FieldFrame,
@@ -22,7 +22,31 @@ import {
 	describedBy,
 	fieldId,
 	focusField,
+	sentenceCase,
 } from "./FieldFrame";
+import { AddButton, RowMenu } from "./RowControls";
+import { ChevronDownIcon, ChevronUpIcon } from "./field-icons";
+import { CloseIcon } from "../shell/cms-icons";
+import { tagBackspace } from "./field-logic";
+import {
+	neverSame,
+	pendingRowRemoval,
+	restoreRow,
+	sameTag,
+	type PendingRowRemoval,
+} from "./row-list";
+
+const EMPTY: readonly never[] = [];
+
+/** Keep a removal's undo only while its list is the one the removal produced. */
+function usePendingRemoval<T>(rows: readonly T[]) {
+	const [removal, setRemoval] = useState<PendingRowRemoval<T> | null>(null);
+	const pending = pendingRowRemoval(rows, removal);
+	useEffect(() => {
+		if (removal && !pending) setRemoval(null);
+	}, [removal, pending]);
+	return [pending, setRemoval] as const;
+}
 
 export interface TagsFieldProps {
 	path: string;
@@ -35,8 +59,9 @@ export interface TagsFieldProps {
 
 /**
  * Chips for short string lists (tags, technologies, tools). Enter or comma
- * adds; Backspace on an empty input removes the last chip; pasting a
- * comma-separated list adds each item.
+ * adds; pasting a comma-separated list adds each item. Backspace on an empty
+ * input selects the last chip, and a second Backspace removes it. Every
+ * removal can be undone.
  */
 export function TagsField({
 	path,
@@ -48,9 +73,11 @@ export function TagsField({
 }: TagsFieldProps) {
 	const field = useField<string[] | undefined>(path);
 	const nested = useIssuesUnder(path);
-	const tags = field.value ?? [];
+	const tags = field.value ?? EMPTY;
 	const [draft, setDraft] = useState("");
 	const [limitReached, setLimitReached] = useState(false);
+	const [armed, setArmed] = useState(false);
+	const [removal, setRemoval] = usePendingRemoval(tags);
 	const chips = useRef<HTMLUListElement>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const composing = useRef(false);
@@ -70,6 +97,15 @@ export function TagsField({
 		if (next.length !== tags.length) field.set(next);
 		setDraft(remaining.join(", "));
 		setLimitReached(remaining.length > 0);
+	};
+	const remove = (index: number) => {
+		const tag = tags[index];
+		if (tag === undefined) return;
+		const remaining = removeItem(tags, index);
+		field.set(remaining);
+		setRemoval({ row: tag, index, label: tag, remaining });
+		setLimitReached(false);
+		setArmed(false);
 	};
 	return (
 		<FieldFrame
@@ -91,6 +127,9 @@ export function TagsField({
 					controlClass,
 					"cms-tags flex min-h-10 flex-wrap items-center gap-1.5 px-1.5 py-1.5",
 				)}
+				onClick={(event) => {
+					if (event.target === event.currentTarget) input.current?.focus();
+				}}
 			>
 				<ul
 					ref={chips}
@@ -104,13 +143,13 @@ export function TagsField({
 									tag,
 									tags.slice(0, index).filter((value) => value === tag).length,
 								])}
+								armed={armed && index === tags.length - 1}
 							>
 								<span className="min-w-0 wrap-anywhere">{tag}</span>
 								<button
 									type="button"
 									onClick={() => {
-										field.set(removeItem(tags, index));
-										setLimitReached(false);
+										remove(index);
 										requestAnimationFrame(() => {
 											const buttons =
 												chips.current?.querySelectorAll<HTMLButtonElement>(
@@ -121,7 +160,7 @@ export function TagsField({
 									}}
 									className="cms-press inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] hover:text-foreground pointer-coarse:size-11"
 								>
-									<span aria-hidden="true">×</span>
+									<CloseIcon className="size-3" />
 									<span className="sr-only">Remove {tag}</span>
 								</button>
 							</TagChip>
@@ -137,6 +176,7 @@ export function TagsField({
 					aria-invalid={nested.length > 0 || undefined}
 					onChange={(event) => {
 						const value = event.currentTarget.value;
+						setArmed(false);
 						if (!composing.current && value.includes(",")) add(value);
 						else {
 							setDraft(value);
@@ -147,11 +187,15 @@ export function TagsField({
 						if (event.nativeEvent.isComposing) return;
 						if (event.key === "Enter") {
 							event.preventDefault();
+							setArmed(false);
 							add(draft);
-						} else if (event.key === "Backspace" && draft === "" && tags.length) {
-							field.set(tags.slice(0, -1));
-							setLimitReached(false);
-						}
+						} else if (event.key === "Backspace") {
+							const next = tagBackspace(draft, tags.length, armed);
+							if (next.remove) {
+								event.preventDefault();
+								remove(tags.length - 1);
+							} else setArmed(next.armed);
+						} else if (event.key !== "Shift") setArmed(false);
 					}}
 					onCompositionStart={() => {
 						composing.current = true;
@@ -159,25 +203,50 @@ export function TagsField({
 					onCompositionEnd={() => {
 						composing.current = false;
 					}}
-					onBlur={() => add(draft)}
+					onBlur={() => {
+						setArmed(false);
+						add(draft);
+					}}
 					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden placeholder:text-muted-foreground/70"
 				/>
 			</div>
+			<p role="status" className="sr-only">
+				{armed && tags.length ? `Press Backspace again to remove ${tags.at(-1)}.` : ""}
+			</p>
 			{limitReached ? (
-				<p role="status" className="m-0 text-xs text-muted-foreground">
+				<p role="status" className="m-0 mt-1.5 text-xs text-muted-foreground">
 					Maximum {max} tags. Remove a tag to add another.
 				</p>
 			) : null}
 			{draft ? (
-				<div className="justify-self-end">
+				<div className="mt-1 justify-self-end">
 					<Counter length={draft.trim().length} max={240} />
 				</div>
 			) : null}
+			<UndoRemoval
+				removal={
+					removal
+						? {
+								label: removal.label,
+								canUndo: tags.length < max && !tags.some((tag) => sameTag(tag, removal.row)),
+							}
+						: null
+				}
+				onDismiss={() => setRemoval(null)}
+				onUndo={() => {
+					if (!removal) return;
+					const restored = restoreRow(tags, removal, max, sameTag);
+					if (!restored) return;
+					field.set(restored);
+					setRemoval(null);
+					requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
+				}}
+			/>
 		</FieldFrame>
 	);
 }
 
-function TagChip({ children }: { children: ReactNode }) {
+function TagChip({ children, armed }: { children: ReactNode; armed?: boolean }) {
 	const reduced = useReducedMotion();
 	const present = useIsPresent();
 	return (
@@ -188,6 +257,7 @@ function TagChip({ children }: { children: ReactNode }) {
 			animate={{ opacity: 1, scale: 1 }}
 			exit={{ opacity: 0, scale: reduced ? 1 : 0.9 }}
 			transition={reduced ? REDUCED : SPRING_SNAPPY}
+			data-armed={armed || undefined}
 			className="cms-tag-chip"
 		>
 			{children}
@@ -210,8 +280,9 @@ export interface StringListFieldProps {
 }
 
 /**
- * An ordered list of strings (paragraphs, highlights). Each row has
- * move up/down (also Alt+↑/↓ from inside the row) and remove.
+ * An ordered list of strings (paragraphs, highlights). Rows reorder by
+ * drag or Alt+Arrow on the handle; the row menu moves and removes, and a
+ * removal can be undone.
  */
 export function StringListField({
 	path,
@@ -231,6 +302,10 @@ export function StringListField({
 	);
 	const issues = useIssuesAt(path);
 	const changed = useChangedAt(path);
+	const rows = useDraftSelector(
+		(_state, store) => (store.valueAt(path) as string[] | undefined) ?? EMPTY,
+	);
+	const [removal, setRemoval] = usePendingRemoval(rows);
 	const nextKey = useRef(0);
 	const keys = useRef<number[]>([]);
 	keys.current = Array.from(
@@ -255,14 +330,18 @@ export function StringListField({
 	);
 
 	const remove = useCallback(
-		(index: number) => {
+		(index: number, label: string) => {
 			const items = (store.valueAt(path) as string[] | undefined) ?? [];
+			const row = items[index];
+			if (row === undefined) return;
 			keys.current = removeItem(keys.current, index);
-			store.update(path, removeItem(items, index));
+			const remaining = removeItem(items, index);
+			store.update(path, remaining);
+			setRemoval({ row, index, label: label.toLowerCase(), remaining });
 			const target = items.length > 1 ? childPath(path, Math.min(index, items.length - 2)) : path;
 			requestAnimationFrame(() => focusField(target));
 		},
-		[path, store],
+		[path, setRemoval, store],
 	);
 
 	return (
@@ -272,7 +351,10 @@ export function StringListField({
 			description={description}
 			issues={issues}
 			changed={changed}
-			onRevert={() => store.revertAt(path)}
+			onRevert={() => {
+				setRemoval(null);
+				store.revertAt(path);
+			}}
 			asGroup
 			meta={
 				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -291,7 +373,7 @@ export function StringListField({
 					keys.current = next;
 					store.update(path, reordered);
 				}}
-				className="m-0 grid min-w-0 list-none gap-2 p-0"
+				className="m-0 grid min-w-0 list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
 				<AnimatePresence initial={false}>
@@ -312,9 +394,8 @@ export function StringListField({
 					))}
 				</AnimatePresence>
 			</Reorder.Group>
-			<div>
-				<button
-					type="button"
+			<div className={count ? "mt-2" : undefined}>
+				<AddButton
 					id={fieldId(path)}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
 					disabled={count >= max}
@@ -324,11 +405,25 @@ export function StringListField({
 						store.update(path, [...items, ""]);
 						requestAnimationFrame(() => focusField(childPath(path, count)));
 					}}
-					className={editorButton}
 				>
-					<span aria-hidden="true">+</span> {addLabel}
-				</button>
+					{addLabel}
+				</AddButton>
 			</div>
+			<UndoRemoval
+				removal={removal ? { label: removal.label, canUndo: rows.length < max } : null}
+				onDismiss={() => setRemoval(null)}
+				onUndo={() => {
+					const current = (store.valueAt(path) as string[] | undefined) ?? EMPTY;
+					if (!removal || !pendingRowRemoval(current, removal)) return;
+					const restored = restoreRow(current, removal, max, neverSame);
+					if (!restored) return;
+					const index = Math.min(removal.index, current.length);
+					keys.current = insertItem(keys.current, index, nextKey.current++);
+					store.update(path, restored);
+					setRemoval(null);
+					requestAnimationFrame(() => focusField(childPath(path, index)));
+				}}
+			/>
 		</FieldFrame>
 	);
 }
@@ -354,52 +449,54 @@ const StringRow = memo(function StringRow({
 	placeholder?: string;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
-	remove: (index: number) => void;
+	remove: (index: number, label: string) => void;
 }) {
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
 	const Control = multiline ? "textarea" : "input";
+	const reorderable = index > 0 || canMoveDown;
 	return (
 		<SortableRow
 			value={rowKey}
 			label={label}
-			reorderable={index > 0 || canMoveDown}
+			reorderable={reorderable}
 			className="cms-string-row"
 			onMove={(offset) => move(index, index + offset)}
 		>
 			{(handle) => (
 				<>
-					<Control
-						id={fieldId(path)}
-						value={value}
-						placeholder={placeholder}
-						aria-label={label}
-						aria-invalid={field.issues.length > 0 || undefined}
-						aria-describedby={describedBy(path, false, field.issues)}
-						rows={multiline ? 3 : undefined}
-						onChange={(event) => field.set(event.currentTarget.value)}
-						className={cn(
-							controlClass,
-							multiline ? "cms-textarea min-h-20 py-2.5 leading-relaxed" : "min-h-10",
-						)}
-					/>
-					<div className="cms-string-tools flex flex-wrap items-center gap-1">
-						{handle}
-						<div className="ml-auto">
+					{handle ? <div className="cms-string-handle">{handle}</div> : null}
+					<div className="grid min-w-0 [grid-column:2]">
+						<Control
+							id={fieldId(path)}
+							value={value}
+							placeholder={placeholder}
+							aria-label={label}
+							aria-invalid={field.issues.length > 0 || undefined}
+							aria-describedby={describedBy(path, false, field.issues)}
+							rows={multiline ? 3 : undefined}
+							onChange={(event) => field.set(event.currentTarget.value)}
+							className={cn(
+								controlClass,
+								multiline ? "cms-textarea min-h-20 py-2.5 leading-relaxed" : "min-h-10",
+							)}
+						/>
+						<div className="justify-self-end empty:hidden">
 							<Counter length={value.length} max={maxLength} />
 						</div>
-						<RowActions
-							label={label}
-							canMoveUp={index > 0}
-							canMoveDown={canMoveDown}
-							onMoveUp={() => move(index, index - 1)}
-							onMoveDown={() => move(index, index + 1)}
-							onRemove={() => remove(index)}
+						<FieldMessage
+							id={`${fieldId(path)}-error`}
+							message={field.issues.map((issue) => sentenceCase(issue.message)).join(" ")}
 						/>
 					</div>
-					<FieldMessage
-						id={`${fieldId(path)}-error`}
-						message={field.issues.map((issue) => issue.message).join(" ")}
+					<RowMenu
+						label={label}
+						className="cms-string-menu"
+						canMoveUp={index > 0}
+						canMoveDown={canMoveDown}
+						onMoveUp={() => move(index, index - 1)}
+						onMoveDown={() => move(index, index + 1)}
+						onRemove={() => remove(index, label)}
 					/>
 				</>
 			)}
@@ -407,31 +504,26 @@ const StringRow = memo(function StringRow({
 	);
 });
 
-/** Move up / move down / remove, shared by list rows and repeaters. */
+/** Move up / move down buttons for collection rows (pointer users; keyboard uses Alt+Arrow). */
 export function RowActions({
 	label,
 	canMoveUp,
 	canMoveDown,
 	onMoveUp,
 	onMoveDown,
-	onRemove,
 	className,
-	children,
 }: {
 	label: string;
 	canMoveUp: boolean;
 	canMoveDown: boolean;
 	onMoveUp: () => void;
 	onMoveDown: () => void;
-	onRemove?: () => void;
 	className?: string;
-	children?: ReactNode;
 }) {
 	const button =
 		"cms-press inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent pointer-coarse:size-11";
 	return (
 		<div className={cn("flex shrink-0 flex-wrap items-center gap-0.5", className)}>
-			{children}
 			<button
 				aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
 				type="button"
@@ -440,7 +532,7 @@ export function RowActions({
 				disabled={!canMoveUp}
 				onClick={onMoveUp}
 			>
-				<span aria-hidden="true">↑</span>
+				<ChevronUpIcon className="size-3.5" />
 				<span className="sr-only">Move {label} up</span>
 			</button>
 			<button
@@ -451,15 +543,9 @@ export function RowActions({
 				disabled={!canMoveDown}
 				onClick={onMoveDown}
 			>
-				<span aria-hidden="true">↓</span>
+				<ChevronDownIcon className="size-3.5" />
 				<span className="sr-only">Move {label} down</span>
 			</button>
-			{onRemove ? (
-				<button type="button" className={cn(button, "hover:text-destructive")} onClick={onRemove}>
-					<span aria-hidden="true">×</span>
-					<span className="sr-only">Remove {label}</span>
-				</button>
-			) : null}
 		</div>
 	);
 }

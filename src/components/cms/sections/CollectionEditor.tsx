@@ -435,23 +435,25 @@ export function CollectionEditor<T extends { id: string }>({
 					) : null}
 				</AnimatePresence>
 			</div>
-			{removed ? (
-				<UndoRemoval
-					label={removed.label}
-					canUndo={!full && !rowIds.includes(removed.row.id)}
-					onDismiss={() => {
-						setRemoved(null);
-						requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));
-					}}
-					onUndo={() => {
-						const restored = restoreRow(store.valueAt(path) as T[], removed);
-						if (!restored) return;
-						store.update(path, restored);
-						setRemoved(null);
-						open(removed.row.id);
-					}}
-				/>
-			) : null}
+			<UndoRemoval
+				removal={
+					removed
+						? { label: removed.label, canUndo: !full && !rowIds.includes(removed.row.id) }
+						: null
+				}
+				onDismiss={() => {
+					setRemoved(null);
+					requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));
+				}}
+				onUndo={() => {
+					if (!removed) return;
+					const restored = restoreRow(store.valueAt(path) as T[], removed);
+					if (!restored) return;
+					store.update(path, restored);
+					setRemoved(null);
+					open(removed.row.id);
+				}}
+			/>
 		</div>
 	);
 }

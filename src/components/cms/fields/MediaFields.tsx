@@ -12,11 +12,14 @@ import {
 	useIssuesUnder,
 } from "../draft/context";
 import { childPath, moveItem, removeItem, setAt } from "../draft/paths";
-import { MediaLibraryIcon } from "../shell/cms-icons";
+import { ExternalArrowIcon, MediaLibraryIcon } from "../shell/cms-icons";
+import { ChevronRightIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
-import { RowActions } from "./ListFields";
+import { RowMenu } from "./RowControls";
 import { SortableRow } from "./SortableRow";
+import { UndoRemoval } from "./UndoRemoval";
+import { pendingRowRemoval, restoreRow, sameValue, type PendingRowRemoval } from "./row-list";
 import { TextAreaField } from "./TextFields";
 
 const MAX_TRAVEL_MEDIA = 30;
@@ -169,7 +172,7 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 				) : null}
 				{mediaEnabled && !loading ? (
 					<Link to="/cms/library" className="cms-editor-button cms-press justify-self-start">
-						Media library <span aria-hidden="true">↗</span>
+						Media library <ExternalArrowIcon className="size-3.5" />
 					</Link>
 				) : null}
 			</div>
@@ -187,6 +190,11 @@ export function MediaIdsField({ path }: { path: string }) {
 		JSON.stringify([id, ids.slice(0, index).filter((value) => value === id).length]),
 	);
 	const available = library.filter((asset) => !ids.includes(asset.id));
+	const [removal, setRemoval] = useState<PendingRowRemoval<string> | null>(null);
+	const removed = pendingRowRemoval(ids, removal);
+	useEffect(() => {
+		if (removal && !removed) setRemoval(null);
+	}, [removal, removed]);
 	const move = (from: number, to: number) => {
 		if (to < 0 || to >= ids.length) return;
 		const handle = document.activeElement
@@ -210,7 +218,10 @@ export function MediaIdsField({ path }: { path: string }) {
 			description={description}
 			issues={issues}
 			changed={field.changed}
-			onRevert={field.revert}
+			onRevert={() => {
+				setRemoval(null);
+				field.revert();
+			}}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
 					{ids.length}/{MAX_TRAVEL_MEDIA}
@@ -222,7 +233,7 @@ export function MediaIdsField({ path }: { path: string }) {
 				axis="y"
 				values={keys}
 				onReorder={(next) => field.set(next.map((key) => ids[keys.indexOf(key)]))}
-				className="m-0 grid list-none gap-2 p-0 empty:hidden"
+				className="m-0 mb-2 grid list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
 				<AnimatePresence initial={false}>
@@ -235,8 +246,10 @@ export function MediaIdsField({ path }: { path: string }) {
 							index={index}
 							canMoveDown={index < ids.length - 1}
 							move={move}
-							remove={() => {
-								field.set(removeItem(ids, index));
+							remove={(label) => {
+								const remaining = removeItem(ids, index);
+								field.set(remaining);
+								setRemoval({ row: id, index, label, remaining });
 								requestAnimationFrame(() =>
 									focusField(
 										ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
@@ -270,10 +283,31 @@ export function MediaIdsField({ path }: { path: string }) {
 				}}
 			/>
 			{mediaEnabled && !loading ? (
-				<Link to="/cms/library" className="cms-editor-button cms-press justify-self-start">
-					Media library <span aria-hidden="true">↗</span>
+				<Link to="/cms/library" className="cms-editor-button cms-press mt-2 justify-self-start">
+					Media library <ExternalArrowIcon className="size-3.5" />
 				</Link>
 			) : null}
+			<UndoRemoval
+				removal={
+					removed
+						? {
+								label: removed.label,
+								canUndo: ids.length < MAX_TRAVEL_MEDIA && !ids.includes(removed.row),
+							}
+						: null
+				}
+				onDismiss={() => setRemoval(null)}
+				onUndo={() => {
+					if (!removed) return;
+					const restored = restoreRow(ids, removed, MAX_TRAVEL_MEDIA, sameValue);
+					if (!restored) return;
+					field.set(restored);
+					setRemoval(null);
+					requestAnimationFrame(() =>
+						focusField(childPath(path, Math.min(removed.index, ids.length))),
+					);
+				}}
+			/>
 		</FieldFrame>
 	);
 }
@@ -293,7 +327,7 @@ function PhotoRow({
 	index: number;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
-	remove: () => void;
+	remove: (label: string) => void;
 }) {
 	const [assetIndex, alt] = useDraftSelector(({ draft }) => {
 		const index = draft.media.findIndex((asset) => asset.id === id);
@@ -326,21 +360,22 @@ function PhotoRow({
 								</>
 							)}
 						</span>
-						<RowActions
+						<RowMenu
 							label={label}
 							canMoveUp={index > 0}
 							canMoveDown={canMoveDown}
 							onMoveUp={() => move(index, index - 1)}
 							onMoveDown={() => move(index, index + 1)}
-							onRemove={remove}
+							onRemove={() => remove(label)}
 						/>
 					</div>
 					{assetIndex >= 0 ? (
-						<details className="pt-1">
-							<summary className="cms-repeater-summary cms-press text-[13px]">
+						<details className="cms-disclosure pt-1">
+							<summary className="cms-repeater-summary text-[13px]">
+								<ChevronRightIcon className="cms-disclosure-chevron size-3.5 text-muted-foreground" />
 								Edit alt text
 							</summary>
-							<div className="cms-enter px-2 pb-2">
+							<div className="px-2 pb-2">
 								<TextAreaField
 									singleLine
 									path={`media[${assetIndex}].alt`}

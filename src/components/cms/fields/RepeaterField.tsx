@@ -5,8 +5,9 @@ import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../d
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
-import { RowActions } from "./ListFields";
-import { UndoRemoval, editorButton } from "./UndoRemoval";
+import { AddButton, RowMenu } from "./RowControls";
+import { UndoRemoval } from "./UndoRemoval";
+import { ChevronRightIcon } from "./field-icons";
 import {
 	duplicateRow,
 	pendingRowRemoval,
@@ -150,7 +151,7 @@ export function RepeaterField<T extends object>({
 						positions.map((index) => rows[index]),
 					);
 				}}
-				className="cms-repeater-list m-0 grid list-none gap-2 p-0"
+				className="cms-repeater-list m-0 grid list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
 				<AnimatePresence initial={false}>
@@ -172,40 +173,45 @@ export function RepeaterField<T extends object>({
 					))}
 				</AnimatePresence>
 			</Reorder.Group>
-			{keys.length === 0 ? <p className="cms-editor-empty">No {label.toLowerCase()} yet.</p> : null}
-			<div>
-				<button
-					type="button"
+			{keys.length === 0 ? (
+				<p className="cms-editor-empty mb-2">No {label.toLowerCase()} yet.</p>
+			) : null}
+			<div className={keys.length ? "mt-2" : undefined}>
+				<AddButton
 					id={fieldId(path)}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
-					className={editorButton}
 					disabled={keys.length >= max}
 					onClick={() => insert(keys.length, create())}
 				>
 					Add {itemLabel.toLowerCase()}
-				</button>
+				</AddButton>
 			</div>
-			{removed ? (
-				<UndoRemoval
-					label={removed.label}
-					canUndo={keys.length < max && (!rowId(removed.row) || !keys.includes(rowId(removed.row)))}
-					onDismiss={() => {
-						setRemoved(null);
-						requestAnimationFrame(() => focusField(path));
-					}}
-					onUndo={() => {
-						const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
-						if (!pendingRowRemoval(current, removed)) return;
-						const restored = restoreRow(current, removed, max);
-						if (!restored) return;
-						const index = Math.min(removed.index, current.length);
-						localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
-						store.update(path, restored);
-						setRemoved(null);
-						requestAnimationFrame(() => focusField(childPath(path, index)));
-					}}
-				/>
-			) : null}
+			<UndoRemoval
+				removal={
+					removed
+						? {
+								label: removed.label,
+								canUndo:
+									keys.length < max && (!rowId(removed.row) || !keys.includes(rowId(removed.row))),
+							}
+						: null
+				}
+				onDismiss={() => {
+					setRemoved(null);
+					requestAnimationFrame(() => focusField(path));
+				}}
+				onUndo={() => {
+					const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+					if (!removed || !pendingRowRemoval(current, removed)) return;
+					const restored = restoreRow(current, removed, max);
+					if (!restored) return;
+					const index = Math.min(removed.index, current.length);
+					localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
+					store.update(path, restored);
+					setRemoved(null);
+					requestAnimationFrame(() => focusField(childPath(path, index)));
+				}}
+			/>
 		</FieldFrame>
 	);
 }
@@ -235,6 +241,7 @@ function RepeaterRow<T extends object>({
 	duplicate: (index: number) => void;
 	Editor: ComponentType<{ path: string }>;
 }) {
+	// Mount the editor on first open and keep it, so closing can animate.
 	const [opened, setOpened] = useState(false);
 	const summary = useDraftSelector((_state, store) => {
 		const row = store.valueAt(path) as T | undefined;
@@ -242,56 +249,58 @@ function RepeaterRow<T extends object>({
 	});
 	const name = summary || `${itemLabel} ${index + 1}`;
 	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
+	const reorderable = index > 0 || canMoveDown;
 	return (
 		<SortableRow
 			value={rowKey}
 			label={name}
-			reorderable={index > 0 || canMoveDown}
+			reorderable={reorderable}
+			data-handle={reorderable || undefined}
 			className="cms-repeater-row"
-			onMove={index > 0 || canMoveDown ? (offset) => move(index, index + offset) : undefined}
+			onMove={reorderable ? (offset) => move(index, index + offset) : undefined}
 		>
 			{(handle) => (
 				<>
-					<details onToggle={(event) => setOpened(event.currentTarget.open)}>
+					<details
+						className="cms-disclosure"
+						onToggle={(event) => {
+							if (event.currentTarget.open) setOpened(true);
+						}}
+					>
 						<summary
 							id={fieldId(path)}
 							data-row-reorder=""
-							aria-keyshortcuts={index > 0 || canMoveDown ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-							className="cms-repeater-summary cms-press"
+							aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+							className="cms-repeater-summary"
 						>
-							{name}
-							{issueCount ? (
-								<span className="ml-2 text-xs text-destructive">
-									· {issueCount} {issueCount === 1 ? "error" : "errors"}
-								</span>
-							) : null}
+							<span className="min-w-0 flex-1 wrap-anywhere">
+								{name}
+								{issueCount ? (
+									<span className="ml-2 text-xs font-medium text-destructive">
+										{issueCount} {issueCount === 1 ? "error" : "errors"}
+									</span>
+								) : null}
+							</span>
+							<ChevronRightIcon className="cms-disclosure-chevron size-3.5 text-muted-foreground" />
 						</summary>
 						{opened ? (
-							<div className="cms-enter grid min-w-0 gap-4 px-4 pb-4">
+							<div className="cms-repeater-body grid min-w-0 gap-5 px-4 pt-1 pb-4">
 								<Editor path={path} />
 							</div>
 						) : null}
 					</details>
-					<div className="flex flex-wrap items-center justify-between gap-1 px-2 pb-1.5">
-						{handle ?? <span />}
-						<RowActions
+					{handle ? <div className="cms-repeater-tool cms-repeater-handle">{handle}</div> : null}
+					<div className="cms-repeater-tool cms-repeater-menu">
+						<RowMenu
 							label={name}
 							canMoveUp={index > 0}
 							canMoveDown={canMoveDown}
 							onMoveUp={() => move(index, index - 1)}
 							onMoveDown={() => move(index, index + 1)}
+							onDuplicate={() => duplicate(index)}
+							duplicateDisabled={full}
 							onRemove={() => remove(index, name)}
-						>
-							<button
-								type="button"
-								className={editorButton}
-								disabled={full}
-								onClick={() => duplicate(index)}
-								aria-label={`Duplicate ${name}`}
-							>
-								Duplicate
-							</button>
-						</RowActions>
+						/>
 					</div>
 				</>
 			)}
