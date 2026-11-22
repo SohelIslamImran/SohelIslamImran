@@ -487,7 +487,7 @@
 		scale: 0.91;
 	}
 	.cms-command-search:has(input:focus-visible) {
-		box-shadow: inset 0 -2px var(--theme-focus);
+		box-shadow: inset 0 -2px color-mix(in srgb, var(--theme-focus) 90%, var(--theme-ink));
 	}
 	.cms-result-enter {
 		animation: cms-fade 140ms ease-out both;
