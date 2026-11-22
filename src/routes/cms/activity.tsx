@@ -117,7 +117,7 @@ function describeEvent(event: AuditEventItem): {
 		}
 		default:
 			return {
-				label: event.eventType,
+				label: "Other activity",
 				icon: <ActivityIcon className="size-4" />,
 				toneClass: "border-line-strong bg-muted text-ink-soft",
 			};
@@ -162,7 +162,7 @@ function EventRow({ event, stagger }: { event: AuditEventItem; stagger: number }
 							to="/cms/history"
 							search={{ revision: event.revision }}
 							aria-label={`Revision ${event.revision} in history`}
-							className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
+							className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center"
 						>
 							r{event.revision}
 						</Link>

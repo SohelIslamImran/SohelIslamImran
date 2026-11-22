@@ -117,7 +117,7 @@ function describeCompactEvent(event: AuditEventItem): {
 			};
 		default:
 			return {
-				label: event.eventType,
+				label: "Other activity",
 				icon: <ActivityIcon className="size-3.5" />,
 				toneClass: "border-line-strong bg-muted text-ink-soft",
 			};
