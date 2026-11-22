@@ -20,6 +20,7 @@ import {
 	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
 import { useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
+import { jsonEqual } from "../../components/cms/draft/paths";
 import {
 	InspectorError,
 	InspectorSkeleton,
@@ -54,10 +55,6 @@ function HistoryRoute() {
 	const draft = useDraftSelector((state) => state.draft);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
-	const draftRevisionRef = useRef(draftRevision);
-	useEffect(() => {
-		draftRevisionRef.current = draftRevision;
-	}, [draftRevision]);
 
 	const fetchList = useServerFn(listRevisions);
 	const fetchDetail = useServerFn(getRevision);
@@ -68,6 +65,7 @@ function HistoryRoute() {
 	const [loadingList, setLoadingList] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [listError, setListError] = useState<string | null>(null);
+	const listRequest = useRef(0);
 
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 	const detailCache = useRef(new Map<number, RevisionDetail>());
@@ -85,41 +83,60 @@ function HistoryRoute() {
 		return match ? match.bytes : null;
 	}, [items, draftRevision]);
 
+	const loadDetail = useCallback(
+		async (id: number) => {
+			const cached = detailCache.current.get(id);
+			if (cached) return cached;
+			const loaded = await fetchDetail({ data: { id } });
+			detailCache.current.set(id, loaded);
+			return loaded;
+		},
+		[fetchDetail],
+	);
+
 	const loadInitial = useCallback(
 		async (kindFilter: "all" | RevisionKind) => {
+			const request = ++listRequest.current;
 			setLoadingList(true);
 			setListError(null);
 			try {
 				const result = await fetchList({
 					data: { kind: kindFilter === "all" ? undefined : kindFilter, limit: 30 },
 				});
+				if (request !== listRequest.current) return;
 				setItems(result.items);
 				setNextBefore(result.nextBefore);
-				if (result.items.length > 0) {
-					const matching =
-						searchRevision !== undefined
-							? result.items.find((row) => row.revision === searchRevision)
-							: undefined;
-					// Default to the newest revision that differs from the draft:
-					// revisions numbered like the current draft hold the same content.
-					const firstDifferent =
-						result.items.find((row) => row.revision !== draftRevisionRef.current) ??
-						result.items[0]!;
-					setSelectedId((prev) => {
-						if (matching) return matching.id;
-						if (prev && result.items.some((row) => row.id === prev)) return prev;
-						return firstDifferent.id;
-					});
-				} else {
-					setSelectedId(null);
+
+				const matching = result.items.find((row) => row.revision === searchRevision);
+				if (matching || result.items.length === 0) {
+					setSelectedId(matching?.id ?? null);
+					return;
+				}
+
+				const current = store.getState();
+				let defaultId = result.items[0]!.id;
+				for (const row of result.items) {
+					if (!current.dirty && row.revision === current.draftRevision) continue;
+					try {
+						const candidate = await loadDetail(row.id);
+						if (request !== listRequest.current) return;
+						if (jsonEqual(current.draft, candidate.content)) continue;
+					} catch {
+						// Let the inspector report an unreadable revision if it is selected.
+					}
+					defaultId = row.id;
+					break;
+				}
+				if (request === listRequest.current) {
+					setSelectedId((prev) => (result.items.some((row) => row.id === prev) ? prev : defaultId));
 				}
 			} catch {
-				setListError("Could not load revision history.");
+				if (request === listRequest.current) setListError("Could not load revision history.");
 			} finally {
-				setLoadingList(false);
+				if (request === listRequest.current) setLoadingList(false);
 			}
 		},
-		[fetchList, searchRevision],
+		[fetchList, loadDetail, searchRevision, store],
 	);
 
 	useEffect(() => {
@@ -138,9 +155,8 @@ function HistoryRoute() {
 			return;
 		}
 		let cancelled = false;
-		void fetchDetail({ data: { id: selectedId } })
+		void loadDetail(selectedId)
 			.then((loaded) => {
-				detailCache.current.set(loaded.id, loaded);
 				if (!cancelled) setDetail(loaded);
 			})
 			.catch(() => {
@@ -152,10 +168,11 @@ function HistoryRoute() {
 		return () => {
 			cancelled = true;
 		};
-	}, [fetchDetail, selectedId]);
+	}, [loadDetail, selectedId]);
 
 	const loadMore = async () => {
-		if (nextBefore === null || loadingMore) return;
+		if (nextBefore === null || loadingList || loadingMore) return;
+		const request = listRequest.current;
 		setLoadingMore(true);
 		try {
 			const result = await fetchList({
@@ -165,10 +182,11 @@ function HistoryRoute() {
 					before: nextBefore,
 				},
 			});
+			if (request !== listRequest.current) return;
 			setItems((prev) => [...prev, ...result.items]);
 			setNextBefore(result.nextBefore);
 		} catch {
-			setListError("Could not load older revisions.");
+			if (request === listRequest.current) setListError("Could not load older revisions.");
 		} finally {
 			setLoadingMore(false);
 		}
@@ -306,7 +324,7 @@ function HistoryRoute() {
 								<Button
 									variant="ghost"
 									size="sm"
-									disabled={loadingMore}
+									disabled={loadingList || loadingMore}
 									onClick={() => void loadMore()}
 									className="w-full pointer-coarse:min-h-11"
 								>
