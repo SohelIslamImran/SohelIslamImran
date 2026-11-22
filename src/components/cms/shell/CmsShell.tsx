@@ -765,7 +765,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			}
 			if (event.type === "touchstart") {
 				swipe.current = [];
-				if (drawerFrame.current !== 0) {
+				if (drawerFrame.current !== 0 || release.current) {
 					// Base UI reads the current transform when the next drag starts.
 					// Leave the drawer at that position and stop writing to it.
 					cancelAnimationFrame(drawerFrame.current);
@@ -797,7 +797,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		swipe.current = [];
 		release.current = null;
 		if (
-			!popup?.hasAttribute("data-swiping") ||
+			!popup ||
+			(!popup.hasAttribute("data-swiping") && !interrupted) ||
 			window.matchMedia("(prefers-reduced-motion: reduce)").matches
 		) {
 			return;

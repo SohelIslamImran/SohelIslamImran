@@ -5,7 +5,6 @@ import {
 	Outlet,
 	Scripts,
 	createRootRoute,
-	getLocationChangeInfo,
 	useRouter,
 	useRouterState,
 } from "@tanstack/react-router";
@@ -172,7 +171,13 @@ function useRouteViewTransitions() {
 				typeof requested === "object" &&
 				window.CSS?.supports?.("selector(:active-view-transition-type(a))")
 					? typeof requested.types === "function"
-						? requested.types(getLocationChangeInfo(to, from))
+						? requested.types({
+								fromLocation: from,
+								toLocation: to,
+								pathChanged: from?.pathname !== to.pathname,
+								hrefChanged: from?.href !== to.href,
+								hashChanged: from?.hash !== to.hash,
+							})
 						: requested.types
 					: undefined;
 			if (types === false) return update();
