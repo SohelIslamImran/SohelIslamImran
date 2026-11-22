@@ -23,7 +23,7 @@ import {
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { animate, motion, useMotionValue } from "motion/react";
+import { animate, motion, spring, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
@@ -33,7 +33,7 @@ import { REDUCED, SPRING_MOVE } from "../motion";
 const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
 
 /** Near-critically damped; physics options so the release velocity carries over. */
-const DRAWER_SPRING = { type: "spring", stiffness: 300, damping: 34 } as const;
+const DRAWER_SPRING = { stiffness: 300, damping: 34 } as const;
 
 /**
  * The active-link pill of one rail region (the scrolling nav, or the pinned
@@ -643,7 +643,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const drawer = useRef<HTMLDivElement>(null);
 	const drawerScrim = useRef<HTMLDivElement>(null);
-	const drawerSettle = useRef<ReturnType<typeof animate> | null>(null);
+	const drawerFrame = useRef(0);
 	const drawerDismissSettling = useRef(false);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
@@ -661,8 +661,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
 		const onChange = () => {
 			release.current = null;
-			drawerSettle.current?.stop();
-			drawerSettle.current = null;
+			cancelAnimationFrame(drawerFrame.current);
 			clearDrawerStyles();
 			if (drawerDismissSettling.current) {
 				drawerDismissSettling.current = false;
@@ -672,12 +671,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		preference.addEventListener("change", onChange);
 		return () => {
 			preference.removeEventListener("change", onChange);
-			drawerSettle.current?.stop();
+			cancelAnimationFrame(drawerFrame.current);
 		};
 	}, [clearDrawerStyles]);
 
 	const openDrawer = () => {
-		drawerSettle.current?.stop();
+		cancelAnimationFrame(drawerFrame.current);
 		drawerDismissSettling.current = false;
 		clearDrawerStyles();
 		setDrawerOpen(true);
@@ -697,7 +696,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		if (!popup) return;
 		const scrim = drawerScrim.current;
 		const width = popup.offsetWidth;
-		drawerSettle.current?.stop();
+		cancelAnimationFrame(drawerFrame.current);
 		popup.style.transition = "none";
 		if (scrim) scrim.style.transition = "none";
 		const place = (value: number) => {
@@ -705,15 +704,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			popup.style.transform = `translateX(${x}px)`;
 			if (scrim) scrim.style.opacity = String(Math.max(0, 1 + x / width));
 		};
-		place(from);
-		drawerSettle.current = animate(from, to, {
-			...DRAWER_SPRING,
-			// Use touchend as time zero so the first frame advances the spring.
-			startTime: time,
-			velocity,
-			onUpdate: place,
-			onComplete,
-		});
+		const trajectory = spring({ ...DRAWER_SPRING, keyframes: [from, to], velocity });
+		const tick = () => {
+			const { value, done } = trajectory.next(performance.now() - time);
+			place(value);
+			if (done) onComplete();
+			else drawerFrame.current = requestAnimationFrame(tick);
+		};
+		// Sample now, then before each paint. The first frame uses elapsed time
+		// since release and the measured velocity, even if Base UI took a beat.
+		tick();
 	};
 
 	useEffect(() => {
