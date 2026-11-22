@@ -125,7 +125,7 @@ export function AssetCard({
 	return (
 		<article
 			style={staggerStyle(stagger)}
-			className="cms-panel cms-media-card cms-enter flex flex-col overflow-hidden"
+			className="cms-panel cms-enter flex flex-col overflow-hidden"
 		>
 			<div className="relative aspect-[16/10] overflow-hidden border-b border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)]">
 				{isPublished ? (

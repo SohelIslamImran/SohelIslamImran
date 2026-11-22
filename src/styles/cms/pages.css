@@ -151,12 +151,6 @@
 		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
-	@media (prefers-reduced-motion: reduce) {
-		a:hover > .cms-media-thumb {
-			scale: 1;
-		}
-	}
-
 	.cms-row-hover {
 		transition:
 			background-color var(--cms-dur-fast, 160ms)
@@ -379,7 +373,6 @@
 			clip-path: none;
 		}
 		.cms-jump-card,
-		.cms-media-card,
 		.cms-media-thumb,
 		.cms-map-dot,
 		.cms-seg-item,
@@ -391,11 +384,10 @@
 				border-color 120ms linear,
 				opacity 120ms linear;
 		}
-		.cms-jump-card:hover,
-		.cms-media-card:hover {
+		.cms-jump-card:hover {
 			translate: 0 0;
 		}
-		.cms-media-card:hover .cms-media-thumb,
+		a:hover > .cms-media-thumb,
 		.cms-jump-card:active,
 		.cms-seg-item:active:not(:disabled),
 		.cms-dropzone[data-dragging="true"] {

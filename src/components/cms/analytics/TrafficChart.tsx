@@ -412,7 +412,9 @@ export function TrafficChart({
 										<span className="font-mono font-semibold text-foreground">
 											{countLabel(activePoint.pageviews)}
 										</span>
-										<span className="text-[11px] text-muted-foreground">views</span>
+										<span className="text-[11px] text-muted-foreground">
+											{activePoint.pageviews === 1 ? "view" : "views"}
+										</span>
 									</span>
 									<span className="inline-flex items-center gap-1.5">
 										<SeriesSwatch kind="visitors" />
@@ -420,7 +422,7 @@ export function TrafficChart({
 											{countLabel(activePoint.visitorDays)}
 										</span>
 										<span className="text-[11px] text-muted-foreground">
-											{hourly ? "visitor-days/hr" : "visitor-days"}
+											{`${activePoint.visitorDays === 1 ? "visitor-day" : "visitor-days"}${hourly ? "/hr" : ""}`}
 										</span>
 									</span>
 								</div>

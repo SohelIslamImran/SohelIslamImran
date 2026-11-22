@@ -154,14 +154,16 @@ function DraftStatus() {
 			className="cms-panel cms-enter grid min-w-0 content-start gap-4 p-4 sm:p-5"
 		>
 			<div className="flex min-w-0 flex-wrap items-center gap-3">
-				{icon}
-				<h2 className="m-0 min-w-0 flex-1 text-[17px] font-semibold tracking-[-0.018em] text-foreground">
-					{tone === "error"
-						? `Fix ${errors} ${errors === 1 ? "issue" : "issues"} before publishing`
-						: diff.totalChanges > 0
-							? `${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} ready to publish`
-							: "Unpublished draft"}
-				</h2>
+				<div className="flex min-w-[200px] flex-1 items-center gap-3">
+					{icon}
+					<h2 className="m-0 min-w-0 flex-1 text-[17px] font-semibold tracking-[-0.018em] text-foreground">
+						{tone === "error"
+							? `Fix ${errors} ${errors === 1 ? "issue" : "issues"} before publishing`
+							: diff.totalChanges > 0
+								? `${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} ready to publish`
+								: "Unpublished draft"}
+					</h2>
+				</div>
 				<Button
 					variant="default"
 					size="sm"
@@ -261,7 +263,7 @@ function RecentActivityCard() {
 				<EmptyState
 					icon={<ActivityIcon className="size-4" />}
 					title="No activity yet"
-					description="Saves, publishes, restores, and media updates appear here automatically."
+					description="Saves, publishes, restores, discards, and media updates appear here automatically."
 					className="py-6"
 				/>
 			) : (

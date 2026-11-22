@@ -27,6 +27,7 @@ import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { DiffView } from "../../components/cms/release/DiffView";
 import { PublishGate, PublishedReceipt } from "../../components/cms/release/PublishGate";
 import { RawJsonTab } from "../../components/cms/release/RawJsonTab";
+import { RELEASE_GATE_ID } from "../../components/cms/shell/CmsShell";
 import { DiscardIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
 
@@ -177,7 +178,19 @@ function ReleaseRoute() {
 			/>
 
 			{notice ? (
-				<PageNotice tone={notice.tone} text={notice.text} onDismiss={() => setNotice(null)} />
+				<PageNotice
+					tone={notice.tone}
+					text={notice.text}
+					onDismiss={() => {
+						setNotice(null);
+						// The dismissed notice held focus; hand it to the gate or the page.
+						requestAnimationFrame(() =>
+							(
+								document.getElementById(RELEASE_GATE_ID) ?? document.getElementById("main-content")
+							)?.focus({ preventScroll: true }),
+						);
+					}}
+				/>
 			) : null}
 
 			{showGate ? (

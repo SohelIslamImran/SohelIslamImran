@@ -288,7 +288,16 @@ function HistoryRoute() {
 					ref={noticeRef}
 					tone={notice.tone}
 					text={notice.text}
-					onDismiss={() => setNotice(null)}
+					onDismiss={() => {
+						setNotice(null);
+						// The dismissed notice held focus; hand it to the inspector heading.
+						requestAnimationFrame(() =>
+							(
+								document.getElementById("cms-revision-heading") ??
+								document.getElementById("main-content")
+							)?.focus({ preventScroll: true }),
+						);
+					}}
 				/>
 			) : null}
 

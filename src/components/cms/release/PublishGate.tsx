@@ -147,7 +147,7 @@ export function PublishGate({
 								type="button"
 								disabled={discardDisabled}
 								onClick={onDiscard}
-								className="cms-press cms-page-focus inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-medium text-destructive hover:bg-destructive/8 disabled:pointer-events-none disabled:opacity-45 pointer-coarse:min-h-11"
+								className="cms-press cms-page-focus -ml-3 inline-flex min-h-9 items-center rounded-full px-3 text-[13px] font-medium text-destructive sm:ml-0 hover:bg-destructive/8 disabled:pointer-events-none disabled:opacity-45 pointer-coarse:min-h-11"
 							>
 								Discard changes
 							</button>

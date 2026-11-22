@@ -361,6 +361,7 @@ export function DiffView({
 }: DiffViewProps) {
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
+	const unchangedId = useId();
 
 	if (diff.changedSections.length === 0) {
 		return (
@@ -429,6 +430,7 @@ export function DiffView({
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
+						aria-controls={unchangedId}
 						onClick={() => setUnchangedOpen((open) => !open)}
 						className="cms-press cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 rounded-[13px] px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
 					>
@@ -441,7 +443,10 @@ export function DiffView({
 						<ChevronIcon open={unchangedOpen} />
 					</button>
 					{unchangedOpen ? (
-						<ul className="cms-collapse-panel m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3">
+						<ul
+							id={unchangedId}
+							className="cms-collapse-panel m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3"
+						>
 							{diff.unchangedSections.map(({ section }) => (
 								<li key={section.id}>
 									{showEditLinks ? (
