@@ -7,7 +7,7 @@
  * hydration-safe relative save timestamp, ⌘K trigger, single accent Publish
  * button, and the phone top bar + bottom glass action bar.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "../../ui/button";
@@ -394,6 +394,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 /** Keep mobile actions visible while there are draft changes to save or publish. */
 export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
 	const reduce = useLiveReducedMotion();
+	const bar = useRef<HTMLDivElement>(null);
 	const visible = useDraftSelector(
 		(state) =>
 			state.dirty ||
@@ -403,10 +404,17 @@ export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => 
 			state.status === "publishing",
 	);
 
+	useLayoutEffect(() => {
+		if (!visible && bar.current?.contains(document.activeElement)) {
+			document.querySelector<HTMLElement>(".cms-status-pill")?.focus({ preventScroll: true });
+		}
+	}, [visible]);
+
 	return (
 		<AnimatePresence initial={false}>
 			{visible ? (
 				<motion.div
+					ref={bar}
 					data-slot="cms-mobile-action-bar"
 					className="cms-overlay cms-glass fixed inset-x-0 bottom-0 z-(--z-dock) flex items-center gap-2 border-t px-3 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden"
 					initial={{ y: reduce ? 0 : 20, opacity: 0 }}
