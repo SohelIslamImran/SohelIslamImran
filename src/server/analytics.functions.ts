@@ -35,7 +35,7 @@ async function withProjectTitles(summary: AnalyticsSummary) {
 }
 
 export const getAnalyticsSummary = createServerFn({ method: "GET" })
-	.inputValidator(analyticsSearch)
+	.validator(analyticsSearch)
 	.handler(async ({ data }) => {
 		const environment = runtime();
 		setResponseHeader("Cache-Control", "private, no-store");
