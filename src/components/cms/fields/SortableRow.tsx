@@ -8,6 +8,7 @@ import {
 import { useState, type ReactNode } from "react";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_MOMENTUM, SPRING_MOVE } from "../motion";
+import { reorderOffset } from "./row-list";
 
 export function SortableRow({
 	value,
@@ -15,10 +16,12 @@ export function SortableRow({
 	label,
 	children,
 	className,
+	onMove,
 	...props
-}: Omit<HTMLMotionProps<"li">, "value" | "children"> & {
+}: Omit<HTMLMotionProps<"li">, "value" | "children" | "onKeyDown"> & {
 	value: string | number;
 	label: string;
+	onMove?: (offset: -1 | 1) => void;
 	reorderable: boolean;
 	children: (handle: ReactNode) => ReactNode;
 }) {
@@ -53,7 +56,18 @@ export function SortableRow({
 			dragMomentum={false}
 			dragSnapToOrigin
 			dragElastic={0.08}
-			dragTransition={{ bounceStiffness: 480, bounceDamping: 36 }}
+			dragTransition={{
+				bounceStiffness: 480,
+				bounceDamping: 36,
+				// Motion applies the zero-duration transition after release only.
+				...(reduced && { duration: 0 }),
+			}}
+			onKeyDown={(event) => {
+				const offset = reorderOffset(event);
+				if (!offset || !onMove) return;
+				event.preventDefault();
+				onMove(offset);
+			}}
 			initial={{ opacity: 0, scale: reduced ? 1 : 0.98 }}
 			animate={{ opacity: 1, scale: 1 }}
 			exit={{ opacity: 0, scale: reduced ? 1 : 0.97, pointerEvents: "none" }}

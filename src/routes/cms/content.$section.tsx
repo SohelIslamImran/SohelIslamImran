@@ -1,11 +1,9 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { useCallback } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
-import { REDUCED, SPRING_SNAPPY } from "../../components/cms/motion";
 import { absolute } from "../../lib/seo";
 import { EditorLayout } from "../../components/cms/sections/EditorLayout";
 import { itemForIssue } from "../../components/cms/sections/collection-helpers";
@@ -79,77 +77,65 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 		...secondary,
 		...media.filter((issue) => itemForMediaIssue(issue.path)),
 	];
-	const reduced = useReducedMotion();
 
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
+	if (!issues.length) return null;
 	return (
-		<AnimatePresence initial={false}>
-			{issues.length ? (
-				<motion.section
-					key={section.id}
-					aria-labelledby="cms-section-errors"
-					initial={{ opacity: 0, y: reduced ? 0 : -4 }}
-					animate={{ opacity: 1, y: 0 }}
-					exit={{ opacity: 0, pointerEvents: "none" }}
-					transition={reduced ? REDUCED : SPRING_SNAPPY}
-					className="cms-section-issues"
-				>
-					<h2 id="cms-section-errors" className="m-0 text-[13px] font-semibold text-destructive">
-						{issues.length} {issues.length === 1 ? "error to fix" : "errors to fix"}
-					</h2>
-					<ul className="m-0 mt-1 grid list-none p-0 text-[13px]">
-						{issues.map((issue, index) => {
-							const item = section.collection
-								? (itemForIssue(store.getState().draft, collectionPath, issue.path) ??
-									itemForMediaIssue(issue.path))
-								: undefined;
-							const tab =
-								section.id === "links" && isPathWithin(issue.path, "social")
-									? ("social" as const)
-									: undefined;
-							return (
-								<li key={`${issue.path}-${index}`}>
-									<Link
-										to="/cms/content/$section"
-										params={{ section: section.id }}
-										search={{ item, tab }}
-										hash={fieldId(issue.path)}
-										replace
-										resetScroll={false}
-										onClick={(event) => {
-											if (
-												event.button !== 0 ||
-												event.metaKey ||
-												event.ctrlKey ||
-												event.shiftKey ||
-												event.altKey
-											)
-												return;
-											event.preventDefault();
-											void navigate({
-												to: "/cms/content/$section",
-												params: { section: section.id },
-												search: { item, tab },
-												replace: true,
-												resetScroll: false,
-											}).then(() => revealIssue(issue.path));
-										}}
-										className="cms-press -mx-1 inline-flex min-h-8 max-w-full flex-wrap items-center gap-x-2 rounded-md px-1 py-1 text-foreground hover:bg-surface-solid pointer-coarse:min-h-11"
-									>
-										<span className="wrap-anywhere text-primary-text underline underline-offset-2">
-											{issue.message}
-										</span>
-										<span className="wrap-anywhere font-mono text-[11px] text-muted-foreground">
-											{issue.path}
-										</span>
-									</Link>
-								</li>
-							);
-						})}
-					</ul>
-				</motion.section>
-			) : null}
-		</AnimatePresence>
+		<section aria-labelledby="cms-section-errors" className="cms-section-issues">
+			<h2 id="cms-section-errors" className="m-0 text-[13px] font-semibold text-destructive">
+				{issues.length} {issues.length === 1 ? "error to fix" : "errors to fix"}
+			</h2>
+			<ul className="m-0 mt-1 grid list-none p-0 text-[13px]">
+				{issues.map((issue, index) => {
+					const item = section.collection
+						? (itemForIssue(store.getState().draft, collectionPath, issue.path) ??
+							itemForMediaIssue(issue.path))
+						: undefined;
+					const tab =
+						section.id === "links" && isPathWithin(issue.path, "social")
+							? ("social" as const)
+							: undefined;
+					return (
+						<li key={`${issue.path}-${index}`}>
+							<Link
+								to="/cms/content/$section"
+								params={{ section: section.id }}
+								search={{ item, tab }}
+								hash={fieldId(issue.path)}
+								replace
+								resetScroll={false}
+								onClick={(event) => {
+									if (
+										event.button !== 0 ||
+										event.metaKey ||
+										event.ctrlKey ||
+										event.shiftKey ||
+										event.altKey
+									)
+										return;
+									event.preventDefault();
+									void navigate({
+										to: "/cms/content/$section",
+										params: { section: section.id },
+										search: { item, tab },
+										replace: true,
+										resetScroll: false,
+									}).then(() => revealIssue(issue.path));
+								}}
+								className="cms-press -mx-1 inline-flex min-h-8 max-w-full flex-wrap items-center gap-x-2 rounded-md px-1 py-1 text-foreground hover:bg-surface-solid pointer-coarse:min-h-11"
+							>
+								<span className="wrap-anywhere text-primary-text underline underline-offset-2">
+									{issue.message}
+								</span>
+								<span className="wrap-anywhere font-mono text-[11px] text-muted-foreground">
+									{issue.path}
+								</span>
+							</Link>
+						</li>
+					);
+				})}
+			</ul>
+		</section>
 	);
 }
 
