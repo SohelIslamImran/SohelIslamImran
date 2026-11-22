@@ -59,13 +59,14 @@
 	}
 	.cms-skeleton {
 		border-radius: var(--cms-radius-control, 10px);
-		background: linear-gradient(
-				90deg,
-				transparent 0%,
-				color-mix(in srgb, var(--theme-ink) 6%, transparent) 50%,
-				transparent 100%
-			)
-			0 0 / 200% 100%,
+		background:
+			linear-gradient(
+					90deg,
+					transparent 0%,
+					color-mix(in srgb, var(--theme-ink) 6%, transparent) 50%,
+					transparent 100%
+				)
+				0 0 / 200% 100%,
 			color-mix(in srgb, var(--theme-ink) 5%, transparent);
 		animation: cms-shimmer 1.4s linear infinite;
 	}
