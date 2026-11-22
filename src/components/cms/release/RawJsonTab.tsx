@@ -11,8 +11,9 @@ import {
 import { CONTENT_SCHEMA_VERSION, type PortfolioContent } from "../../../types/content";
 import { CopyButton } from "../../motion/CopyButton";
 import { Button } from "../../ui/button";
+import { staggerStyle } from "../analytics/Widgets";
 import { useDraftSelector, useDraftStore } from "../draft/context";
-import { AlertTriangleIcon, DownloadIcon, UploadIcon } from "../shell/cms-icons";
+import { AlertTriangleIcon, CheckCircleIcon, DownloadIcon, UploadIcon } from "../shell/cms-icons";
 import { formatBytes } from "../shell/time";
 import { diffPortfolioDocuments } from "./diff";
 import { DiffView } from "./DiffView";
@@ -48,6 +49,7 @@ export function RawJsonTab() {
 	}, [draft, importState]);
 
 	const usagePct = Math.min(100, Math.round((byteLength / MAX_CONTENT_BYTES) * 100));
+	const usageScale = Math.min(1, Math.max(0, byteLength / MAX_CONTENT_BYTES));
 
 	const exportDraft = () => {
 		const blob = new Blob([formatted], { type: "application/json;charset=utf-8" });
@@ -126,10 +128,12 @@ export function RawJsonTab() {
 	return (
 		<div className="grid gap-5">
 			{/* Import / Export controls */}
-			<section className="cms-panel grid gap-4 p-4 sm:p-5">
+			<section style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="grid gap-1">
-						<h2 className="m-0 text-[15px] font-semibold text-foreground">Export and import</h2>
+						<h2 className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+							Export and import
+						</h2>
 						<p className="m-0 text-[13px] text-muted-foreground">
 							Download a full snapshot of Draft r{draftRevision}, or import a JSON file to preview
 							changes before replacing your draft.
@@ -143,7 +147,12 @@ export function RawJsonTab() {
 							variant="outline"
 							size="sm"
 						/>
-						<Button variant="outline" size="sm" onClick={exportDraft}>
+						<Button
+							variant="outline"
+							size="sm"
+							onClick={exportDraft}
+							className="pointer-coarse:min-h-11"
+						>
 							<DownloadIcon className="size-3.5" />
 							<span>Export JSON</span>
 						</Button>
@@ -159,6 +168,7 @@ export function RawJsonTab() {
 							size="sm"
 							disabled={busy || applying}
 							onClick={() => fileInputRef.current?.click()}
+							className="pointer-coarse:min-h-11"
 						>
 							<UploadIcon className="size-3.5" />
 							<span>Import JSON…</span>
@@ -166,9 +176,9 @@ export function RawJsonTab() {
 					</div>
 				</div>
 
-				{/* Byte budget gauge */}
+				{/* Byte budget gauge (transform-only scaleX) */}
 				<div className="grid gap-1.5">
-					<div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
+					<div className="flex items-center justify-between font-mono text-[11px] tabular-nums text-muted-foreground">
 						<span>
 							Schema v{draft.schemaVersion} · {formatBytes(byteLength)} /{" "}
 							{formatBytes(MAX_CONTENT_BYTES)}
@@ -177,8 +187,8 @@ export function RawJsonTab() {
 					</div>
 					<div className="h-1.5 overflow-hidden rounded-full bg-muted">
 						<div
-							className="h-full rounded-full bg-primary transition-[width] duration-200"
-							style={{ width: `${usagePct}%` }}
+							className="h-full w-full origin-left rounded-full bg-primary transition-transform duration-300 ease-trace"
+							style={{ transform: `scaleX(${usageScale})` }}
 						/>
 					</div>
 				</div>
@@ -186,7 +196,7 @@ export function RawJsonTab() {
 				{importState.kind === "error" ? (
 					<div
 						role="alert"
-						className="grid gap-2 rounded-[12px] border border-dashed border-destructive/45 bg-destructive/8 p-3.5 text-[13px]"
+						className="cms-enter grid gap-2 rounded-[12px] border border-dashed border-destructive/45 bg-destructive/8 p-3.5 text-[13px]"
 					>
 						<p className="m-0 flex items-center gap-2 font-medium text-destructive">
 							<AlertTriangleIcon className="size-4 shrink-0" />
@@ -205,8 +215,11 @@ export function RawJsonTab() {
 				) : null}
 
 				{importState.kind === "applied" ? (
-					<p className="m-0 flex items-center gap-2 rounded-[10px] border border-success/35 bg-success/10 px-3 py-2 text-[13px] text-success">
-						<span aria-hidden="true">✓</span>
+					<p
+						role="status"
+						className="cms-enter m-0 flex items-center gap-2 rounded-[10px] border border-success/35 bg-success/10 px-3 py-2 text-[13px] text-success"
+					>
+						<CheckCircleIcon className="size-4 shrink-0" />
 						<span>Imported {importState.fileName} and saved as a new draft revision.</span>
 					</p>
 				) : null}
@@ -214,7 +227,7 @@ export function RawJsonTab() {
 
 			{/* Import preview diff */}
 			{importState.kind === "preview" && importDiff ? (
-				<section className="cms-panel grid gap-4 border-primary-line p-4 sm:p-5">
+				<section className="cms-panel cms-enter grid gap-4 border-primary-line p-4 sm:p-5">
 					<header className="flex flex-wrap items-center justify-between gap-3">
 						<div className="grid gap-0.5">
 							<p className="mono-label m-0 text-[10.5px] text-primary-text">Import preview</p>
@@ -229,6 +242,7 @@ export function RawJsonTab() {
 								size="sm"
 								disabled={applying}
 								onClick={() => setImportState({ kind: "idle" })}
+								className="pointer-coarse:min-h-11"
 							>
 								Cancel
 							</Button>
@@ -237,6 +251,7 @@ export function RawJsonTab() {
 								size="sm"
 								disabled={applying || importDiff.changedSections.length === 0}
 								onClick={() => void applyImport()}
+								className="pointer-coarse:min-h-11"
 							>
 								{applying ? "Applying…" : "Replace draft"}
 							</Button>
@@ -255,12 +270,12 @@ export function RawJsonTab() {
 			) : null}
 
 			{/* Read-only JSON document */}
-			<section className="cms-panel overflow-hidden">
+			<section style={staggerStyle(1)} className="cms-panel cms-enter overflow-hidden">
 				<header className="flex items-center justify-between border-b border-line px-4 py-2.5">
 					<span className="mono-label text-[10.5px] text-muted-foreground">
 						Draft r{draftRevision} · read-only inspect
 					</span>
-					<span className="font-mono text-[11px] text-muted-foreground">
+					<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
 						{formatted.split("\n").length} lines
 					</span>
 				</header>

@@ -2,6 +2,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getLiveVisitors } from "../../../server/analytics.functions";
 import type { LiveVisitors } from "../../../server/analytics.server";
+import { isValidLiveVisitors } from "./live-visitors-guard";
 
 interface LiveState {
 	data: { live: LiveVisitors; samples: number[] } | null;
@@ -17,7 +18,7 @@ export function LiveVisitorsProvider({ children }: { children: ReactNode }) {
 	const [paused, setPaused] = useState(false);
 	const [data, setData] = useState<LiveState["data"]>(null);
 	const [failed, setFailed] = useState(false);
-	const pending = useRef<Promise<LiveVisitors> | null>(null);
+	const pending = useRef<Promise<unknown> | null>(null);
 
 	useEffect(() => {
 		if (paused) return;
@@ -31,7 +32,12 @@ export function LiveVisitorsProvider({ children }: { children: ReactNode }) {
 				pending.current ??= query().finally(() => {
 					pending.current = null;
 				});
-				const live = await pending.current;
+				const raw = await pending.current;
+				if (!isValidLiveVisitors(raw)) {
+					if (!stopped) setFailed(true);
+					return;
+				}
+				const live = raw;
 				if (!stopped) {
 					setFailed(false);
 					setData((previous) => ({

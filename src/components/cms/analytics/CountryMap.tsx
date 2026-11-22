@@ -1,6 +1,8 @@
+import { useState } from "react";
+import { cn } from "../../../lib/utils";
 import type { AnalyticsCount } from "../../../server/analytics.server";
 import { LAND_DOTS, MAP_HEIGHT, MAP_WIDTH, dotsPath, project } from "../../home/remote-map";
-import { RankedList } from "./Widgets";
+import { RankedList, countLabel } from "./Widgets";
 
 const ALL_LAND = dotsPath(LAND_DOTS);
 const names = new Intl.DisplayNames("en", { type: "region", fallback: "code" });
@@ -66,40 +68,83 @@ const centers: Record<string, readonly [lat: number, lon: number]> = {
 };
 
 export function CountryMap({ rows }: { rows: AnalyticsCount[] }) {
+	const [activeCountry, setActiveCountry] = useState<string | null>(null);
 	const labels = rows.map((row) => ({
 		...row,
 		label: row.value === "unknown" ? "Unknown" : names.of(row.value),
 	}));
 	const max = rows[0]?.count ?? 1;
+	const activeEntry = activeCountry ? labels.find((item) => item.value === activeCountry) : null;
+
 	return (
-		<>
-			<svg viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`} aria-hidden="true" className="h-auto w-full">
-				<path
-					d={ALL_LAND}
-					fill="none"
-					stroke="currentColor"
-					strokeWidth="4.5"
-					strokeLinecap="round"
-					className="text-muted-foreground/45"
-				/>
-				{rows.map(({ value, count }) => {
-					const center = centers[value];
-					if (!center) return null;
-					const [lat, lon] = center;
-					const { x, y } = project({ lat, lon });
-					return (
-						<circle
-							key={value}
-							cx={x}
-							cy={y}
-							r={4 + Math.sqrt(count / max) * 9}
-							fill="currentColor"
-							className="text-primary-text"
-						/>
-					);
-				})}
-			</svg>
-			<RankedList rows={labels} />
-		</>
+		<div className="grid gap-3">
+			<div className="relative overflow-hidden rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3">
+				<svg
+					viewBox={`0 0 ${MAP_WIDTH} ${MAP_HEIGHT}`}
+					aria-hidden="true"
+					className="block h-auto w-full"
+				>
+					<path
+						d={ALL_LAND}
+						fill="none"
+						stroke="currentColor"
+						strokeWidth="4.5"
+						strokeLinecap="round"
+						className="text-muted-foreground/35"
+					/>
+					{rows.map(({ value, count }) => {
+						const center = centers[value];
+						if (!center) return null;
+						const [lat, lon] = center;
+						const { x, y } = project({ lat, lon });
+						const r = 4.5 + Math.sqrt(count / max) * 8.5;
+						const active = activeCountry === value;
+						return (
+							<g
+								key={value}
+								onMouseEnter={() => setActiveCountry(value)}
+								onMouseLeave={() => setActiveCountry(null)}
+								className="cursor-pointer"
+							>
+								<circle
+									cx={x}
+									cy={y}
+									r={active ? r + 8 : r + 4.5}
+									fill="currentColor"
+									className={cn(
+										"text-primary transition-opacity duration-200",
+										active ? "opacity-30" : "opacity-15",
+									)}
+								/>
+								<circle
+									cx={x}
+									cy={y}
+									r={active ? r + 1.5 : r}
+									fill="currentColor"
+									className="text-primary-text transition-opacity duration-150"
+								/>
+							</g>
+						);
+					})}
+				</svg>
+
+				{activeEntry ? (
+					<div className="pointer-events-none absolute right-2.5 bottom-2.5 inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface-solid/95 px-2.5 py-1 text-[11.5px] shadow-[0_2px_10px_var(--theme-shadow)]">
+						<span className="size-1.5 rounded-full bg-primary" aria-hidden="true" />
+						<span className="font-medium text-foreground">{activeEntry.label}</span>
+						<span className="font-mono tabular-nums text-primary-text">
+							{countLabel(activeEntry.count)}
+						</span>
+					</div>
+				) : null}
+			</div>
+
+			<RankedList
+				rows={labels}
+				empty="No country traffic in this period."
+				highlightedValue={activeCountry}
+				onHoverValue={setActiveCountry}
+			/>
+		</div>
 	);
 }

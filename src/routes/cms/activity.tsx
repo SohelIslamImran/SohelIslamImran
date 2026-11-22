@@ -1,15 +1,21 @@
 /**
  * Activity log page (`/cms/activity`, served at `/activity` on the CMS host).
- * Displays owner audit events (save, publish, restore, discard, media updates)
- * with explicit event icons + text, revision links, and hydration-safe times.
+ * Displays owner audit events grouped cleanly by UTC day with explicit event
+ * icons, relative times, revision links, and subtle staggered row entrance.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { cn } from "../../lib/utils";
-import { Button } from "../../components/ui/button";
+import {
+	EmptyState,
+	PageHeader,
+	SegmentedControl,
+	controlClass,
+	staggerStyle,
+} from "../../components/cms/analytics/Widgets";
 import {
 	ActivityIcon,
+	AlertTriangleIcon,
 	DiscardIcon,
 	HistoryIcon,
 	MediaLibraryIcon,
@@ -18,6 +24,8 @@ import {
 	UploadIcon,
 } from "../../components/cms/shell/cms-icons";
 import { formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
+import { Button } from "../../components/ui/button";
+import { cn } from "../../lib/utils";
 import { listAuditEvents } from "../../server/cms-history.functions";
 import type { AuditEventItem } from "../../server/cms-storage.server";
 
@@ -29,6 +37,25 @@ export const Route = createFileRoute("/cms/activity")({
 });
 
 type FilterKind = "all" | "publish" | "save" | "restore" | "media";
+
+const dayFormatter = new Intl.DateTimeFormat("en", {
+	weekday: "short",
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+
+function utcDayKey(iso: string): string {
+	return iso.slice(0, 10);
+}
+
+function formatDayHeading(dayKey: string, todayKey: string | null, yesterdayKey: string | null) {
+	if (todayKey && dayKey === todayKey) return "Today";
+	if (yesterdayKey && dayKey === yesterdayKey) return "Yesterday";
+	const parsed = Date.parse(`${dayKey}T00:00:00.000Z`);
+	return Number.isFinite(parsed) ? dayFormatter.format(new Date(parsed)) : dayKey;
+}
 
 function describeEvent(event: AuditEventItem): {
 	label: string;
@@ -110,14 +137,18 @@ function matchesFilter(event: AuditEventItem, filter: FilterKind): boolean {
 	return true;
 }
 
-function EventRow({ event }: { event: AuditEventItem }) {
+function EventRow({ event, stagger }: { event: AuditEventItem; stagger: number }) {
 	const meta = describeEvent(event);
 	const relative = useRelativeTime(event.createdAt, 30_000);
 
 	return (
-		<li className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5">
+		<li
+			style={staggerStyle(stagger)}
+			className="cms-enter cms-row-hover flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
+		>
 			<div className="flex min-w-0 items-center gap-3">
 				<span
+					aria-hidden="true"
 					className={cn(
 						"grid size-8 shrink-0 place-items-center rounded-[10px] border",
 						meta.toneClass,
@@ -135,9 +166,10 @@ function EventRow({ event }: { event: AuditEventItem }) {
 							<Link
 								to="/cms/history"
 								search={{ revision: event.revision }}
-								className="inline-flex items-center rounded-full border border-line bg-surface-solid px-2 py-0.5 font-mono text-[11px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft"
+								className="cms-press cms-page-focus inline-flex min-h-6 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 py-0.5 font-mono text-[11px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:px-3"
 							>
-								r{event.revision}
+								<span>r{event.revision}</span>
+								<span aria-hidden="true">→</span>
 							</Link>
 						) : null}
 					</div>
@@ -166,6 +198,16 @@ function ActivityRoute() {
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [filter, setFilter] = useState<FilterKind>("all");
+	const [todayKeys, setTodayKeys] = useState<{ today: string; yesterday: string } | null>(null);
+
+	// Hydration-safe "Today" / "Yesterday" labels (populated post-mount only).
+	useEffect(() => {
+		const now = Date.now();
+		setTodayKeys({
+			today: new Date(now).toISOString().slice(0, 10),
+			yesterday: new Date(now - 86_400_000).toISOString().slice(0, 10),
+		});
+	}, []);
 
 	const loadInitial = useCallback(async () => {
 		setLoading(true);
@@ -204,80 +246,147 @@ function ActivityRoute() {
 		[events, filter],
 	);
 
-	return (
-		<div className="grid max-w-[920px] gap-6">
-			<header className="flex flex-wrap items-end justify-between gap-4">
-				<div className="grid gap-1.5">
-					<p className="mono-label m-0 text-primary-text">Release · audit trail</p>
-					<h1 className="m-0 text-headline">Activity log</h1>
-					<p className="m-0 text-[14px] text-muted-foreground">
-						Recorded metadata for every save, publish, restore, discard, and media update. No
-						document body is stored here.
-					</p>
-				</div>
+	const groupedByDay = useMemo(() => {
+		const groups: Array<{ dayKey: string; items: AuditEventItem[] }> = [];
+		for (const event of visible) {
+			const dayKey = utcDayKey(event.createdAt);
+			const lastGroup = groups[groups.length - 1];
+			if (lastGroup && lastGroup.dayKey === dayKey) {
+				lastGroup.items.push(event);
+			} else {
+				groups.push({ dayKey, items: [event] });
+			}
+		}
+		return groups;
+	}, [visible]);
 
-				<div
-					role="group"
-					aria-label="Filter activity"
-					className="inline-flex flex-wrap items-center gap-1 rounded-full border border-line bg-surface-solid p-1"
-				>
-					{(
-						[
-							{ id: "all", label: "All" },
-							{ id: "publish", label: "Publishes" },
-							{ id: "save", label: "Saves" },
-							{ id: "restore", label: "Restores" },
-							{ id: "media", label: "Media" },
-						] as const
-					).map((option) => (
-						<button
-							key={option.id}
-							type="button"
-							aria-pressed={filter === option.id}
-							onClick={() => setFilter(option.id)}
-							className={cn(
-								"min-h-8 rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 pointer-coarse:min-h-10",
-								filter === option.id
-									? "bg-foreground text-background"
-									: "text-muted-foreground hover:text-foreground",
-							)}
-						>
-							{option.label}
-						</button>
+	const filterCounts = useMemo(
+		() => ({
+			all: events.length,
+			publish: events.filter((e) => matchesFilter(e, "publish")).length,
+			save: events.filter((e) => matchesFilter(e, "save")).length,
+			restore: events.filter((e) => matchesFilter(e, "restore")).length,
+			media: events.filter((e) => matchesFilter(e, "media")).length,
+		}),
+		[events],
+	);
+
+	let rowCounter = 0;
+
+	return (
+		<div className="grid min-w-0 max-w-[960px] grid-cols-1 gap-6">
+			<PageHeader
+				eyebrow="Release · Audit trail"
+				title="Activity log"
+				description="Recorded metadata for every save, publish, restore, discard, and media update, grouped by UTC day."
+				actions={
+					<SegmentedControl
+						layoutId="cms-activity-filter-pill"
+						ariaLabel="Filter activity"
+						value={filter}
+						onChange={setFilter}
+						options={[
+							{ value: "all", label: "All", badge: loading ? undefined : filterCounts.all },
+							{
+								value: "publish",
+								label: "Publishes",
+								badge: loading || filterCounts.publish === 0 ? undefined : filterCounts.publish,
+							},
+							{
+								value: "save",
+								label: "Saves",
+								badge: loading || filterCounts.save === 0 ? undefined : filterCounts.save,
+							},
+							{
+								value: "restore",
+								label: "Restores",
+								badge: loading || filterCounts.restore === 0 ? undefined : filterCounts.restore,
+							},
+							{
+								value: "media",
+								label: "Media",
+								badge: loading || filterCounts.media === 0 ? undefined : filterCounts.media,
+							},
+						]}
+					/>
+				}
+			/>
+
+			{error ? (
+				<section className="cms-panel">
+					<EmptyState
+						icon={<AlertTriangleIcon className="size-4 text-destructive" />}
+						title="Could not load activity"
+						description={error}
+						action={
+							<button type="button" className={controlClass} onClick={() => void loadInitial()}>
+								Try again
+							</button>
+						}
+					/>
+				</section>
+			) : loading ? (
+				<div className="grid gap-4">
+					<div className="cms-skeleton h-4 w-28" />
+					<section className="cms-panel grid gap-2.5 p-4">
+						{[0, 1, 2, 3, 4].map((slot) => (
+							<div key={slot} className="cms-skeleton h-14 w-full rounded-[10px]" />
+						))}
+					</section>
+				</div>
+			) : visible.length === 0 ? (
+				<section className="cms-panel cms-enter">
+					<EmptyState
+						icon={<ActivityIcon className="size-5" />}
+						title={filter === "all" ? "No activity recorded yet" : `No ${filter} events yet`}
+						description={
+							filter === "all"
+								? "Draft saves, publishes, restores, discards, and media updates appear here automatically."
+								: "Try another filter or show every recorded audit event."
+						}
+						action={
+							filter !== "all" ? (
+								<button type="button" className={controlClass} onClick={() => setFilter("all")}>
+									Show all activity
+								</button>
+							) : (
+								<Link to="/cms" className={controlClass}>
+									Back to overview
+								</Link>
+							)
+						}
+					/>
+				</section>
+			) : (
+				<div className="grid gap-5">
+					{groupedByDay.map((group) => (
+						<section key={group.dayKey} className="grid gap-2">
+							<header className="flex items-center justify-between gap-2 px-1">
+								<h2 className="mono-label m-0 text-[11px] text-muted-foreground">
+									{formatDayHeading(
+										group.dayKey,
+										todayKeys?.today ?? null,
+										todayKeys?.yesterday ?? null,
+									)}
+								</h2>
+								<span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
+									{group.items.length} {group.items.length === 1 ? "event" : "events"} ·{" "}
+									{group.dayKey}
+								</span>
+							</header>
+							<div className="cms-panel overflow-hidden">
+								<ul className="m-0 list-none divide-y divide-line p-0">
+									{group.items.map((event) => {
+										const stagger = Math.min(rowCounter, 10);
+										rowCounter += 1;
+										return <EventRow key={event.id} event={event} stagger={stagger} />;
+									})}
+								</ul>
+							</div>
+						</section>
 					))}
 				</div>
-			</header>
-
-			<section className="cms-panel overflow-hidden">
-				{error ? (
-					<div className="p-5 text-[13.5px] text-destructive">{error}</div>
-				) : loading ? (
-					<div className="grid gap-2 p-4">
-						{[0, 1, 2, 3, 4].map((slot) => (
-							<div key={slot} className="skeleton h-14 rounded-[10px]" />
-						))}
-					</div>
-				) : visible.length === 0 ? (
-					<div className="grid place-items-center gap-2 px-6 py-12 text-center">
-						<span className="grid size-10 place-items-center rounded-full border border-line bg-muted text-muted-foreground">
-							<ActivityIcon className="size-4" />
-						</span>
-						<p className="m-0 text-[14.5px] font-medium text-foreground">
-							No activity recorded yet
-						</p>
-						<p className="m-0 max-w-[42ch] text-[13px] text-muted-foreground">
-							Draft saves, publishes, restores, discards, and media updates appear here
-							automatically.
-						</p>
-					</div>
-				) : (
-					<ul className="m-0 list-none divide-y divide-line p-0">
-						{visible.map((event) => (
-							<EventRow key={event.id} event={event} />
-						))}
-					</ul>
-				)}
-			</section>
+			)}
 
 			{nextBefore ? (
 				<div className="flex justify-center">
@@ -286,6 +395,7 @@ function ActivityRoute() {
 						size="sm"
 						disabled={loadingMore}
 						onClick={() => void loadMore()}
+						className="pointer-coarse:min-h-11"
 					>
 						{loadingMore ? "Loading…" : "Load older events"}
 					</Button>
