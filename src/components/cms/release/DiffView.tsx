@@ -1,12 +1,14 @@
 /**
  * Shared diff renderer for Release (draft vs live), History (revision vs draft),
- * and Raw JSON import preview. Pairs every state with an icon/glyph and text
- * label (never hue alone).
+ * and Raw JSON import preview. Pairs every state with an icon and text label
+ * (never hue alone) and supports smooth collapsible section groups.
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import { mediaHref } from "../../../lib/media";
 import { cn } from "../../../lib/utils";
+import { EmptyState, staggerStyle } from "../analytics/Widgets";
+import { CheckCircleIcon, SectionIcon } from "../shell/cms-icons";
 import {
 	asMediaAsset,
 	type DocumentDiff,
@@ -16,7 +18,6 @@ import {
 	type SectionDiff,
 } from "./diff";
 import { diffWords } from "./word-diff";
-import { SectionIcon } from "../shell/cms-icons";
 
 interface DiffViewProps {
 	diff: DocumentDiff;
@@ -32,31 +33,106 @@ interface DiffViewProps {
 	/** Copy shown when `diff.changedSections.length === 0`. */
 	emptyTitle?: string;
 	emptyDescription?: string;
+	/** Optional action rendered inside the empty state. */
+	emptyAction?: ReactNode;
 }
 
-const ROW_STATUS_STYLE: Record<RowDiffStatus, { glyph: string; label: string; className: string }> =
-	{
-		added: {
-			glyph: "+",
-			label: "Added",
-			className: "border-success/35 bg-success/10 text-success",
-		},
-		edited: {
-			glyph: "Δ",
-			label: "Edited",
-			className: "border-primary-line bg-primary-soft text-primary-text",
-		},
-		removed: {
-			glyph: "−",
-			label: "Removed",
-			className: "border-destructive/35 bg-destructive/10 text-destructive",
-		},
-		reordered: {
-			glyph: "↕",
-			label: "Reordered",
-			className: "border-line-strong bg-muted text-ink-soft",
-		},
-	};
+function StatusGlyph({ status }: { status: RowDiffStatus }) {
+	switch (status) {
+		case "added":
+			return (
+				<svg
+					viewBox="0 0 14 14"
+					aria-hidden="true"
+					className="size-3 shrink-0 fill-none stroke-current stroke-[1.9] [stroke-linecap:round]"
+				>
+					<path d="M7 2.75v8.5M2.75 7h8.5" />
+				</svg>
+			);
+		case "edited":
+			return (
+				<svg
+					viewBox="0 0 14 14"
+					aria-hidden="true"
+					className="size-3 shrink-0 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+				>
+					<path d="M9.5 2.5 11.5 4.5 5 11H3V9l6.5-6.5Z" />
+				</svg>
+			);
+		case "removed":
+			return (
+				<svg
+					viewBox="0 0 14 14"
+					aria-hidden="true"
+					className="size-3 shrink-0 fill-none stroke-current stroke-[1.9] [stroke-linecap:round]"
+				>
+					<path d="M3 7h8" />
+				</svg>
+			);
+		case "reordered":
+			return (
+				<svg
+					viewBox="0 0 14 14"
+					aria-hidden="true"
+					className="size-3 shrink-0 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
+				>
+					<path d="M7 2.5v9M4.5 5 7 2.5 9.5 5M4.5 9 7 11.5 9.5 9" />
+				</svg>
+			);
+	}
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+	return (
+		<svg
+			viewBox="0 0 16 16"
+			aria-hidden="true"
+			className={cn(
+				"size-4 shrink-0 fill-none stroke-current stroke-[1.7] text-muted-foreground transition-transform duration-200 ease-trace [stroke-linecap:round] [stroke-linejoin:round]",
+				open && "rotate-180",
+			)}
+		>
+			<path d="m4 6 4 4 4-4" />
+		</svg>
+	);
+}
+
+const ROW_STATUS_STYLE: Record<RowDiffStatus, { label: string; className: string }> = {
+	added: {
+		label: "Added",
+		className: "border-success/35 bg-success/10 text-success",
+	},
+	edited: {
+		label: "Edited",
+		className: "border-primary-line bg-primary-soft text-primary-text",
+	},
+	removed: {
+		label: "Removed",
+		className: "border-dashed border-destructive/45 bg-destructive/10 text-destructive",
+	},
+	reordered: {
+		label: "Reordered",
+		className: "border-line-strong bg-muted text-ink-soft",
+	},
+};
+
+function StatusChip({ status, detail }: { status: RowDiffStatus; detail?: string }) {
+	const meta = ROW_STATUS_STYLE[status];
+	return (
+		<span
+			className={cn(
+				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10.5px] font-medium",
+				meta.className,
+			)}
+		>
+			<StatusGlyph status={status} />
+			<span>
+				{meta.label}
+				{detail ? ` ${detail}` : ""}
+			</span>
+		</span>
+	);
+}
 
 function formatScalar(value: unknown): string {
 	if (value === undefined || value === null || value === "") return "Empty";
@@ -86,7 +162,7 @@ function TagsDiff({ before, after }: { before: unknown; after: unknown }) {
 					key={`del-${tag}`}
 					className="inline-flex items-center gap-1 rounded-full border border-dashed border-destructive/45 bg-destructive/10 px-2.5 py-0.5 text-[12px] text-destructive line-through"
 				>
-					<span aria-hidden="true">−</span>
+					<StatusGlyph status="removed" />
 					{tag}
 					<span className="sr-only"> (removed)</span>
 				</span>
@@ -96,7 +172,7 @@ function TagsDiff({ before, after }: { before: unknown; after: unknown }) {
 					key={`add-${tag}`}
 					className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[12px] font-medium text-success"
 				>
-					<span aria-hidden="true">+</span>
+					<StatusGlyph status="added" />
 					{tag}
 					<span className="sr-only"> (added)</span>
 				</span>
@@ -114,14 +190,14 @@ function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
 	const parts = diffWords(left, right);
 
 	return (
-		<p className="m-0 rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] px-3 py-2.5 text-[13.5px] leading-[1.6] text-ink-soft whitespace-pre-wrap">
+		<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
 			{parts.map((part, index) => {
 				if (part.kind === "same") return <span key={index}>{part.text}</span>;
 				if (part.kind === "del") {
 					return (
 						<del
 							key={index}
-							className="rounded-[4px] bg-destructive/12 px-0.5 text-destructive decoration-destructive/75 line-through"
+							className="rounded-[4px] bg-destructive/12 px-1 py-0.5 text-destructive decoration-destructive/75 line-through"
 						>
 							{part.text}
 						</del>
@@ -130,7 +206,7 @@ function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
 				return (
 					<ins
 						key={index}
-						className="rounded-[4px] bg-success/14 px-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2"
+						className="rounded-[4px] bg-success/14 px-1 py-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2"
 					>
 						{part.text}
 					</ins>
@@ -216,7 +292,7 @@ function ShortDiff({
 				<span className="font-mono text-[10px] uppercase tracking-[0.06em] opacity-75">
 					{beforeLabel}
 				</span>
-				<span className="break-all line-through decoration-destructive/65">
+				<span className="line-through decoration-destructive/65 [overflow-wrap:anywhere]">
 					{formatScalar(before)}
 				</span>
 			</span>
@@ -232,7 +308,7 @@ function ShortDiff({
 				<span className="font-mono text-[10px] uppercase tracking-[0.06em] text-primary-text">
 					{afterLabel}
 				</span>
-				<span className="break-all">{formatScalar(after)}</span>
+				<span className="[overflow-wrap:anywhere]">{formatScalar(after)}</span>
 			</span>
 		</div>
 	);
@@ -277,7 +353,9 @@ function ListDiff({
 							key={index}
 							className="flex items-start gap-2 rounded-[9px] border border-success/35 bg-success/8 px-2.5 py-1.5 text-[13px] text-foreground"
 						>
-							<span className="font-mono text-[11px] font-semibold text-success">+</span>
+							<span className="mt-0.5 text-success">
+								<StatusGlyph status="added" />
+							</span>
 							<span className="min-w-0 break-words">{summarize(r)}</span>
 						</li>
 					);
@@ -288,7 +366,9 @@ function ListDiff({
 							key={index}
 							className="flex items-start gap-2 rounded-[9px] border border-dashed border-destructive/35 bg-destructive/8 px-2.5 py-1.5 text-[13px] text-destructive line-through"
 						>
-							<span className="font-mono text-[11px] font-semibold">−</span>
+							<span className="mt-0.5">
+								<StatusGlyph status="removed" />
+							</span>
 							<span className="min-w-0 break-words">{summarize(l)}</span>
 						</li>
 					);
@@ -328,7 +408,7 @@ function FieldDiffRow({
 	onRevertField?: (path: string) => void;
 }) {
 	return (
-		<div className="grid gap-2 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3">
+		<div className="grid gap-2.5 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex min-w-0 flex-wrap items-baseline gap-2">
 					<span className="text-[13px] font-medium text-foreground">{field.label}</span>
@@ -338,9 +418,10 @@ function FieldDiffRow({
 					<button
 						type="button"
 						onClick={() => onRevertField(field.path)}
-						className="pressable inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
-						<span aria-hidden="true">↺</span> Revert
+						<span aria-hidden="true">↺</span>
+						<span>Revert</span>
 						<span className="sr-only"> {field.label}</span>
 					</button>
 				) : null}
@@ -390,7 +471,6 @@ function RowDiffCard({
 	onRevertField?: (path: string) => void;
 	showEditLinks: boolean;
 }) {
-	const meta = ROW_STATUS_STYLE[row.status];
 	const movedLabel =
 		row.beforeIndex !== null && row.afterIndex !== null && row.beforeIndex !== row.afterIndex
 			? `#${row.beforeIndex} → #${row.afterIndex}`
@@ -400,22 +480,12 @@ function RowDiffCard({
 		<div className="grid gap-3 rounded-[12px] border border-line bg-surface-solid p-3.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<span
-						className={cn(
-							"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[11px] font-medium",
-							meta.className,
-						)}
-					>
-						<span aria-hidden="true">{meta.glyph}</span>
-						<span>
-							{meta.label}
-							{row.status === "reordered" && movedLabel ? ` ${movedLabel}` : ""}
-						</span>
-					</span>
+					<StatusChip
+						status={row.status}
+						detail={row.status === "reordered" && movedLabel ? movedLabel : undefined}
+					/>
 					{row.status === "edited" && movedLabel ? (
-						<span className="inline-flex items-center gap-1 rounded-full border border-line-strong bg-muted px-2 py-0.5 font-mono text-[11px] text-ink-soft">
-							<span aria-hidden="true">↕</span> Reordered {movedLabel}
-						</span>
+						<StatusChip status="reordered" detail={movedLabel} />
 					) : null}
 					<span className="min-w-0 truncate text-[14px] font-medium text-foreground">
 						{row.title}
@@ -427,9 +497,10 @@ function RowDiffCard({
 						to="/cms/content/$section"
 						params={{ section: sectionId }}
 						search={row.itemId ? { item: row.itemId } : {}}
-						className="inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[11.5px] text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[11.5px] text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
 					>
-						Edit <span aria-hidden="true">→</span>
+						<span>Edit</span>
+						<span aria-hidden="true">→</span>
 					</Link>
 				) : null}
 			</div>
@@ -455,82 +526,101 @@ function RowDiffCard({
 
 function SectionDiffCard({
 	entry,
+	open,
+	onToggle,
 	beforeLabel,
 	afterLabel,
 	onRevertField,
 	showEditLinks,
+	stagger,
 }: {
 	entry: SectionDiff;
+	open: boolean;
+	onToggle: () => void;
 	beforeLabel: string;
 	afterLabel: string;
 	onRevertField?: (path: string) => void;
 	showEditLinks: boolean;
+	stagger: number;
 }) {
 	return (
-		<section className="cms-panel grid min-w-0 gap-3.5 p-4 sm:p-5">
-			<header className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex min-w-0 items-center gap-2.5">
+		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0 overflow-hidden">
+			<div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 sm:px-5">
+				<button
+					type="button"
+					aria-expanded={open}
+					onClick={onToggle}
+					className="cms-page-focus group flex min-h-9 min-w-0 flex-1 items-center gap-3 rounded-[10px] text-left pointer-coarse:min-h-11"
+				>
 					<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
 						<SectionIcon id={entry.section.id} className="size-4" />
 					</span>
-					<div className="min-w-0">
-						<h3 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
-							{entry.section.label}
-						</h3>
-						<div className="mt-0.5 flex flex-wrap items-center gap-1.5 font-mono text-[11px] text-muted-foreground">
+					<div className="grid min-w-0 flex-1 gap-1">
+						<div className="flex items-center gap-2">
+							<h3 className="m-0 truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+								{entry.section.label}
+							</h3>
+							<ChevronIcon open={open} />
+						</div>
+						<div className="flex flex-wrap items-center gap-1.5">
 							{entry.counts.added > 0 ? (
-								<span className="text-success">+{entry.counts.added} added</span>
+								<StatusChip status="added" detail={`${entry.counts.added}`} />
 							) : null}
 							{entry.counts.edited > 0 ? (
-								<span className="text-primary-text">Δ {entry.counts.edited} edited</span>
+								<StatusChip status="edited" detail={`${entry.counts.edited}`} />
 							) : null}
 							{entry.counts.removed > 0 ? (
-								<span className="text-destructive">−{entry.counts.removed} removed</span>
+								<StatusChip status="removed" detail={`${entry.counts.removed}`} />
 							) : null}
 							{entry.counts.reordered > 0 ? (
-								<span>↕ {entry.counts.reordered} reordered</span>
+								<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
 							) : null}
 							{entry.rows.length === 0 && entry.counts.fields > 0 ? (
-								<span className="text-primary-text">
-									Δ {entry.counts.fields} {entry.counts.fields === 1 ? "field" : "fields"}
-								</span>
+								<StatusChip
+									status="edited"
+									detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
+								/>
 							) : null}
 						</div>
 					</div>
-				</div>
+				</button>
+
 				{showEditLinks ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: entry.section.id }}
-						className="inline-flex min-h-9 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 font-mono text-[11.5px] text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 font-mono text-[11.5px] text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
-						Edit <span aria-hidden="true">→</span>
+						<span>Edit</span>
+						<span aria-hidden="true">→</span>
 					</Link>
 				) : null}
-			</header>
-
-			<div className="grid gap-2.5">
-				{entry.fields.map((field) => (
-					<FieldDiffRow
-						key={field.path}
-						field={field}
-						beforeLabel={beforeLabel}
-						afterLabel={afterLabel}
-						onRevertField={onRevertField}
-					/>
-				))}
-				{entry.rows.map((row) => (
-					<RowDiffCard
-						key={`${row.status}-${row.id}`}
-						sectionId={entry.section.id}
-						row={row}
-						beforeLabel={beforeLabel}
-						afterLabel={afterLabel}
-						onRevertField={onRevertField}
-						showEditLinks={showEditLinks}
-					/>
-				))}
 			</div>
+
+			{open ? (
+				<div className="cms-collapse-panel grid gap-2.5 border-t border-line px-4 py-4 sm:px-5">
+					{entry.fields.map((field) => (
+						<FieldDiffRow
+							key={field.path}
+							field={field}
+							beforeLabel={beforeLabel}
+							afterLabel={afterLabel}
+							onRevertField={onRevertField}
+						/>
+					))}
+					{entry.rows.map((row) => (
+						<RowDiffCard
+							key={`${row.status}-${row.id}`}
+							sectionId={entry.section.id}
+							row={row}
+							beforeLabel={beforeLabel}
+							afterLabel={afterLabel}
+							onRevertField={onRevertField}
+							showEditLinks={showEditLinks}
+						/>
+					))}
+				</div>
+			) : null}
 		</section>
 	);
 }
@@ -544,65 +634,105 @@ export function DiffView({
 	showUnchanged = true,
 	emptyTitle = "Live is up to date",
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
+	emptyAction,
 }: DiffViewProps) {
+	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 
 	if (diff.changedSections.length === 0) {
 		return (
-			<div className="cms-panel grid place-items-center gap-2 px-6 py-12 text-center">
-				<span
-					aria-hidden="true"
-					className="grid size-10 place-items-center rounded-full border border-success/35 bg-success/10 font-mono text-[16px] text-success"
-				>
-					✓
-				</span>
-				<p className="m-0 text-[15px] font-semibold text-foreground">{emptyTitle}</p>
-				<p className="m-0 max-w-[44ch] text-[13.5px] text-muted-foreground">{emptyDescription}</p>
+			<div className="cms-panel cms-enter">
+				<EmptyState
+					tone="success"
+					icon={<CheckCircleIcon className="size-5" />}
+					title={emptyTitle}
+					description={emptyDescription}
+					action={emptyAction}
+				/>
 			</div>
 		);
 	}
 
+	const allCollapsed = diff.changedSections.every((entry) => collapsedIds.has(entry.section.id));
+
+	const toggleSection = (sectionId: string) => {
+		setCollapsedIds((prev) => {
+			const next = new Set(prev);
+			if (next.has(sectionId)) next.delete(sectionId);
+			else next.add(sectionId);
+			return next;
+		});
+	};
+
+	const toggleAll = () => {
+		if (allCollapsed) {
+			setCollapsedIds(new Set());
+		} else {
+			setCollapsedIds(new Set(diff.changedSections.map((entry) => entry.section.id)));
+		}
+	};
+
 	return (
 		<div className="grid gap-4">
-			{diff.changedSections.map((entry) => (
+			{diff.changedSections.length > 1 ? (
+				<div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
+					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
+						{diff.changedSections.length} changed sections · {diff.totalChanges}{" "}
+						{diff.totalChanges === 1 ? "change" : "changes"}
+					</p>
+					<button
+						type="button"
+						onClick={toggleAll}
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center rounded-full border border-line bg-surface-solid px-3 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+					>
+						{allCollapsed ? "Expand all" : "Collapse all"}
+					</button>
+				</div>
+			) : null}
+
+			{diff.changedSections.map((entry, idx) => (
 				<SectionDiffCard
 					key={entry.section.id}
 					entry={entry}
+					open={!collapsedIds.has(entry.section.id)}
+					onToggle={() => toggleSection(entry.section.id)}
 					beforeLabel={beforeLabel}
 					afterLabel={afterLabel}
 					onRevertField={onRevertField}
 					showEditLinks={showEditLinks}
+					stagger={Math.min(idx, 6)}
 				/>
 			))}
 
 			{showUnchanged && diff.unchangedSections.length > 0 ? (
-				<div className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
+				<div className="overflow-hidden rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
 						onClick={() => setUnchangedOpen((open) => !open)}
-						className="flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
+						className="cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
 					>
 						<span className="flex items-center gap-2">
-							<span className="font-mono text-[11px] text-success" aria-hidden="true">
-								✓
-							</span>
+							<CheckCircleIcon className="size-3.5 text-success" />
 							<span>
 								{diff.unchangedSections.length} unchanged{" "}
 								{diff.unchangedSections.length === 1 ? "section" : "sections"}
 							</span>
 						</span>
-						<span className="font-mono text-[11px]">{unchangedOpen ? "Hide" : "Show"}</span>
+						<span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
+							<span>{unchangedOpen ? "Hide" : "Show"}</span>
+							<ChevronIcon open={unchangedOpen} />
+						</span>
 					</button>
 					{unchangedOpen ? (
-						<ul className="m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3">
+						<ul className="cms-collapse-panel m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3">
 							{diff.unchangedSections.map(({ section }) => (
 								<li key={section.id}>
 									{showEditLinks ? (
 										<Link
 											to="/cms/content/$section"
 											params={{ section: section.id }}
-											className="flex min-h-9 items-center justify-between gap-2 rounded-[9px] px-2.5 text-[13px] text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
+											className="cms-page-focus flex min-h-9 items-center justify-between gap-2 rounded-[9px] px-2.5 text-[13px] text-ink-soft no-underline transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 										>
 											<span className="flex items-center gap-2 truncate">
 												<SectionIcon id={section.id} className="size-3.5 text-muted-foreground" />

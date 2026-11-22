@@ -1,4 +1,352 @@
 /* CMS pages styles. Owned by the pages workstream; see docs/cms/DESIGN.md. */
 
 @layer components {
+	/* Unified focus ring for custom page controls. */
+	.cms-page-focus:focus-visible {
+		outline: none;
+		box-shadow: var(--cms-ring);
+	}
+
+	/* Gentle <= 1 Hz live visitor pulse (0.42 Hz, scale + opacity only). */
+	@keyframes cms-live-pulse {
+		0% {
+			scale: 1;
+			opacity: 0.55;
+		}
+		65%,
+		100% {
+			scale: 2.35;
+			opacity: 0;
+		}
+	}
+
+	.cms-live-ring {
+		animation: cms-live-pulse 2.4s var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) infinite;
+	}
+
+	/* Segmented control track and sliding elevated pill (never hue alone). */
+	.cms-seg-track {
+		display: inline-flex;
+		max-width: 100%;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		scrollbar-width: none;
+		align-items: center;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 999px;
+		border: 1px solid var(--theme-line);
+		background: color-mix(in srgb, var(--theme-ink) 4.5%, var(--theme-paper));
+		box-shadow: inset 0 1px 2px var(--theme-shadow-soft);
+	}
+
+	.cms-seg-track::-webkit-scrollbar {
+		display: none;
+	}
+
+	.cms-seg-item {
+		position: relative;
+		z-index: 0;
+		display: inline-flex;
+		min-height: 32px;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		border-radius: 999px;
+		padding: 0 12px;
+		font-size: 12.5px;
+		font-weight: 500;
+		letter-spacing: -0.005em;
+		color: var(--theme-muted);
+		text-decoration: none;
+		white-space: nowrap;
+		cursor: pointer;
+		user-select: none;
+		transition:
+			color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-press, 100ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-seg-item[data-active="true"],
+	.cms-seg-item[aria-current="page"],
+	.cms-seg-item[aria-pressed="true"],
+	.cms-seg-item[aria-selected="true"] {
+		color: var(--theme-ink);
+		font-weight: 600;
+	}
+
+	.cms-seg-item:active:not(:disabled) {
+		scale: 0.97;
+	}
+
+	.cms-seg-item:focus-visible {
+		outline: none;
+		box-shadow: var(--cms-ring);
+	}
+
+	.cms-seg-pill {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		border-radius: 999px;
+		border: 1px solid var(--theme-line-strong);
+		background: var(--theme-surface-solid);
+		box-shadow:
+			0 1px 2px var(--theme-shadow-soft),
+			0 4px 12px -4px var(--theme-shadow),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	/* Pointer-fine hover polish for interactive cards and surfaces. */
+	.cms-kpi-card {
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-jump-card {
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-press, 100ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-jump-card:active {
+		scale: 0.985;
+	}
+
+	.cms-media-card {
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-media-card[data-selected="true"] {
+		border-color: var(--theme-accent-line);
+		box-shadow:
+			0 0 0 1px color-mix(in srgb, var(--theme-accent) 32%, transparent),
+			0 8px 24px -10px var(--theme-accent-shadow),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	.cms-media-thumb {
+		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-row-hover {
+		transition:
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-seg-item:hover {
+			color: var(--theme-ink);
+		}
+		.cms-kpi-card:hover {
+			border-color: var(--theme-line-strong);
+			box-shadow:
+				0 2px 6px var(--theme-shadow-soft),
+				0 10px 26px -14px var(--theme-shadow),
+				inset 0 1px var(--theme-highlight);
+		}
+		.cms-jump-card:hover {
+			border-color: var(--theme-line-strong);
+			background: var(--theme-surface-raised);
+			translate: 0 -1.5px;
+			box-shadow:
+				0 2px 6px var(--theme-shadow-soft),
+				0 10px 24px -12px var(--theme-shadow),
+				inset 0 1px var(--theme-highlight);
+		}
+		.cms-media-card:hover {
+			border-color: var(--theme-line-strong);
+			translate: 0 -2px;
+			box-shadow:
+				0 4px 12px var(--theme-shadow-soft),
+				0 16px 32px -16px var(--theme-shadow-strong),
+				inset 0 1px var(--theme-highlight);
+		}
+		.cms-media-card[data-selected="true"]:hover {
+			border-color: var(--theme-accent-line);
+		}
+		.cms-media-card:hover .cms-media-thumb {
+			scale: 1.03;
+		}
+		.cms-row-hover:hover {
+			background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
+		}
+	}
+
+	@media (max-width: 639px) {
+		.cms-seg-item {
+			padding: 0 9.5px;
+		}
+	}
+
+	/* Coarse pointers: ensure 44px minimum touch targets. */
+	@media (pointer: coarse) {
+		.cms-seg-item {
+			min-height: 44px;
+			padding-inline: 14px;
+		}
+	}
+
+	/* Smooth collapsible reveal (transform + opacity only; content unmounts when closed so hidden controls stay out of Tab order). */
+	@keyframes cms-collapse-reveal {
+		from {
+			opacity: 0;
+			translate: 0 -4px;
+		}
+	}
+
+	.cms-collapse-panel {
+		animation: cms-collapse-reveal var(--cms-dur-fast, 160ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+	}
+
+	/* Floating chart tooltip (glass chrome over chart canvas). */
+	.cms-chart-tooltip {
+		position: absolute;
+		top: 8px;
+		left: 0;
+		pointer-events: none;
+		z-index: 10;
+		border-radius: 12px;
+		border: 1px solid var(--theme-glass-border);
+		background: color-mix(in srgb, var(--theme-surface-solid) 88%, transparent);
+		backdrop-filter: blur(16px) saturate(160%);
+		-webkit-backdrop-filter: blur(16px) saturate(160%);
+		box-shadow:
+			0 2px 6px var(--theme-shadow-soft),
+			0 12px 30px -10px var(--theme-shadow-strong),
+			inset 0 1px var(--theme-highlight);
+		transition:
+			transform 110ms var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			opacity var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	/* Ranked list proportional bar (transform-only). */
+	.cms-bar-fill {
+		position: absolute;
+		inset: 2px 0;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--theme-accent) 9%, transparent);
+		transform-origin: left center;
+		transition:
+			transform var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	/* Media upload dropzone. */
+	.cms-dropzone {
+		border: 1.5px dashed var(--theme-line-strong);
+		border-radius: 14px;
+		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-dropzone[data-dragging="true"] {
+		border-color: var(--theme-accent-line);
+		background: color-mix(in srgb, var(--theme-accent) 10%, var(--theme-surface-solid));
+		scale: 1.005;
+	}
+
+	/* One-shot publish confirmation highlight sweep. */
+	@keyframes cms-confirm-sweep {
+		0% {
+			translate: -100% 0;
+			opacity: 0;
+		}
+		20% {
+			opacity: 1;
+		}
+		100% {
+			translate: 100% 0;
+			opacity: 0;
+		}
+	}
+
+	.cms-confirm-card {
+		position: relative;
+		overflow: hidden;
+	}
+
+	.cms-confirm-card::before {
+		content: "";
+		position: absolute;
+		inset-inline: 0;
+		top: 0;
+		height: 2px;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			var(--theme-success) 45%,
+			var(--theme-accent) 65%,
+			transparent 100%
+		);
+		animation: cms-confirm-sweep 1100ms var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+	}
+
+	/* Reduced transparency: solid surfaces for floating tooltips. */
+	@media (prefers-reduced-transparency: reduce) {
+		.cms-chart-tooltip {
+			background: var(--theme-surface-solid);
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+	}
+
+	/* Reduced motion: fades only, zero movement or looping pulses. */
+	@media (prefers-reduced-motion: reduce) {
+		.cms-live-ring {
+			animation: none;
+			opacity: 0;
+		}
+		.cms-confirm-card::before {
+			animation: none;
+			translate: 0 0;
+			opacity: 0.6;
+		}
+		.cms-collapse-panel {
+			animation: cms-fade 140ms linear both;
+		}
+		.cms-chart-tooltip {
+			transition: opacity 120ms linear;
+		}
+		.cms-kpi-card,
+		.cms-jump-card,
+		.cms-media-card,
+		.cms-media-thumb,
+		.cms-seg-item,
+		.cms-dropzone,
+		.cms-bar-fill {
+			transition:
+				color 120ms linear,
+				background-color 120ms linear,
+				border-color 120ms linear,
+				opacity 120ms linear;
+		}
+		.cms-jump-card:hover,
+		.cms-media-card:hover {
+			translate: 0 0;
+		}
+		.cms-media-card:hover .cms-media-thumb,
+		.cms-jump-card:active,
+		.cms-seg-item:active:not(:disabled),
+		.cms-dropzone[data-dragging="true"] {
+			scale: 1;
+		}
+	}
 }
