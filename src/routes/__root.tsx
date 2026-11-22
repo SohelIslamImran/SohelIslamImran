@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { Beacon } from "../components/analytics/Beacon";
+import { railBootScript } from "../components/cms/shell/rail-preference";
 import { accentBootScript, themeColors } from "../components/AccentSwitcher";
 import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/CommandPalette";
 import { NavDock } from "../components/chrome/NavDock";
@@ -76,7 +77,7 @@ function RootComponent() {
 	if (isCmsRoute) {
 		return (
 			<MotionConfig reducedMotion="user">
-				<RootDocument>
+				<RootDocument cms>
 					<Outlet />
 				</RootDocument>
 			</MotionConfig>
@@ -306,12 +307,13 @@ function RouteOutlet({ focusOnClientNavigation }: { focusOnClientNavigation: boo
 	);
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({ children, cms }: Readonly<{ children: ReactNode; cms?: boolean }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 				<script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
+				{cms ? <script dangerouslySetInnerHTML={{ __html: railBootScript }} /> : null}
 			</head>
 			<body className="bg-background font-sans text-foreground">
 				{children}

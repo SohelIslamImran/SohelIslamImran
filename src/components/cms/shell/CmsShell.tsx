@@ -47,6 +47,7 @@ import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar, useSaveFeedback } from "./PipelineBar";
+import { RAIL_STORAGE_KEY, type RailMode } from "./rail-preference";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { RailRouterLink } from "./RailRouterLink";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
@@ -144,9 +145,6 @@ export const CMS_NAV = {
 		{ to: "/cms/activity", label: "Activity" },
 	],
 } as const;
-
-type RailMode = "auto" | "expanded" | "collapsed";
-const RAIL_STORAGE_KEY = "cms:rail-mode";
 
 function isEditableTarget(target: EventTarget | null): boolean {
 	if (!(target instanceof HTMLElement)) return false;
@@ -367,8 +365,8 @@ function ChangesCompactBadge() {
 
 function RailHeading({ children }: { children: ReactNode }) {
 	return (
-		<p className="cms-rail-heading flex items-center px-3 text-[11px] font-medium text-muted-foreground">
-			{children}
+		<p className="cms-rail-heading relative px-3 text-[11px] leading-5 font-medium text-muted-foreground">
+			<span>{children}</span>
 		</p>
 	);
 }
@@ -448,9 +446,13 @@ function LayerRailContent({
 							aria-keyshortcuts={"Meta+\\ Control+\\"}
 							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 							aria-expanded={!collapsed}
-							className="cms-rail-toggle cms-chrome-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
+							className="cms-rail-toggle cms-chrome-control cms-press absolute grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
 						>
-							<SidebarToggleIcon collapsed={collapsed} />
+							<SidebarToggleIcon className="cms-rail-toggle-expanded col-start-1 row-start-1" />
+							<SidebarToggleIcon
+								collapsed
+								className="cms-rail-toggle-collapsed col-start-1 row-start-1"
+							/>
 						</button>
 					) : null}
 				</div>
@@ -661,13 +663,21 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const store = useDraftStore();
 	const saveFeedback = useSaveFeedback();
 	const [railMode, setRailMode] = useState<RailMode>("auto");
-	useEffect(() => {
+	const [railReady, setRailReady] = useState(false);
+	const [wide, setWide] = useState(false);
+	useLayoutEffect(() => {
+		const query = window.matchMedia("(min-width: 1280px)");
+		const sync = () => setWide(query.matches);
+		sync();
+		query.addEventListener("change", sync);
 		try {
 			const saved = localStorage.getItem(RAIL_STORAGE_KEY);
 			if (saved === "collapsed" || saved === "expanded") setRailMode(saved);
 		} catch {
 			// The rail still works when storage is unavailable.
 		}
+		setRailReady(true);
+		return () => query.removeEventListener("change", sync);
 	}, []);
 	useEffect(() => {
 		if (railMode === "auto") return;
@@ -677,14 +687,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			// Keep the in-memory preference.
 		}
 	}, [railMode]);
-	const [wide, setWide] = useState(false);
-	useEffect(() => {
-		const query = window.matchMedia("(min-width: 1280px)");
-		const sync = () => setWide(query.matches);
-		sync();
-		query.addEventListener("change", sync);
-		return () => query.removeEventListener("change", sync);
-	}, []);
 	const [commandOpen, setCommandOpen] = useState(false);
 	const commandOpener = useRef<HTMLElement | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
@@ -988,7 +990,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				Skip to content
 			</a>
 
-			<div data-slot="cms-layout" data-rail={railMode} className="cms-layout">
+			<div
+				data-slot="cms-layout"
+				data-rail={railMode}
+				data-rail-ready={railReady ? "" : undefined}
+				className="cms-layout"
+			>
 				<aside
 					aria-label="Workspace navigation"
 					className="cms-rail-desktop sticky top-0 h-dvh min-h-0 min-w-0 flex-col"
