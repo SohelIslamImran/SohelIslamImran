@@ -291,7 +291,7 @@ export function useFieldIssueFeedback(
 		issues: editing && !revealed ? NO_ISSUES : issues,
 		onFocus: () => {
 			setEditing(true);
-			setRevealed(invalid && delay !== null);
+			setRevealed(invalid);
 		},
 		onBlur: commit,
 		commit,

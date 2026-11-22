@@ -60,6 +60,7 @@
 	.cms-control[aria-invalid="true"],
 	.cms-field[data-invalid] > .cms-tags {
 		border-color: var(--theme-destructive);
+		border-style: dashed;
 	}
 
 	.cms-textarea {

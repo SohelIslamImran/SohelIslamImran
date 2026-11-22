@@ -1,5 +1,5 @@
 import { useCallback, useId, useState, type ReactNode } from "react";
-import { Autocomplete } from "@base-ui/react/autocomplete";
+import { Combobox } from "@base-ui/react/combobox";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
@@ -235,14 +235,19 @@ export function SuggestionField({
 			onRevert={field.revert}
 		>
 			<div className="relative min-w-0">
-				<Autocomplete.Root
+				<Combobox.Root
 					items={items}
 					filteredItems={filtered}
-					value={value}
+					value={items.includes(value) ? value : null}
+					inputValue={value}
+					onInputValueChange={(next, details) => {
+						if (details.reason !== "input-change") return;
+						setTyped(true);
+						field.set(next);
+					}}
 					onValueChange={(next, details) => {
-						const typing = details.reason === "input-change";
-						setTyped(typing);
-						if (!typing) feedback.commit();
+						if (next === null || details.reason !== "item-press") return;
+						feedback.commit();
 						field.set(next);
 					}}
 					onOpenChange={(open, details) => {
@@ -251,7 +256,7 @@ export function SuggestionField({
 					}}
 					openOnInputClick
 				>
-					<Autocomplete.Input
+					<Combobox.Input
 						id={id}
 						autoComplete="off"
 						spellCheck={false}
@@ -268,28 +273,28 @@ export function SuggestionField({
 							});
 						}}
 					/>
-					<Autocomplete.Trigger
+					<Combobox.Trigger
 						aria-label={`Show ${label.toLowerCase()} suggestions`}
 						className="cms-press cms-choice-trigger absolute inset-y-0 right-0 grid min-w-10 place-items-center rounded-[10px] text-muted-foreground hover:text-foreground pointer-coarse:min-w-11"
 					>
 						<span className="grid place-items-center">
 							<ChevronDownIcon className="size-3.5" />
 						</span>
-					</Autocomplete.Trigger>
-					<Autocomplete.Portal>
-						<Autocomplete.Positioner sideOffset={7} className="isolate z-(--z-overlay)">
-							<Autocomplete.Popup className="cms-field-popup">
-								<Autocomplete.Empty className="px-3 py-2 text-xs text-muted-foreground empty:hidden">
+					</Combobox.Trigger>
+					<Combobox.Portal>
+						<Combobox.Positioner sideOffset={7} className="isolate z-(--z-overlay)">
+							<Combobox.Popup className="cms-field-popup">
+								<Combobox.Empty className="px-3 py-2 text-xs text-muted-foreground empty:hidden">
 									{emptyMessage}
-								</Autocomplete.Empty>
+								</Combobox.Empty>
 								<LayoutGroup id={groupId}>
-									<Autocomplete.List ref={scrollToCurrent} className="cms-popup-list relative">
+									<Combobox.List ref={scrollToCurrent} className="cms-popup-list relative">
 										{(item: string) => (
-											<Autocomplete.Item
+											<Combobox.Item
 												key={item}
 												value={item}
 												data-current={item === value || undefined}
-												className="cms-choice-option"
+												className="cms-choice-option font-mono"
 												render={(props, { highlighted }) => (
 													<div {...props}>
 														{highlighted ? <ChoiceHighlight reduced={reduced} /> : null}
@@ -306,14 +311,14 @@ export function SuggestionField({
 														</>
 													) : null}
 												</span>
-											</Autocomplete.Item>
+											</Combobox.Item>
 										)}
-									</Autocomplete.List>
+									</Combobox.List>
 								</LayoutGroup>
-							</Autocomplete.Popup>
-						</Autocomplete.Positioner>
-					</Autocomplete.Portal>
-				</Autocomplete.Root>
+							</Combobox.Popup>
+						</Combobox.Positioner>
+					</Combobox.Portal>
+				</Combobox.Root>
 			</div>
 		</FieldFrame>
 	);
