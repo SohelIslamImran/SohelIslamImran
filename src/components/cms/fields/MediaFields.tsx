@@ -181,11 +181,11 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 }
 
 export function MediaIdsField({ path }: { path: string }) {
-	const field = useField<string[]>(path);
+	const field = useField<string[] | undefined>(path);
 	const store = useDraftStore();
 	const { library, description: libraryDescription, loading, mediaEnabled } = useMediaLibrary();
 	const issues = useIssuesUnder(path);
-	const ids = field.value;
+	const ids = field.value ?? [];
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const removals = usePendingRemovals<string>(path, MAX_TRAVEL_MEDIA, sameValue);
 	const { keys } = removals;

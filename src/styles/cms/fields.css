@@ -177,7 +177,7 @@
 				[aria-invalid="true"],
 				.cms-tags:focus-within
 			) {
-			background-color: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
 		}
 
 		.cms-field-revert:hover {

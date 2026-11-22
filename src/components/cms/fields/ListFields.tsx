@@ -127,13 +127,7 @@ export function TagsField({
 				>
 					<AnimatePresence initial={false}>
 						{tags.map((tag, index) => (
-							<TagChip
-								key={JSON.stringify([
-									tag,
-									tags.slice(0, index).filter((value) => value === tag).length,
-								])}
-								armed={armed && index === tags.length - 1}
-							>
+							<TagChip key={removals.keys[index]} armed={armed && index === tags.length - 1}>
 								<span className="min-w-0 wrap-anywhere">{tag}</span>
 								<button
 									type="button"
