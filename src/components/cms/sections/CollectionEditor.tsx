@@ -1,16 +1,48 @@
-import { AnimatePresence, LayoutGroup, motion, Reorder, useReducedMotion } from "motion/react";
-import { memo, useCallback, useId, useRef, useState, type ComponentType } from "react";
+import {
+	animate,
+	AnimatePresence,
+	LayoutGroup,
+	motion,
+	Reorder,
+	useReducedMotion,
+} from "motion/react";
+import {
+	memo,
+	useCallback,
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ComponentType,
+} from "react";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
-import { FieldMessage } from "../fields/FieldFrame";
+import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField, RowActions } from "../fields";
 import { UndoRemoval, editorButton } from "../fields/UndoRemoval";
-import { duplicateRow, newRowId, restoreRow, type RemovedRow } from "../fields/row-list";
+import { AddButton } from "../fields/RowControls";
+import {
+	ChevronLeftIcon,
+	ChevronRightIcon,
+	DuplicateIcon,
+	StackIcon,
+	TrashIcon,
+} from "../fields/field-icons";
+import { toSingleLine } from "../fields/field-logic";
+import {
+	duplicateRow,
+	newRowId,
+	pendingRowRemoval,
+	restoreRow,
+	type PendingRowRemoval,
+} from "../fields/row-list";
 import { EditorGroup } from "./EditorLayout";
 
 export interface EditorProps {
@@ -55,24 +87,33 @@ export function CollectionEditor<T extends { id: string }>({
 		(store.valueAt(path) as T[]).map((row) => row.id),
 	);
 	const current = rowIds.indexOf(item ?? "");
-	const detailPath = childPath(path, current);
 	const activeId = rowIds[current];
 
 	const profile = path === "profileLinks";
 	const listId = useId();
 	const queryId = useId();
 	const nameId = useId();
+	const headingId = useId();
 	const list = useRef<HTMLOListElement>(null);
+	const listPanel = useRef<HTMLElement>(null);
+	const detailPanel = useRef<HTMLDivElement>(null);
 	const search = useRef<HTMLInputElement>(null);
 	const [query, setQuery] = useState("");
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
-	const [removed, setRemoved] = useState<RemovedRow<T> | null>(null);
+	const [removal, setRemoved] = useState<PendingRowRemoval<T> | null>(null);
+	const removed = useDraftSelector((_state, store) =>
+		pendingRowRemoval(store.valueAt(path) as T[], removal),
+	);
+	useEffect(() => {
+		if (removal && !removed) setRemoved(null);
+	}, [removal, removed]);
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
 	const full = length >= MAX_COLLECTION_ITEMS;
 	const reduced = useReducedMotion();
+	const narrow = useMediaQuery(NARROW_QUERY);
 	const issues = useIssuesAt(path);
 	const visible = useDraftSelector((_state, store) =>
 		(store.valueAt(path) as T[]).flatMap((row, index) => {
@@ -84,6 +125,58 @@ export function CollectionEditor<T extends { id: string }>({
 	);
 	const duplicates = duplicateIds(rowIds.map((id) => ({ id })));
 	const rowKeys = rowIds.map((id, index) => (duplicates.has(id) ? `${id}:${index}` : id));
+
+	// Phones show one pane at a time. Opening an item slides its pane in from
+	// the trailing edge over the list; Back slides it out again. `pane`
+	// keeps both panes painted while they move.
+	const [pane, setPane] = useState<"idle" | "entering" | "leaving">("idle");
+	const leavingId = useRef<string | undefined>(undefined);
+	const shownId = activeId ?? (pane === "leaving" ? leavingId.current : undefined);
+	const shownIndex = rowIds.indexOf(shownId ?? "");
+	const shownPath = childPath(path, shownIndex);
+	const detailOpen = item !== undefined || pane === "leaving";
+
+	// Start sliding in once the router has committed the item, so the pane
+	// arrives with its content.
+	const paneReady = pane === "leaving" || (pane === "entering" && shownId !== undefined);
+	useLayoutEffect(() => {
+		const detail = detailPanel.current;
+		const panel = listPanel.current;
+		if (!paneReady || !detail || !panel) return;
+		const entering = pane === "entering";
+		if (entering) {
+			if (reduced) detail.style.opacity = "0";
+			else detail.style.transform = "translateX(100%)";
+		}
+		const clear = () => {
+			for (const element of [detail, panel]) {
+				element.style.transform = "";
+				element.style.opacity = "";
+			}
+		};
+		// Motion commits the final keyframe after the promise settles; clear
+		// the inline styles a frame later so neither pane keeps an offset.
+		const finish = () => {
+			setPane("idle");
+			requestAnimationFrame(clear);
+		};
+		const controls = reduced
+			? [animate(detail, { opacity: entering ? [0, 1] : [1, 0] }, REDUCED)]
+			: [
+					animate(detail, { x: entering ? ["100%", "0%"] : ["0%", "100%"] }, SPRING_MOVE),
+					animate(
+						panel,
+						entering
+							? { x: ["0%", "-24%"], opacity: [1, 0.6] }
+							: { x: ["-24%", "0%"], opacity: [0.6, 1] },
+						SPRING_MOVE,
+					),
+				];
+		void Promise.all(controls).then(finish);
+		return () => {
+			for (const control of controls) control.stop();
+		};
+	}, [pane, paneReady, reduced]);
 
 	const rowButton = useCallback(
 		(id: string | undefined) =>
@@ -99,7 +192,9 @@ export function CollectionEditor<T extends { id: string }>({
 		(id: string | undefined, callback: () => void) => {
 			// Router navigation may settle before React commits the next pane.
 			const ready = () =>
-				id ? document.getElementById(detailHeadingId(id)) : search.current?.getClientRects().length;
+				id
+					? document.getElementById(detailHeadingId(id))
+					: listPanel.current?.getClientRects().length;
 			let attempts = 12;
 			const wait = () => {
 				if (ready()) callback();
@@ -114,6 +209,7 @@ export function CollectionEditor<T extends { id: string }>({
 		(id: string) => {
 			if (item === undefined || listPosition.current === null)
 				listPosition.current = { scroll: window.scrollY, id };
+			if (narrow && item === undefined) setPane("entering");
 			void select(id, undefined, item !== undefined).then(() =>
 				focusAfterNavigation(id, () => {
 					const heading = document.getElementById(detailHeadingId(id));
@@ -122,15 +218,23 @@ export function CollectionEditor<T extends { id: string }>({
 				}),
 			);
 		},
-		[item, select, focusAfterNavigation, detailHeadingId],
+		[item, narrow, select, focusAfterNavigation, detailHeadingId],
 	);
 
-	function back(focusId = activeId) {
+	function back(focusId = activeId, slide = true) {
 		const previous = listPosition.current;
 		listPosition.current = null;
+		if (narrow && slide && activeId !== undefined) {
+			leavingId.current = activeId;
+			setPane("leaving");
+		}
 		void select(undefined, undefined, true).then(() =>
 			focusAfterNavigation(undefined, () => {
-				const target = rowButton(focusId) ?? rowButton(previous?.id) ?? search.current;
+				const target =
+					rowButton(focusId) ??
+					rowButton(previous?.id) ??
+					search.current ??
+					document.getElementById(fieldId(path));
 				target?.focus({ preventScroll: true });
 				if (previous) window.scrollTo({ top: previous.scroll, behavior: "instant" });
 				target?.scrollIntoView({ block: "nearest" });
@@ -173,20 +277,54 @@ export function CollectionEditor<T extends { id: string }>({
 		const rows = store.valueAt(path) as T[];
 		const row = rows[index];
 		if (!row) return;
-		setRemoved({ row, index, label: describe(row).title || itemLabel.toLowerCase() });
-		store.update(path, removeItem(rows, index));
-		back(rows[index + 1]?.id ?? rows[index - 1]?.id);
+		const remaining = removeItem(rows, index);
+		store.update(path, remaining);
+		setRemoved({ row, index, label: describe(row).title || itemLabel.toLowerCase(), remaining });
+		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false);
+	}
+
+	function closeAddForm() {
+		setAdding(false);
+		setName("");
+		requestAnimationFrame(() => document.getElementById(fieldId(path))?.focus());
 	}
 
 	const rename = useCallback(
 		(id: string) => {
-			store.update(`${detailPath}.id`, id);
+			store.update(`${shownPath}.id`, id);
 			void select(id, undefined, true).then(() =>
-				focusAfterNavigation(id, () => focusField(`${detailPath}.id`)),
+				focusAfterNavigation(id, () => focusField(`${shownPath}.id`)),
 			);
 		},
-		[detailPath, focusAfterNavigation, select, store],
+		[shownPath, focusAfterNavigation, select, store],
 	);
+
+	const addTrigger = (
+		<AddButton
+			id={fieldId(path)}
+			aria-controls={adding ? `${nameId}-form` : undefined}
+			aria-expanded={adding}
+			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
+			primary={!adding}
+			disabled={full && !adding}
+			className={adding ? "cms-add-cancel" : undefined}
+			onClick={() => {
+				if (adding) closeAddForm();
+				else {
+					setAdding(true);
+					requestAnimationFrame(() => document.getElementById(nameId)?.focus());
+				}
+			}}
+		>
+			{adding
+				? "Cancel"
+				: length
+					? `Add ${itemLabel.toLowerCase()}`
+					: `Add your first ${itemLabel.toLowerCase()}`}
+		</AddButton>
+	);
+
+	const detailKey = shownId ?? (item !== undefined ? "missing" : "placeholder");
 
 	return (
 		<div
@@ -194,48 +332,41 @@ export function CollectionEditor<T extends { id: string }>({
 				"cms-collection grid min-w-0 items-start gap-4",
 				!length && item === undefined && "cms-collection-empty",
 			)}
+			data-pane={pane === "idle" ? undefined : pane}
 		>
 			<section
+				ref={listPanel}
 				className={cn(
 					"cms-panel cms-collection-list grid min-w-0 gap-3 p-3",
-					item !== undefined && "max-lg:hidden",
+					item !== undefined && pane === "idle" && "max-lg:hidden",
 				)}
-				aria-label={`${label} list`}
+				aria-labelledby={headingId}
 				aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
 				data-slot="cms-field"
 				tabIndex={-1}
 			>
-				<header className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-					<p className="m-0 text-xs font-medium tabular-nums text-muted-foreground">
-						{length} {length === 1 ? "item" : "items"}
-						{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
-					</p>
-					<button
-						id={fieldId(path)}
-						aria-controls={adding ? `${nameId}-form` : undefined}
-						aria-expanded={adding}
-						aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
-						type="button"
-						className={cn(editorButton, !adding && "cms-editor-primary")}
-						disabled={full && !adding}
-						onClick={() => {
-							setAdding(!adding);
-							if (!adding) requestAnimationFrame(() => document.getElementById(nameId)?.focus());
-						}}
-					>
-						{adding ? (
-							"Cancel"
-						) : (
-							<>
-								<span aria-hidden="true">+</span> Add {itemLabel.toLowerCase()}
-							</>
-						)}
-					</button>
+				<header className="flex min-w-0 flex-wrap items-center justify-between gap-2 pl-1">
+					<div className="grid min-w-0">
+						<h2 id={headingId} className="m-0 text-[15px] font-semibold tracking-[-0.01em]">
+							{label}
+						</h2>
+						<p className="m-0 text-xs tabular-nums text-muted-foreground">
+							{length} {length === 1 ? "item" : "items"}
+							{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
+						</p>
+					</div>
+					{length || adding ? addTrigger : null}
 				</header>
 				{adding ? (
 					<form
 						id={`${nameId}-form`}
 						className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
+						onKeyDown={(event) => {
+							if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+							event.preventDefault();
+							event.stopPropagation();
+							closeAddForm();
+						}}
 						onSubmit={(event) => {
 							event.preventDefault();
 							if (!name.trim() || full) return;
@@ -243,17 +374,17 @@ export function CollectionEditor<T extends { id: string }>({
 							add(rows, create(name.trim(), newRowId(), rows), rows.length);
 						}}
 					>
-						<label htmlFor={nameId} className="text-[13px] font-medium">
+						<label htmlFor={nameId} className="text-[13px] font-semibold">
 							{nameLabel}
 						</label>
 						<textarea
 							id={nameId}
-							className={`${controlClass} cms-textarea min-h-[calc(1lh+22px)] py-2.5 leading-relaxed`}
+							className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
 							rows={1}
 							required
 							value={name}
 							maxLength={nameLimit}
-							onChange={(event) => setName(event.currentTarget.value.replace(/\n/gu, ""))}
+							onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
 							onKeyDown={(event) => {
 								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
 								event.preventDefault();
@@ -263,34 +394,38 @@ export function CollectionEditor<T extends { id: string }>({
 						<button
 							type="submit"
 							disabled={!name.trim() || full}
-							className={`${editorButton} justify-self-start`}
+							className={`${editorButton} cms-editor-primary justify-self-start`}
 						>
 							Create
 						</button>
 					</form>
 				) : null}
-				<div className="relative grid gap-1.5">
-					<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-					<label htmlFor={queryId} className="sr-only">
-						Search {label.toLowerCase()}
-					</label>
-					<input
-						ref={search}
-						id={queryId}
-						type="search"
-						placeholder={`Search ${label.toLowerCase()}`}
-						value={query}
-						className={`${controlClass} min-h-10 pl-9`}
-						onChange={(event) => setQuery(event.currentTarget.value)}
-					/>
-				</div>
-				{orderNote ? <p className="m-0 text-[12px] text-muted-foreground">{orderNote}</p> : null}
+				{length ? (
+					<div className="relative grid gap-1.5">
+						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+						<label htmlFor={queryId} className="sr-only">
+							Search {label.toLowerCase()}
+						</label>
+						<input
+							ref={search}
+							id={queryId}
+							type="search"
+							placeholder={`Search ${label.toLowerCase()}`}
+							value={query}
+							className={`${controlClass} min-h-10 pl-9`}
+							onChange={(event) => setQuery(event.currentTarget.value)}
+						/>
+					</div>
+				) : null}
+				{orderNote && length > 1 ? (
+					<p className="m-0 px-1 text-[12px] text-muted-foreground">{orderNote}</p>
+				) : null}
 				{filter ? (
-					<p className="m-0 text-[12px] text-muted-foreground">Clear search to reorder.</p>
+					<p className="m-0 px-1 text-[12px] text-muted-foreground">Clear search to reorder.</p>
 				) : null}
 				<FieldMessage
 					id={`${fieldId(path)}-error`}
-					message={issues.map((issue) => issue.message).join(". ")}
+					message={issues.map((issue) => sentenceCase(issue.message)).join(" ")}
 				/>
 				<LayoutGroup id={listId}>
 					<Reorder.Group
@@ -308,7 +443,7 @@ export function CollectionEditor<T extends { id: string }>({
 						}}
 						layoutScroll
 						ref={list}
-						className="cms-collection-rows m-0 grid min-w-0 list-none gap-1 p-1"
+						className="cms-collection-rows m-0 grid min-w-0 list-none gap-1 p-1 empty:hidden"
 					>
 						<AnimatePresence initial={false}>
 							{visible.map((index) => (
@@ -331,14 +466,20 @@ export function CollectionEditor<T extends { id: string }>({
 						</AnimatePresence>
 					</Reorder.Group>
 				</LayoutGroup>
-				{visible.length === 0 ? (
+				{!length && !adding ? (
+					<div className="cms-collection-empty-state cms-enter">
+						<span className="cms-collection-empty-icon" aria-hidden="true">
+							<StackIcon className="size-5" />
+						</span>
+						<p className="m-0 text-[14px] font-semibold text-foreground">
+							No {label.toLowerCase()} yet
+						</p>
+						{addTrigger}
+					</div>
+				) : length && visible.length === 0 ? (
 					<div className="cms-editor-empty">
-						<p className="m-0 font-medium text-foreground">
-							{filter ? "No matches" : `No ${label.toLowerCase()} yet`}
-						</p>
-						<p className="m-0 mt-1">
-							{filter ? "Try another search." : `Add a ${itemLabel.toLowerCase()} to get started.`}
-						</p>
+						<p className="m-0 font-medium text-foreground">No matches</p>
+						<p className="m-0 mt-1">Try another search.</p>
 					</div>
 				) : null}
 				<RevertList
@@ -351,31 +492,49 @@ export function CollectionEditor<T extends { id: string }>({
 					}}
 				/>
 			</section>
-			<div className={cn("grid min-w-0 gap-3", item === undefined && "max-lg:hidden")}>
-				{item !== undefined ? (
+			<div
+				ref={detailPanel}
+				className={cn(
+					"cms-collection-detail relative grid min-w-0 gap-3",
+					!detailOpen && "max-lg:hidden",
+				)}
+			>
+				{detailOpen ? (
 					<div className="cms-collection-back sticky top-14 z-10 rounded-[10px] bg-background py-1">
-						<button type="button" className={editorButton} onClick={() => back()}>
-							<span aria-hidden="true">←</span> {label}
+						<button
+							type="button"
+							className={editorButton}
+							onClick={() => back()}
+							disabled={pane === "leaving"}
+						>
+							<ChevronLeftIcon className="size-3.5" /> {label}
 						</button>
 					</div>
 				) : null}
-				<AnimatePresence initial={false}>
-					{activeId !== undefined ? (
-						<motion.div
-							key={activeId}
-							initial={{ opacity: 0, y: reduced ? 0 : 6 }}
-							animate={{ opacity: 1, y: 0 }}
-							transition={reduced ? REDUCED : SPRING_MOVE}
-							className="min-w-0"
-						>
+				<AnimatePresence initial={false} mode="popLayout">
+					<motion.div
+						key={detailKey}
+						initial={narrow ? false : { opacity: 0, y: reduced ? 0 : 6 }}
+						animate={{ opacity: 1, y: 0 }}
+						exit={{
+							opacity: 0,
+							transition: reduced || narrow ? { duration: 0 } : { duration: 0.12, ease: "easeOut" },
+						}}
+						transition={reduced ? REDUCED : SPRING_MOVE}
+						className={cn(
+							"min-w-0",
+							shownId === undefined && item === undefined && length === 0 && "hidden",
+						)}
+					>
+						{shownId !== undefined ? (
 							<EditorGroup
 								title={
 									<span
-										id={detailHeadingId(activeId)}
+										id={detailHeadingId(shownId)}
 										tabIndex={-1}
 										className="block scroll-mt-32 wrap-anywhere rounded-sm"
 									>
-										<CollectionTitle path={detailPath} describe={describe} itemLabel={itemLabel} />
+										<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
 									</span>
 								}
 								actions={
@@ -386,73 +545,98 @@ export function CollectionEditor<T extends { id: string }>({
 											disabled={full}
 											onClick={() => {
 												const rows = store.valueAt(path) as T[];
-												add(rows, duplicate(rows[current], rows), current + 1);
+												add(rows, duplicate(rows[shownIndex], rows), shownIndex + 1);
 											}}
 										>
+											<DuplicateIcon className="size-3.5" />
 											Duplicate
 										</button>
-										<ConfirmListAction
-											key={activeId}
-											label="Remove"
-											prompt="Remove this item?"
-											onConfirm={() => remove(current)}
-										/>
+										<button
+											type="button"
+											className={`${editorButton} cms-editor-destructive`}
+											onClick={() => remove(shownIndex)}
+										>
+											<TrashIcon className="size-3.5" />
+											Remove
+										</button>
 									</div>
 								}
 							>
 								<CollectionDetails
-									key={activeId}
-									path={detailPath}
-									id={activeId}
+									key={shownId}
+									path={shownPath}
+									id={shownId}
 									profile={profile}
 									onRename={rename}
 									Editor={Editor}
 								/>
 							</EditorGroup>
-						</motion.div>
-					) : item !== undefined ? (
-						<EditorGroup title="Item unavailable">
-							<p className="m-0 text-[14px] text-muted-foreground">
-								This item is no longer in the draft. Return to the list to choose another.
-							</p>
-							<button
-								type="button"
-								className={`${editorButton} justify-self-start`}
-								onClick={() => back()}
+						) : item !== undefined ? (
+							<EditorGroup title="Item unavailable">
+								<p className="m-0 text-[14px] text-muted-foreground">
+									This item is no longer in the draft. Return to the list to choose another.
+								</p>
+								<button
+									type="button"
+									className={`${editorButton} justify-self-start`}
+									onClick={() => back()}
+								>
+									Return to list
+								</button>
+							</EditorGroup>
+						) : length ? (
+							<EditorGroup
+								title="Choose an item"
+								className="cms-collection-placeholder max-lg:hidden"
 							>
-								Return to list
-							</button>
-						</EditorGroup>
-					) : length ? (
-						<EditorGroup
-							title="Choose an item"
-							className="cms-collection-placeholder max-lg:hidden"
-						>
-							<p className="m-0 text-[14px] text-muted-foreground">
-								Select an item in the list to edit it.
-							</p>
-						</EditorGroup>
-					) : null}
+								<p className="m-0 text-[14px] text-muted-foreground">
+									Select an item in the list to edit it.
+								</p>
+							</EditorGroup>
+						) : null}
+					</motion.div>
 				</AnimatePresence>
 			</div>
-			{removed ? (
-				<UndoRemoval
-					label={removed.label}
-					canUndo={!full && !rowIds.includes(removed.row.id)}
-					onDismiss={() => {
-						setRemoved(null);
-						requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));
-					}}
-					onUndo={() => {
-						const restored = restoreRow(store.valueAt(path) as T[], removed);
-						if (!restored) return;
-						store.update(path, restored);
-						setRemoved(null);
-						open(removed.row.id);
-					}}
-				/>
-			) : null}
+			<UndoRemoval
+				removal={
+					removed
+						? { label: removed.label, canUndo: !full && !rowIds.includes(removed.row.id) }
+						: null
+				}
+				onDismiss={() => {
+					setRemoved(null);
+					requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));
+				}}
+				onUndo={() => {
+					const rows = store.valueAt(path) as T[];
+					if (!removed || !pendingRowRemoval(rows, removed)) return;
+					const restored = restoreRow(rows, removed);
+					if (!restored) return;
+					store.update(path, restored);
+					setRemoved(null);
+					open(removed.row.id);
+				}}
+			/>
 		</div>
+	);
+}
+
+const NARROW_QUERY = "(max-width: 63.999rem)";
+
+function subscribeMedia(query: string) {
+	return (onChange: () => void) => {
+		const media = window.matchMedia(query);
+		media.addEventListener("change", onChange);
+		return () => media.removeEventListener("change", onChange);
+	};
+}
+
+/** SSR-safe media query: false on the server and during hydration. */
+function useMediaQuery(query: string): boolean {
+	return useSyncExternalStore(
+		useCallback((onChange: () => void) => subscribeMedia(query)(onChange), [query]),
+		() => window.matchMedia(query).matches,
+		() => false,
 	);
 }
 
@@ -537,27 +721,30 @@ function CollectionRow<T extends { id: string }>({
 						aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
 						className="cms-collection-row-button cms-press"
 					>
-						<span className="wrap-anywhere text-[14px] font-medium">
-							{title || `Untitled ${itemLabel.toLowerCase()}`}
-						</span>
-						{subtitle ? (
-							<span className="wrap-anywhere text-[12px] text-muted-foreground">{subtitle}</span>
-						) : null}
-						<span className="flex flex-wrap gap-1 empty:hidden">
-							{chips.map((chip) => (
-								<span
-									key={chip}
-									className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
-								>
-									{chip}
-								</span>
-							))}
-							{issueCount ? (
-								<span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-destructive">
-									{issueCount} {issueCount === 1 ? "error" : "errors"}
-								</span>
+						<span className="grid min-w-0 flex-1 gap-[3px]">
+							<span className="wrap-anywhere text-[14px] font-medium">
+								{title || `Untitled ${itemLabel.toLowerCase()}`}
+							</span>
+							{subtitle ? (
+								<span className="wrap-anywhere text-[12px] text-muted-foreground">{subtitle}</span>
 							) : null}
+							<span className="flex flex-wrap gap-1 empty:hidden">
+								{chips.map((chip) => (
+									<span
+										key={chip}
+										className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
+									>
+										{chip}
+									</span>
+								))}
+								{issueCount ? (
+									<span className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-destructive">
+										{issueCount} {issueCount === 1 ? "error" : "errors"}
+									</span>
+								) : null}
+							</span>
 						</span>
+						<ChevronRightIcon className="cms-collection-chevron size-4 text-muted-foreground" />
 					</button>
 					{handle}
 					{reorderable ? (

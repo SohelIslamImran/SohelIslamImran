@@ -3,6 +3,7 @@ import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
 import { groupExperienceByCompany } from "./experience";
 import { CONTENT_SCHEMA_VERSION } from "../types/content";
 import {
+	isTimeZone,
 	MAX_COLLECTION_ITEMS,
 	parseStoredContent,
 	upgradeStoredContent,
@@ -29,6 +30,25 @@ describe("portfolio content validation", () => {
 		expect(parseStoredContent(JSON.stringify(INITIAL_PORTFOLIO_CONTENT)).schemaVersion).toBe(
 			CONTENT_SCHEMA_VERSION,
 		);
+	});
+
+	it("accepts IANA time zones and rejects anything else on writes", () => {
+		for (const zone of ["Asia/Dhaka", "UTC", "America/Argentina/Buenos_Aires", "Etc/GMT+6"]) {
+			expect(isTimeZone(zone)).toBe(true);
+		}
+		for (const zone of ["Asia/DhakaAsia/To", "Mars/Olympus", "+06:00", "Asia/", " UTC", ""]) {
+			expect(isTimeZone(zone)).toBe(false);
+		}
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.identity.timezone = "Asia/DhakaAsia/To";
+		expect(validatePortfolioContent(draft)).toMatchObject({
+			ok: false,
+			issues: [{ path: "identity.timezone", message: expect.stringContaining("IANA") }],
+		});
+		draft.identity.timezone = "";
+		expect(validatePortfolioContent(draft).ok).toBe(true);
+		draft.identity.timezone = "Asia/DhakaAsia/To";
+		expect(parseStoredContent(JSON.stringify(draft)).identity.timezone).toBe("Asia/DhakaAsia/To");
 	});
 
 	it("validates collection IDs and project slugs per collection on writes", () => {

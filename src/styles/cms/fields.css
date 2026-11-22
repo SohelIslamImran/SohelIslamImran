@@ -18,14 +18,25 @@
 		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
 		color: var(--theme-ink);
 		box-shadow: inset 0 1px 1px var(--theme-shadow-soft);
+		/* Lists `scale` and `color` too, so `.cms-press` keeps its press animation. */
 		transition:
 			background-color var(--cms-dur-fast) var(--cms-ease-out),
 			border-color var(--cms-dur-fast) var(--cms-ease-out),
-			box-shadow var(--cms-dur-fast) var(--cms-ease-out);
+			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
+			color var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-control::placeholder {
-		color: var(--theme-ink-soft);
+	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
+	.cms-control::placeholder,
+	.cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 99%, var(--theme-surface-solid));
+		opacity: 1;
+	}
+
+	html[data-theme-resolved="dark"] .cms-control::placeholder,
+	html[data-theme-resolved="dark"] .cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-surface-solid));
 	}
 
 	.cms-control:disabled,
@@ -53,17 +64,85 @@
 		resize: vertical;
 	}
 
+	/* A wrapping single line: no grip, same height as a text input until it wraps. */
+	.cms-textarea-single {
+		resize: none;
+		min-block-size: 40px;
+	}
+
 	.cms-control[type="date"] {
 		inline-size: 100%;
 		max-inline-size: 100%;
 		text-align: start;
 	}
 
-	.cms-field-message {
+	/*
+	 * Field rhythm: label to control 6px, control to helper 6px, field to
+	 * field 20 to 24px (set by the containing grid's gap).
+	 */
+	.cms-field-head {
+		display: flex;
+		min-width: 0;
+		min-height: 20px;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		column-gap: 8px;
+		margin-bottom: 6px;
+	}
+
+	.cms-field-inline {
+		display: flex;
+		min-width: 0;
+		min-height: 44px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	.cms-field-description {
+		margin: 0;
+		color: var(--theme-muted);
 		font-size: 12.5px;
 		line-height: 1.5;
-		block-size: 2lh;
-		overflow: auto;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	/*
+	 * The line under a control. It takes no space while the field is valid
+	 * and has no description; an error opens it with a row transition (the one
+	 * layout transition fields use), and replaces the description in place.
+	 */
+	.cms-field-foot {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-foot[data-open] {
+		grid-template-rows: 1fr;
+	}
+
+	.cms-field-foot-clip {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.cms-field-foot-stack {
+		display: grid;
+		padding-top: 6px;
+		font-size: 12.5px;
+		line-height: 1.5;
+	}
+
+	.cms-field-foot-stack > * {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+
+	.cms-field-foot[data-error] .cms-field-description {
+		opacity: 0;
+		visibility: hidden;
 	}
 
 	.cms-field-message > p {
@@ -97,6 +176,16 @@
 	}
 
 	.cms-field-popup {
+		/*
+		 * Base UI portals popups to <body>, outside .cms-root where the motion
+		 * tokens live (motion.css), so the popup carries its own copy.
+		 */
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-dur-base: 240ms;
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);
@@ -107,11 +196,24 @@
 		padding: 4px;
 		box-shadow: var(--shadow-float);
 		font-size: 14px;
+		/*
+		 * Base UI keeps popups mounted and sets these attributes on every open
+		 * and close, so the transition runs each time (a mount animation would
+		 * only run once).
+		 */
+		transition:
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+		opacity: 0;
+		scale: 0.96;
 	}
 
 	.cms-field-popup[data-ending-style] {
-		opacity: 0 !important;
-		transition: opacity 160ms ease-out;
+		transition-duration: var(--cms-dur-fast);
+		transition-timing-function: var(--cms-ease-in);
 	}
 
 	.cms-popup-list {
@@ -173,9 +275,10 @@
 		width: 46px;
 		height: 26px;
 		padding-inline: 2px;
-		border: 1px solid var(--theme-line-strong);
+		/* The off edge keeps 3:1 against the panel in both themes. */
+		border: 1px solid var(--theme-control-border);
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 12%, var(--theme-surface-solid));
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
 		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
@@ -276,6 +379,12 @@
 		.cms-checkbox-check {
 			transition-property: opacity;
 		}
+		.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+			scale: 1;
+		}
+		.cms-field-foot {
+			transition: none;
+		}
 	}
 
 	@media (prefers-reduced-transparency: reduce) {
@@ -368,28 +477,173 @@
 		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
 	}
 
+	/* Disclosure rows: one line with a chevron that turns as the body opens. */
 	.cms-repeater-summary {
-		min-height: 40px;
-		padding: 0.65rem 0.8rem;
-		border-radius: 10px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 0.6rem 0.8rem;
+		border-radius: 12px;
+		font-size: 14px;
 		font-weight: 550;
 		cursor: pointer;
+		list-style: none;
 		overflow-wrap: anywhere;
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-repeater-summary::marker {
-		color: var(--theme-ink-soft);
-		font-size: 10px;
+	.cms-repeater-summary::-webkit-details-marker {
+		display: none;
 	}
 
+	.cms-repeater-row .cms-repeater-summary {
+		padding-inline-end: 48px;
+	}
+
+	.cms-repeater-row[data-handle] .cms-repeater-summary {
+		padding-inline-start: 40px;
+	}
+
+	.cms-repeater-summary:active {
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+	}
+
+	.cms-disclosure-chevron {
+		transition: rotate var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-disclosure[open] > summary .cms-disclosure-chevron {
+		rotate: 90deg;
+	}
+
+	/* Open and close the body smoothly where the browser can size to auto. */
+	.cms-disclosure {
+		interpolate-size: allow-keywords;
+	}
+
+	.cms-disclosure::details-content {
+		block-size: 0;
+		opacity: 0;
+		overflow: clip;
+		transition:
+			block-size var(--cms-dur-base) var(--cms-ease-out),
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			content-visibility var(--cms-dur-base) allow-discrete;
+	}
+
+	.cms-disclosure[open]::details-content {
+		block-size: auto;
+		opacity: 1;
+	}
+
+	/* The handle and menu sit over the summary row, outside the <summary>. */
+	.cms-repeater-tool {
+		position: absolute;
+		top: 0;
+		display: flex;
+		align-items: center;
+		height: 44px;
+	}
+
+	.cms-repeater-handle {
+		inset-inline-start: 6px;
+	}
+
+	.cms-repeater-menu {
+		inset-inline-end: 6px;
+	}
+
+	.cms-row-tool {
+		display: inline-grid;
+		place-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
+		border-radius: 999px;
+		color: var(--theme-muted);
+	}
+
+	.cms-row-tool[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-ink) 8%, transparent);
+		color: var(--theme-ink);
+	}
+
+	.cms-menu-popup {
+		min-width: 11rem;
+		padding: 5px;
+	}
+
+	.cms-menu-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 34px;
+		padding-inline: 10px;
+		border-radius: 8px;
+		color: var(--theme-ink);
+		font-size: 13.5px;
+		cursor: default;
+		outline: none;
+		transition: background-color var(--cms-dur-press) var(--cms-ease-out);
+	}
+
+	.cms-menu-item svg {
+		color: var(--theme-muted);
+	}
+
+	.cms-menu-item[data-highlighted] {
+		background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+	}
+
+	.cms-menu-item[data-destructive],
+	.cms-menu-item[data-destructive] svg {
+		color: var(--theme-destructive);
+	}
+
+	.cms-menu-item[data-destructive][data-highlighted] {
+		background: color-mix(in srgb, var(--theme-destructive) 10%, transparent);
+	}
+
+	.cms-menu-item[data-disabled] {
+		opacity: 0.4;
+	}
+
+	.cms-menu-separator {
+		height: 1px;
+		margin: 4px 6px;
+		background: var(--theme-line);
+	}
+
+	/* String list rows: handle | control | menu. */
 	.cms-string-row {
 		display: grid;
-		gap: 4px;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: start;
 		border-radius: 11px;
 	}
 
-	.cms-string-row .cms-field-message {
-		margin-top: -4px;
+	.cms-string-handle {
+		display: flex;
+		align-items: center;
+		min-height: 40px;
+		margin-inline-end: 4px;
+	}
+
+	.cms-string-menu {
+		grid-column: 3;
+		margin-top: 4px;
+		margin-inline-start: 4px;
+	}
+
+	.cms-tag-chip[data-armed] {
+		background: var(--theme-accent);
+		color: var(--theme-accent-foreground);
+		box-shadow: 0 0 0 2px var(--theme-accent-soft);
+	}
+
+	.cms-tag-chip[data-armed] button {
+		color: inherit;
 	}
 
 	.cms-collection-row {
@@ -400,8 +654,9 @@
 	}
 
 	.cms-collection-row-button {
-		display: grid;
-		gap: 3px;
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		flex: 1;
 		min-width: 0;
 		min-height: 44px;
@@ -419,6 +674,79 @@
 		box-shadow: inset 2px 0 var(--theme-accent);
 	}
 
+	/* Rows open a detail pane; touch screens show the disclosure chevron. */
+	.cms-collection-chevron {
+		display: none;
+	}
+
+	@media (pointer: coarse) {
+		.cms-collection-chevron {
+			display: block;
+		}
+
+		/*
+		 * Touch rows reorder by dragging the handle. The move buttons stay in
+		 * the accessibility tree (screen readers, a paired keyboard) and
+		 * appear when focused, but do not crowd the title.
+		 */
+		.cms-collection-row-actions:not(:focus-within) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+
+	/* The list's error line keeps its live region but adds no gap while closed. */
+	.cms-collection-list > .cms-field-foot:not([data-open]) {
+		margin-top: -12px;
+	}
+
+	.cms-collection-empty-state {
+		display: grid;
+		justify-items: center;
+		gap: 12px;
+		padding: 2rem 1rem 1.75rem;
+		text-align: center;
+	}
+
+	.cms-collection-empty-icon {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 14px;
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
+	}
+
+	.cms-editor-button.cms-editor-destructive {
+		color: var(--theme-destructive);
+	}
+
+	/*
+	 * Phones show one pane at a time in a single grid cell, so the detail
+	 * pane can slide over the list (and back) while both are painted.
+	 */
+	@media (max-width: 63.999rem) {
+		.cms-collection {
+			grid-template-areas: "pane";
+			overflow-x: clip;
+		}
+
+		.cms-collection > .cms-collection-list,
+		.cms-collection > .cms-collection-detail {
+			grid-area: pane;
+		}
+
+		.cms-collection[data-pane] > .cms-collection-detail {
+			align-self: stretch;
+			background: var(--theme-paper);
+		}
+	}
+
 	.cms-collection-placeholder {
 		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-paper));
 	}
@@ -429,7 +757,6 @@
 		}
 
 		.cms-collection-empty {
-			max-width: 46rem;
 			grid-template-columns: minmax(0, 1fr);
 		}
 
@@ -453,7 +780,12 @@
 		.cms-editor-button:hover:not(:disabled),
 		.cms-drag-handle:hover,
 		.cms-repeater-summary:hover {
-			background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+			background: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		}
+
+		.cms-row-tool:hover {
+			background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+			color: var(--theme-ink);
 		}
 
 		.cms-editor-button.cms-editor-primary:hover:not(:disabled) {
@@ -461,7 +793,15 @@
 		}
 
 		.cms-collection-row:not([data-selected]):hover {
-			background: var(--theme-accent-soft);
+			background: color-mix(in srgb, var(--theme-ink) 5%, transparent);
+		}
+
+		.cms-editor-button.cms-editor-destructive:hover:not(:disabled) {
+			background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		}
+
+		.cms-issue-link:hover {
+			background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
 		}
 
 		.cms-collection-row-actions {
@@ -480,9 +820,35 @@
 			min-height: 44px;
 		}
 
-		.cms-drag-handle {
+		.cms-drag-handle,
+		.cms-row-tool {
 			width: 44px;
 			height: 44px;
+		}
+
+		.cms-repeater-handle {
+			inset-inline-start: 0;
+		}
+
+		.cms-repeater-menu {
+			inset-inline-end: 0;
+		}
+
+		.cms-repeater-row[data-handle] .cms-repeater-summary {
+			padding-inline-start: 48px;
+		}
+
+		.cms-string-menu {
+			margin-top: -2px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-disclosure::details-content {
+			transition-property: opacity, content-visibility;
+		}
+		.cms-disclosure-chevron {
+			transition: none;
 		}
 	}
 	.cms-editor-title {
@@ -492,15 +858,58 @@
 		line-height: 1.12;
 	}
 
-	.cms-section-issues {
-		border-inline-start: 2px solid var(--theme-destructive);
-		border-radius: 8px 12px 12px 8px;
-		background: color-mix(in srgb, var(--theme-destructive) 5%, var(--theme-surface-solid));
-		padding: 0.75rem 0.9rem;
+	/* Section errors: a pill in the title row that opens the list. */
+	.cms-issues-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 32px;
+		padding-inline: 10px 12px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		color: var(--theme-destructive);
+		font-size: 13px;
+		font-weight: 600;
+		white-space: nowrap;
 	}
 
+	.cms-issues-pill[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-destructive) 16%, var(--theme-surface-solid));
+	}
+
+	.cms-issues-popup {
+		width: min(24rem, var(--available-width));
+		padding: 5px;
+	}
+
+	.cms-issue-link {
+		display: block;
+		padding: 0.5rem 0.625rem;
+		border-radius: 9px;
+		color: var(--theme-ink);
+		font-size: 13px;
+		line-height: 1.45;
+		overflow-wrap: anywhere;
+		outline: none;
+	}
+
+	.cms-issue-link:focus-visible {
+		box-shadow: var(--cms-ring);
+	}
+
+	@media (pointer: coarse) {
+		.cms-issues-pill {
+			min-height: 44px;
+		}
+		.cms-issue-link {
+			padding-block: 0.75rem;
+		}
+	}
+
+	/* Editor groups lay title beside fields on wide screens, wherever they sit
+	   on the page (tabs, wrappers), but not inside a collection's detail pane. */
 	@media (min-width: 76rem) {
-		.cms-editor > .cms-editor-group {
+		.cms-editor .cms-editor-group:not(.cms-collection *) {
 			grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
 			align-items: start;
 			gap: clamp(1.5rem, 3vw, 2.5rem);
@@ -541,18 +950,5 @@
 		color: var(--theme-ink-soft);
 		background: transparent;
 		white-space: nowrap;
-	}
-
-	@media (min-width: 48rem) and (pointer: fine) {
-		.cms-string-row {
-			grid-template-columns: minmax(0, 1fr) auto;
-			align-items: start;
-		}
-		.cms-string-row .cms-field-message {
-			grid-column: 1 / -1;
-		}
-		.cms-string-tools {
-			padding-top: 4px;
-		}
 	}
 }

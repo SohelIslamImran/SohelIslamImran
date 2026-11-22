@@ -5,6 +5,7 @@ import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
 import { FieldFrame, controlClass, describedBy, fieldId } from "./FieldFrame";
+import { toSingleLine } from "./field-logic";
 
 interface BaseFieldProps {
 	path: string;
@@ -129,9 +130,15 @@ export function TextField({
 
 export interface TextAreaFieldProps extends BaseFieldProps {
 	rows?: number;
+	/**
+	 * One line of text that wraps on screen (headlines, roles): Return does
+	 * nothing, pasted line breaks become spaces, and the box starts at the
+	 * height of a text input.
+	 */
+	singleLine?: boolean;
 }
 
-/** Auto-growing textarea for prose. */
+/** Auto-growing textarea for prose, or a wrapping single line. */
 export function TextAreaField({
 	path,
 	label,
@@ -141,9 +148,11 @@ export function TextAreaField({
 	optional,
 	className,
 	disabled,
-	rows = 3,
+	rows: rowsProp = 3,
+	singleLine = false,
 	required,
 }: TextAreaFieldProps) {
+	const rows = singleLine ? 1 : rowsProp;
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
 	const textarea = useRef<HTMLTextAreaElement>(null);
@@ -168,18 +177,32 @@ export function TextAreaField({
 				ref={textarea}
 				id={fieldId(path)}
 				rows={rows}
-				style={{ minBlockSize: `calc(${rows}lh + 22px)` }}
+				style={singleLine ? undefined : { minBlockSize: `calc(${rows}lh + 22px)` }}
 				value={value}
 				placeholder={placeholder}
 				disabled={disabled}
 				aria-required={required || undefined}
 				aria-invalid={field.issues.length > 0 || undefined}
 				aria-describedby={describedBy(path, Boolean(description), field.issues)}
+				onKeyDown={
+					singleLine
+						? (event) => {
+								if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault();
+							}
+						: undefined
+				}
 				onChange={(event) => {
-					const next = event.currentTarget.value;
+					const raw = event.currentTarget.value;
+					const next = singleLine ? toSingleLine(raw) : raw;
 					field.set(optional && next === "" ? undefined : next);
 				}}
-				className={cn(controlClass, "cms-textarea resize-y py-2.5 leading-relaxed")}
+				className={cn(
+					controlClass,
+					"cms-textarea",
+					singleLine
+						? "cms-textarea-single min-h-10 py-[8px] leading-[22px]"
+						: "py-2.5 leading-relaxed",
+				)}
 			/>
 		</FieldFrame>
 	);

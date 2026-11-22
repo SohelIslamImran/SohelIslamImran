@@ -80,18 +80,18 @@ function ProjectSlug({ path }: { path: string }) {
 
 function ProjectFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+		<div className="grid gap-5">
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<ProjectSlug path={path} />
 			<SelectField path={`${path}.category`} label="Category" options={CATEGORY_OPTIONS} />
 			<SwitchField path={`${path}.featured`} label="Featured project" />
 			<TextAreaField path={`${path}.summary`} label="Summary" maxLength={600} />
 			<TextAreaField path={`${path}.description`} label="Description" maxLength={2_000} />
-			<div className="grid gap-4 xl:grid-cols-2">
+			<div className="grid gap-x-4 gap-y-5 xl:grid-cols-2">
 				<TextField path={`${path}.year`} label="Year" maxLength={32} />
 				<TextField path={`${path}.status`} label="Status" maxLength={120} />
 			</div>
-			<TextAreaField rows={1} path={`${path}.role`} label="Role" maxLength={240} />
+			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} />
 			<TagsField path={`${path}.tags`} label="Tags" />
 			<StringListField
 				path={`${path}.highlights`}
@@ -155,9 +155,9 @@ export function ProjectsEditor(props: EditorProps) {
 
 function ExperienceFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
 			<TextField path={`${path}.company`} label="Company" maxLength={240} required />
-			<TextAreaField rows={1} path={`${path}.role`} label="Role" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} required />
 			<TextField path={`${path}.period`} label="Period" maxLength={120} />
 			<TextField path={`${path}.location`} label="Location" maxLength={160} optional />
 			<SwitchField path={`${path}.current`} label="Current role" />
@@ -205,8 +205,8 @@ export function ExperienceEditor(props: EditorProps) {
 
 function CapabilityFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+		<div className="grid gap-5">
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
 			<TagsField path={`${path}.tools`} label="Tools" />
 		</div>
@@ -231,11 +231,18 @@ export function CapabilitiesEditor(props: EditorProps) {
 
 function TestimonialFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
 			<TextField path={`${path}.author`} label="Author" maxLength={160} required />
-			<TextAreaField rows={1} path={`${path}.role`} label="Author's role" maxLength={240} />
+			<TextAreaField singleLine path={`${path}.role`} label="Author's role" maxLength={240} />
 			<TextAreaField path={`${path}.quote`} label="Quote" maxLength={1_200} required />
-			<TextField path={`${path}.date`} label="Date" maxLength={80} optional />
+			<TextField
+				path={`${path}.date`}
+				label="Date"
+				maxLength={80}
+				optional
+				placeholder="Nov 2022"
+				description="Shown on the résumé exactly as written."
+			/>
 			<HrefField path={`${path}.href`} label="Source link" optional />
 		</div>
 	);
@@ -259,10 +266,16 @@ export function TestimonialsEditor(props: EditorProps) {
 
 function CredentialFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+		<div className="grid gap-5">
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextField path={`${path}.issuer`} label="Issuer" maxLength={240} required />
-			<TextField path={`${path}.issuedAt`} label="Issue date" maxLength={80} />
+			<TextField
+				path={`${path}.issuedAt`}
+				label="Issue date"
+				maxLength={80}
+				placeholder="Apr 2021"
+				description="Shown on the résumé exactly as written."
+			/>
 			<HrefField path={`${path}.href`} label="Credential link" optional />
 		</div>
 	);
@@ -286,8 +299,8 @@ export function CredentialsEditor(props: EditorProps) {
 
 function WritingFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+		<div className="grid gap-5">
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextAreaField path={`${path}.excerpt`} label="Excerpt" maxLength={1_200} />
 			<DateField path={`${path}.publishedAt`} label="Publication date" />
 			<TextField
@@ -321,7 +334,7 @@ export function WritingEditor(props: EditorProps) {
 
 function TravelFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
 			<TextField path={`${path}.place`} label="Place" maxLength={160} required />
 			<TextField path={`${path}.region`} label="Region" maxLength={160} />
 			<TextField path={`${path}.season`} label="Season" maxLength={120} />
@@ -373,8 +386,8 @@ export function TravelEditor(props: EditorProps) {
 function TravelPageFields() {
 	return (
 		<EditorGroup title="Travel page">
-			<TextAreaField rows={1} path="travel.eyebrow" label="Line above heading" maxLength={160} />
-			<TextAreaField rows={1} path="travel.title" label="Heading" maxLength={240} required />
+			<TextAreaField singleLine path="travel.eyebrow" label="Line above heading" maxLength={160} />
+			<TextAreaField singleLine path="travel.title" label="Heading" maxLength={240} required />
 			<TextAreaField path="travel.intro" label="Introduction" maxLength={1_200} />
 			<TextField path="travel.origin" label="Travel origin" maxLength={160} />
 		</EditorGroup>
@@ -391,7 +404,7 @@ const PROFILE_KINDS = [
 
 function SocialFields({ path, profile = false }: { path: string; profile?: boolean }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
 			<TextField path={`${path}.label`} label="Label" maxLength={profile ? 240 : 160} required />
 			<TextField path={`${path}.platform`} label="Platform" maxLength={80} required />
 			<TextField path={`${path}.handle`} label="Handle" maxLength={160} mono optional />
@@ -408,7 +421,7 @@ function SocialFields({ path, profile = false }: { path: string; profile?: boole
 
 function ProfileLinkFields({ path }: { path: string }) {
 	return (
-		<div className="grid gap-4">
+		<div className="grid gap-5">
 			<SocialFields path={path} profile />
 			<TextAreaField path={`${path}.description`} label="Description" maxLength={600} optional />
 			<SelectField path={`${path}.kind`} label="Kind" options={PROFILE_KINDS} optional />

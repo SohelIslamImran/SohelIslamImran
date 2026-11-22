@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { duplicateRow, newRowId, restoreRow } from "../fields/row-list";
 import {
 	duplicateProject,
+	issueLabel,
 	itemForIssue,
 	uniqueProfileLinkSlug,
 	uniqueProjectSlug,
@@ -73,5 +74,28 @@ describe("collection editor helpers", () => {
 		expect(itemForIssue(draft, "travel.entries", "travel.entries[0].latitude")).toBe("trip");
 		expect(itemForIssue(draft, "travel.entries", "travel.title")).toBeUndefined();
 		expect(itemForIssue(draft, "profileLinks", "social[0].href")).toBeUndefined();
+	});
+});
+
+describe("issue labels", () => {
+	const draft = {
+		hero: { title: "", actions: [{ label: "See my work" }, { label: "Email me", href: "" }] },
+		projects: [{ title: "Kuno" }, { title: "" }],
+		about: { paragraphs: ["One", ""] },
+		media: [{ id: "a", alt: "" }],
+	};
+
+	it("uses the editor's labels instead of internal paths", () => {
+		expect(issueLabel(draft, "hero.title")).toBe("Headline");
+		expect(issueLabel(draft, "identity.timezone")).toBe("Time zone");
+		expect(issueLabel(draft, "media[0].alt")).toBe("Photo alt text");
+	});
+
+	it("names rows by their title and falls back to their position", () => {
+		expect(issueLabel(draft, "hero.actions[1].href")).toBe("Actions › Email me › Link");
+		expect(issueLabel(draft, "projects[0].title")).toBe("Kuno › Title");
+		expect(issueLabel(draft, "projects[1].slug")).toBe("Item 2 › Slug");
+		expect(issueLabel(draft, "about.paragraphs[1]")).toBe("Paragraphs › Item 2");
+		expect(issueLabel(draft, "projects")).toBe("Projects");
 	});
 });
