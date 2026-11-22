@@ -142,16 +142,16 @@ function ConflictDialogBody() {
 export function PublishConfirmDialog({
 	open,
 	onOpenChange,
-	onPublished,
+	publishFailed,
 }: {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	onPublished?: () => void;
+	publishFailed: boolean;
 }) {
 	return (
 		<AlertDialog.Root open={open} onOpenChange={onOpenChange}>
 			<AlertDialog.Portal>
-				<PublishConfirmDialogBody onOpenChange={onOpenChange} onPublished={onPublished} />
+				<PublishConfirmDialogBody onOpenChange={onOpenChange} publishFailed={publishFailed} />
 			</AlertDialog.Portal>
 		</AlertDialog.Root>
 	);
@@ -159,13 +159,15 @@ export function PublishConfirmDialog({
 
 function PublishConfirmDialogBody({
 	onOpenChange,
-	onPublished,
+	publishFailed,
 }: {
 	onOpenChange: (open: boolean) => void;
-	onPublished?: () => void;
+	publishFailed: boolean;
 }) {
 	const store = useDraftStore();
 	const cancelRef = useRef<HTMLButtonElement>(null);
+	const publishedSuccessfully = useRef(false);
+	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
 	const [reviewedDraft] = useState(() => store.getState().draft);
 	const reviewExpired = reviewedDraft !== draft;
@@ -179,6 +181,9 @@ function PublishConfirmDialogBody({
 	const busy = useDraftSelector(
 		(state) => state.status === "saving" || state.status === "publishing",
 	);
+	const error = useDraftSelector((state) => (state.status === "error" ? state.error : null));
+	const authExpired = useDraftSelector((state) => state.authExpired);
+	const showError = error !== null && (publishFailed || attemptFailed);
 
 	const changedSections = useMemo(
 		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
@@ -187,8 +192,9 @@ function PublishConfirmDialogBody({
 
 	const confirmPublish = async () => {
 		const ok = await store.publish({ reviewedDraft });
+		publishedSuccessfully.current = ok;
 		if (ok || store.getState().conflict) onOpenChange(false);
-		if (ok) onPublished?.();
+		else setAttemptFailed(true);
 	};
 
 	return (
@@ -197,6 +203,11 @@ function PublishConfirmDialogBody({
 			<AlertDialog.Popup
 				data-slot="cms-publish-dialog"
 				initialFocus={cancelRef}
+				finalFocus={() =>
+					publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
+						? document.querySelector<HTMLElement>('[data-slot="cms-command-trigger"]')
+						: true
+				}
 				className="cms-modal cms-overlay fixed top-1/2 left-1/2 z-(--z-palette) grid max-h-[calc(100dvh-24px)] w-[min(460px,calc(100vw-24px))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6"
 			>
 				<div className="flex items-start gap-3">
@@ -232,6 +243,17 @@ function PublishConfirmDialogBody({
 					</div>
 				) : null}
 
+				{showError ? (
+					<p
+						role="alert"
+						className="m-0 rounded-[10px] bg-destructive/10 px-3 py-2 text-[13px] text-destructive"
+					>
+						{publishFailed && !authExpired
+							? "The draft could not be published. Check your connection and try again."
+							: error}
+					</p>
+				) : null}
+
 				<div className="flex flex-wrap items-center justify-between gap-2 pt-1">
 					<Link
 						to="/cms/release"
@@ -263,11 +285,11 @@ function PublishConfirmDialogBody({
 						<Button
 							variant="default"
 							size="sm"
-							disabled={busy || blocked || reviewExpired}
+							disabled={busy || blocked || reviewExpired || authExpired}
 							className="pointer-coarse:min-h-11"
 							onClick={() => void confirmPublish()}
 						>
-							{busy ? "Publishing…" : "Publish now"}
+							{busy ? "Publishing…" : showError ? "Retry publish" : "Publish now"}
 						</Button>
 					</div>
 				</div>

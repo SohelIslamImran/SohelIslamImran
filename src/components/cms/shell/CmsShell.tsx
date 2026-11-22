@@ -552,7 +552,15 @@ const UNSAVED = { label: "Unsaved changes", tone: "busy" } as const;
 const AHEAD = { label: "Draft ahead of live", tone: "warn" } as const;
 const LIVE = { label: "Live is up to date", tone: "ok" } as const;
 
-function SessionBanners() {
+function SessionBanners({
+	publishFailed,
+	publishDialogOpen,
+	onRetryPublish,
+}: {
+	publishFailed: boolean;
+	publishDialogOpen: boolean;
+	onRetryPublish: () => void;
+}) {
 	const store = useDraftStore();
 	const authExpired = useDraftSelector((state) => state.authExpired);
 	const status = useDraftSelector((state) => state.status);
@@ -585,6 +593,7 @@ function SessionBanners() {
 	}
 
 	if (status === "error" && error) {
+		if (publishDialogOpen) return null;
 		return (
 			<div
 				role="alert"
@@ -593,15 +602,17 @@ function SessionBanners() {
 			>
 				<span className="flex items-center gap-2">
 					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
-					<span>{error}</span>
+					<span>
+						{publishFailed ? "The draft could not be published. Check your connection." : error}
+					</span>
 				</span>
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={() => void store.save()}
+					onClick={publishFailed ? onRetryPublish : () => void store.save()}
 					className="pointer-coarse:min-h-11"
 				>
-					Retry save
+					{publishFailed ? "Retry publish" : "Retry save"}
 				</Button>
 			</div>
 		);
@@ -744,6 +755,18 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		return () => desktop.removeEventListener("change", close);
 	}, [drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+	const [publishFailed, setPublishFailed] = useState(false);
+	useEffect(() => {
+		// Observe the serialized operation before the store replaces its busy
+		// status with the generic error status. This also covers the release gate.
+		let previous = store.getState().status;
+		return store.subscribe(() => {
+			const { status } = store.getState();
+			if (status === previous) return;
+			setPublishFailed(status === "error" && previous === "publishing");
+			previous = status;
+		});
+	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
 	const requestPublish = () => {
@@ -869,9 +892,14 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						onOpenDrawer={openDrawer}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
+						publishFailed={publishFailed}
 						publishSweepKey={publishSweepKey}
 					/>
-					<SessionBanners />
+					<SessionBanners
+						publishFailed={publishFailed}
+						publishDialogOpen={publishDialogOpen}
+						onRetryPublish={requestPublish}
+					/>
 					<main
 						id="main-content"
 						tabIndex={-1}
@@ -942,7 +970,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				onToggleRail={toggleRail}
 			/>
 
-			<PublishConfirmDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen} />
+			<PublishConfirmDialog
+				open={publishDialogOpen}
+				onOpenChange={setPublishDialogOpen}
+				publishFailed={publishFailed}
+			/>
 
 			<ConflictDialog
 				open={conflictOpen}

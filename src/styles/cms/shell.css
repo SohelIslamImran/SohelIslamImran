@@ -354,6 +354,7 @@
 		justify-content: center;
 		gap: 5px;
 		white-space: nowrap;
+		animation: cms-fade 75ms ease-out both;
 	}
 
 	.cms-status-copy > :is(svg, .cms-status-mark) {
@@ -387,10 +388,10 @@
 	}
 
 	.cms-save-action {
-		min-width: 83px;
+		min-width: 104px;
 	}
 	.cms-publish-action {
-		min-width: 94px;
+		min-width: 128px;
 	}
 	.cms-action[data-complete="true"] svg {
 		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
