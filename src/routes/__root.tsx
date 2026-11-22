@@ -5,6 +5,7 @@ import {
 	Outlet,
 	Scripts,
 	createRootRoute,
+	getLocationChangeInfo,
 	useRouter,
 	useRouterState,
 } from "@tanstack/react-router";
@@ -167,8 +168,17 @@ function useRouteViewTransitions() {
 			if (!supported || reduced.matches || !requested || from?.pathname === to.pathname) {
 				return update();
 			}
+			const types =
+				typeof requested === "object" &&
+				window.CSS?.supports?.("selector(:active-view-transition-type(a))")
+					? typeof requested.types === "function"
+						? requested.types(getLocationChangeInfo(to, from))
+						: requested.types
+					: undefined;
+			if (types === false) return update();
+
 			root.dataset.routeVt = direction(from?.state, to.state);
-			const view = document.startViewTransition(update);
+			const view = document.startViewTransition(types ? { update, types } : update);
 			const transition = { view, skipped: false };
 			cmsTransition = transition;
 			const reportTransitionError = (error: unknown) => {
