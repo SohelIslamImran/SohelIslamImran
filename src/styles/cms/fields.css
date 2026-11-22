@@ -813,7 +813,8 @@
 			position: sticky;
 			top: calc(var(--cms-topbar-height) + 0.75rem);
 			max-height: calc(
-				100svh - max(var(--cms-collection-offset, 0px), var(--cms-topbar-height) + 0.75rem) - 1.5rem
+				100svh - max(var(--cms-collection-offset, 12rem), var(--cms-topbar-height) + 0.75rem) -
+					1.5rem
 			);
 		}
 
