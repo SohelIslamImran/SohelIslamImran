@@ -21,7 +21,12 @@ import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField } from "../fields";
-import { UndoRemoval, editorButton, usePendingRemovals } from "../fields/UndoRemoval";
+import {
+	UndoRemoval,
+	UndoRemovalScope,
+	editorButton,
+	usePendingRemovals,
+} from "../fields/UndoRemoval";
 import { AddButton, RowMenu } from "../fields/RowControls";
 import {
 	ChevronLeftIcon,
@@ -575,6 +580,7 @@ export function CollectionEditor<T extends { id: string }>({
 							>
 								<CollectionDetails
 									key={shownId}
+									collection={path}
 									path={shownPath}
 									id={shownId}
 									profile={profile}
@@ -878,12 +884,14 @@ function RevertList({
 }
 
 const CollectionDetails = memo(function CollectionDetails({
+	collection,
 	path,
 	id,
 	profile,
 	onRename,
 	Editor,
 }: {
+	collection: string;
 	path: string;
 	id: string;
 	profile: boolean;
@@ -893,7 +901,9 @@ const CollectionDetails = memo(function CollectionDetails({
 	return (
 		<>
 			<div id={fieldId(path)} tabIndex={-1} className="rounded-sm">
-				<Editor path={path} />
+				<UndoRemovalScope collection={collection} id={id} path={path}>
+					<Editor path={path} />
+				</UndoRemovalScope>
 			</div>
 			{profile ? (
 				<ProfileSlugField path={`${path}.id`} id={id} onRename={onRename} />
