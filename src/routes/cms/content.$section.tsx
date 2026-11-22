@@ -156,6 +156,7 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												event.preventDefault();
 												// The clicked issue owns the next focus target.
 												jumping.current = true;
+												const popup = event.currentTarget.closest(".cms-issues-popup");
 												setOpen(false);
 												void navigate({
 													to: "/cms/content/$section",
@@ -165,7 +166,7 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 													hashScrollIntoView: false,
 													replace: true,
 													resetScroll: false,
-												}).then(() => revealIssue(issue.path));
+												}).then(() => revealIssue(issue.path, popup));
 											}}
 											className="cms-issue-link"
 										>
@@ -186,11 +187,17 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 }
 
 /** Open parent disclosure rows before focusing their lazily mounted controls. */
-function revealIssue(path: string) {
+function revealIssue(path: string, popup: Element | null) {
 	const segments = parsePath(path);
 	const parents = segments.slice(1).map((_, index) => formatPath(segments.slice(0, index + 1)));
 	let attempts = 15;
+	const deadline = performance.now() + 1_000;
 	function reveal() {
+		// Wait for the closing popup's focus manager to unmount.
+		if (popup?.isConnected) {
+			if (performance.now() < deadline) requestAnimationFrame(reveal);
+			return;
+		}
 		for (const parentPath of parents) {
 			const parent = document.getElementById(fieldId(parentPath))?.parentElement;
 			if (parent instanceof HTMLDetailsElement) parent.open = true;

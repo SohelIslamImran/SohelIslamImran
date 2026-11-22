@@ -24,7 +24,7 @@ export function fieldId(path: string): string {
 	return `cms-field-${path.replace(/[^A-Za-z0-9_-]+/gu, "-").replace(/-+$/u, "")}`;
 }
 
-/** Scroll to and focus the control for a path. Returns false when it is not on screen. */
+/** Scroll to and focus the control for a path. Returns whether focus reached it. */
 export function focusField(path: string, touch = false): boolean {
 	if (typeof document === "undefined") return false;
 	const id = fieldId(path);
@@ -59,7 +59,7 @@ export function focusField(path: string, touch = false): boolean {
 	const inView = rect.bottom > Math.max(0, topBar ?? 0) + 24 && rect.top < window.innerHeight - 24;
 	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest" });
 	target.focus({ preventScroll: true });
-	return true;
+	return document.activeElement === target;
 }
 
 export interface FieldFrameProps {
