@@ -1,7 +1,8 @@
-import { Link } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
 import { cn } from "../../../lib/utils";
 
 import { useLiveVisitors } from "../analytics/LiveVisitors";
+import { RailRouterLink } from "./RailRouterLink";
 
 export function RailPulseSlot({
 	className,
@@ -10,6 +11,9 @@ export function RailPulseSlot({
 	className?: string;
 	onNavigate?: () => void;
 }) {
+	const onAnalytics = useRouterState({
+		select: (state) => state.matches.at(-1)?.routeId === "/cms/analytics",
+	});
 	const { data, paused } = useLiveVisitors();
 	const activeCount = data?.live.count ?? null;
 	const hasCount = activeCount !== null;
@@ -19,10 +23,18 @@ export function RailPulseSlot({
 		: "Live signals";
 
 	return (
-		<Link
+		<RailRouterLink
 			to="/cms/analytics"
 			preload="intent"
-			onClick={onNavigate}
+			onClick={(event) => {
+				if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+					return;
+				onNavigate?.();
+				if (onAnalytics) {
+					event.preventDefault();
+					window.scrollTo({ top: 0, behavior: "instant" });
+				}
+			}}
 			data-slot="cms-rail-pulse"
 			title={label}
 			aria-label={label}
@@ -52,6 +64,6 @@ export function RailPulseSlot({
 					{hasCount ? activeCount : "—"}
 				</span>
 			</span>
-		</Link>
+		</RailRouterLink>
 	);
 }

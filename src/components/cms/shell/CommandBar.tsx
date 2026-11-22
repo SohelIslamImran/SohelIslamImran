@@ -351,7 +351,7 @@ function CommandBarOpen({
 				label: entry.place.trim() || entry.id,
 				detail: `Travel · ${entry.region} · ${entry.season}`,
 				icon: <SectionIcon id="travel" />,
-				run: () => navigate({ to: "/cms/content/$section", params: { section: "travel" } }),
+				run: () => openItem("travel", entry.id),
 			});
 		}
 
@@ -417,7 +417,7 @@ function CommandBarOpen({
 				label: "Toggle sidebar width",
 				detail: "Switch between full rail and icon rail",
 				keywords: "sidebar rail collapse expand narrow",
-				shortcut: "[",
+				shortcut: "⌘\\ / Ctrl+\\",
 				icon: <SidebarToggleIcon />,
 				run: () => onToggleRail(),
 			},

@@ -2,7 +2,7 @@
  * Control Plane CMS Shell:
  * - Skip link + exactly one `<main id="main-content" tabIndex={-1}>`
  * - Responsive Layer Rail (248px at >=1280px, 56px icon rail at 1024-1279px,
- *   collapsible via `[`, slide-over glass drawer on phones/tablets)
+ *   collapsible via ⌘\ / Ctrl+\, slide-over glass drawer on phones/tablets)
  * - Live-pulse slot at the top of the rail (`RailPulseSlot` or `pulseSlot` prop)
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
@@ -21,7 +21,7 @@ import {
 } from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
-import { Link, useRouterState } from "@tanstack/react-router";
+import { useRouterState } from "@tanstack/react-router";
 import { animate, motion, spring, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
@@ -121,6 +121,7 @@ import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar } from "./PipelineBar";
 import { RailPulseSlot } from "./RailPulseSlot";
+import { RailRouterLink } from "./RailRouterLink";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export { RailPulseSlot };
@@ -205,13 +206,11 @@ function RailLink({
 		<Tooltip.Root disabled={layoutScope === "drawer"}>
 			<Tooltip.Trigger
 				render={
-					<Link
+					<RailRouterLink
 						to={to}
 						params={params}
 						preload="intent"
-						activeOptions={{ exact: to === "/cms", includeSearch: false }}
-						activeProps={{ "aria-current": active ? "page" : undefined }}
-						aria-current={active ? "page" : undefined}
+						currentPage={active}
 						aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
 						aria-busy={pending || undefined}
 						data-pending={pending || undefined}
@@ -226,14 +225,14 @@ function RailLink({
 			>
 				<span className="cms-rail-icon relative z-[1] grid size-4 shrink-0 place-items-center">
 					{icon}
+					{compactBadge ? (
+						<span className="cms-rail-badge-dot pointer-events-none absolute -top-1 -right-2">
+							{compactBadge}
+						</span>
+					) : null}
 				</span>
 				<span className="cms-rail-label relative z-[1] ml-2.5 whitespace-nowrap">{label}</span>
 				{badge ? <span className="cms-rail-badge-full absolute right-2 z-[1]">{badge}</span> : null}
-				{compactBadge ? (
-					<span className="cms-rail-badge-dot pointer-events-none absolute top-1 right-1 z-[1]">
-						{compactBadge}
-					</span>
-				) : null}
 			</Tooltip.Trigger>
 			<Tooltip.Portal>
 				<Tooltip.Positioner
@@ -365,7 +364,7 @@ function ChangesCompactBadge() {
 
 function RailHeading({ children }: { children: ReactNode }) {
 	return (
-		<p className="cms-rail-heading m-0 mt-3 flex h-5 items-center px-3 text-[11px] font-medium text-muted-foreground">
+		<p className="cms-rail-heading flex items-center px-3 text-[11px] font-medium text-muted-foreground">
 			{children}
 		</p>
 	);
@@ -442,7 +441,8 @@ function LayerRailContent({
 						<button
 							type="button"
 							onClick={onToggleRail}
-							title={collapsed ? "Expand sidebar ([)" : "Collapse sidebar ([)"}
+							title={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}
+							aria-keyshortcuts={"Meta+\\ Control+\\"}
 							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 							aria-expanded={!collapsed}
 							className="cms-rail-toggle cms-chrome-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
@@ -463,7 +463,7 @@ function LayerRailContent({
 				<div className="cms-rail-region relative">
 					<RailIndicator active={pathname} />
 					<RailHeading>Signals</RailHeading>
-					<div className="grid gap-0.5">
+					<div className="grid grid-cols-1 gap-0.5">
 						{CMS_NAV.signals.map((item) => (
 							<RailLink
 								key={item.to}
@@ -479,7 +479,7 @@ function LayerRailContent({
 					</div>
 
 					{SECTION_GROUPS.map((group) => (
-						<div key={group.id} className="grid gap-0.5">
+						<div key={group.id} className="grid grid-cols-1 gap-0.5">
 							<RailHeading>{group.label}</RailHeading>
 							{SECTIONS.filter((section) => section.group === group.id).map((section) => (
 								<SectionRailItem
@@ -497,7 +497,7 @@ function LayerRailContent({
 					))}
 
 					<RailHeading>Assets</RailHeading>
-					<div className="grid gap-0.5">
+					<div className="grid grid-cols-1 gap-0.5">
 						{CMS_NAV.assets.map((item) => (
 							<RailLink
 								key={item.to}
@@ -517,7 +517,7 @@ function LayerRailContent({
 			{/* Bottom pinned Release zone + Appearance & Live site */}
 			<div className="cms-rail-footer shrink-0 border-t border-line px-2 pb-2.5">
 				<RailHeading>Release</RailHeading>
-				<div className="cms-rail-region relative grid gap-0.5">
+				<div className="cms-rail-region relative grid grid-cols-1 gap-0.5">
 					<RailIndicator active={pathname} />
 					{CMS_NAV.release.map((item) => (
 						<RailLink
@@ -643,7 +643,19 @@ function SessionBanners({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={publishFailed ? onRetryPublish : () => saveDraftIfAvailable(store)}
+					onClick={(event) => {
+						if (publishFailed) {
+							onRetryPublish();
+							return;
+						}
+						if (document.activeElement === event.currentTarget) {
+							event.currentTarget
+								.closest(".cms-layout")
+								?.querySelector<HTMLElement>(".cms-status-pill")
+								?.focus({ preventScroll: true });
+						}
+						saveDraftIfAvailable(store);
+					}}
 					className="pointer-coarse:min-h-11"
 				>
 					{publishFailed ? "Retry publish" : "Retry save"}
@@ -680,7 +692,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const drawerFrame = useRef(0);
 	const interruptedSettle = useRef(false);
 	const drawerDismissSettling = useRef(false);
-	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
 	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
@@ -690,7 +701,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		interruptedSettle.current = false;
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
-		drawer.current?.removeAttribute("data-swipe-settling");
 		drawerScrim.current?.style.removeProperty("opacity");
 		drawerScrim.current?.style.removeProperty("transition");
 	}, []);
@@ -702,7 +712,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			clearDrawerStyles();
 			if (drawerDismissSettling.current) {
 				drawerDismissSettling.current = false;
-				drawerActions.current?.unmount();
+				setDrawerOpen(false);
 			}
 		};
 		preference.addEventListener("change", onChange);
@@ -712,10 +722,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		};
 	}, [clearDrawerStyles]);
 
-	const openDrawer = () => {
+	const setDrawerVisible = (open: boolean) => {
 		drawerDismissSettling.current = false;
+		release.current = null;
 		clearDrawerStyles();
-		setDrawerOpen(true);
+		setDrawerOpen(open);
 	};
 
 	/**
@@ -770,6 +781,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 					// Leave the drawer at that position and stop writing to it.
 					cancelAnimationFrame(drawerFrame.current);
 					drawerFrame.current = 0;
+					drawerDismissSettling.current = false;
 					interruptedSettle.current = true;
 				}
 			}
@@ -830,17 +842,17 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		const position = release.current;
 		release.current = null;
 		if (!open && details.reason === "swipe" && position && drawer.current) {
-			details.preventUnmountOnClose();
+			// Keep Base UI's gesture handlers and modal active until the drawer
+			// is offscreen so a new touch can still take over the spring.
+			details.cancel();
 			drawerDismissSettling.current = true;
-			drawer.current.setAttribute("data-swipe-settling", "");
 			settleDrawer(position, -drawer.current.offsetWidth, () => {
 				drawerDismissSettling.current = false;
-				drawerActions.current?.unmount();
+				setDrawerOpen(false);
 			});
-		} else if (!open && (drawerFrame.current !== 0 || interruptedSettle.current)) {
-			clearDrawerStyles();
+			return;
 		}
-		setDrawerOpen(open);
+		setDrawerVisible(open);
 	};
 	// The drawer is hidden by CSS at `lg`, but an open Base UI dialog would
 	// keep its scroll lock and focus trap. Close it when the viewport grows.
@@ -848,12 +860,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		if (!drawerOpen) return;
 		const desktop = window.matchMedia("(min-width: 1024px)");
 		const close = () => {
-			if (desktop.matches) setDrawerOpen(false);
+			if (!desktop.matches) return;
+			drawerDismissSettling.current = false;
+			release.current = null;
+			clearDrawerStyles();
+			setDrawerOpen(false);
 		};
 		close();
 		desktop.addEventListener("change", close);
 		return () => desktop.removeEventListener("change", close);
-	}, [drawerOpen]);
+	}, [clearDrawerStyles, drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
 	const [publishFailed, setPublishFailed] = useState(false);
 	useEffect(() => {
@@ -920,7 +936,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		});
 	}, []);
 
-	// Global CMS shortcuts: ⌘K / Ctrl+K (command bar), ⌘S / Ctrl+S (save), `[` (icon rail).
+	// Global CMS shortcuts for the command bar, save, and desktop rail.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.defaultPrevented || event.isComposing) return;
@@ -940,10 +956,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				return;
 			}
 			if (
-				event.key === "[" &&
-				!event.metaKey &&
-				!event.ctrlKey &&
+				event.key === "\\" &&
+				(event.metaKey || event.ctrlKey) &&
 				!event.altKey &&
+				!event.shiftKey &&
+				!event.repeat &&
+				window.matchMedia("(min-width: 1024px)").matches &&
 				!commandOpen &&
 				!drawerOpen &&
 				!publishDialogOpen &&
@@ -990,7 +1008,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							commandOpener.current = trigger;
 							setCommandOpen(true);
 						}}
-						onOpenDrawer={openDrawer}
+						onOpenDrawer={() => setDrawerVisible(true)}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
 						onReviewRelease={() => {
@@ -1015,18 +1033,13 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							mobileActionVisible && "max-lg:pb-24",
 						)}
 					>
-						{children}
+						<div className="cms-content-frame mx-auto">{children}</div>
 					</main>
 				</div>
 			</div>
 
 			{/* Phone & tablet navigation drawer */}
-			<Drawer.Root
-				open={drawerOpen}
-				onOpenChange={changeDrawerOpen}
-				actionsRef={drawerActions}
-				swipeDirection="left"
-			>
+			<Drawer.Root open={drawerOpen} onOpenChange={changeDrawerOpen} swipeDirection="left">
 				<Drawer.Portal>
 					<Drawer.Backdrop
 						ref={drawerScrim}
@@ -1055,7 +1068,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							<LayerRailContent
 								layoutScope="drawer"
 								pulseSlot={pulseSlot}
-								onNavigate={() => setDrawerOpen(false)}
+								onNavigate={() => setDrawerVisible(false)}
 							/>
 						</Drawer.Popup>
 					</Drawer.Viewport>
