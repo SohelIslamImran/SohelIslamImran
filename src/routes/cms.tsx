@@ -4,10 +4,9 @@
  * `/cms/analytics` here. The loader is the owner gate for the UI; each private
  * server function still authorizes itself.
  */
-import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useReducedMotion } from "motion/react";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { LiveVisitorsProvider } from "../components/cms/analytics/LiveVisitors";
 import { CmsDraftProvider } from "../components/cms/draft/context";
 import type { DraftApi } from "../components/cms/draft/store";
@@ -78,25 +77,6 @@ function CmsWorkspace({
 
 function CmsSection() {
 	const pathname = useCommittedPathname();
-	const previousPath = useRef(pathname);
-	const router = useRouter();
-	const reduce = useReducedMotion();
-	const scrollBehavior = reduce ? "instant" : "smooth";
-
-	useLayoutEffect(() => {
-		// Preserve document scroll for collection editors that restore their list position.
-		const previousBehavior = router.options.scrollRestorationBehavior;
-		router.options.scrollRestorationBehavior = scrollBehavior;
-		return () => {
-			router.options.scrollRestorationBehavior = previousBehavior;
-		};
-	}, [router, scrollBehavior]);
-
-	useLayoutEffect(() => {
-		if (previousPath.current === pathname) return;
-		previousPath.current = pathname;
-		window.scrollTo({ top: 0, behavior: scrollBehavior });
-	}, [pathname, scrollBehavior]);
 
 	return (
 		<div key={pathname} data-slot="cms-section">

@@ -126,14 +126,55 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
+		let cmsNavigation = false;
+		let cmsTransition: ViewTransition | undefined;
+		const startRouterTransition = router.startViewTransition;
+		const skipCmsTransition = () => cmsTransition?.skipTransition();
+		const isAbort = (error: unknown) =>
+			error instanceof DOMException && error.name === "AbortError";
+		const onMotionChange = () => {
+			if (reduced.matches) skipCmsTransition();
+		};
+		reduced.addEventListener("change", onMotionChange);
+
+		// CMS navigations: the router's update callback commits the route and
+		// restores (or resets) scroll with `scrollRestorationBehavior: "instant"`,
+		// so the incoming snapshot is captured at its final scroll position and
+		// only the content fade moves. A newer navigation skips the running
+		// transition; that rejects `ready` (and can reject `finished`) with an
+		// AbortError, which is normal cancellation, not a failure.
+		router.startViewTransition = async (update) => {
+			if (!cmsNavigation) return startRouterTransition(update);
+			const requested = router.shouldViewTransition ?? router.options.defaultViewTransition;
+			router.shouldViewTransition = undefined;
+			// A search-only update (an editor selecting its first item) commits
+			// without a snapshot and leaves a running content fade alone.
+			if (!supported || reduced.matches || !requested) return update();
+			const transition = document.startViewTransition(update);
+			cmsTransition = transition;
+			void transition.ready.catch(() => {});
+			const finish = () => {
+				if (cmsTransition === transition) cmsTransition = undefined;
+			};
+			void transition.finished.then(finish, finish);
+			await transition.updateCallbackDone.catch((error: unknown) => {
+				if (!isAbort(error)) throw error;
+			});
+		};
+		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
 				? (state as { __TSR_index: number }).__TSR_index
 				: null;
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
-			window.clearTimeout(clearTimer);
+			cmsNavigation =
+				isCmsPath(event.fromLocation?.pathname) === true &&
+				isCmsPath(event.toLocation.pathname) === true;
 			const animate = supported && !reduced.matches && event.pathChanged;
 			router.options.defaultViewTransition = animate;
+			// Keep the transition styles of a running CMS content fade in place.
+			if (cmsNavigation && !event.pathChanged) return;
+			window.clearTimeout(clearTimer);
 			routeViewTransitionPending = animate;
 			if (animate) {
 				const from = indexOf(event.fromLocation?.state);
@@ -150,6 +191,9 @@ function useRouteViewTransitions() {
 			clearTimer = window.setTimeout(() => delete root.dataset.routeVt, 700);
 		});
 		return () => {
+			skipCmsTransition();
+			reduced.removeEventListener("change", onMotionChange);
+			router.startViewTransition = startRouterTransition;
 			unsubscribeStart();
 			unsubscribeEnd();
 			window.clearTimeout(clearTimer);

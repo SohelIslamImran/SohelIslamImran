@@ -11,10 +11,11 @@ import {
 	useRef,
 	useState,
 	type ReactNode,
+	type RefObject,
 } from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { useNavigate } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import {
 	applyThemeMode,
@@ -44,7 +45,16 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
-import { PUBLIC_SITE_ORIGIN } from "./CmsShell";
+import { PUBLIC_SITE_ORIGIN, RELEASE_GATE_ID } from "./CmsShell";
+import { useLiveReducedMotion } from "./use-live-reduced-motion";
+
+/** After a navigation command, land on the destination's heading (or `main`). */
+function focusDestination() {
+	const main = document.getElementById("main-content");
+	const heading = main?.querySelector<HTMLElement>("h1");
+	if (heading && !heading.hasAttribute("tabindex")) heading.tabIndex = -1;
+	(heading ?? main)?.focus({ preventScroll: true });
+}
 
 type CommandGroup = "Pages" | "Sections" | "Items" | "Actions" | "Appearance";
 const GROUP_ORDER: readonly CommandGroup[] = [
@@ -67,15 +77,22 @@ interface CommandEntry {
 	external?: boolean;
 	disabled?: boolean;
 	stayOpen?: boolean;
-	run: (origin?: Element | null) => void;
+	/**
+	 * A returned promise is a navigation: focus moves to the destination heading
+	 * once it commits. A returned function runs after the bar has closed and
+	 * released focus. Otherwise focus returns to the opener.
+	 */
+	run: (origin?: Element | null) => void | Promise<void> | (() => void);
 }
 
 export function CommandBar({
+	opener,
 	open,
 	onOpenChange,
 	onRequestPublish,
 	onToggleRail,
 }: {
+	opener: RefObject<HTMLElement | null>;
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	onRequestPublish: () => void;
@@ -86,6 +103,7 @@ export function CommandBar({
 		<Dialog.Root open={open} onOpenChange={onOpenChange}>
 			<Dialog.Portal>
 				<CommandBarOpen
+					opener={opener}
 					onOpenChange={onOpenChange}
 					onRequestPublish={onRequestPublish}
 					onToggleRail={onToggleRail}
@@ -96,17 +114,27 @@ export function CommandBar({
 }
 
 function CommandBarOpen({
+	opener,
 	onOpenChange,
 	onRequestPublish,
 	onToggleRail,
 }: {
+	opener: RefObject<HTMLElement | null>;
 	onOpenChange: (open: boolean) => void;
 	onRequestPublish: () => void;
 	onToggleRail: () => void;
 }) {
-	const reduce = useReducedMotion();
+	const reduce = useLiveReducedMotion();
 	const popupRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
+	const afterClose = useRef<(() => void) | null>(null);
+	const finalFocus = () => {
+		const next = afterClose.current;
+		if (!next) return opener.current;
+		// Run once the dialog's focus trap has been removed.
+		requestAnimationFrame(next);
+		return false;
+	};
 	const store = useDraftStore();
 	const draft = useDraftSelector((state) => state.draft);
 	const dirty = useDraftSelector((state) => state.dirty);
@@ -131,7 +159,7 @@ function CommandBarOpen({
 				detail: "Signals and content health",
 				keywords: "home dashboard status signals",
 				icon: <OverviewIcon />,
-				run: () => void navigate({ to: "/cms" }),
+				run: () => navigate({ to: "/cms" }),
 			},
 			{
 				id: "page-analytics",
@@ -141,7 +169,7 @@ function CommandBarOpen({
 				keywords: "traffic stats views metrics",
 				icon: <AnalyticsIcon />,
 				// `/cms/analytics` is owned by the analytics workstream; keep wide string until merged.
-				run: () => void navigate({ to: "/cms/analytics" as string }),
+				run: () => navigate({ to: "/cms/analytics" as string }),
 			},
 			{
 				id: "page-release",
@@ -154,7 +182,7 @@ function CommandBarOpen({
 					ahead || dirty ? (
 						<span className="font-mono text-[11px] text-primary-text">Δ</span>
 					) : undefined,
-				run: () => void navigate({ to: "/cms/release" }),
+				run: () => navigate({ to: "/cms/release" }),
 			},
 			{
 				id: "page-history",
@@ -163,7 +191,7 @@ function CommandBarOpen({
 				detail: "Inspect past drafts and published snapshots, restore",
 				keywords: "revisions rollback restore snapshots timeline",
 				icon: <HistoryIcon />,
-				run: () => void navigate({ to: "/cms/history" }),
+				run: () => navigate({ to: "/cms/history" }),
 			},
 			{
 				id: "page-activity",
@@ -172,7 +200,7 @@ function CommandBarOpen({
 				detail: "Audit trail of saves, publishes, restores, and media updates",
 				keywords: "audit events log history",
 				icon: <ActivityIcon />,
-				run: () => void navigate({ to: "/cms/activity" }),
+				run: () => navigate({ to: "/cms/activity" }),
 			},
 			{
 				id: "page-library",
@@ -181,7 +209,7 @@ function CommandBarOpen({
 				detail: "Assets, alt text, and draft usage",
 				keywords: "images photos uploads r2 files assets",
 				icon: <MediaLibraryIcon />,
-				run: () => void navigate({ to: "/cms/library" }),
+				run: () => navigate({ to: "/cms/library" }),
 			},
 		];
 
@@ -201,7 +229,7 @@ function CommandBarOpen({
 				) : changed ? (
 					<span className="font-mono text-[11px] text-primary-text">Δ</span>
 				) : undefined,
-				run: () => void navigate({ to: "/cms/content/$section", params: { section: section.id } }),
+				run: () => navigate({ to: "/cms/content/$section", params: { section: section.id } }),
 			};
 		});
 
@@ -215,7 +243,7 @@ function CommandBarOpen({
 				keywords: `${project.slug} ${project.role} ${project.tags.join(" ")}`,
 				icon: <SectionIcon id="projects" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "projects" },
 						search: { item: project.id },
@@ -232,7 +260,7 @@ function CommandBarOpen({
 				keywords: `${exp.company} ${exp.technologies.join(" ")}`,
 				icon: <SectionIcon id="experience" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "experience" },
 						search: { item: exp.id },
@@ -249,7 +277,7 @@ function CommandBarOpen({
 				keywords: cap.tools.join(" "),
 				icon: <SectionIcon id="capabilities" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "capabilities" },
 						search: { item: cap.id },
@@ -266,7 +294,7 @@ function CommandBarOpen({
 				keywords: testimonial.quote,
 				icon: <SectionIcon id="testimonials" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "testimonials" },
 						search: { item: testimonial.id },
@@ -283,7 +311,7 @@ function CommandBarOpen({
 				keywords: cred.issuedAt,
 				icon: <SectionIcon id="credentials" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "credentials" },
 						search: { item: cred.id },
@@ -300,7 +328,7 @@ function CommandBarOpen({
 				keywords: post.tags.join(" "),
 				icon: <SectionIcon id="writing" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "writing" },
 						search: { item: post.id },
@@ -317,7 +345,7 @@ function CommandBarOpen({
 				keywords: `${link.platform} ${link.kind ?? ""}`,
 				icon: <SectionIcon id="links" />,
 				run: () =>
-					void navigate({
+					navigate({
 						to: "/cms/content/$section",
 						params: { section: "links" },
 						search: { item: link.id },
@@ -332,7 +360,7 @@ function CommandBarOpen({
 				label: chapter.title.trim() || chapter.id,
 				detail: `Story · ${chapter.eyebrow}`,
 				icon: <SectionIcon id="story" />,
-				run: () => void navigate({ to: "/cms/content/$section", params: { section: "story" } }),
+				run: () => navigate({ to: "/cms/content/$section", params: { section: "story" } }),
 			});
 		}
 		for (const entry of draft.travel.entries) {
@@ -342,7 +370,7 @@ function CommandBarOpen({
 				label: entry.place.trim() || entry.id,
 				detail: `Travel · ${entry.region} · ${entry.season}`,
 				icon: <SectionIcon id="travel" />,
-				run: () => void navigate({ to: "/cms/content/$section", params: { section: "travel" } }),
+				run: () => navigate({ to: "/cms/content/$section", params: { section: "travel" } }),
 			});
 		}
 
@@ -366,7 +394,12 @@ function CommandBarOpen({
 				keywords: "publish deploy release ship live",
 				icon: <PublishIcon />,
 				disabled: (!ahead && !dirty) || issueCount > 0 || conflict,
-				run: () => onRequestPublish(),
+				// On the Changes page the shell hands Publish to the page's gate,
+				// which takes focus, so run it after the bar lets go of focus.
+				run: () => {
+					if (!document.getElementById(RELEASE_GATE_ID)) return onRequestPublish();
+					return onRequestPublish;
+				},
 			},
 			{
 				id: "action-discard",
@@ -376,7 +409,7 @@ function CommandBarOpen({
 				keywords: "revert reset discard rollback",
 				icon: <DiscardIcon />,
 				disabled: !ahead && !dirty,
-				run: () => void navigate({ to: "/cms/release" }),
+				run: () => navigate({ to: "/cms/release" }),
 			},
 			{
 				id: "action-live-site",
@@ -386,7 +419,7 @@ function CommandBarOpen({
 				keywords: "public site preview visit",
 				icon: <ExternalArrowIcon />,
 				external: true,
-				run: () => window.open(PUBLIC_SITE_ORIGIN, "_blank", "noopener,noreferrer"),
+				run: () => void window.open(PUBLIC_SITE_ORIGIN, "_blank", "noopener,noreferrer"),
 			},
 			{
 				id: "action-exclude-analytics",
@@ -397,7 +430,7 @@ function CommandBarOpen({
 				icon: <AnalyticsIcon />,
 				external: true,
 				run: () =>
-					window.open(`${PUBLIC_SITE_ORIGIN}/?analytics=off`, "_blank", "noopener,noreferrer"),
+					void window.open(`${PUBLIC_SITE_ORIGIN}/?analytics=off`, "_blank", "noopener,noreferrer"),
 			},
 			{
 				id: "action-toggle-rail",
@@ -496,7 +529,13 @@ function CommandBarOpen({
 	const execute = (item: CommandEntry, origin?: Element | null) => {
 		if (item.disabled) return;
 		if (!item.stayOpen) onOpenChange(false);
-		item.run(origin ?? document.getElementById(`${optionPrefix}-${item.id}`));
+		const result = item.run(origin ?? document.getElementById(`${optionPrefix}-${item.id}`));
+		afterClose.current =
+			typeof result === "function"
+				? result
+				: result instanceof Promise
+					? () => void result.then(focusDestination)
+					: null;
 	};
 
 	const move = (nextIndex: number) => {
@@ -551,6 +590,7 @@ function CommandBarOpen({
 				ref={popupRef}
 				data-slot="cms-command-bar"
 				initialFocus={inputRef}
+				finalFocus={finalFocus}
 				className="cms-command-popup cms-overlay cms-glass fixed inset-x-3 top-[max(12px,env(safe-area-inset-top))] z-(--z-palette) flex max-h-[min(600px,calc(100dvh-28px))] flex-col overflow-hidden rounded-[19px] border text-foreground outline-hidden md:inset-x-auto md:top-[max(10vh,70px)] md:left-1/2 md:max-h-[min(540px,74dvh)] md:w-[min(560px,calc(100vw-32px))] md:-translate-x-1/2"
 			>
 				<Dialog.Title className="sr-only">Control plane command bar</Dialog.Title>
@@ -606,6 +646,9 @@ function CommandBarOpen({
 					id={listboxId}
 					role="listbox"
 					aria-label="Commands"
+					// Options are driven from the combobox (aria-activedescendant); keep
+					// the scrollable list itself out of the Tab sequence too.
+					tabIndex={-1}
 					className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
 				>
 					{filtered.length === 0 ? (
@@ -641,15 +684,14 @@ function CommandBarOpen({
 												id={`${optionPrefix}-${item.id}`}
 												type="button"
 												role="option"
+												tabIndex={-1}
 												aria-selected={isActive}
 												aria-disabled={item.disabled || undefined}
 												onPointerMove={(event) => {
 													if (event.pointerType === "mouse" && activeId !== item.id)
 														setActiveId(item.id);
 												}}
-												onPointerDown={(event) => {
-													if (event.pointerType === "mouse") event.preventDefault();
-												}}
+												onMouseDown={(event) => event.preventDefault()}
 												onClick={(event) => execute(item, event.currentTarget)}
 												className={cn(
 													"cms-command-row cms-press relative isolate flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-[10px] px-2.5 py-2 text-left",

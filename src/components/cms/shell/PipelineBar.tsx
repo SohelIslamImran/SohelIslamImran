@@ -9,7 +9,7 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { Button } from "../../ui/button";
 import { Kbd, MenuSurface } from "../../ui/portfolio";
 import {
@@ -32,6 +32,7 @@ import {
 	SearchIcon,
 } from "./cms-icons";
 import { useRelativeTime } from "./time";
+import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export type PipelineStage = "synced" | "dirty" | "saving" | "ahead" | "invalid";
 
@@ -86,7 +87,6 @@ function PipelineStatus({
 	onResolveConflict,
 }: ReturnType<typeof usePipelineStage> & { onResolveConflict: () => void }) {
 	const [open, setOpen] = useState(false);
-	const reduce = useReducedMotion();
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const issues = useDraftSelector((state) => state.issues.all);
@@ -121,24 +121,17 @@ function PipelineStatus({
 				}
 			}}
 		>
-			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage}>
-				<motion.span
-					layout={reduce ? false : "size"}
-					transition={SPRING_MOVE}
-					style={{ borderRadius: 24 }}
-					className="cms-status-fill"
-					aria-hidden="true"
-				/>
+			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage} aria-label={label}>
 				<span className="cms-status-content">
-					<AnimatePresence initial={false}>
+					<AnimatePresence initial={false} mode="wait">
 						<motion.span
 							key={label}
 							className="cms-status-copy"
 							aria-hidden="true"
 							initial={{ opacity: 0 }}
 							animate={{ opacity: 1 }}
-							exit={{ opacity: 0, position: "absolute" }}
-							transition={REDUCED}
+							exit={{ opacity: 0 }}
+							transition={{ ...REDUCED, duration: 0.075 }}
 						>
 							{stage === "synced" ? (
 								<CheckCircleIcon />
@@ -152,7 +145,6 @@ function PipelineStatus({
 							{label}
 						</motion.span>
 					</AnimatePresence>
-					<span className="sr-only">{label}</span>
 				</span>
 			</PopoverTrigger>
 			<PopoverContent
@@ -225,7 +217,7 @@ export function PipelineBar({
 	onRequestPublish,
 	publishSweepKey,
 }: {
-	onOpenCommandBar: () => void;
+	onOpenCommandBar: (trigger: HTMLButtonElement) => void;
 	onOpenDrawer: () => void;
 	onResolveConflict: () => void;
 	onRequestPublish: () => void;
@@ -290,7 +282,7 @@ export function PipelineBar({
 			<div className="flex shrink-0 items-center gap-2">
 				<button
 					type="button"
-					onClick={onOpenCommandBar}
+					onClick={(event) => onOpenCommandBar(event.currentTarget)}
 					aria-label="Search and commands"
 					aria-haspopup="dialog"
 					aria-keyshortcuts="Meta+K Control+K"
@@ -383,7 +375,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 
 /** Keep mobile actions visible while there are draft changes to save or publish. */
 export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
-	const reduce = useReducedMotion();
+	const reduce = useLiveReducedMotion();
 	const visible = useDraftSelector(
 		(state) =>
 			state.dirty ||
