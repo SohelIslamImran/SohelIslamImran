@@ -176,7 +176,7 @@ function PipelineStatus({
 							preload="intent"
 							resetScroll={false}
 							onClick={() => setOpen(false)}
-							className="cms-press cms-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
+							className="cms-press cms-chrome-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
 						>
 							Review changes <span aria-hidden="true">→</span>
 						</Link>
@@ -189,7 +189,7 @@ function PipelineStatus({
 										<button
 											type="button"
 											onClick={() => jumpToIssue(issue.path)}
-											className="cms-press cms-control grid min-h-11 w-full gap-0.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left transition-colors duration-150 hover:border-line hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
+											className="cms-press cms-chrome-control grid min-h-11 w-full gap-0.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left transition-colors duration-150 hover:border-line hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
 										>
 											<div className="flex items-center justify-between gap-2">
 												<span className="text-[12.5px] font-medium text-foreground">
@@ -257,7 +257,7 @@ export function PipelineBar({
 				onClick={onOpenDrawer}
 				aria-label="Open navigation menu"
 				aria-haspopup="dialog"
-				className="cms-press cms-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
+				className="cms-press cms-chrome-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
 			>
 				<MenuIcon className="size-5" />
 			</button>
@@ -278,7 +278,7 @@ export function PipelineBar({
 					preload="intent"
 					resetScroll={false}
 					aria-label={`Live revision ${publishedRevision}`}
-					className="cms-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
+					className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
 				>
 					<span className="hidden sm:inline">Live </span>r{publishedRevision}
 				</Link>
@@ -295,7 +295,7 @@ export function PipelineBar({
 					aria-haspopup="dialog"
 					aria-keyshortcuts="Meta+K Control+K"
 					data-slot="cms-command-trigger"
-					className="cms-press cms-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
+					className="cms-press cms-chrome-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
 				>
 					<SearchIcon />
 					<span className="hidden text-[12px] xl:inline">Search</span>

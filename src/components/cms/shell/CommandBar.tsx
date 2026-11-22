@@ -587,13 +587,13 @@ function CommandBarOpen({
 								setQuery("");
 								inputRef.current?.focus();
 							}}
-							className="cms-control cms-press min-h-8 shrink-0 rounded-full px-2.5 text-[12px] text-muted-foreground pointer-coarse:min-h-11"
+							className="cms-chrome-control cms-press min-h-8 shrink-0 rounded-full px-2.5 text-[12px] text-muted-foreground pointer-coarse:min-h-11"
 						>
 							Clear
 						</button>
 					) : null}
 					<Dialog.Close
-						className="cms-control cms-press grid min-h-8 min-w-8 shrink-0 place-items-center rounded-lg text-muted-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						className="cms-chrome-control cms-press grid min-h-8 min-w-8 shrink-0 place-items-center rounded-lg text-muted-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 						aria-label="Close commands"
 					>
 						<CloseIcon />

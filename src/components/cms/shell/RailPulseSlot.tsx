@@ -28,7 +28,7 @@ export function RailPulseSlot({
 			title={label}
 			aria-label={label}
 			className={cn(
-				"cms-rail-pulse cms-control cms-press relative flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11",
+				"cms-rail-pulse cms-chrome-control cms-press relative flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11",
 				className,
 			)}
 		>

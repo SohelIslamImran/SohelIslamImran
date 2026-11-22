@@ -19,7 +19,7 @@
 		scroll-padding-top: calc(56px + env(safe-area-inset-top));
 	}
 
-	.cms-root :is(.cms-control, .cms-status-pill, .cms-action):focus-visible,
+	.cms-root :is(.cms-chrome-control, .cms-status-pill, .cms-action):focus-visible,
 	.cms-overlay :is(a, button):focus-visible {
 		outline: 2px solid var(--theme-accent);
 		outline-offset: 2px;
@@ -27,7 +27,7 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-control:hover {
+		.cms-chrome-control:hover {
 			background-color: color-mix(in srgb, var(--theme-ink) 6%, transparent);
 			color: var(--theme-ink);
 		}

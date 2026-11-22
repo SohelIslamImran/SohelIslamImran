@@ -133,7 +133,7 @@ function RailLink({
 								onNavigate?.();
 							}
 						}}
-						className="cms-rail-link cms-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
+						className="cms-rail-link cms-chrome-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
 					/>
 				}
 			>
@@ -348,7 +348,7 @@ function LayerRailContent({
 							title={collapsed ? "Expand sidebar ([)" : "Collapse sidebar ([)"}
 							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
 							aria-expanded={!collapsed}
-							className="cms-rail-toggle cms-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
+							className="cms-rail-toggle cms-chrome-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
 						>
 							<SidebarToggleIcon collapsed={collapsed} />
 						</button>
@@ -442,7 +442,7 @@ function LayerRailContent({
 						rel="noreferrer"
 						title="Open live site"
 						aria-label="Open live site"
-						className="cms-rail-live cms-press cms-control inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						className="cms-rail-live cms-press cms-chrome-control inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
 						<ExternalArrowIcon className="size-3.5" />
 						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
@@ -702,7 +702,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 							<div className="absolute top-[calc(12px+env(safe-area-inset-top))] right-3 z-10">
 								<Drawer.Close
 									aria-label="Close navigation menu"
-									className="cms-press cms-control grid size-11 place-items-center rounded-full text-muted-foreground"
+									className="cms-press cms-chrome-control grid size-11 place-items-center rounded-full text-muted-foreground"
 								>
 									<CloseIcon className="size-4" />
 								</Drawer.Close>
