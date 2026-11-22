@@ -17,6 +17,7 @@
 	.cms-layout {
 		--cms-rail-width: 232px;
 		--cms-rail-collapsed: 64px;
+		--cms-content-max: 69rem;
 		min-height: 100dvh;
 	}
 
@@ -252,6 +253,14 @@
 			display: block;
 		}
 	}
+	@container cms-rail (max-width: 127px) {
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-heading {
+			height: 0;
+			margin-top: 8px;
+			overflow: hidden;
+		}
+	}
+
 	/* Switch only when the actual rail width can fit the two hit areas. */
 	@container cms-rail (min-width: 128px) {
 		.cms-rail-desktop .cms-rail-footer-row {
@@ -291,12 +300,9 @@
 		margin-inline: auto;
 	}
 
+	.cms-content-frame,
 	.cms-topbar-inner {
-		max-width: 1160px;
-	}
-
-	.cms-layout:has([data-slot="cms-section"] > .cms-editor) .cms-topbar-inner {
-		max-width: 69rem;
+		max-width: var(--cms-content-max);
 	}
 
 	.cms-topbar {
@@ -447,7 +453,7 @@
 		scale: 0.91;
 	}
 	.cms-command-search:has(input:focus-visible) {
-		box-shadow: inset 0 -1px color-mix(in srgb, var(--theme-accent) 42%, transparent);
+		box-shadow: inset 0 -2px var(--theme-focus);
 	}
 	.cms-result-enter {
 		animation: cms-fade 140ms ease-out both;
@@ -575,6 +581,11 @@
 @layer utilities {
 	.cms-root:has(#main-content #release-gate) .cms-publish-action {
 		display: none;
+	}
+
+	.cms-root:has(#main-content #release-gate) .cms-topbar .cms-publish-action {
+		display: inline-flex;
+		visibility: hidden;
 	}
 
 	.cms-action:is([aria-busy="true"], [data-complete="true"]):is(:disabled, [aria-disabled="true"]) {
