@@ -16,7 +16,7 @@
 
 	.cms-layout {
 		--cms-rail-width: 232px;
-		--cms-rail-collapsed: 64px;
+		--cms-rail-collapsed: 56px;
 		--cms-content-max: 69rem;
 		min-height: 100dvh;
 	}
@@ -49,6 +49,7 @@
 
 	.cms-rail-desktop {
 		background: color-mix(in srgb, var(--theme-surface-solid) 58%, var(--theme-paper));
+		box-shadow: inset -1px 0 var(--theme-line);
 	}
 
 	.cms-rail-scroll {
@@ -142,6 +143,19 @@
 
 	.cms-rail-tooltip {
 		display: none;
+	}
+
+	.cms-rail-tooltip-popup {
+		box-shadow: var(--shadow-raised);
+		transform-origin: var(--transform-origin);
+		transition:
+			opacity 120ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	.cms-rail-tooltip-popup:is([data-starting-style], [data-ending-style]) {
+		opacity: 0;
+		scale: 0.96;
 	}
 
 	.cms-drawer-popup .cms-rail-badge-dot {
@@ -300,6 +314,28 @@
 		}
 	}
 
+	@container cms-rail (max-width: 127px) {
+		.cms-rail-desktop .cms-rail-toggle {
+			right: auto;
+			left: 50%;
+			translate: -50% 0;
+		}
+
+		@media (pointer: coarse) {
+			.cms-rail-desktop :is(.cms-rail-scroll, .cms-rail-footer) {
+				padding-inline: 6px;
+			}
+
+			.cms-layout[data-rail] .cms-rail-desktop .cms-rail-header {
+				padding-inline: 5px;
+			}
+
+			.cms-layout[data-rail] .cms-rail-desktop .cms-rail-link {
+				padding-inline: 14px;
+			}
+		}
+	}
+
 	[data-slot="cms-section"] > * {
 		width: 100%;
 		margin-inline: auto;
@@ -319,6 +355,13 @@
 	.cms-topbar[data-scrolled="true"] {
 		background: color-mix(in srgb, var(--theme-surface-solid) 86%, transparent);
 		backdrop-filter: blur(20px) saturate(155%);
+	}
+
+	.cms-session-banner {
+		border-block: 1px solid color-mix(in srgb, var(--theme-destructive) 30%, var(--theme-line));
+		background: color-mix(in srgb, var(--theme-destructive) 8%, var(--theme-surface-solid));
+		box-shadow: var(--shadow-raised);
+		animation: cms-enter 160ms var(--cms-ease-out) both;
 	}
 
 	.cms-pipeline-connector {
@@ -520,6 +563,20 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
+		.cms-session-banner {
+			animation-name: cms-fade;
+			animation-duration: 150ms !important;
+		}
+
+		.cms-rail-tooltip-popup:is([data-starting-style], [data-ending-style]) {
+			scale: none;
+		}
+
+		.cms-rail-tooltip-popup {
+			transition-property: opacity;
+			transition-duration: 120ms !important;
+		}
+
 		.cms-layout,
 		.cms-layout[data-rail]
 			.cms-rail-desktop
@@ -602,6 +659,7 @@
 	}
 
 	.cms-publish-action:is(:disabled, [aria-disabled="true"]):not([data-complete], [aria-busy]) {
+		border-color: var(--theme-line-strong);
 		background: var(--theme-surface-raised);
 		color: var(--theme-ink-soft);
 		box-shadow: none;
