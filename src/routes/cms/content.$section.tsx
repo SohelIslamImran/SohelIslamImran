@@ -6,7 +6,7 @@ import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/contex
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
 import { UndoRemovalHost } from "../../components/cms/fields/UndoRemoval";
-import { sentenceCase } from "../../components/cms/fields/FieldFrame";
+import { fieldIssueMessage } from "../../components/cms/fields/FieldFrame";
 import { AlertCircleIcon } from "../../components/cms/fields/field-icons";
 import { absolute } from "../../lib/seo";
 import { EditorLayout } from "../../components/cms/sections/EditorLayout";
@@ -94,6 +94,8 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
+	// Counts reflect the live draft. Text inputs can delay their inline feedback,
+	// but these issues still block autosave and can be opened here immediately.
 	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
 		<Popover.Root
@@ -171,7 +173,7 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 										>
 											<span className="font-semibold">{issueLabel(draftNow, issue.path)}</span>{" "}
 											<span className="text-muted-foreground">
-												{sentenceCase(issue.message).replace(/^./u, (first) => first.toLowerCase())}
+												{fieldIssueMessage(issue).replace(/^./u, (first) => first.toLowerCase())}
 											</span>
 										</Link>
 									</li>

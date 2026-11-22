@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
@@ -99,8 +99,8 @@ export function FieldFrame({
 	const reduced = useLiveReducedMotion();
 	const frame = useRef<HTMLDivElement>(null);
 	const LabelTag = asGroup ? "p" : "label";
-	const canRevert = useDraftSelector(({ draft, published }) => {
-		if (!changed || !onRevert) return false;
+	const changedFromLive = useDraftSelector(({ draft, published }) => {
+		if (!changed) return false;
 		const livePath = correspondingPath(draft, published, parsePath(path));
 		if (!livePath) return false;
 		// New rows and new embeds have no published parent to revert to.
@@ -108,7 +108,7 @@ export function FieldFrame({
 		const key = livePath.at(-1);
 		return parent != null && (typeof key !== "number" || getAt(parent, [key]) !== undefined);
 	});
-	const message = issues.map((issue) => sentenceCase(issue.message)).join(" ");
+	const message = issues.map(fieldIssueMessage).join(" ");
 	const labelNode = (
 		<LabelTag
 			id={`${id}-label`}
@@ -116,12 +116,12 @@ export function FieldFrame({
 			className="m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground"
 		>
 			{label}
-			{changed ? <span className="sr-only"> (changed from live)</span> : null}
+			{changedFromLive ? <span className="sr-only"> (changed from live)</span> : null}
 		</LabelTag>
 	);
 	const revert = (
 		<AnimatePresence initial={false}>
-			{canRevert ? (
+			{changedFromLive && onRevert ? (
 				<motion.button
 					type="button"
 					initial={{ opacity: 0, x: reduced ? 0 : 4 }}
@@ -145,7 +145,7 @@ export function FieldFrame({
 			data-slot="cms-field"
 			ref={frame}
 			tabIndex={-1}
-			data-changed={changed || undefined}
+			data-changed={changedFromLive || undefined}
 			data-invalid={issues.length > 0 || undefined}
 			data-layout={layout}
 			className={cn("cms-field group/cms-field relative grid min-w-0 content-start", className)}
@@ -235,6 +235,45 @@ export function FieldMessage({
 			</div>
 		</div>
 	);
+}
+
+const NO_ISSUES: readonly ValidationIssue[] = [];
+
+/** Keep draft validation live. Delay the input's message and ARIA state together. */
+export function useFieldIssueFeedback(
+	issues: readonly ValidationIssue[],
+	value: string | number,
+	delay: number | null = 700,
+) {
+	const [editing, setEditing] = useState(false);
+	const [revealed, setRevealed] = useState(false);
+	const invalid = issues.length > 0;
+	useEffect(() => {
+		if (!editing || !invalid || revealed || delay === null) return;
+		const timer = setTimeout(() => setRevealed(true), delay);
+		return () => clearTimeout(timer);
+	}, [editing, invalid, revealed, value, delay]);
+
+	function commit() {
+		setEditing(false);
+	}
+
+	return {
+		issues: editing && !revealed ? NO_ISSUES : issues,
+		onFocus: () => {
+			setEditing(true);
+			setRevealed(invalid && delay !== null);
+		},
+		onBlur: commit,
+		commit,
+	};
+}
+
+export function fieldIssueMessage(issue: ValidationIssue): string {
+	if (issue.path === "site.url" && issue.message.startsWith("must be an https,")) {
+		return "Enter the full public address, such as https://example.com.";
+	}
+	return sentenceCase(issue.message);
 }
 
 /** `aria-describedby` for a control rendered inside `FieldFrame`. */
