@@ -149,6 +149,11 @@ export function CollectionEditor<T extends { id: string }>({
 			if (reduced) detail.style.opacity = "0";
 			else detail.style.transform = "translateX(100%)";
 		}
+		if (reduced) {
+			detail.style.transform = "";
+			panel.style.transform = "";
+			panel.style.opacity = "";
+		}
 		let frame = 0;
 		let stopped = false;
 		const controls = reduced

@@ -775,6 +775,13 @@
 		}
 	}
 
+	@media (prefers-reduced-motion: reduce) {
+		/* Zero the slide on the first reduced-motion frame, even before Motion stops it. */
+		.cms-collection[data-pane] > :is(.cms-collection-detail, .cms-collection-list) {
+			transform: none !important;
+		}
+	}
+
 	.cms-collection-placeholder {
 		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-paper));
 	}
