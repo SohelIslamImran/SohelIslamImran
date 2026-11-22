@@ -506,14 +506,16 @@ export function CollectionEditor<T extends { id: string }>({
 					<RevertList
 						path={path}
 						label={label}
-						onReverted={() => {
+						onReverted={(touch) => {
 							removals.clear();
 							const rows = store.valueAt(path) as T[];
 							if (item !== undefined && !rows.some((row) => row.id === item)) {
-								back(rows[0]?.id, false);
+								back(rows[0]?.id, false, touch);
 							} else {
 								requestAnimationFrame(() =>
-									(rowButton(item) ?? listPanel.current)?.focus({ preventScroll: true }),
+									(touch ? listPanel.current : (rowButton(item) ?? search.current))?.focus({
+										preventScroll: true,
+									}),
 								);
 							}
 						}}
@@ -617,16 +619,14 @@ export function CollectionEditor<T extends { id: string }>({
 								</button>
 							</EditorGroup>
 						) : length ? (
-							<EditorGroup title={`Editing a ${itemLabel.toLowerCase()}`} className="max-lg:hidden">
-								<div className="cms-collection-empty-state">
-									<span className="cms-collection-empty-icon" aria-hidden="true">
-										<StackIcon className="size-5" />
-									</span>
-									<p className="m-0 text-[14px] text-muted-foreground">
-										Choose a {itemLabel.toLowerCase()} from the list to open its draft.
-									</p>
-								</div>
-							</EditorGroup>
+							<div className="cms-panel cms-collection-empty-state max-lg:hidden">
+								<span className="cms-collection-empty-icon" aria-hidden="true">
+									<StackIcon className="size-5" />
+								</span>
+								<h2 className="m-0 text-[15px] font-semibold text-foreground">
+									Choose a {itemLabel.toLowerCase()} to edit
+								</h2>
+							</div>
 						) : null}
 					</CollectionDetailPane>
 				</AnimatePresence>
@@ -828,9 +828,10 @@ function ConfirmListAction({
 }: {
 	label: string;
 	prompt: string;
-	onConfirm: () => void;
+	onConfirm: (touch: boolean) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
+	const pointer = useActionPointer();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const cancel = useRef<HTMLButtonElement>(null);
 	const cancelConfirmation = () => {
@@ -854,9 +855,10 @@ function ConfirmListAction({
 			<button
 				type="button"
 				className={`${editorButton} text-destructive`}
-				onClick={() => {
+				onPointerDown={pointer.onPointerDown}
+				onClick={(event) => {
 					setConfirming(false);
-					onConfirm();
+					onConfirm(pointer.isTouchClick(event));
 				}}
 			>
 				{label}
@@ -884,7 +886,7 @@ function RevertList({
 }: {
 	path: string;
 	label: string;
-	onReverted: () => void;
+	onReverted: (touch: boolean) => void;
 }) {
 	const changed = useChangedAt(path);
 	const store = useDraftStore();
@@ -893,9 +895,9 @@ function RevertList({
 		<ConfirmListAction
 			label="Revert list to live"
 			prompt={`Revert all draft edits in ${label.toLowerCase()}?`}
-			onConfirm={() => {
+			onConfirm={(touch) => {
 				store.revertAt(path);
-				onReverted();
+				onReverted(touch);
 			}}
 		/>
 	);
