@@ -201,7 +201,7 @@ function revealIssue(path: string) {
 		if (disclosure instanceof HTMLDetailsElement) disclosure.open = true;
 		if (focusField(path)) return;
 		if (attempts-- > 0) requestAnimationFrame(reveal);
-		else if (!parents.reverse().some(focusField))
+		else if (!parents.reverse().some((path) => focusField(path)))
 			document.getElementById("cms-section-heading")?.focus();
 	}
 	requestAnimationFrame(reveal);

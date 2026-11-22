@@ -130,7 +130,7 @@ describe("CMS editor rendering", () => {
 			id: `chapter-${index}`,
 		}));
 		const html = renderEditor(createElement(StoryEditor), draft);
-		expect(html).toContain("30/30");
+		expect(html).toContain("30</span>/30");
 		expect(html).toMatch(/<button[^>]*id="cms-field-story-chapters"[^>]*disabled=""/u);
 		expect(html).toContain('aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"');
 	});
