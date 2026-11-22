@@ -242,6 +242,19 @@ describe("CMS history, audit events, and media storage", () => {
 		expect(types).toContain("draft.publish");
 		expect(types).toContain("draft.discard");
 		expect(JSON.stringify(events.items)).not.toContain("Unpublished experiment");
+
+		const saves = await listAuditEvents({ DB: db }, { limit: 1, kind: "save" });
+		expect(saves.items.map((event) => event.eventType)).toEqual(["draft.save"]);
+		expect(saves.nextBefore).not.toBeNull();
+		const olderSaves = await listAuditEvents(
+			{ DB: db },
+			{ limit: 10, kind: "save", before: saves.nextBefore! },
+		);
+		expect(olderSaves.items.map((event) => event.eventType)).toEqual(["draft.save"]);
+		const discards = await listAuditEvents({ DB: db }, { kind: "discard" });
+		expect(discards.items.map((event) => event.eventType)).toEqual(["draft.discard"]);
+		const restores = await listAuditEvents({ DB: db }, { kind: "restore" });
+		expect(restores.items).toEqual([]);
 	});
 
 	it("offers a newly uploaded asset to attachment pickers before the draft references it", async () => {

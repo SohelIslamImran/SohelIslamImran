@@ -9,7 +9,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { cn } from "../../../lib/utils";
 import { updateMediaAlt } from "../../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../../server/media.server";
-import { asUtcIso } from "../analytics/RelativeTime";
 import { controlClass, staggerStyle } from "../analytics/Widgets";
 import {
 	AlertTriangleIcon,
@@ -91,7 +90,11 @@ export function AssetCard({
 			await navigator.clipboard.writeText(publicUrl);
 			flashCopied();
 		} catch {
-			// Clipboard API unavailable in restricted contexts.
+			// Clipboard access can be blocked; say so and leave a way to get the link.
+			setFeedback({
+				tone: "error",
+				text: "Couldn’t copy the link. Open the file and copy the address from your browser.",
+			});
 		}
 	};
 
@@ -198,10 +201,7 @@ export function AssetCard({
 					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
 						{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ""}
 						{formatBytes(asset.bytes)}
-						<span className="sr-only">
-							{" "}
-							· uploaded {formatUtcTimestamp(asUtcIso(asset.createdAt))}
-						</span>
+						<span className="sr-only"> · uploaded {formatUtcTimestamp(asset.createdAt)}</span>
 					</p>
 					{isPublished ? (
 						<button

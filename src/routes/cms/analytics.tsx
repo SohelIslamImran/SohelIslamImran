@@ -1,25 +1,24 @@
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
+import { useState } from "react";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { motion } from "motion/react";
 import { CountryMap } from "../../components/cms/analytics/CountryMap";
-import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
 	AnalyticsUnavailable,
-	Kpi,
-	LiveControls,
-	LiveDot,
+	KpiStrip,
 	PageHeader,
-	Panel,
 	QuietNote,
 	RankedList,
-	TickingNumber,
+	SegmentedControl,
 	controlClass,
+	formatDuration,
 	inlineLinkClass,
 	pageClass,
 	staggerStyle,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
+import type { AnalyticsCount } from "../../server/analytics.server";
 import { useDraftSelector, usePublicOrigin } from "../../components/cms/draft/context";
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
@@ -74,28 +73,24 @@ function AnalyticsSkeleton() {
 				<div className="cms-skeleton h-4 w-64" />
 			</div>
 			<div className="cms-skeleton h-10 w-[380px] max-w-full rounded-full" />
-			<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+			<div className="cms-panel grid grid-cols-3 divide-x divide-line">
 				{[0, 1, 2].map((slot) => (
-					<div key={slot} className="cms-panel grid gap-3 p-4">
-						<div className="cms-skeleton h-3 w-20" />
-						<div className="cms-skeleton h-7 w-16" />
-						<div className="cms-skeleton h-4 w-28" />
+					<div key={slot} className="grid gap-2 p-3 sm:p-4">
+						<div className="cms-skeleton h-3 w-16" />
+						<div className="cms-skeleton h-6 w-12" />
+						<div className="cms-skeleton h-4 w-10 rounded-full" />
 					</div>
 				))}
 			</div>
 			<div className="cms-panel grid gap-4 p-5">
 				<div className="cms-skeleton h-5 w-28" />
-				<div className="cms-skeleton h-52 w-full" />
+				<div className="cms-skeleton h-56 w-full" />
 			</div>
-			<div className="grid gap-4 md:grid-cols-2">
-				{[0, 1, 2, 3].map((slot) => (
-					<div key={slot} className="cms-panel grid gap-3 p-5">
-						<div className="cms-skeleton h-5 w-28" />
-						<div className="cms-skeleton h-8 w-full" />
-						<div className="cms-skeleton h-8 w-4/5" />
-						<div className="cms-skeleton h-8 w-3/5" />
-					</div>
-				))}
+			<div className="cms-panel grid gap-3 p-5">
+				<div className="cms-skeleton h-9 w-72 max-w-full rounded-full" />
+				<div className="cms-skeleton h-8 w-full" />
+				<div className="cms-skeleton h-8 w-4/5" />
+				<div className="cms-skeleton h-8 w-3/5" />
 			</div>
 		</div>
 	);
@@ -113,24 +108,28 @@ function Analytics() {
 	const pageLabel = (path: string) => pageLabels.get(path) ?? projects.get(path) ?? path;
 	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
 
-	const breakdowns = summary
+	// Profile links by label, then any other outbound host, in one list.
+	const outbound: AnalyticsCount[] = summary
+		? [
+				...summary.outboundLinks.map((row) => ({
+					...row,
+					label: links.get(row.value) ?? row.value,
+				})),
+				...summary.outboundHosts,
+			].sort((left, right) => right.count - left.count)
+		: [];
+	const breakdowns: Breakdown[] = summary
 		? [
 				{
-					title: "Top pages",
+					value: "pages",
+					label: "Pages",
 					rows: summary.topPages.map((row) => ({ ...row, label: pageLabel(row.value) })),
 				},
-				{ title: "Top projects", rows: summary.topProjects },
-				{ title: "Referrers", rows: summary.referrers },
-				{ title: "Devices", rows: summary.devices },
-				{ title: "Browsers", rows: summary.browsers },
-				{
-					title: "Profile link clicks",
-					rows: summary.outboundLinks.map((row) => ({
-						...row,
-						label: links.get(row.value) ?? row.value,
-					})),
-				},
-				{ title: "Other outbound clicks", rows: summary.outboundHosts },
+				{ value: "referrers", label: "Referrers", rows: summary.referrers },
+				{ value: "devices", label: "Devices", rows: summary.devices },
+				{ value: "browsers", label: "Browsers", rows: summary.browsers },
+				{ value: "links", label: "Links", rows: outbound },
+				{ value: "countries", label: "Countries", rows: summary.countries },
 			]
 		: [];
 	const filled = breakdowns.filter((entry) => entry.rows.length > 0);
@@ -188,7 +187,8 @@ function Analytics() {
 				</nav>
 
 				<span className="text-[12.5px] text-muted-foreground">
-					{range === "24h" ? "Rolling 24 hours" : "Completed days, today excluded"}
+					{range === "24h" ? "Rolling 24 hours" : "Completed days, today excluded"} · changes vs the
+					previous period
 				</span>
 			</div>
 
@@ -221,58 +221,44 @@ function Analytics() {
 						</QuietNote>
 					) : (
 						<>
-							<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-								<Kpi
-									label="Visitor-days"
-									title={visitorDayDescription}
-									value={summary.totals.visitorDays}
-									points={summary.series.map((point) => point.visitorDays)}
-									delta={summary.deltas.visitorDays}
-									comparison="vs previous period"
-									stagger={1}
-								/>
-								<Kpi
-									label="Pageviews"
-									value={summary.totals.pageviews}
-									points={summary.series.map((point) => point.pageviews)}
-									delta={summary.deltas.pageviews}
-									comparison="vs previous period"
-									stagger={2}
-								/>
-								<Kpi
-									label="Median engaged time"
-									value={summary.totals.medianEngagedSeconds}
-									suffix="s"
-									delta={summary.deltas.medianEngagedSeconds}
-									unit="s"
-									comparison="vs previous period"
-									stagger={3}
-								/>
-							</div>
+							<KpiStrip
+								stagger={1}
+								comparison="vs the previous period"
+								items={[
+									{
+										label: "Visitor-days",
+										title: visitorDayDescription,
+										value: summary.totals.visitorDays,
+										delta: summary.deltas.visitorDays,
+									},
+									{
+										label: "Pageviews",
+										value: summary.totals.pageviews,
+										delta: summary.deltas.pageviews,
+									},
+									{
+										label: "Median time",
+										title: "Median engaged time per page",
+										value: summary.totals.medianEngagedSeconds,
+										delta: summary.deltas.medianEngagedSeconds,
+										format: formatDuration,
+										emptyLabel: "Not enough data",
+									},
+								]}
+							/>
 
 							<TrafficChart
 								key={range}
 								points={summary.series}
 								hourly={range === "24h"}
 								title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
-								stagger={3}
+								rangeLabel={range === "24h" ? "the last 24 hours" : `the last ${rangeLabel}`}
+								stagger={2}
 							/>
 						</>
 					)}
 
-					<div className="grid items-start gap-4 md:grid-cols-2">
-						<LivePanel pageLabel={pageLabel} />
-						{filled.map((entry, index) => (
-							<Panel key={entry.title} title={entry.title} stagger={Math.min(4 + index, 8)}>
-								<RankedList rows={entry.rows} />
-							</Panel>
-						))}
-						{summary.countries.length > 0 ? (
-							<Panel title="Countries" stagger={8} className="md:col-span-2">
-								<CountryMap rows={summary.countries} />
-							</Panel>
-						) : null}
-					</div>
+					{filled.length > 0 ? <BreakdownPanel breakdowns={filled} /> : null}
 				</div>
 			) : (
 				<AnalyticsUnavailable />
@@ -281,34 +267,37 @@ function Analytics() {
 	);
 }
 
-/** One card for live presence: a single live dot, the count, the pages, and the pause toggle. */
-function LivePanel({ pageLabel }: { pageLabel: (path: string) => string }) {
-	const live = useLiveVisitors();
-	const active = live.data?.live.count ?? null;
-	const isLive = !live.paused && !live.failed && (active ?? 0) > 0;
+interface Breakdown {
+	value: "pages" | "referrers" | "devices" | "browsers" | "links" | "countries";
+	label: string;
+	rows: AnalyticsCount[];
+}
 
+/** Every breakdown in one panel, switched with a segmented picker. */
+function BreakdownPanel({ breakdowns }: { breakdowns: Breakdown[] }) {
+	const [picked, setPicked] = useState<Breakdown["value"]>(breakdowns[0]!.value);
+	const current = breakdowns.find((entry) => entry.value === picked) ?? breakdowns[0]!;
 	return (
-		<Panel title="Active now" stagger={4} action={<LiveControls {...live} />}>
-			<div className="flex items-baseline gap-2.5">
-				<LiveDot active={isLive} paused={live.paused} className="self-center" />
-				<span className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-					<TickingNumber value={active} />
-				</span>
-				<span className="text-[13px] text-muted-foreground">
-					{active !== null
-						? `${active === 1 ? "tab" : "tabs"} open in the last 2 minutes`
-						: live.failed
-							? "Unavailable right now"
-							: live.paused
-								? "Updates paused"
-								: "Checking…"}
-				</span>
+		<section
+			aria-label="Breakdown"
+			style={staggerStyle(3)}
+			className="cms-panel cms-enter grid min-w-0 content-start gap-3.5 p-4 sm:p-5"
+		>
+			<SegmentedControl
+				layoutId="cms-analytics-breakdown-pill"
+				ariaLabel="Breakdown"
+				value={current.value}
+				onChange={setPicked}
+				options={breakdowns.map(({ value, label }) => ({ value, label }))}
+				className="justify-self-start"
+			/>
+			<div key={current.value} className="cms-collapse-panel min-w-0">
+				{current.value === "countries" ? (
+					<CountryMap rows={current.rows} />
+				) : (
+					<RankedList rows={current.rows} />
+				)}
 			</div>
-			{live.data && live.data.live.paths.length > 0 ? (
-				<RankedList
-					rows={live.data.live.paths.map((row) => ({ ...row, label: pageLabel(row.value) }))}
-				/>
-			) : null}
-		</Panel>
+		</section>
 	);
 }

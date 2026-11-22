@@ -44,6 +44,23 @@
 		display: none;
 	}
 
+	/* When the track scrolls, fade the clipped edge so the cut-off reads as "more". */
+	.cms-seg-track[data-fade="end"] {
+		mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+	}
+	.cms-seg-track[data-fade="start"] {
+		mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+	}
+	.cms-seg-track[data-fade="both"] {
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 28px,
+			#000 calc(100% - 28px),
+			transparent
+		);
+	}
+
 	.cms-seg-item {
 		position: relative;
 		z-index: 0;
@@ -116,13 +133,6 @@
 	}
 
 	/* Pointer-fine hover polish for interactive cards and surfaces. */
-	.cms-kpi-card {
-		transition:
-			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
-	}
-
 	.cms-jump-card {
 		transition:
 			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
@@ -159,13 +169,6 @@
 		.cms-seg-item:hover {
 			color: var(--theme-ink);
 		}
-		.cms-kpi-card:hover {
-			border-color: var(--theme-line-strong);
-			box-shadow:
-				0 2px 6px var(--theme-shadow-soft),
-				0 10px 26px -14px var(--theme-shadow),
-				inset 0 1px var(--theme-highlight);
-		}
 		.cms-jump-card:hover {
 			border-color: var(--theme-line-strong);
 			background: var(--theme-surface-raised);
@@ -187,7 +190,7 @@
 			scale: 1.03;
 		}
 		.cms-row-hover:hover,
-		.cms-ranked-row:hover {
+		.cms-ranked-row[data-linked="true"]:hover {
 			background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
 		}
 	}
@@ -210,7 +213,7 @@
 	/* Inset focus ring for full-bleed controls inside clipped containers. */
 	.cms-inset-focus:focus-visible {
 		outline: none;
-		box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--theme-accent) 55%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
 	}
 
 	/* Relative time labels fade in after hydration instead of swapping text. */
@@ -232,10 +235,10 @@
 			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
 	}
 
-	/* Floating chart tooltip (glass chrome over chart canvas). */
+	/* Chart callout: glass chrome in the readout band above the plot. */
 	.cms-chart-tooltip {
 		position: absolute;
-		top: 8px;
+		top: 0;
 		pointer-events: none;
 		z-index: 10;
 		border-radius: 12px;
@@ -272,6 +275,7 @@
 		height: 100%;
 		border-radius: inherit;
 		background: color-mix(in srgb, var(--theme-accent) 70%, transparent);
+		transform: scaleX(var(--cms-bar, 1));
 		transform-origin: left center;
 		transition:
 			transform var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
@@ -279,8 +283,24 @@
 				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
+	/* Bars grow in once from zero when a list first renders. */
+	@starting-style {
+		.cms-bar-fill {
+			transform: scaleX(0);
+		}
+	}
+
 	.cms-ranked-row[data-active="true"] .cms-bar-fill {
 		background: var(--theme-accent);
+	}
+
+	/* Country map dots scale from their own centre when highlighted. */
+	.cms-map-dot {
+		transform-box: fill-box;
+		transform-origin: center;
+		transition:
+			scale var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			opacity var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
 	/* Media upload dropzone. */
@@ -366,10 +386,10 @@
 		.cms-chart-series {
 			clip-path: none;
 		}
-		.cms-kpi-card,
 		.cms-jump-card,
 		.cms-media-card,
 		.cms-media-thumb,
+		.cms-map-dot,
 		.cms-seg-item,
 		.cms-dropzone,
 		.cms-bar-fill {

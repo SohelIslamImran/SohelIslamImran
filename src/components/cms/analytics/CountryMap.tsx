@@ -106,22 +106,22 @@ export function CountryMap({ rows }: { rows: AnalyticsCount[] }) {
 								onMouseLeave={() => setActiveCountry(null)}
 								className="cursor-pointer"
 							>
+								{/* Dots grow with `scale` (fill-box origin) rather than `r`, so the change animates. */}
 								<circle
 									cx={x}
 									cy={y}
-									r={active ? r + 8 : r + 4.5}
+									r={r + 4.5}
 									fill="currentColor"
-									className={cn(
-										"text-primary transition-opacity duration-200",
-										active ? "opacity-30" : "opacity-15",
-									)}
+									style={{ scale: active ? (r + 8) / (r + 4.5) : 1 }}
+									className={cn("cms-map-dot text-primary", active ? "opacity-30" : "opacity-15")}
 								/>
 								<circle
 									cx={x}
 									cy={y}
-									r={active ? r + 1.5 : r}
+									r={r}
 									fill="currentColor"
-									className="text-primary-text transition-opacity duration-150"
+									style={{ scale: active ? (r + 1.5) / r : 1 }}
+									className="cms-map-dot text-primary-text"
 								/>
 							</g>
 						);

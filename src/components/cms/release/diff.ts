@@ -7,6 +7,7 @@
 import type { MediaAsset, PortfolioContent } from "../../../types/content";
 import { childPath, duplicateIds, getAt, jsonEqual, parsePath } from "../draft/paths";
 import { SECTIONS, type SectionId, type SectionMeta } from "../sections/registry";
+import { fieldLabel } from "./field-labels";
 
 export type FieldDiffKind = "short" | "prose" | "tags" | "media" | "list";
 
@@ -151,6 +152,11 @@ export function humanizeKey(key: string): string {
 		.replace(/^./u, (char) => char.toUpperCase());
 }
 
+/** The editor's label for `path`, falling back to a humanized last key. */
+function labelFor(path: string, key: string): string {
+	return fieldLabel(path) ?? humanizeKey(key);
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
 	return value !== null && typeof value === "object" && !Array.isArray(value)
 		? (value as Record<string, unknown>)
@@ -245,9 +251,10 @@ function diffObjectFields(
 		const left = before[key];
 		const right = after[key];
 		if (jsonEqual(left, right)) continue;
+		const path = childPath(basePath, key);
 		diffs.push({
-			label: humanizeKey(key),
-			path: childPath(basePath, key),
+			label: labelFor(path, key),
+			path,
 			kind: classifyField(key, left, right),
 			before: left,
 			after: right,
@@ -396,7 +403,7 @@ export function diffPortfolioDocuments(
 					rows.push(...diffIdCollection(beforeVal, afterVal, rootKey, Boolean(section.collection)));
 				} else {
 					fields.push({
-						label: humanizeKey(rootKey),
+						label: labelFor(rootKey, rootKey),
 						path: rootKey,
 						kind: "list",
 						before: beforeVal,
@@ -426,9 +433,10 @@ export function diffPortfolioDocuments(
 					) {
 						rows.push(...diffIdCollection(left, right, childPath(rootKey, key), false));
 					} else {
+						const path = childPath(rootKey, key);
 						fields.push({
-							label: humanizeKey(key),
-							path: childPath(rootKey, key),
+							label: labelFor(path, key),
+							path,
 							kind: classifyField(key, left, right),
 							before: left,
 							after: right,
@@ -494,13 +502,13 @@ export function resolvePathTarget(path: string, content: PortfolioContent): Path
 	}
 
 	const lastString = [...segments].reverse().find((seg): seg is string => typeof seg === "string");
-	const fieldLabel = lastString ? humanizeKey(lastString) : section.label;
+	const label = lastString ? labelFor(path, lastString) : section.label;
 
 	return {
 		sectionId: section.id as SectionId,
 		sectionLabel: section.label,
 		itemId,
-		fieldLabel,
+		fieldLabel: label,
 	};
 }
 

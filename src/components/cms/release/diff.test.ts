@@ -19,6 +19,25 @@ describe("word-level LCS diff", () => {
 		expect(parts.some((part) => part.kind === "add" && part.text.includes("every"))).toBe(true);
 	});
 
+	it("reads a rewritten phrase as one deletion and one insertion", () => {
+		expect(diffWords("Today I'll take the lead.", "Today I will carry the lead.")).toEqual([
+			{ kind: "same", text: "Today " },
+			{ kind: "del", text: "I'll take" },
+			{ kind: "add", text: "I will carry" },
+			{ kind: "same", text: " the lead." },
+		]);
+	});
+
+	it("keeps unchanged words between separate edits", () => {
+		const parts = diffWords("one red fish and one blue fish", "one green fish and one gold fish");
+		expect(parts.filter((part) => part.kind !== "same").map((part) => part.text)).toEqual([
+			"red",
+			"green",
+			"blue",
+			"gold",
+		]);
+	});
+
 	it("handles identical and empty strings", () => {
 		expect(diffWords("same", "same")).toEqual([{ kind: "same", text: "same" }]);
 		expect(diffWords("", "added")).toEqual([{ kind: "add", text: "added" }]);

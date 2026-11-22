@@ -45,6 +45,9 @@ export function UploadPanel({
 		return () => URL.revokeObjectURL(url);
 	}, [selectedFile]);
 
+	const isImage = selectedFile?.type.startsWith("image/") ?? false;
+	const altMissing = isImage && uploadAlt.trim() === "";
+
 	const acceptFile = (file: File | null) => {
 		setSelectedFile(file);
 		setUploadNotice(null);
@@ -52,7 +55,7 @@ export function UploadPanel({
 
 	const handleUpload = async (event: FormEvent) => {
 		event.preventDefault();
-		if (!selectedFile) return;
+		if (!selectedFile || altMissing) return;
 		setUploading(true);
 		setUploadNotice(null);
 		try {
@@ -83,7 +86,7 @@ export function UploadPanel({
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="grid gap-0.5">
 					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
-						Upload asset
+						Add media
 					</h2>
 					<p className="m-0 text-[13px] text-muted-foreground">
 						JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB.
@@ -194,7 +197,12 @@ export function UploadPanel({
 							htmlFor="cms-media-alt"
 							className="flex items-center justify-between text-[12.5px] font-medium text-foreground"
 						>
-							<span>Default alt text</span>
+							<span>
+								Alt text
+								{isImage ? (
+									<span className="font-normal text-muted-foreground"> (required for images)</span>
+								) : null}
+							</span>
 							<span className="font-mono text-[10.5px] tabular-nums text-muted-foreground">
 								{uploadAlt.length}/240
 							</span>
@@ -204,6 +212,7 @@ export function UploadPanel({
 							type="text"
 							maxLength={240}
 							value={uploadAlt}
+							required={isImage}
 							onChange={(event) => setUploadAlt(event.target.value)}
 							placeholder="Describe the image for screen readers"
 							className={cn(controlClass, "min-h-10 py-2 text-[13px] pointer-coarse:min-h-11")}
@@ -213,11 +222,11 @@ export function UploadPanel({
 						type="submit"
 						variant="default"
 						size="sm"
-						disabled={!selectedFile || uploading}
+						disabled={!selectedFile || altMissing || uploading}
 						className="min-h-10 pointer-coarse:min-h-11"
 					>
 						<UploadIcon className="size-3.5" />
-						<span>{uploading ? "Uploading…" : "Upload asset"}</span>
+						<span>{uploading ? "Uploading…" : "Upload"}</span>
 					</Button>
 				</div>
 			</form>

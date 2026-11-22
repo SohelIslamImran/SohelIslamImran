@@ -1,5 +1,6 @@
 /** The single "storage not connected" card shown when `MEDIA` (R2) is unbound. */
-import { staggerStyle } from "../analytics/Widgets";
+import { inlineLinkClass, staggerStyle } from "../analytics/Widgets";
+import { ExternalArrowIcon } from "../shell/cms-icons";
 
 export function StorageDisconnectedCard({ hasAssets }: { hasAssets: boolean }) {
 	return (
@@ -27,9 +28,22 @@ export function StorageDisconnectedCard({ hasAssets }: { hasAssets: boolean }) {
 				</h2>
 				<p className="m-0 max-w-[64ch] text-[13.5px] leading-relaxed text-muted-foreground">
 					{hasAssets
-						? "You can browse existing assets. Connect media storage to upload new files."
-						: "Connect media storage to upload images and PDFs."}
+						? "You can browse existing assets, but uploads need media storage."
+						: "Uploads need media storage."}{" "}
+					Bind an R2 bucket as{" "}
+					<code className="font-mono text-[12.5px] text-foreground">MEDIA</code> in{" "}
+					<code className="font-mono text-[12.5px] text-foreground">wrangler.jsonc</code>, then
+					redeploy.
 				</p>
+				<a
+					href="https://developers.cloudflare.com/r2/api/workers/workers-api-usage/"
+					target="_blank"
+					rel="noreferrer"
+					className={inlineLinkClass + " -ml-2.5 justify-self-start"}
+				>
+					<span>How to bind R2</span>
+					<ExternalArrowIcon className="size-3.5" />
+				</a>
 			</div>
 		</section>
 	);

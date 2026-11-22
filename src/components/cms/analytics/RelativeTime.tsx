@@ -7,7 +7,7 @@
  */
 import { useSyncExternalStore } from "react";
 import { cn } from "../../../lib/utils";
-import { formatRelativeFromNow, formatUtcTimestamp } from "../shell/time";
+import { formatRelativeFromNow, formatUtcTimestamp, parseCmsTimestamp } from "../shell/time";
 
 const TICK_MS = 30_000;
 const shortDate = new Intl.DateTimeFormat("en-GB", {
@@ -46,17 +46,6 @@ function getServerSnapshot(): number | null {
 	return null;
 }
 
-/**
- * D1 timestamps arrive as `YYYY-MM-DD HH:MM:SS` with no zone. `Date.parse`
- * reads that as local time in the browser but UTC on the server, which skews
- * relative labels and breaks hydration. Treat zone-less timestamps as UTC.
- */
-export function asUtcIso(value: string): string {
-	return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/u.test(value)
-		? `${value.replace(" ", "T")}Z`
-		: value;
-}
-
 /** Current time in ms, or `null` during SSR and hydration. */
 export function useNow(): number | null {
 	return useSyncExternalStore<number | null>(subscribe, getSnapshot, getServerSnapshot);
@@ -74,14 +63,14 @@ export function RelativeTime({
 }) {
 	const nowMs = useNow();
 	if (!iso) return fallback ? <span className={className}>{fallback}</span> : null;
-	const utc = asUtcIso(iso);
-	const relative = nowMs === null ? "" : formatRelativeFromNow(utc, nowMs);
-	const parsed = Date.parse(utc);
-	const absolute = Number.isFinite(parsed) ? shortDate.format(parsed) : formatUtcTimestamp(utc);
+	const parsed = parseCmsTimestamp(iso);
+	const valid = Number.isFinite(parsed);
+	const relative = nowMs === null ? "" : formatRelativeFromNow(iso, nowMs);
+	const absolute = valid ? shortDate.format(parsed) : formatUtcTimestamp(iso);
 	return (
 		<time
-			dateTime={utc}
-			title={formatUtcTimestamp(utc)}
+			dateTime={valid ? new Date(parsed).toISOString() : iso}
+			title={formatUtcTimestamp(iso)}
 			className={cn("inline-block w-[8ch] whitespace-nowrap tabular-nums", className)}
 		>
 			{relative ? <span className="cms-time-in">{relative}</span> : absolute}

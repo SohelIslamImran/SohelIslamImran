@@ -1,12 +1,12 @@
 /**
  * Activity log page (`/cms/activity`, served at `/activity` on the CMS host).
- * Displays owner audit events grouped cleanly by UTC day with explicit event
- * icons, relative times, revision links, and subtle staggered row entrance.
+ * Owner audit events grouped by UTC day, newest first. Filters run on the
+ * server, so a filter's list, pagination, and empty state cover every event,
+ * not just the loaded page.
  */
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import {
 	EmptyState,
 	PageHeader,
@@ -15,20 +15,13 @@ import {
 	pageClass,
 	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
-import {
-	ActivityIcon,
-	AlertTriangleIcon,
-	DiscardIcon,
-	HistoryIcon,
-	MediaLibraryIcon,
-	PublishIcon,
-	SaveIcon,
-	UploadIcon,
-} from "../../components/cms/shell/cms-icons";
+import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
+import { AuditEventSummary } from "../../components/cms/history/audit-events";
+import { ActivityIcon, AlertTriangleIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
 import { listAuditEvents } from "../../server/cms-history.functions";
-import type { AuditEventItem } from "../../server/cms-storage.server";
+import type { AuditEventItem, AuditEventKind } from "../../server/cms-storage.server";
 
 export const Route = createFileRoute("/cms/activity")({
 	head: () => ({
@@ -37,7 +30,18 @@ export const Route = createFileRoute("/cms/activity")({
 	component: ActivityRoute,
 });
 
-type FilterKind = "all" | "publish" | "save" | "restore" | "media";
+type FilterKind = "all" | AuditEventKind;
+
+const FILTERS: ReadonlyArray<{ value: FilterKind; label: string; empty: string }> = [
+	{ value: "all", label: "All", empty: "No activity recorded yet" },
+	{ value: "publish", label: "Publishes", empty: "No publishes yet" },
+	{ value: "save", label: "Saves", empty: "No saves yet" },
+	{ value: "restore", label: "Restores", empty: "No restores yet" },
+	{ value: "discard", label: "Discards", empty: "No discards yet" },
+	{ value: "media", label: "Media", empty: "No media changes yet" },
+];
+
+const PAGE_SIZE = 40;
 
 const dayFormatter = new Intl.DateTimeFormat("en", {
 	weekday: "short",
@@ -58,118 +62,13 @@ function formatDayHeading(dayKey: string, todayKey: string | null, yesterdayKey:
 	return Number.isFinite(parsed) ? dayFormatter.format(new Date(parsed)) : dayKey;
 }
 
-function describeEvent(event: AuditEventItem): {
-	label: string;
-	detail?: string;
-	icon: ReactNode;
-	toneClass: string;
-} {
-	switch (event.eventType) {
-		case "draft.publish":
-			return {
-				label: "Published to live",
-				icon: <PublishIcon className="size-4" />,
-				toneClass: "border-success/35 bg-success/10 text-success",
-			};
-		case "draft.save":
-			return {
-				label: "Draft saved",
-				icon: <SaveIcon className="size-4" />,
-				toneClass: "border-primary-line bg-primary-soft text-primary-text",
-			};
-		case "revision.restore": {
-			const sourceKind =
-				typeof event.details?.sourceKind === "string" ? event.details.sourceKind : null;
-			const sourceRev =
-				typeof event.details?.sourceRevision === "number" ? event.details.sourceRevision : null;
-			return {
-				label: "Restored revision",
-				detail: sourceKind && sourceRev !== null ? `from ${sourceKind} r${sourceRev}` : undefined,
-				icon: <HistoryIcon className="size-4" />,
-				toneClass: "border-primary-line bg-primary-soft text-primary-text",
-			};
-		}
-		case "draft.discard": {
-			const liveRev =
-				typeof event.details?.publishedRevision === "number"
-					? event.details.publishedRevision
-					: null;
-			return {
-				label: "Discarded draft",
-				detail: liveRev !== null ? `back to live r${liveRev}` : undefined,
-				icon: <DiscardIcon className="size-4" />,
-				toneClass: "border-destructive/35 bg-destructive/10 text-destructive",
-			};
-		}
-		case "media.upload": {
-			return {
-				label: "Uploaded media",
-				icon: <UploadIcon className="size-4" />,
-				toneClass: "border-line-strong bg-muted text-foreground",
-			};
-		}
-		case "media.update_alt": {
-			return {
-				label: "Updated media alt text",
-				icon: <MediaLibraryIcon className="size-4" />,
-				toneClass: "border-line-strong bg-muted text-foreground",
-			};
-		}
-		default:
-			return {
-				label: "Other activity",
-				icon: <ActivityIcon className="size-4" />,
-				toneClass: "border-line-strong bg-muted text-ink-soft",
-			};
-	}
-}
-
-function matchesFilter(event: AuditEventItem, filter: FilterKind): boolean {
-	if (filter === "all") return true;
-	if (filter === "publish") return event.eventType === "draft.publish";
-	if (filter === "save") return event.eventType === "draft.save";
-	if (filter === "restore")
-		return event.eventType === "revision.restore" || event.eventType === "draft.discard";
-	if (filter === "media") return event.eventType.startsWith("media.");
-	return true;
-}
-
 function EventRow({ event, stagger }: { event: AuditEventItem; stagger: number }) {
-	const meta = describeEvent(event);
-
 	return (
 		<li
 			style={staggerStyle(stagger)}
-			className="cms-enter cms-row-hover flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5"
+			className="cms-enter flex items-center justify-between gap-3 px-4 py-2.5 sm:px-5"
 		>
-			<div className="flex min-w-0 items-center gap-3">
-				<span
-					aria-hidden="true"
-					className={cn(
-						"grid size-8 shrink-0 place-items-center rounded-[10px] border",
-						meta.toneClass,
-					)}
-				>
-					{meta.icon}
-				</span>
-				<div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-					<span className="text-[13.5px] font-medium text-foreground">{meta.label}</span>
-					{meta.detail ? (
-						<span className="text-[12.5px] text-muted-foreground">{meta.detail}</span>
-					) : null}
-					{event.revision !== null ? (
-						<Link
-							to="/cms/history"
-							search={{ revision: event.revision }}
-							aria-label={`Revision ${event.revision} in history`}
-							className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] tabular-nums text-primary-text no-underline hover:border-primary-line hover:bg-primary-soft pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-center"
-						>
-							r{event.revision}
-						</Link>
-					) : null}
-				</div>
-			</div>
-
+			<AuditEventSummary event={event} />
 			<RelativeTime
 				iso={event.createdAt}
 				className="shrink-0 text-right text-[12.5px] text-muted-foreground"
@@ -185,7 +84,9 @@ function ActivityRoute() {
 	const [loading, setLoading] = useState(true);
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [moreError, setMoreError] = useState(false);
 	const [filter, setFilter] = useState<FilterKind>("all");
+	const request = useRef(0);
 	const [todayKeys, setTodayKeys] = useState<{ today: string; yesterday: string } | null>(null);
 
 	// Hydration-safe "Today" / "Yesterday" labels (populated post-mount only).
@@ -197,42 +98,58 @@ function ActivityRoute() {
 		});
 	}, []);
 
-	const loadInitial = useCallback(async () => {
-		setLoading(true);
-		setError(null);
-		try {
-			const result = await fetchEvents({ data: { limit: 40 } });
-			setEvents(result.items);
-			setNextBefore(result.nextBefore);
-		} catch {
-			setError("Could not load activity events.");
-		} finally {
-			setLoading(false);
-		}
-	}, [fetchEvents]);
+	const loadInitial = useCallback(
+		async (kind: FilterKind) => {
+			const current = ++request.current;
+			setLoading(true);
+			setError(null);
+			setMoreError(false);
+			try {
+				const result = await fetchEvents({
+					data: { limit: PAGE_SIZE, kind: kind === "all" ? undefined : kind },
+				});
+				if (current !== request.current) return;
+				setEvents(result.items);
+				setNextBefore(result.nextBefore);
+			} catch {
+				if (current === request.current) setError("Could not load activity events.");
+			} finally {
+				if (current === request.current) setLoading(false);
+			}
+		},
+		[fetchEvents],
+	);
 
 	useEffect(() => {
-		void loadInitial();
-	}, [loadInitial]);
+		void loadInitial(filter);
+	}, [filter, loadInitial]);
 
+	// A failed "Load older" keeps the list and offers a retry beside the button.
 	const loadMore = async () => {
-		if (!nextBefore || loadingMore) return;
+		if (!nextBefore || loadingMore || loading) return;
+		const current = request.current;
 		setLoadingMore(true);
+		setMoreError(false);
 		try {
-			const result = await fetchEvents({ data: { limit: 40, before: nextBefore } });
+			const result = await fetchEvents({
+				data: {
+					limit: PAGE_SIZE,
+					before: nextBefore,
+					kind: filter === "all" ? undefined : filter,
+				},
+			});
+			if (current !== request.current) return;
 			setEvents((prev) => [...prev, ...result.items]);
 			setNextBefore(result.nextBefore);
 		} catch {
-			setError("Could not load older activity events.");
+			if (current === request.current) setMoreError(true);
 		} finally {
 			setLoadingMore(false);
 		}
 	};
 
-	const visible = useMemo(
-		() => events.filter((event) => matchesFilter(event, filter)),
-		[events, filter],
-	);
+	const visible = events;
+	const filterMeta = FILTERS.find((entry) => entry.value === filter) ?? FILTERS[0]!;
 
 	const groupedByDay = useMemo(() => {
 		const groups: Array<{ dayKey: string; items: AuditEventItem[] }> = [];
@@ -247,17 +164,6 @@ function ActivityRoute() {
 		}
 		return groups;
 	}, [visible]);
-
-	const filterCounts = useMemo(
-		() => ({
-			all: events.length,
-			publish: events.filter((e) => matchesFilter(e, "publish")).length,
-			save: events.filter((e) => matchesFilter(e, "save")).length,
-			restore: events.filter((e) => matchesFilter(e, "restore")).length,
-			media: events.filter((e) => matchesFilter(e, "media")).length,
-		}),
-		[events],
-	);
 
 	// Stagger index of each group's first row, so rows enter in reading order.
 	const groupOffsets = useMemo(() => {
@@ -280,29 +186,7 @@ function ActivityRoute() {
 						ariaLabel="Filter activity"
 						value={filter}
 						onChange={setFilter}
-						options={[
-							{ value: "all", label: "All", badge: loading ? undefined : filterCounts.all },
-							{
-								value: "publish",
-								label: "Publishes",
-								badge: loading || filterCounts.publish === 0 ? undefined : filterCounts.publish,
-							},
-							{
-								value: "save",
-								label: "Saves",
-								badge: loading || filterCounts.save === 0 ? undefined : filterCounts.save,
-							},
-							{
-								value: "restore",
-								label: "Restores",
-								badge: loading || filterCounts.restore === 0 ? undefined : filterCounts.restore,
-							},
-							{
-								value: "media",
-								label: "Media",
-								badge: loading || filterCounts.media === 0 ? undefined : filterCounts.media,
-							},
-						]}
+						options={FILTERS.map(({ value, label }) => ({ value, label }))}
 					/>
 				}
 			/>
@@ -314,13 +198,17 @@ function ActivityRoute() {
 						title="Could not load activity"
 						description={error}
 						action={
-							<button type="button" className={controlClass} onClick={() => void loadInitial()}>
+							<button
+								type="button"
+								className={controlClass}
+								onClick={() => void loadInitial(filter)}
+							>
 								Try again
 							</button>
 						}
 					/>
 				</section>
-			) : loading ? (
+			) : loading && visible.length === 0 ? (
 				<div className="grid gap-4">
 					<div className="cms-skeleton h-4 w-28" />
 					<section className="cms-panel grid gap-2.5 p-4">
@@ -333,11 +221,11 @@ function ActivityRoute() {
 				<section className="cms-panel cms-enter">
 					<EmptyState
 						icon={<ActivityIcon className="size-5" />}
-						title={filter === "all" ? "No activity recorded yet" : `No ${filter} events yet`}
+						title={filterMeta.empty}
 						description={
 							filter === "all"
 								? "Draft saves, publishes, restores, discards, and media updates appear here automatically."
-								: "Try another filter or show every recorded audit event."
+								: "Try another filter, or show every event."
 						}
 						action={
 							filter !== "all" ? (
@@ -353,15 +241,21 @@ function ActivityRoute() {
 					/>
 				</section>
 			) : (
-				<div className="grid gap-5">
+				<div
+					aria-busy={loading}
+					className={cn("grid gap-5 transition-opacity duration-200", loading && "opacity-55")}
+				>
 					{groupedByDay.map((group, groupIndex) => (
 						<section key={group.dayKey} className="grid gap-2">
 							<h2 className="m-0 px-1 text-[13px] font-semibold text-muted-foreground">
-								{formatDayHeading(
-									group.dayKey,
-									todayKeys?.today ?? null,
-									todayKeys?.yesterday ?? null,
-								)}
+								{/* After hydration the date may become "Today"; fade the swap. */}
+								<DayLabel
+									label={formatDayHeading(
+										group.dayKey,
+										todayKeys?.today ?? null,
+										todayKeys?.yesterday ?? null,
+									)}
+								/>
 							</h2>
 							<div className="cms-panel overflow-hidden">
 								<ul className="m-0 list-none divide-y divide-line p-0">
@@ -379,19 +273,37 @@ function ActivityRoute() {
 				</div>
 			)}
 
-			{nextBefore ? (
-				<div className="flex justify-center">
+			{nextBefore && !error ? (
+				<div className="flex flex-wrap items-center justify-center gap-3">
+					{moreError ? (
+						<p
+							role="status"
+							className="m-0 inline-flex items-center gap-1.5 text-[13px] text-destructive"
+						>
+							<AlertTriangleIcon className="size-3.5 shrink-0" />
+							Could not load older events.
+						</p>
+					) : null}
 					<Button
 						variant="outline"
 						size="sm"
-						disabled={loadingMore}
+						disabled={loadingMore || loading}
 						onClick={() => void loadMore()}
 						className="pointer-coarse:min-h-11"
 					>
-						{loadingMore ? "Loading…" : "Load older events"}
+						{loadingMore ? "Loading…" : moreError ? "Try again" : "Load older events"}
 					</Button>
 				</div>
 			) : null}
 		</div>
+	);
+}
+
+function DayLabel({ label }: { label: string }) {
+	const first = useRef(label);
+	return (
+		<span key={label} className={label === first.current ? undefined : "cms-time-in"}>
+			{label}
+		</span>
 	);
 }
