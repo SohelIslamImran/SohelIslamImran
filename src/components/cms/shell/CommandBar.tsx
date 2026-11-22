@@ -45,7 +45,8 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
-import { PUBLIC_SITE_ORIGIN, RELEASE_GATE_ID, useCommittedPathname } from "./CmsShell";
+import { PUBLIC_SITE_ORIGIN, useCommittedPathname } from "./CmsShell";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 /** After a navigation command, land on the destination's heading (or `main`). */
@@ -155,7 +156,7 @@ function CommandBarOpen({
 	const dirty = useDraftSelector((state) => state.dirty);
 	const ahead = useDraftSelector((state) => state.ahead);
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
-	const conflict = useDraftSelector((state) => state.conflict !== null);
+	const { canSave, canPublish } = useDraftSelector(draftActionAvailability);
 	const appearance = useAppearance();
 
 	const [query, setQuery] = useState("");
@@ -363,8 +364,8 @@ function CommandBarOpen({
 				keywords: "save commit sync",
 				shortcut: "⌘S",
 				icon: <SaveIcon />,
-				disabled: !dirty || issueCount > 0 || conflict,
-				run: () => void store.save(),
+				disabled: !canSave,
+				run: () => saveDraftIfAvailable(store),
 			},
 			{
 				id: "action-publish",
@@ -373,12 +374,10 @@ function CommandBarOpen({
 				detail: "Promote the validated draft to sohelislamimran.com",
 				keywords: "publish deploy release ship live",
 				icon: <PublishIcon />,
-				disabled: (!ahead && !dirty) || issueCount > 0 || conflict,
-				// On the Changes page the shell hands Publish to the page's gate,
-				// which takes focus, so run it after the bar lets go of focus.
-				run: () => {
-					if (!document.getElementById(RELEASE_GATE_ID)) return onRequestPublish();
-					return onRequestPublish;
+				disabled: !canPublish,
+				run: () => () => {
+					opener.current?.focus({ preventScroll: true });
+					onRequestPublish();
 				},
 			},
 			{
@@ -448,13 +447,15 @@ function CommandBarOpen({
 		ahead,
 		appearance.theme,
 		appearance.transitioning,
-		conflict,
+		canPublish,
+		canSave,
 		dirty,
 		draft,
 		issueCount,
 		navigate,
 		onRequestPublish,
 		onToggleRail,
+		opener,
 		pathname,
 		store,
 	]);

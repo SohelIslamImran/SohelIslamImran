@@ -31,6 +31,7 @@ import {
 	SaveIcon,
 	SearchIcon,
 } from "./cms-icons";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useRelativeTime } from "./time";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -121,7 +122,7 @@ function PipelineStatus({
 				}
 			}}
 		>
-			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage} aria-label={label}>
+			<PopoverTrigger className="cms-status-pill cms-chrome-control cms-press" data-stage={stage} aria-label={label}>
 				<span className="cms-status-content">
 					<span key={label} className="cms-status-copy" aria-hidden="true">
 						{stage === "synced" ? (
@@ -315,13 +316,10 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 	const store = useDraftStore();
 	const { dirty, ahead, canSave, canPublish, status, draftRevision, publishedRevision } =
 		useDraftSelector((state) => {
-			const busy = state.status === "saving" || state.status === "publishing";
-			const ready = !state.conflict && !busy && !state.authExpired && state.issues.all.length === 0;
 			return {
 				dirty: state.dirty,
 				ahead: state.ahead,
-				canSave: ready && state.dirty,
-				canPublish: ready && (state.dirty || state.ahead),
+				...draftActionAvailability(state),
 				status: state.status,
 				draftRevision: state.draftRevision,
 				publishedRevision: state.publishedRevision,
@@ -340,10 +338,11 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				variant="outline"
 				size="sm"
 				disabled={!canSave}
+				focusableWhenDisabled
 				aria-busy={saving || undefined}
 				data-complete={justSaved || undefined}
 				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
-				onClick={() => void store.save()}
+				onClick={() => saveDraftIfAvailable(store)}
 			>
 				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
 				{saving ? "Saving…" : justSaved ? "Saved" : "Save"}
@@ -351,6 +350,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 			<Button
 				size="sm"
 				disabled={!canPublish}
+				focusableWhenDisabled
 				aria-busy={publishing || undefined}
 				data-complete={justPublished || undefined}
 				className="cms-action cms-publish-action min-h-11 min-w-[128px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"

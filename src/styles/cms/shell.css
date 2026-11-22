@@ -558,18 +558,18 @@
 }
 
 @layer utilities {
-	.cms-action:is([aria-busy="true"], [data-complete="true"]):disabled {
+	.cms-action:is([aria-busy="true"], [data-complete="true"]):is(:disabled, [aria-disabled="true"]) {
 		opacity: 1;
 	}
 
-	.cms-action[data-complete="true"]:disabled {
+	.cms-action[data-complete="true"]:is(:disabled, [aria-disabled="true"]) {
 		border-color: color-mix(in srgb, var(--theme-success) 32%, transparent);
 		background: color-mix(in srgb, var(--theme-success) 10%, var(--theme-surface-solid));
 		color: var(--theme-success);
 		box-shadow: none;
 	}
 
-	.cms-publish-action:disabled:not([data-complete], [aria-busy]) {
+	.cms-publish-action:is(:disabled, [aria-disabled="true"]):not([data-complete], [aria-busy]) {
 		background: var(--theme-surface-raised);
 		color: var(--theme-ink-soft);
 		box-shadow: none;

@@ -119,6 +119,7 @@ import {
 } from "./cms-icons";
 import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar } from "./PipelineBar";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
@@ -609,7 +610,7 @@ function SessionBanners({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={publishFailed ? onRetryPublish : () => void store.save()}
+					onClick={publishFailed ? onRetryPublish : () => saveDraftIfAvailable(store)}
 					className="pointer-coarse:min-h-11"
 				>
 					{publishFailed ? "Retry publish" : "Retry save"}
@@ -812,6 +813,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
 	const requestPublish = () => {
+		if (!draftActionAvailability(store.getState()).canPublish) return;
 		const gate =
 			pathname === "/cms/release" || pathname === "/release"
 				? document.getElementById(RELEASE_GATE_ID)
@@ -874,10 +876,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			}
 			if (key === "s" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
 				event.preventDefault();
-				const state = store.getState();
-				if (!state.conflict && state.issues.all.length === 0) {
-					void store.save();
-				}
+				saveDraftIfAvailable(store);
 				return;
 			}
 			if (

@@ -9,6 +9,7 @@ import { Button, buttonVariants } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { diffPortfolioDocuments } from "../release/diff";
 import { AlertTriangleIcon, PublishIcon } from "./cms-icons";
+import { draftActionAvailability } from "./draft-actions";
 import { formatUtcTimestamp } from "./time";
 
 export function ConflictDialog({
@@ -61,6 +62,7 @@ function ConflictDialogBody() {
 				data-slot="cms-conflict-dialog"
 				ref={popupRef}
 				initialFocus={popupRef}
+				finalFocus={() => document.querySelector<HTMLElement>(".cms-status-pill")}
 				className="cms-modal cms-overlay fixed top-1/2 left-1/2 z-(--z-palette) grid max-h-[calc(100dvh-24px)] w-[min(520px,calc(100vw-24px))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-5 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6"
 			>
 				<div className="flex items-start gap-3">
@@ -171,9 +173,7 @@ function PublishConfirmDialogBody({
 	const draft = useDraftSelector((state) => state.draft);
 	const [reviewedDraft] = useState(() => store.getState().draft);
 	const reviewExpired = reviewedDraft !== draft;
-	const blocked = useDraftSelector(
-		(state) => Boolean(state.conflict) || state.issues.all.length > 0,
-	);
+	const { canPublish } = useDraftSelector(draftActionAvailability);
 	const published = useDraftSelector((state) => state.published);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
@@ -191,6 +191,8 @@ function PublishConfirmDialogBody({
 	);
 
 	const confirmPublish = async () => {
+		const state = store.getState();
+		if (!draftActionAvailability(state).canPublish || state.draft !== reviewedDraft) return;
 		const ok = await store.publish({ reviewedDraft });
 		publishedSuccessfully.current = ok;
 		if (ok || store.getState().conflict) onOpenChange(false);
@@ -203,11 +205,12 @@ function PublishConfirmDialogBody({
 			<AlertDialog.Popup
 				data-slot="cms-publish-dialog"
 				initialFocus={cancelRef}
-				finalFocus={() =>
-					publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
+				finalFocus={() => {
+					if (store.getState().conflict) return false;
+					return publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
 						? document.querySelector<HTMLElement>('[data-slot="cms-command-trigger"]')
-						: true
-				}
+						: true;
+				}}
 				className="cms-modal cms-overlay fixed top-1/2 left-1/2 z-(--z-palette) grid max-h-[calc(100dvh-24px)] w-[min(460px,calc(100vw-24px))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6"
 			>
 				<div className="flex items-start gap-3">
@@ -276,6 +279,7 @@ function PublishConfirmDialogBody({
 									variant="outline"
 									size="sm"
 									disabled={busy}
+									focusableWhenDisabled
 									className="pointer-coarse:min-h-11"
 								/>
 							}
@@ -285,7 +289,9 @@ function PublishConfirmDialogBody({
 						<Button
 							variant="default"
 							size="sm"
-							disabled={busy || blocked || reviewExpired || authExpired}
+							disabled={!canPublish || reviewExpired}
+							focusableWhenDisabled
+							aria-busy={busy || undefined}
 							className="pointer-coarse:min-h-11"
 							onClick={() => void confirmPublish()}
 						>
