@@ -1,5 +1,5 @@
 import { Popover } from "@base-ui/react/popover";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
 import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
@@ -17,6 +17,11 @@ import { findSection, isSectionId, type SectionMeta } from "../../components/cms
 export const sectionSearch = z.object({
 	item: z.string().max(160).optional().catch(undefined),
 	tab: z.literal("social").optional().catch(undefined),
+	field: z
+		.string()
+		.regex(/^social\[(?:0|[1-9]\d{0,5})\]\.(?:label|platform|handle|href)$/u)
+		.optional()
+		.catch(undefined),
 });
 
 export const Route = createFileRoute("/cms/content/$section")({
@@ -32,7 +37,7 @@ export const Route = createFileRoute("/cms/content/$section")({
 
 function SectionRoute() {
 	const { section: sectionId } = Route.useParams();
-	const { item, tab } = Route.useSearch();
+	const { item, tab, field } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const select = useCallback(
 		(nextItem?: string, nextTab?: "social", replace = false) =>
@@ -58,7 +63,7 @@ function SectionRoute() {
 			issues={<SectionIssues section={section} />}
 		>
 			<UndoRemovalHost key={sectionId}>
-				<Editor item={item} tab={tab} select={select} />
+				<Editor item={item} tab={tab} field={field} select={select} />
 			</UndoRemovalHost>
 		</EditorLayout>
 	);
@@ -85,12 +90,22 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	];
 
 	const [open, setOpen] = useState(false);
+	const pendingFocus = useRef<{ path: string; navigation: Promise<void> } | null>(null);
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
 	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
-		<Popover.Root open={open} onOpenChange={setOpen}>
+		<Popover.Root
+			open={open}
+			onOpenChange={setOpen}
+			onOpenChangeComplete={(open) => {
+				if (open) return;
+				const pending = pendingFocus.current;
+				pendingFocus.current = null;
+				if (pending) void pending.navigation.then(() => revealIssue(pending.path));
+			}}
+		>
 			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
 				<AlertCircleIcon className="size-3.5" />
 				{count}
@@ -117,12 +132,13 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 									section.id === "links" && isPathWithin(issue.path, "social")
 										? ("social" as const)
 										: undefined;
+								const field = tab ? sectionSearch.shape.field.parse(issue.path) : undefined;
 								return (
 									<li key={`${issue.path}-${index}`}>
 										<Link
 											to="/cms/content/$section"
 											params={{ section: section.id }}
-											search={{ item, tab }}
+											search={{ item, tab, field }}
 											hash={fieldId(issue.path)}
 											replace
 											resetScroll={false}
@@ -136,14 +152,20 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												)
 													return;
 												event.preventDefault();
+												// The popup restores focus when its exit completes.
+												pendingFocus.current = {
+													path: issue.path,
+													navigation: navigate({
+														to: "/cms/content/$section",
+														params: { section: section.id },
+														search: { item, tab, field },
+														hash: fieldId(issue.path),
+														hashScrollIntoView: false,
+														replace: true,
+														resetScroll: false,
+													}),
+												};
 												setOpen(false);
-												void navigate({
-													to: "/cms/content/$section",
-													params: { section: section.id },
-													search: { item, tab },
-													replace: true,
-													resetScroll: false,
-												}).then(() => revealIssue(issue.path));
 											}}
 											className="cms-issue-link"
 										>

@@ -11,7 +11,7 @@ import {
 	useField,
 	useIssuesUnder,
 } from "../draft/context";
-import { childPath, moveItem, removeItem, setAt } from "../draft/paths";
+import { childPath, setAt } from "../draft/paths";
 import { ExternalArrowIcon, MediaLibraryIcon } from "../shell/cms-icons";
 import { ChevronRightIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
@@ -181,26 +181,20 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 }
 
 export function MediaIdsField({ path }: { path: string }) {
-	const field = useField<string[]>(path);
+	const field = useField<string[] | undefined>(path);
 	const store = useDraftStore();
 	const { library, description: libraryDescription, loading, mediaEnabled } = useMediaLibrary();
 	const issues = useIssuesUnder(path);
-	const ids = field.value;
-	const keys = ids.map((id, index) =>
-		JSON.stringify([id, ids.slice(0, index).filter((value) => value === id).length]),
-	);
+	const ids = field.value ?? [];
 	const available = library.filter((asset) => !ids.includes(asset.id));
-	const removals = usePendingRemovals<string>(path, {
-		max: MAX_TRAVEL_MEDIA,
-		same: sameValue,
-		match: sameValue,
-	});
+	const removals = usePendingRemovals<string>(path, MAX_TRAVEL_MEDIA, sameValue);
+	const { keys } = removals;
 	const move = (from: number, to: number) => {
 		if (to < 0 || to >= ids.length) return;
 		const handle = document.activeElement
 			?.closest(".cms-sortable-row")
 			?.querySelector<HTMLButtonElement>("[data-row-handle]");
-		field.set(moveItem(ids, from, to));
+		removals.move(from, to);
 		requestAnimationFrame(() => {
 			if (handle?.isConnected && !handle.closest("[inert]")) {
 				handle.focus({ preventScroll: true });
@@ -236,7 +230,7 @@ export function MediaIdsField({ path }: { path: string }) {
 				as="ol"
 				axis="y"
 				values={keys}
-				onReorder={(next) => field.set(next.map((key) => ids[keys.indexOf(key)]))}
+				onReorder={removals.reorder}
 				className="m-0 mb-2 grid list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
@@ -251,8 +245,7 @@ export function MediaIdsField({ path }: { path: string }) {
 							canMoveDown={index < ids.length - 1}
 							move={move}
 							remove={(label) => {
-								field.set(removeItem(ids, index));
-								removals.add(ids, index, label);
+								removals.remove(index, label);
 								requestAnimationFrame(() =>
 									focusField(
 										ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
@@ -299,10 +292,9 @@ export function MediaIdsField({ path }: { path: string }) {
 						focusField(path);
 					}}
 					onUndo={() => {
-						const restored = removals.take(removal.id, ids);
-						if (!restored) return;
-						field.set(restored.rows);
-						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+						const index = removals.undo(removal.id);
+						if (index !== undefined)
+							requestAnimationFrame(() => focusField(childPath(path, index)));
 					}}
 				/>
 			))}
@@ -319,7 +311,7 @@ function PhotoRow({
 	move,
 	remove,
 }: {
-	rowKey: string;
+	rowKey: number;
 	id: string;
 	path: string;
 	index: number;

@@ -11,7 +11,7 @@ import {
 	useIssuesAt,
 	useIssuesUnder,
 } from "../draft/context";
-import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
+import { childPath } from "../draft/paths";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { SortableRow } from "./SortableRow";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
@@ -28,7 +28,7 @@ import {
 import { AddButton, RowMenu } from "./RowControls";
 import { CloseIcon } from "../shell/cms-icons";
 import { tagBackspace, toSingleLine } from "./field-logic";
-import { neverSame, sameRow, sameTag } from "./row-list";
+import { sameTag } from "./row-list";
 
 const EMPTY: readonly never[] = [];
 
@@ -61,7 +61,7 @@ export function TagsField({
 	const [draft, setDraft] = useState("");
 	const [limitReached, setLimitReached] = useState(false);
 	const [armed, setArmed] = useState(false);
-	const removals = usePendingRemovals(path, { max, same: sameTag, match: sameTag });
+	const removals = usePendingRemovals(path, max, sameTag);
 	const chips = useRef<HTMLUListElement>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const composing = useRef(false);
@@ -85,8 +85,7 @@ export function TagsField({
 	const remove = (index: number) => {
 		const tag = tags[index];
 		if (tag === undefined) return;
-		field.set(removeItem(tags, index));
-		removals.add(tags, index, tag);
+		removals.remove(index, tag);
 		setLimitReached(false);
 		setArmed(false);
 	};
@@ -128,13 +127,7 @@ export function TagsField({
 				>
 					<AnimatePresence initial={false}>
 						{tags.map((tag, index) => (
-							<TagChip
-								key={JSON.stringify([
-									tag,
-									tags.slice(0, index).filter((value) => value === tag).length,
-								])}
-								armed={armed && index === tags.length - 1}
-							>
+							<TagChip key={removals.keys[index]} armed={armed && index === tags.length - 1}>
 								<span className="min-w-0 wrap-anywhere">{tag}</span>
 								<button
 									type="button"
@@ -227,9 +220,7 @@ export function TagsField({
 						input.current?.focus({ preventScroll: true });
 					}}
 					onUndo={() => {
-						const restored = removals.take(removal.id, tags);
-						if (!restored) return;
-						field.set(restored.rows);
+						if (removals.undo(removal.id) === undefined) return;
 						requestAnimationFrame(() => input.current?.focus({ preventScroll: true }));
 					}}
 				/>
@@ -294,29 +285,22 @@ export function StringListField({
 	);
 	const issues = useIssuesAt(path);
 	const changed = useChangedAt(path);
-	const removals = usePendingRemovals<string>(path, { max, same: neverSame, match: sameRow });
-	const addRemoval = removals.add;
-	const nextKey = useRef(0);
-	const keys = useRef<number[]>([]);
-	keys.current = Array.from(
-		{ length: count },
-		(_, index) => keys.current[index] ?? nextKey.current++,
-	);
+	const removals = usePendingRemovals<string>(path, max);
+	const { keys, move: moveRow, remove: removeRow } = removals;
 
 	const move = useCallback(
 		(from: number, to: number) => {
 			const items = (store.valueAt(path) as string[] | undefined) ?? [];
 			if (to < 0 || to >= items.length) return;
 			const focus = document.activeElement;
-			keys.current = moveItem(keys.current, from, to);
-			store.update(path, moveItem(items, from, to));
+			moveRow(from, to);
 			requestAnimationFrame(() => {
 				if (document.activeElement !== focus || focus?.matches(":disabled")) {
 					focusField(childPath(path, to));
 				}
 			});
 		},
-		[path, store],
+		[moveRow, path, store],
 	);
 
 	const remove = useCallback(
@@ -324,20 +308,14 @@ export function StringListField({
 			const items = (store.valueAt(path) as string[] | undefined) ?? [];
 			const row = items[index];
 			if (row === undefined) return;
-			keys.current = removeItem(keys.current, index);
-			store.update(path, removeItem(items, index));
 			// Positions shift as rows go, so name the row by its text.
 			const text = row.trim();
 			const excerpt = text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
-			addRemoval(
-				items,
-				index,
-				excerpt ? `${itemLabel.toLowerCase()} “${excerpt}”` : label.toLowerCase(),
-			);
+			removeRow(index, excerpt ? `${itemLabel.toLowerCase()} “${excerpt}”` : label.toLowerCase());
 			const target = items.length > 1 ? childPath(path, Math.min(index, items.length - 2)) : path;
 			requestAnimationFrame(() => focusField(target));
 		},
-		[addRemoval, itemLabel, path, store],
+		[itemLabel, path, removeRow, store],
 	);
 
 	return (
@@ -366,18 +344,13 @@ export function StringListField({
 			<Reorder.Group
 				as="ol"
 				axis="y"
-				values={keys.current}
-				onReorder={(next) => {
-					const items = (store.valueAt(path) as string[] | undefined) ?? [];
-					const reordered = next.map((key) => items[keys.current.indexOf(key)]);
-					keys.current = next;
-					store.update(path, reordered);
-				}}
+				values={keys}
+				onReorder={removals.reorder}
 				className="m-0 grid min-w-0 list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
 				<AnimatePresence initial={false}>
-					{keys.current.map((key, index) => (
+					{keys.map((key, index) => (
 						<StringRow
 							key={key}
 							rowKey={key}
@@ -400,9 +373,7 @@ export function StringListField({
 					aria-describedby={describedBy(path, Boolean(description), issues)}
 					disabled={count >= max}
 					onClick={() => {
-						const items = (store.valueAt(path) as string[] | undefined) ?? [];
-						keys.current = [...keys.current, nextKey.current++];
-						store.update(path, [...items, ""]);
+						removals.insert(count, "");
 						requestAnimationFrame(() => focusField(childPath(path, count)));
 					}}
 				>
@@ -418,12 +389,9 @@ export function StringListField({
 						focusField(path);
 					}}
 					onUndo={() => {
-						const current = (store.valueAt(path) as string[] | undefined) ?? EMPTY;
-						const restored = removals.take(removal.id, current);
-						if (!restored) return;
-						keys.current = insertItem(keys.current, restored.index, nextKey.current++);
-						store.update(path, restored.rows);
-						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+						const index = removals.undo(removal.id);
+						if (index !== undefined)
+							requestAnimationFrame(() => focusField(childPath(path, index)));
 					}}
 				/>
 			))}

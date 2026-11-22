@@ -169,8 +169,15 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-control:hover:not(:disabled, [data-disabled], :focus-visible, [aria-invalid="true"]) {
-			border-color: var(--theme-line-strong);
+		.cms-control:hover:not(
+				:disabled,
+				[data-disabled],
+				[data-popup-open],
+				:focus-visible,
+				[aria-invalid="true"],
+				.cms-tags:focus-within
+			) {
+			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
 		}
 
 		.cms-field-revert:hover {
@@ -362,11 +369,14 @@
 
 	.cms-segment .cms-choice-highlight {
 		background: var(--theme-surface-solid);
-		box-shadow: 0 1px 3px var(--theme-shadow-soft);
+		box-shadow:
+			inset 0 0 0 1px var(--theme-ink),
+			0 1px 3px var(--theme-shadow-soft);
 	}
 
 	.cms-segment:is([data-checked], [data-active]) {
 		color: var(--theme-ink);
+		font-weight: 600;
 	}
 
 	@media (hover: hover) and (pointer: fine) {
@@ -612,6 +622,7 @@
 
 	.cms-menu-item[data-highlighted] {
 		background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
 	}
 
 	.cms-menu-item[data-destructive],
@@ -621,6 +632,7 @@
 
 	.cms-menu-item[data-destructive][data-highlighted] {
 		background: color-mix(in srgb, var(--theme-destructive) 10%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-destructive);
 	}
 
 	.cms-menu-item[data-disabled] {
@@ -760,6 +772,13 @@
 		.cms-collection[data-pane] > .cms-collection-detail {
 			align-self: stretch;
 			background: var(--theme-paper);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		/* Zero the slide on the first reduced-motion frame, even before Motion stops it. */
+		.cms-collection[data-pane] > :is(.cms-collection-detail, .cms-collection-list) {
+			transform: none !important;
 		}
 	}
 
@@ -910,7 +929,7 @@
 	}
 
 	.cms-issue-link:focus-visible {
-		box-shadow: var(--cms-ring);
+		box-shadow: inset 0 0 0 2px var(--theme-focus);
 	}
 
 	@media (pointer: coarse) {
@@ -918,8 +937,6 @@
 			min-height: 44px;
 		}
 		.cms-issue-link {
-			display: flex;
-			align-items: center;
 			min-height: 44px;
 			padding-block: 0.75rem;
 		}
