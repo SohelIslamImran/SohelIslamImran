@@ -153,7 +153,7 @@ function RecentActivityRow({ event }: { event: AuditEventItem }) {
 			</div>
 			<RelativeTime
 				iso={event.createdAt}
-				className="shrink-0 text-right font-mono text-[11.5px] text-muted-foreground"
+				className="shrink-0 text-right text-[12px] text-muted-foreground"
 			/>
 		</li>
 	);
@@ -168,7 +168,8 @@ function DraftVsLiveCard() {
 
 	const diff = useMemo(() => diffPortfolioDocuments(published, draft), [published, draft]);
 	const changedSections = diff.changedSections;
-	const hasChanges = changedSections.length > 0 || dirty;
+	const ahead = useDraftSelector((state) => state.ahead);
+	const hasChanges = changedSections.length > 0 || ahead || dirty;
 	const tone = errors > 0 ? "error" : hasChanges ? "changes" : "synced";
 
 	return (
@@ -203,7 +204,7 @@ function DraftVsLiveCard() {
 							: tone === "changes"
 								? diff.totalChanges > 0
 									? `${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} ready to publish`
-									: "Unsaved edits in your draft"
+									: "Unpublished draft"
 								: "Your live site is up to date"}
 					</h2>
 					<p className="m-0 text-[13px] text-muted-foreground">
@@ -498,7 +499,7 @@ function TrafficSummary() {
 				Analytics
 				<span
 					aria-hidden="true"
-					className="transition-[translate] duration-150 group-hover:translate-x-0.5"
+					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground"
 				>
 					→
 				</span>

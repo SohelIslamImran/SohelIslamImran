@@ -23,7 +23,11 @@ import { useDraftSelector, usePublicOrigin } from "../../components/cms/draft/co
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
 import { cn } from "../../lib/utils";
-import { analyticsSearch, getAnalyticsSummary } from "../../server/analytics.functions";
+import {
+	analyticsSearch,
+	getAnalyticsOverview,
+	getAnalyticsSummary,
+} from "../../server/analytics.functions";
 
 const ranges = [
 	["24h", "24 hours"],
@@ -36,7 +40,14 @@ const ranges = [
 export const Route = createFileRoute("/cms/analytics")({
 	validateSearch: analyticsSearch,
 	loaderDeps: ({ search: { range } }) => ({ range }),
-	loader: ({ deps }) => getAnalyticsSummary({ data: deps }).catch(() => null),
+	loader: async ({ deps }) => {
+		const summary = await getAnalyticsSummary({ data: deps }).catch(() => null);
+		const overview =
+			summary?.totals.pageviews === 0 && deps.range !== "24h"
+				? await getAnalyticsOverview().catch(() => null)
+				: null;
+		return { summary, hasVisitsToday: (overview?.today.value ?? 0) > 0 };
+	},
 	pendingComponent: AnalyticsSkeleton,
 	head: () => ({
 		meta: [{ title: "Analytics · Control plane" }],
@@ -82,7 +93,7 @@ function AnalyticsSkeleton() {
 function Analytics() {
 	const reduced = useReducedMotion();
 	const { range } = Route.useSearch();
-	const summary = Route.useLoaderData();
+	const { summary, hasVisitsToday } = Route.useLoaderData();
 	const isPending = useRouterState({ select: (state) => state.status === "pending" });
 	const publicOrigin = usePublicOrigin();
 	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);
@@ -107,7 +118,6 @@ function Analytics() {
 			]
 		: [];
 	const filled = breakdowns.filter((entry) => entry.rows.length > 0);
-	const empty = breakdowns.filter((entry) => entry.rows.length === 0);
 	const noVisits = summary !== null && summary.totals.pageviews === 0;
 
 	return (
@@ -174,11 +184,9 @@ function Analytics() {
 					)}
 				>
 					{noVisits ? (
-						range === "24h" ? (
-							<QuietNote>No visits in the last 24 hours.</QuietNote>
-						) : (
-							<QuietNote
-								action={
+						<QuietNote
+							action={
+								hasVisitsToday ? (
 									<Link
 										to="/cms/analytics"
 										search={{ range: "24h" }}
@@ -188,50 +196,53 @@ function Analytics() {
 										<span>Last 24 hours</span>
 										<span aria-hidden="true">→</span>
 									</Link>
-								}
-							>
-								No visits in the last {rangeLabel.toLowerCase()}. Today’s visits appear here
-								tomorrow.
-							</QuietNote>
-						)
-					) : null}
+								) : undefined
+							}
+						>
+							{hasVisitsToday
+								? "Today’s visits appear here tomorrow."
+								: `No visits in the last ${rangeLabel.toLowerCase()}.`}
+						</QuietNote>
+					) : (
+						<>
+							<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+								<Kpi
+									label="Visitor-days"
+									title={visitorDayDescription}
+									value={summary.totals.visitorDays}
+									points={summary.series.map((point) => point.visitorDays)}
+									delta={summary.deltas.visitorDays}
+									comparison="vs previous period"
+									stagger={1}
+								/>
+								<Kpi
+									label="Pageviews"
+									value={summary.totals.pageviews}
+									points={summary.series.map((point) => point.pageviews)}
+									delta={summary.deltas.pageviews}
+									comparison="vs previous period"
+									stagger={2}
+								/>
+								<Kpi
+									label="Median engaged time"
+									value={summary.totals.medianEngagedSeconds}
+									suffix="s"
+									delta={summary.deltas.medianEngagedSeconds}
+									unit="s"
+									comparison="vs previous period"
+									stagger={3}
+								/>
+							</div>
 
-					<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
-						<Kpi
-							label="Visitor-days"
-							title={visitorDayDescription}
-							value={summary.totals.visitorDays}
-							points={summary.series.map((point) => point.visitorDays)}
-							delta={summary.deltas.visitorDays}
-							comparison="vs previous period"
-							stagger={1}
-						/>
-						<Kpi
-							label="Pageviews"
-							value={summary.totals.pageviews}
-							points={summary.series.map((point) => point.pageviews)}
-							delta={summary.deltas.pageviews}
-							comparison="vs previous period"
-							stagger={2}
-						/>
-						<Kpi
-							label="Median engaged time"
-							value={summary.totals.medianEngagedSeconds}
-							suffix="s"
-							delta={summary.deltas.medianEngagedSeconds}
-							unit="s"
-							comparison="vs previous period"
-							stagger={3}
-						/>
-					</div>
-
-					<TrafficChart
-						key={range}
-						points={summary.series}
-						hourly={range === "24h"}
-						title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
-						stagger={3}
-					/>
+							<TrafficChart
+								key={range}
+								points={summary.series}
+								hourly={range === "24h"}
+								title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
+								stagger={3}
+							/>
+						</>
+					)}
 
 					<div className="grid items-start gap-4 md:grid-cols-2">
 						<LivePanel />
@@ -246,19 +257,6 @@ function Analytics() {
 							</Panel>
 						) : null}
 					</div>
-
-					{!noVisits && (empty.length > 0 || summary.countries.length === 0) ? (
-						<p className="m-0 px-1 text-[13px] text-muted-foreground">
-							Nothing recorded in this range for{" "}
-							{listFormat.format(
-								[
-									...empty.map((entry) => entry.title),
-									...(summary.countries.length === 0 ? ["Countries"] : []),
-								].map((title) => title.toLowerCase()),
-							)}
-							.
-						</p>
-					) : null}
 				</div>
 			) : (
 				<AnalyticsUnavailable />
@@ -266,8 +264,6 @@ function Analytics() {
 		</div>
 	);
 }
-
-const listFormat = new Intl.ListFormat("en", { style: "long", type: "conjunction" });
 
 /** One card for live presence: a single live dot, the count, the pages, and the pause toggle. */
 function LivePanel() {

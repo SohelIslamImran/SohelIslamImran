@@ -551,7 +551,9 @@ export function Kpi({
 			<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
 				<TickingNumber value={value} suffix={suffix} />
 			</div>
-			{points && points.length > 1 ? <Sparkline points={points} /> : null}
+			{points && points.length > 1 && points.some((point) => point > 0) ? (
+				<Sparkline points={points} />
+			) : null}
 			{comparison !== undefined && delta !== undefined ? (
 				<Delta value={delta} comparison={comparison} unit={unit} />
 			) : null}
