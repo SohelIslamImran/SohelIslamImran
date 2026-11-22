@@ -13,7 +13,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { useDraftSelector, useDraftStore } from "../draft/context";
-import { getAt, jsonEqual } from "../draft/paths";
+import { getAt, insertItem, jsonEqual, moveItem, removeItem } from "../draft/paths";
 import type { DraftState } from "../draft/store";
 import { REDUCED, SPRING_SURFACE } from "../motion";
 import {
@@ -22,7 +22,9 @@ import {
 	restoreAll,
 	restoreRemoval,
 	type PendingRemoval,
-	type RemovalRules,
+	keyRows,
+	sameRowKey,
+	type KeyedRow,
 } from "./row-list";
 
 export const editorButton = "cms-editor-button cms-press";
@@ -95,34 +97,41 @@ export function UndoRemoval({
 	return null;
 }
 
-export function useUndoRestoresLive(path: string, restored: readonly unknown[] | null): boolean {
-	return useDraftSelector(
-		(state, store) => restored !== null && jsonEqual(restored, store.liveValueAt(path, state)),
-	);
-}
-
-/**
- * One Undo per removed row. Removals survive later edits to the list; each
- * puts its row back beside its old neighbours. A removal ends when its row
- * is back, when the owner dismisses it or reverts the field, or when the
- * whole draft is replaced (history restore, discard, conflict resolution).
- */
-export function usePendingRemovals<T>(path: string, rules: RemovalRules<T>) {
+/** Keep row identity through edits, reorders and successive removals. */
+export function usePendingRemovals<T>(
+	path: string,
+	max: number,
+	sameValue?: (a: T, b: T) => boolean,
+) {
 	const store = useDraftStore();
-	const [all, setAll] = useState<PendingRemoval<T>[]>([]);
-	const nextId = useRef(0);
-	const { max, same, match } = rules;
+	const [all, setAll] = useState<PendingRemoval<KeyedRow<T>>[]>([]);
+	const identity = useRef({ keys: [] as number[], next: 0 });
 	const rowsAt = (state: DraftState) => (getAt(state.draft, path) as T[] | undefined) ?? [];
-	// Subscribe to what the toasts show, not to every edit inside the list.
+	const count = useDraftSelector((state) => rowsAt(state).length);
+	const keys = Array.from(
+		{ length: count },
+		(_, index) => identity.current.keys[index] ?? identity.current.next++,
+	);
+	identity.current.keys = keys;
+
+	const same = (a: KeyedRow<T>, b: KeyedRow<T>) =>
+		sameRowKey(a, b) || (!b.allowDuplicate && sameValue?.(a.value, b.value) === true);
+	const rules = { max, same, match: sameRowKey };
 	const back = useDraftSelector((state) => {
-		const rows = rowsAt(state);
+		if (!all.length) return "";
+		const rows = keyRows(rowsAt(state), identity.current.keys);
 		return all.map((removal) => (rows.some((row) => same(row, removal.row)) ? "1" : "0")).join("");
 	});
-	const full = useDraftSelector((state) => rowsAt(state).length >= max);
 	const restoresLive = useDraftSelector((state, store) => {
 		if (!all.length) return false;
-		const restored = restoreAll(rowsAt(state), all, { max, same, match });
-		return restored !== null && jsonEqual(restored, store.liveValueAt(path, state));
+		const restored = restoreAll(keyRows(rowsAt(state), identity.current.keys), all, rules);
+		return (
+			restored !== null &&
+			jsonEqual(
+				restored.map((row) => row.value),
+				store.liveValueAt(path, state),
+			)
+		);
 	});
 	const removals = all.filter((_, index) => back[index] !== "1");
 	const stale = removals.length !== all.length;
@@ -138,30 +147,81 @@ export function usePendingRemovals<T>(path: string, rules: RemovalRules<T>) {
 		});
 	}, [store]);
 
-	const add = useCallback(
-		(before: readonly T[], index: number, label: string) => {
-			const id = nextId.current++;
-			setAll((current) => [...current, createRemoval(before, index, label, current, match, id)]);
+	const update = useCallback(
+		(rows: T[], keys: number[]) => {
+			identity.current.keys = keys;
+			store.update(path, rows);
 		},
-		[match],
+		[path, store],
 	);
-	const dismiss = useCallback(
-		(id: number) => setAll((current) => current.filter((removal) => removal.id !== id)),
-		[],
+	const remove = useCallback(
+		(index: number, label: string) => {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
+			if (index >= rows.length || index < 0) return;
+			const { keys } = identity.current;
+			const before = keyRows(rows, keys);
+			const row = before[index]!;
+			row.allowDuplicate = rows.some((value, at) => at !== index && sameValue?.(value, row.value));
+			update(removeItem(rows, index), removeItem(keys, index));
+			setAll((current) => [
+				...current,
+				createRemoval(before, index, label, current, sameRowKey, row.key),
+			]);
+		},
+		[path, sameValue, store, update],
 	);
-	const clear = useCallback(() => setAll([]), []);
+	const move = useCallback(
+		(from: number, to: number) => {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
+			update(moveItem(rows, from, to), moveItem(identity.current.keys, from, to));
+		},
+		[path, store, update],
+	);
+	const dismiss = (id: number) =>
+		setAll((current) => current.filter((removal) => removal.id !== id));
+
 	return {
-		removals: removals.map((removal) => ({ ...removal, canUndo: !full })),
-		add,
+		keys,
+		remove,
+		move,
 		dismiss,
-		clear,
-		/** Undo one removal against the current list, and drop its toast. */
-		take(id: number, current: readonly T[]) {
+		removals: removals.map((removal) => ({
+			id: removal.id,
+			label: removal.label,
+			row: removal.row.value,
+			canUndo: count < max,
+		})),
+		reorder(next: number[]) {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
+			const { keys } = identity.current;
+			update(
+				next.map((key) => rows[keys.indexOf(key)]!),
+				next,
+			);
+		},
+		insert(index: number, row: T) {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
+			if (rows.length >= max) return;
+			update(
+				insertItem(rows, index, row),
+				insertItem(identity.current.keys, index, identity.current.next++),
+			);
+		},
+		clear() {
+			setAll([]);
+		},
+		undo(id: number) {
+			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
 			const removal = removals.find((entry) => entry.id === id);
-			const restored = removal && restoreRemoval(current, removal, { max, same, match });
-			if (!restored) return null;
+			const restored =
+				removal && restoreRemoval(keyRows(rows, identity.current.keys), removal, rules);
+			if (!restored) return undefined;
 			dismiss(id);
-			return restored;
+			update(
+				restored.rows.map((row) => row.value),
+				restored.rows.map((row) => row.key),
+			);
+			return restored.index;
 		},
 		/** Undo would return the field to its live value, so Revert adds nothing. */
 		restoresLive,

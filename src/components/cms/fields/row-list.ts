@@ -26,6 +26,18 @@ export interface RemovalRules<T> {
 	match: (a: T, b: T) => boolean;
 }
 
+export interface KeyedRow<T> {
+	key: number;
+	value: T;
+	allowDuplicate?: boolean;
+}
+
+export function keyRows<T>(values: readonly T[], keys: readonly number[]): KeyedRow<T>[] {
+	return values.map((value, index) => ({ value, key: keys[index]! }));
+}
+
+export const sameRowKey = <T>(a: KeyedRow<T>, b: KeyedRow<T>) => a.key === b.key;
+
 /** Same object, or rows that share an `id`. */
 export function sameRow(a: unknown, b: unknown): boolean {
 	return Object.is(a, b) || sameRowId(a, b);

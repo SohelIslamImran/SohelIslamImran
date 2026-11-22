@@ -1,15 +1,15 @@
 import { AnimatePresence, Reorder } from "motion/react";
-import { memo, useCallback, useRef, useState, type ComponentType } from "react";
+import { memo, useCallback, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
-import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
+import { childPath } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { ChevronRightIcon } from "./field-icons";
-import { duplicateRow, rowId, sameRow } from "./row-list";
+import { duplicateRow } from "./row-list";
 
 const EMPTY: readonly never[] = [];
 
@@ -35,32 +35,17 @@ export function RepeaterField<T extends object>({
 	max?: number;
 }) {
 	const store = useDraftStore();
-	const keys = useDraftSelector((_state, store) =>
-		((store.valueAt(path) as T[] | undefined) ?? EMPTY).map(rowId),
-	);
 	const issues = useIssuesAt(path);
 	const changed = useChangedAt(path);
-	const localKeys = useRef<number[]>([]);
-	const nextKey = useRef(0);
-	const removals = usePendingRemovals<T>(path, { max, same: sameRow, match: sameRow });
-	const addRemoval = removals.add;
-	const duplicates = duplicateIds(keys.map((id) => ({ id })));
-
-	// Assign the same initial keys in SSR and hydration. Move them with rows
-	// that lack IDs so a reorder preserves their disclosure state.
-	localKeys.current = keys.map((_, index) => localKeys.current[index] ?? nextKey.current++);
-
-	const rowKeys = keys.map((id, index) =>
-		id && !duplicates.has(id) ? id : `local-${localKeys.current[index]}`,
-	);
+	const removals = usePendingRemovals<T>(path, max);
+	const { keys, move: moveRow, insert: insertRow, remove: removeRow } = removals;
 
 	const move = useCallback(
 		(from: number, to: number) => {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
 			if (to < 0 || to >= rows.length) return;
 			const focused = document.activeElement;
-			localKeys.current = moveItem(localKeys.current, from, to);
-			store.update(path, moveItem(rows, from, to));
+			moveRow(from, to);
 			requestAnimationFrame(() => {
 				if (
 					focused instanceof HTMLElement &&
@@ -71,22 +56,21 @@ export function RepeaterField<T extends object>({
 				} else focusField(childPath(path, to));
 			});
 		},
-		[path, store],
+		[moveRow, path, store],
 	);
 
 	const insert = useCallback(
 		(index: number, row: T) => {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
 			if (rows.length >= max) return;
-			localKeys.current = insertItem(localKeys.current, index, nextKey.current++);
-			store.update(path, insertItem(rows, index, row));
+			insertRow(index, row);
 			requestAnimationFrame(() => {
 				const summary = document.getElementById(fieldId(childPath(path, index)));
 				if (summary?.parentElement instanceof HTMLDetailsElement) summary.parentElement.open = true;
 				focusField(childPath(path, index));
 			});
 		},
-		[max, path, store],
+		[insertRow, max, path, store],
 	);
 
 	const duplicate = useCallback(
@@ -102,13 +86,11 @@ export function RepeaterField<T extends object>({
 			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
 			const row = rows[index];
 			if (!row) return;
-			localKeys.current = removeItem(localKeys.current, index);
-			store.update(path, removeItem(rows, index));
-			addRemoval(rows, index, label);
+			removeRow(index, label);
 			const target = rows.length === 1 ? path : childPath(path, Math.min(index, rows.length - 2));
 			requestAnimationFrame(() => focusField(target));
 		},
-		[addRemoval, path, store],
+		[path, removeRow, store],
 	);
 
 	return (
@@ -136,21 +118,13 @@ export function RepeaterField<T extends object>({
 			<Reorder.Group
 				as="ol"
 				axis="y"
-				values={rowKeys}
-				onReorder={(next) => {
-					const positions = next.map((key) => rowKeys.indexOf(key));
-					const rows = store.valueAt(path) as T[];
-					localKeys.current = positions.map((index) => localKeys.current[index]);
-					store.update(
-						path,
-						positions.map((index) => rows[index]),
-					);
-				}}
+				values={keys}
+				onReorder={removals.reorder}
 				className="cms-repeater-list m-0 grid list-none gap-2 p-0 empty:hidden"
 				aria-labelledby={`${fieldId(path)}-label`}
 			>
 				<AnimatePresence initial={false}>
-					{rowKeys.map((rowKey, index) => (
+					{keys.map((rowKey, index) => (
 						<MemoRepeaterRow
 							key={rowKey}
 							rowKey={rowKey}
@@ -191,12 +165,9 @@ export function RepeaterField<T extends object>({
 						requestAnimationFrame(() => focusField(path));
 					}}
 					onUndo={() => {
-						const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
-						const restored = removals.take(removal.id, current);
-						if (!restored) return;
-						localKeys.current = insertItem(localKeys.current, restored.index, nextKey.current++);
-						store.update(path, restored.rows);
-						requestAnimationFrame(() => focusField(childPath(path, restored.index)));
+						const index = removals.undo(removal.id);
+						if (index !== undefined)
+							requestAnimationFrame(() => focusField(childPath(path, index)));
 					}}
 				/>
 			))}
@@ -218,7 +189,7 @@ function RepeaterRow<T extends object>({
 	duplicate,
 	Editor,
 }: {
-	rowKey: string;
+	rowKey: number;
 	path: string;
 	index: number;
 	itemLabel: string;

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { removeItem, setAt } from "../draft/paths";
 import {
 	createRemoval,
+	keyRows,
 	removalRules,
 	reorderOffset,
 	replacedDraft,
 	restoreAll,
 	restoreRemoval,
+	sameRowKey,
 	sameTag,
 	type PendingRemoval,
 } from "./row-list";
@@ -85,6 +87,29 @@ describe("successive removals", () => {
 		const restored = restoreAll(edited, [first, second], rules);
 		expect(restored?.map((row) => row.id)).toEqual(["a", "b", "c", "d"]);
 		expect(restored?.[0]?.label).toBe("A, edited");
+	});
+
+	it("restores between the original rows when an earlier duplicate is removed too", () => {
+		const rules = removalRules({ same: sameRowKey<string>, match: sameRowKey<string> });
+		const rows = keyRows(["Repeated", "Between", "Repeated", "Last"], [0, 1, 2, 3]);
+		const between = createRemoval(rows, 1, "Between", [], rules.match, 1);
+		const withoutBetween = removeItem(rows, 1);
+		const repeated = createRemoval(withoutBetween, 0, "Repeated", [between], rules.match, 0);
+		const once = restoreRemoval(removeItem(withoutBetween, 0), between, rules)!.rows;
+		expect(once.map((row) => row.key)).toEqual([1, 2, 3]);
+		expect(restoreRemoval(once, repeated, rules)?.rows).toEqual(rows);
+	});
+
+	it("uses both neighbours' keys after their text has changed", () => {
+		const rules = removalRules({ same: sameRowKey<string>, match: sameRowKey<string> });
+		const rows = keyRows(["First", "Between", "Last"], [0, 1, 2]);
+		const removal = createRemoval(rows, 1, "Between", [], rules.match, 1);
+		const edited = keyRows(["Edited first", "Edited last"], [0, 2]);
+		expect(restoreRemoval(edited, removal, rules)?.rows.map((row) => row.value)).toEqual([
+			"Edited first",
+			"Between",
+			"Edited last",
+		]);
 	});
 
 	it("appends when every old neighbour is gone, and refuses a full list", () => {

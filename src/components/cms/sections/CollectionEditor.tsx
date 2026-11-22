@@ -15,7 +15,7 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
-import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
+import { childPath, duplicateIds } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
 import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
@@ -92,11 +92,8 @@ export function CollectionEditor<T extends { id: string }>({
 	const [query, setQuery] = useState("");
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
-	const removals = usePendingRemovals<T>(path, {
-		max: MAX_COLLECTION_ITEMS,
-		same: sameRow,
-		match: sameRow,
-	});
+	const removals = usePendingRemovals<T>(path, MAX_COLLECTION_ITEMS, sameRow);
+	const { keys: rowKeys, move: moveRow } = removals;
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const pendingListFocus = useRef<{
 		id?: string;
@@ -117,7 +114,6 @@ export function CollectionEditor<T extends { id: string }>({
 		}),
 	);
 	const duplicates = duplicateIds(rowIds.map((id) => ({ id })));
-	const rowKeys = rowIds.map((id, index) => (duplicates.has(id) ? `${id}:${index}` : id));
 
 	// Phones show one pane at a time. Opening an item slides its pane in from
 	// the trailing edge over the list; Back slides it out again. `pane`
@@ -264,7 +260,7 @@ export function CollectionEditor<T extends { id: string }>({
 			const row = rows[from];
 			if (!row || to < 0 || to >= rows.length || filter) return;
 			const focused = document.activeElement;
-			store.update(path, moveItem(rows, from, to));
+			moveRow(from, to);
 			// The menu restores focus to the row trigger on close.
 			if (focused?.matches("[role=menuitem]")) return;
 			requestAnimationFrame(() => {
@@ -279,12 +275,12 @@ export function CollectionEditor<T extends { id: string }>({
 				}
 			});
 		},
-		[filter, path, rowButton, store],
+		[filter, moveRow, path, rowButton, store],
 	);
 
 	function add(rows: T[], row: T, index: number) {
 		if (rows.length >= MAX_COLLECTION_ITEMS) return;
-		store.update(path, insertItem(rows, index, row));
+		removals.insert(index, row);
 		setQuery("");
 		setAdding(false);
 		setName("");
@@ -295,8 +291,7 @@ export function CollectionEditor<T extends { id: string }>({
 		const rows = store.valueAt(path) as T[];
 		const row = rows[index];
 		if (!row) return;
-		store.update(path, removeItem(rows, index));
-		removals.add(rows, index, describe(row).title || itemLabel.toLowerCase());
+		removals.remove(index, describe(row).title || itemLabel.toLowerCase());
 		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false);
 	}
 
@@ -452,12 +447,7 @@ export function CollectionEditor<T extends { id: string }>({
 						values={visible.map((index) => rowKeys[index])}
 						onReorder={(next) => {
 							if (filter || duplicates.size) return;
-							const rows = store.valueAt(path) as T[];
-							const byId = new Map(rows.map((row) => [row.id, row]));
-							store.update(
-								path,
-								next.map((id) => byId.get(id)!),
-							);
+							removals.reorder(next);
 						}}
 						layoutScroll
 						ref={list}
@@ -627,10 +617,7 @@ export function CollectionEditor<T extends { id: string }>({
 						requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));
 					}}
 					onUndo={() => {
-						const restored = removals.take(removal.id, store.valueAt(path) as T[]);
-						if (!restored) return;
-						store.update(path, restored.rows);
-						open(removal.row.id);
+						if (removals.undo(removal.id) !== undefined) open(removal.row.id);
 					}}
 				/>
 			))}
@@ -715,7 +702,7 @@ function CollectionRow<T extends { id: string }>({
 	open,
 	move,
 }: {
-	rowKey: string;
+	rowKey: number;
 	id: string;
 	index: number;
 	path: string;
