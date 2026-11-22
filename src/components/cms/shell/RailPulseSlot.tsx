@@ -3,7 +3,13 @@ import { cn } from "../../../lib/utils";
 
 import { useLiveVisitors } from "../analytics/LiveVisitors";
 
-export function RailPulseSlot({ className }: { className?: string }) {
+export function RailPulseSlot({
+	className,
+	onNavigate,
+}: {
+	className?: string;
+	onNavigate?: () => void;
+}) {
 	const { data, paused } = useLiveVisitors();
 	const activeCount = data?.live.count ?? null;
 	const hasCount = activeCount !== null;
@@ -15,18 +21,21 @@ export function RailPulseSlot({ className }: { className?: string }) {
 	return (
 		<Link
 			to="/cms/analytics"
+			preload="intent"
+			resetScroll={false}
+			onClick={onNavigate}
 			data-slot="cms-rail-pulse"
 			title={label}
 			aria-label={label}
 			className={cn(
-				"cms-rail-pulse group/pulse flex min-h-9 items-center justify-between gap-2 rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] px-2.5 text-[12px] text-ink-soft no-underline transition-colors duration-150 hover:border-line-strong hover:bg-[color-mix(in_srgb,var(--theme-ink)_4.5%,transparent)] hover:text-foreground pointer-coarse:min-h-11",
+				"cms-rail-pulse cms-control cms-press relative flex min-h-9 items-center gap-2 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11",
 				className,
 			)}
 		>
-			<span className="flex min-w-0 items-center gap-2">
+			<span className="flex min-w-0 items-center gap-2.5">
 				<span className="relative grid size-2.5 shrink-0 place-items-center" aria-hidden="true">
 					{active && !paused ? (
-						<span className="absolute inset-0 rounded-full bg-success/45 motion-safe:animate-ping-soft motion-reduce:hidden" />
+						<span className="cms-live-pulse absolute inset-0 rounded-full bg-success/40" />
 					) : null}
 					<span
 						className={cn(
@@ -35,12 +44,14 @@ export function RailPulseSlot({ className }: { className?: string }) {
 						)}
 					/>
 				</span>
-				<span className="cms-rail-pulse-text mono-label truncate text-[10.5px] text-muted-foreground group-hover/pulse:text-foreground">
+				<span className="cms-rail-pulse-text whitespace-nowrap text-[12px] font-medium">
 					Live now
 				</span>
 			</span>
-			<span className="cms-rail-pulse-text font-mono text-[12px] font-medium tabular-nums text-foreground">
-				{hasCount ? activeCount : "—"}
+			<span className="cms-rail-pulse-text absolute right-3 font-mono text-[12px] font-medium tabular-nums text-foreground">
+				<span key={activeCount ?? "unknown"} className="cms-count-tick">
+					{hasCount ? activeCount : "—"}
+				</span>
 			</span>
 		</Link>
 	);

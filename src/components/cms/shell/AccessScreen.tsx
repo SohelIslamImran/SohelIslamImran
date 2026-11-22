@@ -1,39 +1,32 @@
 import { Link } from "@tanstack/react-router";
 import { buttonVariants } from "../../ui/button";
-import { cn } from "../../../lib/utils";
+import { ExternalArrowIcon, LockIcon } from "./cms-icons";
 
 export type AccessCode = "unauthenticated" | "forbidden" | "configuration" | "unavailable";
 
-const PUBLIC_ORIGIN = "https://sohelislamimran.com";
-
-const COPY: Record<AccessCode, { title: string; body: string; action: string; log: string }> = {
+const COPY: Record<AccessCode, { title: string; body: string; action: string }> = {
 	unauthenticated: {
-		title: "Sign-in required.",
-		body: "This console is owner-only. Sign in through Cloudflare Access to continue.",
+		title: "Sign in to Control plane",
+		body: "Continue with your owner account through Cloudflare Access.",
 		action: "Sign in",
-		log: "no access assertion on this request",
 	},
 	forbidden: {
-		title: "This console is owner-only.",
-		body: "You are signed in, but this account is not the owner.",
+		title: "Owner access required",
+		body: "Try signing in with the account that owns this workspace.",
 		action: "Try again",
-		log: "identity is not on the owner allowlist",
 	},
 	configuration: {
-		title: "The console is not ready.",
-		body: "Access is not configured on this Worker yet.",
+		title: "Access setup incomplete",
+		body: "The workspace will be available once Cloudflare Access is configured.",
 		action: "Try again",
-		log: "access team or audience missing",
 	},
 	unavailable: {
-		title: "The console is temporarily unavailable.",
-		body: "The content store did not answer. Try again in a moment.",
+		title: "Workspace unavailable",
+		body: "The content store is temporarily unavailable. Try again in a moment.",
 		action: "Try again",
-		log: "storage did not respond",
 	},
 };
 
-/** Full-page state for a CMS request that did not pass the owner gate. */
 export function AccessScreen({ code }: { code: AccessCode }) {
 	const copy = COPY[code];
 	return (
@@ -41,27 +34,27 @@ export function AccessScreen({ code }: { code: AccessCode }) {
 			id="main-content"
 			tabIndex={-1}
 			data-slot="cms-access"
-			className="cms-root grid min-h-svh place-items-center px-4 py-10"
+			className="cms-root cms-access grid min-h-svh place-items-center px-4 py-10"
 		>
-			<div className="cms-panel grid w-full max-w-[480px] gap-6 p-[clamp(20px,4vw,32px)]">
-				<p className="mono-label m-0 text-primary-text">Control plane · access</p>
-				<div className="grid gap-3">
-					<h1 className="m-0 text-headline">{copy.title}</h1>
-					<p className="m-0 text-[15px] text-muted-foreground">{copy.body}</p>
+			<div className="cms-panel cms-access-panel grid w-full max-w-[420px] justify-items-start gap-5 p-[clamp(24px,5vw,36px)]">
+				<span className="grid size-12 place-items-center rounded-[14px] border border-primary-line bg-primary-soft text-primary-text">
+					<LockIcon className="size-6" />
+				</span>
+				<div className="grid gap-2">
+					<h1 className="m-0 text-[clamp(24px,4vw,30px)] leading-tight font-semibold tracking-[-0.025em]">
+						{copy.title}
+					</h1>
+					<p className="m-0 text-[14px] leading-relaxed text-muted-foreground">{copy.body}</p>
 				</div>
-				<p className="m-0 rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-3 py-2.5 font-mono text-[12px] text-ink-soft">
-					<span className="text-destructive" aria-hidden="true">
-						✗{" "}
-					</span>
-					access · {copy.log}
-				</p>
-				<div className="flex flex-wrap gap-2.5">
-					{/* A full document load, so Cloudflare Access can intercept and sign in. */}
-					<Link className={cn(buttonVariants())} to="/cms" reloadDocument>
-						{copy.action} <span aria-hidden="true">↗</span>
+				<div className="flex flex-wrap items-center gap-2">
+					<Link className={buttonVariants({ size: "default" })} to="/cms" reloadDocument>
+						{copy.action}
 					</Link>
-					<a className={cn(buttonVariants({ variant: "outline" }))} href={PUBLIC_ORIGIN}>
-						Open the public site <span aria-hidden="true">→</span>
+					<a
+						className={buttonVariants({ variant: "ghost", size: "default" })}
+						href="https://sohelislamimran.com"
+					>
+						Public site <ExternalArrowIcon />
 					</a>
 				</div>
 			</div>

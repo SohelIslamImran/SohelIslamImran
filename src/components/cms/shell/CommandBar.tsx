@@ -3,9 +3,18 @@
  * Fuzzy searches pages, content sections, individual collection items from the
  * draft store, release actions, analytics opt-out, and theme mode switches.
  */
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+	useEffect,
+	useId,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+	type ReactNode,
+} from "react";
 import { Dialog } from "@base-ui/react/dialog";
 import { useNavigate } from "@tanstack/react-router";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import {
 	applyThemeMode,
@@ -17,10 +26,12 @@ import {
 import { scoreItem } from "../../chrome/fuzzy";
 import { Kbd } from "../../ui/portfolio";
 import { useDraftSelector, useDraftStore } from "../draft/context";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { SECTIONS } from "../sections/registry";
 import {
 	ActivityIcon,
 	AnalyticsIcon,
+	CloseIcon,
 	DiscardIcon,
 	ExternalArrowIcon,
 	HistoryIcon,
@@ -70,15 +81,17 @@ export function CommandBar({
 	onRequestPublish: () => void;
 	onToggleRail: () => void;
 }) {
-	// Only subscribe to the draft tree while the dialog is open so typing in
-	// content editors never re-renders the command index.
-	if (!open) return null;
+	// The portal retains the content through the closing transition.
 	return (
-		<CommandBarOpen
-			onOpenChange={onOpenChange}
-			onRequestPublish={onRequestPublish}
-			onToggleRail={onToggleRail}
-		/>
+		<Dialog.Root open={open} onOpenChange={onOpenChange}>
+			<Dialog.Portal>
+				<CommandBarOpen
+					onOpenChange={onOpenChange}
+					onRequestPublish={onRequestPublish}
+					onToggleRail={onToggleRail}
+				/>
+			</Dialog.Portal>
+		</Dialog.Root>
 	);
 }
 
@@ -91,7 +104,8 @@ function CommandBarOpen({
 	onRequestPublish: () => void;
 	onToggleRail: () => void;
 }) {
-	const open = true;
+	const reduce = useReducedMotion();
+	const popupRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const draft = useDraftSelector((state) => state.draft);
@@ -205,6 +219,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "projects" },
 						search: { item: project.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -221,6 +236,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "experience" },
 						search: { item: exp.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -237,6 +253,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "capabilities" },
 						search: { item: cap.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -253,6 +270,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "testimonials" },
 						search: { item: testimonial.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -269,6 +287,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "credentials" },
 						search: { item: cred.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -285,6 +304,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "writing" },
 						search: { item: post.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -301,6 +321,7 @@ function CommandBarOpen({
 						to: "/cms/content/$section",
 						params: { section: "links" },
 						search: { item: link.id },
+						resetScroll: false,
 					}),
 			});
 		}
@@ -462,9 +483,8 @@ function CommandBarOpen({
 	const activeItem = flat[activeIndex];
 
 	useEffect(() => {
-		setActiveId(flat[0]?.id ?? null);
 		listRef.current?.scrollTo({ top: 0 });
-	}, [query, open]);
+	}, [query]);
 
 	useEffect(() => {
 		if (!activeItem) return;
@@ -513,174 +533,201 @@ function CommandBarOpen({
 		}
 	};
 
+	useLayoutEffect(() => {
+		const trigger = document.querySelector<HTMLElement>('[data-slot="cms-command-trigger"]');
+		const popup = popupRef.current;
+		if (!trigger || !popup) return;
+
+		// offsetWidth/Height are the resting size, independent of the entry scale.
+		const anchor = trigger.getBoundingClientRect();
+		const box = popup.getBoundingClientRect();
+		popup.style.transformOrigin = `${anchor.left + anchor.width / 2 - (box.left + box.width / 2) + popup.offsetWidth / 2}px ${anchor.bottom - box.top}px`;
+	}, []);
+
 	return (
-		<Dialog.Root
-			open={open}
-			onOpenChange={(next, details) => {
-				if (!next && details.reason === "escape-key" && inputRef.current?.value) {
-					details.cancel();
-					setQuery("");
-					return;
-				}
-				onOpenChange(next);
-			}}
-			onOpenChangeComplete={(isOpenNow) => {
-				if (!isOpenNow) setQuery("");
-			}}
-		>
-			<Dialog.Portal>
-				<Dialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.28)] dark:bg-[rgb(0_0_0/0.55)]" />
-				<Dialog.Popup
-					data-slot="cms-command-bar"
-					initialFocus={inputRef}
-					className={cn(
-						"cms-dialog-popup cms-glass fixed z-(--z-palette) flex flex-col overflow-hidden border text-foreground outline-hidden",
-						"inset-x-0 bottom-0 max-h-[min(84dvh,640px)] rounded-t-[20px] pb-[env(safe-area-inset-bottom)]",
-						"md:inset-x-auto md:bottom-auto md:top-[max(11vh,72px)] md:left-1/2 md:max-h-[min(540px,74vh)] md:w-[min(620px,calc(100vw-32px))] md:-translate-x-1/2 md:rounded-[18px] md:pb-0",
-					)}
-				>
-					<Dialog.Title className="sr-only">Control plane command bar</Dialog.Title>
-					<Dialog.Description className="sr-only">
-						Search sections, collection items, pages, and release actions. Use arrow keys to move
-						and Enter to open.
-					</Dialog.Description>
+		<>
+			<Dialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
+			<Dialog.Popup
+				ref={popupRef}
+				data-slot="cms-command-bar"
+				initialFocus={inputRef}
+				className="cms-command-popup cms-overlay cms-glass fixed inset-x-3 top-[max(12px,env(safe-area-inset-top))] z-(--z-palette) flex max-h-[min(600px,calc(100dvh-28px))] flex-col overflow-hidden rounded-[19px] border text-foreground outline-hidden md:inset-x-auto md:top-[max(10vh,70px)] md:left-1/2 md:max-h-[min(540px,74dvh)] md:w-[min(560px,calc(100vw-32px))] md:-translate-x-1/2"
+			>
+				<Dialog.Title className="sr-only">Control plane command bar</Dialog.Title>
+				<Dialog.Description className="sr-only">
+					Search sections, collection items, pages, and release actions. Use arrow keys to move and
+					Enter to open.
+				</Dialog.Description>
 
-					<div className="flex shrink-0 items-center gap-2.5 border-b border-line px-4 py-1">
-						<SearchIcon className="size-4 text-muted-foreground" />
-						<input
-							ref={inputRef}
-							type="text"
-							role="combobox"
-							aria-expanded={true}
-							aria-controls={listboxId}
-							aria-activedescendant={activeItem ? `${optionPrefix}-${activeItem.id}` : undefined}
-							aria-autocomplete="list"
-							value={query}
-							onChange={(event) => setQuery(event.target.value)}
-							onKeyDown={onKeyDown}
-							placeholder="Jump to a section, project, experience, or action…"
-							className="h-12 w-full min-w-0 bg-transparent text-[14.5px] text-foreground outline-hidden placeholder:text-muted-foreground/75"
-						/>
-						{query ? (
-							<button
-								type="button"
-								onClick={() => {
-									setQuery("");
-									inputRef.current?.focus();
-								}}
-								className="shrink-0 whitespace-nowrap rounded-full px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-							>
-								Clear
-							</button>
-						) : (
-							<Kbd>esc</Kbd>
-						)}
-					</div>
-
-					<div
-						ref={listRef}
-						id={listboxId}
-						role="listbox"
-						aria-label="Commands"
-						className="min-h-0 flex-1 overflow-y-auto p-2"
+				<div className="cms-command-search flex shrink-0 items-center gap-2.5 border-b border-line px-4 py-1">
+					<SearchIcon className="size-4 text-muted-foreground" />
+					<input
+						ref={inputRef}
+						type="text"
+						role="combobox"
+						aria-expanded={true}
+						aria-controls={listboxId}
+						aria-activedescendant={activeItem ? `${optionPrefix}-${activeItem.id}` : undefined}
+						aria-autocomplete="list"
+						aria-label="Search commands"
+						value={query}
+						onChange={(event) => {
+							setActiveId(null);
+							setQuery(event.target.value);
+						}}
+						onKeyDown={onKeyDown}
+						placeholder="Search pages, content, and actions…"
+						className="h-12 w-full min-w-0 bg-transparent text-base md:text-[14.5px] text-foreground outline-hidden placeholder:text-muted-foreground/75"
+					/>
+					{query ? (
+						<button
+							type="button"
+							onClick={() => {
+								setActiveId(null);
+								setQuery("");
+								inputRef.current?.focus();
+							}}
+							className="cms-control cms-press min-h-8 shrink-0 rounded-full px-2.5 text-[12px] text-muted-foreground pointer-coarse:min-h-11"
+						>
+							Clear
+						</button>
+					) : null}
+					<Dialog.Close
+						className="cms-control cms-press grid min-h-8 min-w-8 shrink-0 place-items-center rounded-lg text-muted-foreground pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						aria-label="Close commands"
 					>
-						{filtered.length === 0 ? (
-							<p className="m-0 py-10 text-center text-[13.5px] text-muted-foreground">
-								No match for &ldquo;{query.trim()}&rdquo;.
+						<CloseIcon />
+					</Dialog.Close>
+				</div>
+
+				<motion.div
+					layoutScroll
+					ref={listRef}
+					id={listboxId}
+					role="listbox"
+					aria-label="Commands"
+					className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
+				>
+					{filtered.length === 0 ? (
+						<div
+							role="status"
+							className="cms-result-enter grid justify-items-center gap-2 px-4 py-9 text-center"
+						>
+							<span className="grid size-10 place-items-center rounded-[12px] bg-primary-soft text-primary-text">
+								<SearchIcon />
+							</span>
+							<p className="m-0 text-[14px] font-semibold text-foreground">No matches</p>
+							<p className="m-0 max-w-72 text-[13px] text-muted-foreground">
+								Try a page name, a project title, or an action like “save”.
 							</p>
-						) : (
-							filtered.map((section, sectionIndex) => (
-								<div key={section.group ?? "results"} className={cn(sectionIndex > 0 && "mt-2.5")}>
-									{section.group ? (
-										<p className="mono-label m-0 px-2.5 py-1 text-[10px] text-muted-foreground">
-											{section.group}
-										</p>
-									) : null}
-									<div className="grid gap-0.5">
-										{section.items.map((item) => {
-											const isActive = activeItem?.id === item.id;
-											return (
-												<button
-													key={item.id}
-													id={`${optionPrefix}-${item.id}`}
-													type="button"
-													role="option"
-													aria-selected={isActive}
-													aria-disabled={item.disabled || undefined}
-													onPointerMove={() => {
-														if (activeId !== item.id) setActiveId(item.id);
-													}}
-													onClick={(event) => execute(item, event.currentTarget)}
-													className={cn(
-														"flex min-h-10 w-full items-center justify-between gap-3 rounded-[10px] px-2.5 py-2 text-left transition-colors duration-100 pointer-coarse:min-h-11",
-														isActive
-															? "bg-[color-mix(in_srgb,var(--theme-ink)_7%,transparent)] text-foreground"
-															: "text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_4.5%,transparent)]",
-														item.disabled && "cursor-not-allowed opacity-45",
-													)}
-												>
-													<span className="flex min-w-0 items-center gap-2.5">
-														<span
-															className={cn(
-																"grid size-7 shrink-0 place-items-center rounded-[8px] border border-line bg-surface-solid",
-																isActive ? "text-primary-text" : "text-muted-foreground",
-															)}
-														>
-															{item.icon}
-														</span>
-														<span className="min-w-0">
-															<span className="block truncate text-[13.5px] font-medium text-foreground">
-																{item.label}
-															</span>
-															{item.detail ? (
-																<span className="block truncate text-[12px] text-muted-foreground">
-																	{item.detail}
-																</span>
-															) : null}
-														</span>
+						</div>
+					) : (
+						filtered.map((section, sectionIndex) => (
+							<div
+								key={section.group ?? "results"}
+								className={cn("cms-result-enter", sectionIndex > 0 && "mt-2.5")}
+							>
+								{section.group ? (
+									<p className="m-0 px-2.5 py-1 text-[11px] font-medium text-muted-foreground">
+										{section.group}
+									</p>
+								) : null}
+								<div className="grid grid-cols-1 gap-0.5">
+									{section.items.map((item) => {
+										const isActive = activeItem?.id === item.id;
+										return (
+											<button
+												key={item.id}
+												id={`${optionPrefix}-${item.id}`}
+												type="button"
+												role="option"
+												aria-selected={isActive}
+												aria-disabled={item.disabled || undefined}
+												onPointerMove={(event) => {
+													if (event.pointerType === "mouse" && activeId !== item.id)
+														setActiveId(item.id);
+												}}
+												onPointerDown={(event) => {
+													if (event.pointerType === "mouse") event.preventDefault();
+												}}
+												onClick={(event) => execute(item, event.currentTarget)}
+												className={cn(
+													"cms-command-row cms-press relative isolate flex min-h-11 w-full min-w-0 items-center justify-between gap-3 rounded-[10px] px-2.5 py-2 text-left",
+													item.disabled && "cursor-not-allowed opacity-45",
+												)}
+											>
+												{isActive ? (
+													<motion.span
+														layoutId={reduce ? undefined : "cms-command-highlight"}
+														aria-hidden="true"
+														initial={reduce ? { opacity: 0 } : false}
+														animate={{ opacity: 1 }}
+														transition={reduce ? REDUCED : SPRING_MOVE}
+														className="cms-command-highlight pointer-events-none absolute inset-0 -z-10 rounded-[10px]"
+														style={{ borderRadius: 10 }}
+													/>
+												) : null}
+												<span className="flex min-w-0 items-center gap-2.5">
+													<span
+														className={cn(
+															"grid size-8 shrink-0 place-items-center rounded-[9px] bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]",
+															isActive ? "text-primary-text" : "text-muted-foreground",
+														)}
+													>
+														{item.icon}
 													</span>
-													<span className="flex shrink-0 items-center gap-2">
-														{item.badge}
-														{item.shortcut ? <Kbd>{item.shortcut}</Kbd> : null}
-														{item.external ? (
-															<span
-																aria-hidden="true"
-																className="font-mono text-[11px] text-muted-foreground"
-															>
-																↗
+													<span className="min-w-0">
+														<span className="block truncate text-[13.5px] font-medium text-foreground">
+															{item.label}
+														</span>
+														{item.detail ? (
+															<span className="block truncate text-[12px] text-muted-foreground">
+																{item.detail}
 															</span>
 														) : null}
 													</span>
-												</button>
-											);
-										})}
-									</div>
+												</span>
+												<span className="flex shrink-0 items-center gap-2">
+													{item.badge}
+													{item.shortcut ? <Kbd>{item.shortcut}</Kbd> : null}
+													{item.external ? (
+														<span
+															aria-hidden="true"
+															className="font-mono text-[11px] text-muted-foreground"
+														>
+															↗
+														</span>
+													) : null}
+												</span>
+											</button>
+										);
+									})}
 								</div>
-							))
-						)}
-					</div>
+							</div>
+						))
+					)}
+				</motion.div>
 
-					<footer className="hidden shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 font-mono text-[11px] text-muted-foreground sm:flex">
-						<span className="flex items-center gap-3">
-							<span>
-								<Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate
-							</span>
-							<span>
-								<Kbd>↵</Kbd> open
-							</span>
-							<span>
-								<Kbd>⌘S</Kbd> save
-							</span>
-							<span>
-								<Kbd>[</Kbd> rail
-							</span>
+				<footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 font-mono text-[11px] text-muted-foreground pointer-coarse:hidden">
+					<span className="flex items-center gap-3">
+						<span>
+							<Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate
 						</span>
 						<span>
-							<Kbd>esc</Kbd> close
+							<Kbd>↵</Kbd> open
 						</span>
-					</footer>
-				</Dialog.Popup>
-			</Dialog.Portal>
-		</Dialog.Root>
+						<span className="hidden sm:inline">
+							<Kbd>⌘S</Kbd> save
+						</span>
+						<span className="hidden sm:inline">
+							<Kbd>[</Kbd> rail
+						</span>
+					</span>
+					<span>
+						<Kbd>esc</Kbd> close
+					</span>
+				</footer>
+			</Dialog.Popup>
+		</>
 	);
 }
