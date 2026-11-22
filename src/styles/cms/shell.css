@@ -518,7 +518,8 @@
 		.cms-backdrop,
 		.cms-modal,
 		.cms-command-popup,
-		.cms-drawer-popup {
+		.cms-drawer-popup,
+		:is(.cms-drawer-popup, .cms-drawer-scrim)[data-swiping] {
 			transition: opacity 150ms linear;
 		}
 		.cms-modal[data-starting-style],
@@ -531,6 +532,9 @@
 		.cms-drawer-popup[data-starting-style],
 		.cms-drawer-popup[data-ending-style] {
 			transform: none;
+		}
+		.cms-drawer-scrim:not([data-starting-style], [data-ending-style]) {
+			opacity: 1;
 		}
 		.cms-drawer-popup[data-starting-style],
 		.cms-drawer-popup[data-ending-style] {

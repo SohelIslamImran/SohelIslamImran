@@ -644,21 +644,40 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const drawer = useRef<HTMLDivElement>(null);
 	const drawerScrim = useRef<HTMLDivElement>(null);
 	const drawerSettle = useRef<ReturnType<typeof animate> | null>(null);
+	const drawerDismissSettling = useRef(false);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
-	const release = useRef<{ x: number; velocity: number } | null>(null);
+	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
-	useEffect(() => () => drawerSettle.current?.stop(), []);
-
-	const clearDrawerStyles = () => {
+	const clearDrawerStyles = useCallback(() => {
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
 		drawerScrim.current?.style.removeProperty("opacity");
 		drawerScrim.current?.style.removeProperty("transition");
-	};
+	}, []);
+
+	useEffect(() => {
+		const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const onChange = () => {
+			release.current = null;
+			drawerSettle.current?.stop();
+			drawerSettle.current = null;
+			clearDrawerStyles();
+			if (drawerDismissSettling.current) {
+				drawerDismissSettling.current = false;
+				drawerActions.current?.unmount();
+			}
+		};
+		preference.addEventListener("change", onChange);
+		return () => {
+			preference.removeEventListener("change", onChange);
+			drawerSettle.current?.stop();
+		};
+	}, [clearDrawerStyles]);
 
 	const openDrawer = () => {
 		drawerSettle.current?.stop();
+		drawerDismissSettling.current = false;
 		clearDrawerStyles();
 		setDrawerOpen(true);
 	};
@@ -668,7 +687,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	 * starting at the finger's speed, so release never jumps or stalls. Used for
 	 * both outcomes: dismissed (to off-screen) and not dismissed (back to 0).
 	 */
-	const settleDrawer = (from: number, to: number, velocity: number, onComplete: () => void) => {
+	const settleDrawer = (
+		{ x: from, velocity, time }: NonNullable<typeof release.current>,
+		to: number,
+		onComplete: () => void,
+	) => {
 		const popup = drawer.current;
 		if (!popup) return;
 		const scrim = drawerScrim.current;
@@ -684,6 +707,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		place(from);
 		drawerSettle.current = animate(from, to, {
 			...DRAWER_SPRING,
+			// Use touchend as time zero so the first frame advances the spring.
+			startTime: time,
 			velocity,
 			onUpdate: place,
 			onComplete,
@@ -718,7 +743,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			first && last && last.time > first.time && event.timeStamp - last.time < 100
 				? (1000 * (last.x - first.x)) / (last.time - first.time)
 				: 0;
-		const position = { x: popup.getBoundingClientRect().x, velocity };
+		const position = { x: popup.getBoundingClientRect().x, velocity, time: event.timeStamp };
 		release.current = position;
 		// Hold the drawer where the finger left it while Base UI decides, in this
 		// same touchend, whether the swipe dismisses it (see changeDrawerOpen).
@@ -727,7 +752,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		requestAnimationFrame(() => {
 			if (release.current !== position) return;
 			release.current = null;
-			settleDrawer(position.x, 0, velocity, clearDrawerStyles);
+			settleDrawer(position, 0, clearDrawerStyles);
 		});
 	};
 
@@ -736,9 +761,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		release.current = null;
 		if (!open && details.reason === "swipe" && position && drawer.current) {
 			details.preventUnmountOnClose();
-			settleDrawer(position.x, -drawer.current.offsetWidth, position.velocity, () =>
-				drawerActions.current?.unmount(),
-			);
+			drawerDismissSettling.current = true;
+			settleDrawer(position, -drawer.current.offsetWidth, () => {
+				drawerDismissSettling.current = false;
+				drawerActions.current?.unmount();
+			});
 		}
 		setDrawerOpen(open);
 	};
