@@ -4,7 +4,7 @@
  * `<body>`: the confirm button takes focus when it appears, Escape or Cancel
  * returns focus to Publish, and a successful publish focuses the receipt.
  */
-import { useEffect, useRef, type Ref } from "react";
+import { useId, useLayoutEffect, useRef, type Ref } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { controlClass } from "../analytics/Widgets";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
@@ -53,20 +53,18 @@ export function PublishGate({
 	const reduced = useReducedMotion();
 	const publishRef = useRef<HTMLButtonElement>(null);
 	const confirmRef = useRef<HTMLButtonElement>(null);
-	const wasConfirming = useRef(confirming);
+	const gateRef = useRef<HTMLElement>(null);
+	const confirmationId = useId();
+	const wasConfirming = useRef(false);
 
-	// Move focus with the swap so it never falls back to <body>.
-	useEffect(() => {
+	useLayoutEffect(() => {
 		if (confirming && !wasConfirming.current) confirmRef.current?.focus();
 		if (!confirming && wasConfirming.current) {
-			const active = document.activeElement;
-			if (!active || active === document.body) publishRef.current?.focus();
+			const publish = publishRef.current;
+			(publish && !publish.disabled ? publish : gateRef.current)?.focus();
 		}
 		wasConfirming.current = confirming;
 	}, [confirming]);
-
-	// The effect above returns focus to Publish once it remounts.
-	const cancel = onCancel;
 
 	const changesLabel =
 		totalChanges > 0
@@ -75,12 +73,16 @@ export function PublishGate({
 
 	return (
 		<section
+			id="release-gate"
+			ref={gateRef}
+			tabIndex={-1}
 			aria-label="Publish"
-			className="cms-panel cms-enter grid gap-3 p-4 sm:px-5"
+			className="cms-panel cms-enter cms-page-focus grid scroll-mt-20 gap-3 p-4 sm:px-5"
 			onKeyDown={(event) => {
 				if (event.key === "Escape" && confirming && !busy) {
 					event.stopPropagation();
-					cancel();
+					event.preventDefault();
+					onCancel();
 				}
 			}}
 		>
@@ -117,7 +119,7 @@ export function PublishGate({
 								variant="outline"
 								size="sm"
 								disabled={busy}
-								onClick={cancel}
+								onClick={onCancel}
 								className="pointer-coarse:min-h-11"
 							>
 								Cancel
@@ -126,8 +128,11 @@ export function PublishGate({
 								ref={confirmRef}
 								variant="default"
 								size="sm"
-								disabled={!canPublish}
-								onClick={onConfirm}
+								aria-disabled={!canPublish}
+								aria-describedby={confirmationId}
+								onClick={() => {
+									if (canPublish) onConfirm();
+								}}
 								className="pointer-coarse:min-h-11"
 							>
 								<PublishIcon className="size-3.5" />
@@ -162,6 +167,7 @@ export function PublishGate({
 
 			{confirming ? (
 				<motion.p
+					id={confirmationId}
 					initial={reduced ? { opacity: 0 } : { opacity: 0, y: -3 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={reduced ? REDUCED : SPRING_SNAPPY}

@@ -5,7 +5,7 @@
  * confirm dialog, and a Raw JSON inspect / export / import tab. After a publish
  * the receipt replaces the page body.
  */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
@@ -81,7 +81,7 @@ function ReleaseRoute() {
 		if (hasChanges) setPublishedReceipt(null);
 	}, [hasChanges]);
 
-	useEffect(() => {
+	useLayoutEffect(() => {
 		const target = focusAfterRender.current;
 		if (!target) return;
 		focusAfterRender.current = null;
@@ -92,10 +92,15 @@ function ReleaseRoute() {
 		setNotice(null);
 		if (!reviewedDraft) return;
 		const ok = await store.publish({ reviewedDraft });
+		setReviewedDraft(null);
 		if (ok) {
-			setReviewedDraft(null);
 			focusAfterRender.current = "receipt";
 			setPublishedReceipt({ revision: store.getState().publishedRevision });
+		} else {
+			setNotice({
+				tone: "error",
+				text: store.getState().error ?? "Review the draft and try publishing again.",
+			});
 		}
 	};
 
@@ -155,28 +160,23 @@ function ReleaseRoute() {
 				<PageNotice tone={notice.tone} text={notice.text} onDismiss={() => setNotice(null)} />
 			) : null}
 
-			{tab === "json" ? (
-				<RawJsonTab />
-			) : hasChanges ? (
-				<>
-					<PublishGate
-						totalChanges={diff.totalChanges}
-						sectionCount={diff.changedSections.length}
-						issueCount={issueCount}
-						conflict={conflict}
-						dirty={dirty}
-						busy={busy}
-						canPublish={canPublish}
-						confirming={confirmingPublish}
-						host={host}
-						onRequestPublish={() => setReviewedDraft(draft)}
-						onCancel={() => setReviewedDraft(null)}
-						onConfirm={() => void handleConfirmPublish()}
-						onDiscard={() => setDiscardReview({ draft, publishedRevision })}
-						discardDisabled={busy || discarding}
-					/>
-					<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
-				</>
+			{hasChanges ? (
+				<PublishGate
+					totalChanges={diff.totalChanges}
+					sectionCount={diff.changedSections.length}
+					issueCount={issueCount}
+					conflict={conflict}
+					dirty={dirty}
+					busy={busy}
+					canPublish={canPublish}
+					confirming={confirmingPublish}
+					host={host}
+					onRequestPublish={() => setReviewedDraft(draft)}
+					onCancel={() => setReviewedDraft(null)}
+					onConfirm={() => void handleConfirmPublish()}
+					onDiscard={() => setDiscardReview({ draft, publishedRevision })}
+					discardDisabled={busy || discarding}
+				/>
 			) : publishedReceipt ? (
 				<PublishedReceipt
 					ref={receiptRef}
@@ -187,7 +187,15 @@ function ReleaseRoute() {
 						setPublishedReceipt(null);
 					}}
 				/>
-			) : (
+			) : null}
+
+			{tab === "json" ? (
+				<RawJsonTab />
+			) : hasChanges ? (
+				diff.changedSections.length > 0 ? (
+					<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
+				) : null
+			) : publishedReceipt ? null : (
 				<div ref={emptyRef} tabIndex={-1} className="outline-none">
 					<DiffView
 						diff={diff}
