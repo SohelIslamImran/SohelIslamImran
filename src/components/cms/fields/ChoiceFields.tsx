@@ -3,9 +3,10 @@ import { Autocomplete } from "@base-ui/react/autocomplete";
 import { Checkbox } from "@base-ui/react/checkbox";
 import { Radio } from "@base-ui/react/radio";
 import { RadioGroup } from "@base-ui/react/radio-group";
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
@@ -91,7 +92,7 @@ export function ChoiceSelect({
 }) {
 	const items = [...options];
 	const groupId = useId();
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<Select.Root
 			items={items}
@@ -194,7 +195,7 @@ export function SuggestionField({
 	const field = useField<string | undefined>(path);
 	const id = fieldId(path);
 	const groupId = useId();
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const value = field.value ?? "";
 	// Show the whole list when it opens; filter once the owner types.
 	const [typed, setTyped] = useState(false);
@@ -299,7 +300,7 @@ export function SwitchField({
 }: SwitchFieldProps) {
 	const field = useField<boolean | undefined>(path);
 	const checked = field.value === true;
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<FieldFrame
 			path={path}
@@ -390,7 +391,7 @@ export function SegmentedField<V extends string>({
 	const field = useField<V | undefined>(path);
 	const id = fieldId(path);
 	const groupId = useId();
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const hint = description ?? options.find((option) => option.value === field.value)?.hint;
 	return (
 		<FieldFrame

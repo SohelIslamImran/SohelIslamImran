@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, useIsPresent } from "motion/react";
 import {
 	createContext,
 	useCallback,
@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { getAt, jsonEqual } from "../draft/paths";
 import type { DraftState } from "../draft/store";
@@ -168,7 +169,7 @@ export function usePendingRemovals<T>(path: string, rules: RemovalRules<T>) {
 }
 
 function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const present = useIsPresent();
 	return (
 		<motion.div

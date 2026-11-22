@@ -1,5 +1,6 @@
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRef, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useDraftSelector } from "../draft/context";
@@ -95,7 +96,7 @@ export function FieldFrame({
 	const id = fieldId(path);
 	const descriptionId = description ? `${id}-description` : undefined;
 	const errorId = `${id}-error`;
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const frame = useRef<HTMLDivElement>(null);
 	const LabelTag = asGroup ? "p" : "label";
 	const canRevert = useDraftSelector(({ draft, published }) => {

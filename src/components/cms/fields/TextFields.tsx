@@ -1,6 +1,7 @@
 import { Input } from "@base-ui/react/input";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
@@ -33,7 +34,7 @@ export interface TextFieldProps extends BaseFieldProps {
 }
 
 export function Counter({ length, max }: { length: number; max?: number }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	if (!max || length < Math.ceil(max * 0.8)) return null;
 	return (
 		<span

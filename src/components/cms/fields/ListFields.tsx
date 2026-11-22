@@ -1,5 +1,6 @@
-import { AnimatePresence, motion, Reorder, useIsPresent, useReducedMotion } from "motion/react";
+import { AnimatePresence, motion, Reorder, useIsPresent } from "motion/react";
 import { memo, useCallback, useRef, useState, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import {
@@ -238,7 +239,7 @@ export function TagsField({
 }
 
 function TagChip({ children, armed }: { children: ReactNode; armed?: boolean }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const present = useIsPresent();
 	return (
 		<motion.li
@@ -325,11 +326,18 @@ export function StringListField({
 			if (row === undefined) return;
 			keys.current = removeItem(keys.current, index);
 			store.update(path, removeItem(items, index));
-			addRemoval(items, index, label.toLowerCase());
+			// Positions shift as rows go, so name the row by its text.
+			const text = row.trim();
+			const excerpt = text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
+			addRemoval(
+				items,
+				index,
+				excerpt ? `${itemLabel.toLowerCase()} “${excerpt}”` : label.toLowerCase(),
+			);
 			const target = items.length > 1 ? childPath(path, Math.min(index, items.length - 2)) : path;
 			requestAnimationFrame(() => focusField(target));
 		},
-		[addRemoval, path, store],
+		[addRemoval, itemLabel, path, store],
 	);
 
 	return (

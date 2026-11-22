@@ -1,12 +1,4 @@
-import {
-	animate,
-	AnimatePresence,
-	LayoutGroup,
-	motion,
-	Reorder,
-	useIsPresent,
-	useReducedMotion,
-} from "motion/react";
+import { animate, AnimatePresence, LayoutGroup, motion, Reorder, useIsPresent } from "motion/react";
 import {
 	memo,
 	useCallback,
@@ -19,6 +11,7 @@ import {
 	type ComponentType,
 	type ReactNode,
 } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
@@ -112,7 +105,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
 	const full = length >= MAX_COLLECTION_ITEMS;
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const narrow = useMediaQuery(NARROW_QUERY);
 	const issues = useIssuesAt(path);
 	const visible = useDraftSelector((_state, store) =>
@@ -139,48 +132,65 @@ export function CollectionEditor<T extends { id: string }>({
 	// Start sliding in once the router has committed the item, so the pane
 	// arrives with its content.
 	const paneReady = pane === "leaving" || (pane === "entering" && shownId !== undefined);
+	const paneMoving = useRef(false);
 	useLayoutEffect(() => {
 		const detail = detailPanel.current;
 		const panel = listPanel.current;
 		if (!paneReady || !detail || !panel) return;
 		const entering = pane === "entering";
-		if (entering) {
+		// A reversal (Back during the entry, or opening during Back) carries on
+		// from where both panes are now instead of jumping to the start.
+		const resume = paneMoving.current;
+		paneMoving.current = true;
+		const from = <V,>(rest: V, to: V): V | [V, V] => (resume ? to : [rest, to]);
+		if (entering && !resume) {
 			if (reduced) detail.style.opacity = "0";
 			else detail.style.transform = "translateX(100%)";
 		}
-		const clear = () => {
-			for (const element of [detail, panel]) {
-				element.style.transform = "";
-				element.style.opacity = "";
-			}
-		};
-		// Motion commits the final keyframe after the promise settles; clear
-		// the inline styles a frame later so neither pane keeps an offset.
 		let frame = 0;
 		let stopped = false;
 		const controls = reduced
-			? [animate(detail, { opacity: entering ? [0, 1] : [1, 0] }, REDUCED)]
+			? [animate(detail, { opacity: from(entering ? 0 : 1, entering ? 1 : 0) }, REDUCED)]
 			: [
-					animate(detail, { x: entering ? ["100%", "0%"] : ["0%", "100%"] }, SPRING_MOVE),
+					animate(
+						detail,
+						{ x: from(entering ? "100%" : "0%", entering ? "0%" : "100%") },
+						SPRING_MOVE,
+					),
 					animate(
 						panel,
-						entering
-							? { x: ["0%", "-24%"], opacity: [1, 0.6] }
-							: { x: ["-24%", "0%"], opacity: [0.6, 1] },
+						{
+							x: from(entering ? "0%" : "-24%", entering ? "-24%" : "0%"),
+							opacity: from(entering ? 1 : 0.6, entering ? 0.6 : 1),
+						},
 						SPRING_MOVE,
 					),
 				];
+		// Motion commits the final keyframe after the promise settles; clear
+		// the inline styles a frame later so neither pane keeps an offset.
 		void Promise.all(controls).then(() => {
 			if (stopped) return;
-			frame = requestAnimationFrame(() => setPane("idle"));
+			frame = requestAnimationFrame(() => {
+				paneMoving.current = false;
+				clearPaneStyles(detail, panel);
+				setPane("idle");
+			});
 		});
 		return () => {
 			stopped = true;
 			cancelAnimationFrame(frame);
+			// Leave the styles where the motion stopped; the next run resumes from them.
 			for (const control of controls) control.stop();
-			clear();
 		};
 	}, [pane, paneReady, reduced]);
+	// A slide cut short without a reversal, such as removing the open item.
+	useLayoutEffect(() => {
+		const detail = detailPanel.current;
+		const panel = listPanel.current;
+		if (pane !== "idle" || !paneMoving.current) return;
+		paneMoving.current = false;
+		if (detail && panel) clearPaneStyles(detail, panel);
+	}, [pane]);
 
 	const rowButton = useCallback(
 		(id: string | undefined) =>
@@ -244,7 +254,7 @@ export function CollectionEditor<T extends { id: string }>({
 		if (narrow && slide && activeId !== undefined) {
 			leavingId.current = activeId;
 			setPane("leaving");
-		}
+		} else setPane("idle");
 		void select(undefined, undefined, true);
 	}
 
@@ -649,6 +659,13 @@ function CollectionDetailPane(props: ComponentPropsWithRef<typeof motion.div>) {
 
 const NARROW_QUERY = "(max-width: 63.999rem)";
 
+function clearPaneStyles(...elements: HTMLElement[]) {
+	for (const element of elements) {
+		element.style.transform = "";
+		element.style.opacity = "";
+	}
+}
+
 function subscribeMedia(query: string) {
 	return (onChange: () => void) => {
 		const media = window.matchMedia(query);
@@ -718,7 +735,7 @@ function CollectionRow<T extends { id: string }>({
 		return [summary.title, summary.subtitle, ...(summary.chips ?? [])];
 	});
 	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<SortableRow
 			value={rowKey}
