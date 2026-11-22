@@ -166,7 +166,6 @@ function PipelineStatus({
 						<Link
 							to="/cms/release"
 							preload="intent"
-							resetScroll={false}
 							onClick={() => setOpen(false)}
 							className="cms-press cms-chrome-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
 						>
@@ -268,7 +267,6 @@ export function PipelineBar({
 				<Link
 					to="/cms/release"
 					preload="intent"
-					resetScroll={false}
 					aria-label={`Live revision ${publishedRevision}`}
 					className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
 				>
