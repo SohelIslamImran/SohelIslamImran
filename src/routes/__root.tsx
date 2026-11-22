@@ -126,12 +126,23 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
-		let cmsNavigation = false;
-		let cmsTransition: ViewTransition | undefined;
+		let cmsTransition: { view: ViewTransition; skipped: boolean } | undefined;
 		const startRouterTransition = router.startViewTransition;
-		const skipCmsTransition = () => cmsTransition?.skipTransition();
-		const isAbort = (error: unknown) =>
-			error instanceof DOMException && error.name === "AbortError";
+		const skipCmsTransition = () => {
+			if (!cmsTransition) return;
+			cmsTransition.skipped = true;
+			cmsTransition.view.skipTransition();
+		};
+		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
+		const indexOf = (state: unknown) =>
+			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
+				? (state as { __TSR_index: number }).__TSR_index
+				: null;
+		const direction = (fromState: unknown, toState: unknown) => {
+			const from = indexOf(fromState);
+			const to = indexOf(toState);
+			return from !== null && to !== null && to < from ? "back" : "forward";
+		};
 		const onMotionChange = () => {
 			if (reduced.matches) skipCmsTransition();
 		};
@@ -144,48 +155,70 @@ function useRouteViewTransitions() {
 		// transition; that rejects `ready` (and can reject `finished`) with an
 		// AbortError, which is normal cancellation, not a failure.
 		router.startViewTransition = async (update) => {
-			if (!cmsNavigation) return startRouterTransition(update);
-			const requested = router.shouldViewTransition ?? router.options.defaultViewTransition;
+			const from = router.stores.resolvedLocation.get();
+			const to = router.latestLocation;
+			if (!isCmsPath(from?.pathname) || !isCmsPath(to.pathname)) {
+				return startRouterTransition(update);
+			}
+			const requested = router.shouldViewTransition ?? true;
 			router.shouldViewTransition = undefined;
 			// A search-only update (an editor selecting its first item) commits
 			// without a snapshot and leaves a running content fade alone.
-			if (!supported || reduced.matches || !requested) return update();
-			const transition = document.startViewTransition(update);
+			if (!supported || reduced.matches || !requested || from?.pathname === to.pathname) {
+				return update();
+			}
+			root.dataset.routeVt = direction(from?.state, to.state);
+			const view = document.startViewTransition(update);
+			const transition = { view, skipped: false };
 			cmsTransition = transition;
-			void transition.ready.catch(() => {});
-			const finish = () => {
-				if (cmsTransition === transition) cmsTransition = undefined;
+			const reportTransitionError = (error: unknown) => {
+				if (
+					error instanceof DOMException &&
+					(error.name === "AbortError" ||
+						(transition.skipped && error.name === "InvalidStateError"))
+				) {
+					return;
+				}
+				if (import.meta.env.DEV) console.error("CMS view transition failed", error);
 			};
-			void transition.finished.then(finish, finish);
-			await transition.updateCallbackDone.catch((error: unknown) => {
-				if (!isAbort(error)) throw error;
+			void view.ready.catch(reportTransitionError);
+			const finish = () => {
+				if (cmsTransition !== transition) return;
+				cmsTransition = undefined;
+				delete root.dataset.routeVt;
+			};
+			void view.finished.then(finish, (error: unknown) => {
+				finish();
+				reportTransitionError(error);
 			});
+			await view.updateCallbackDone;
 		};
-		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
-		const indexOf = (state: unknown) =>
-			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
-				? (state as { __TSR_index: number }).__TSR_index
-				: null;
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
-			cmsNavigation =
-				isCmsPath(event.fromLocation?.pathname) === true &&
-				isCmsPath(event.toLocation.pathname) === true;
+			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
+				if (event.pathChanged) {
+					skipCmsTransition();
+					window.clearTimeout(clearTimer);
+					if (!cmsTransition) delete root.dataset.routeVt;
+				}
+				return;
+			}
+			skipCmsTransition();
+			cmsTransition = undefined;
 			const animate = supported && !reduced.matches && event.pathChanged;
 			router.options.defaultViewTransition = animate;
-			// Keep the transition styles of a running CMS content fade in place.
-			if (cmsNavigation && !event.pathChanged) return;
 			window.clearTimeout(clearTimer);
 			routeViewTransitionPending = animate;
 			if (animate) {
-				const from = indexOf(event.fromLocation?.state);
-				const to = indexOf(event.toLocation.state);
-				root.dataset.routeVt = from !== null && to !== null && to < from ? "back" : "forward";
+				root.dataset.routeVt = direction(event.fromLocation?.state, event.toLocation.state);
 			} else {
 				delete root.dataset.routeVt;
 			}
 		});
-		const unsubscribeEnd = router.subscribe("onResolved", () => {
+		const unsubscribeEnd = router.subscribe("onResolved", (event) => {
 			routeViewTransitionPending = false;
+			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
+				return;
+			}
 			window.clearTimeout(clearTimer);
 			// The transition's animations run after the router resolves.
 			clearTimer = window.setTimeout(() => delete root.dataset.routeVt, 700);
@@ -197,6 +230,7 @@ function useRouteViewTransitions() {
 			unsubscribeStart();
 			unsubscribeEnd();
 			window.clearTimeout(clearTimer);
+			delete root.dataset.routeVt;
 			router.options.defaultViewTransition = false;
 		};
 	}, [router]);

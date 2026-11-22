@@ -36,7 +36,7 @@ import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export type PipelineStage = "synced" | "dirty" | "saving" | "ahead" | "invalid";
 
-export function usePipelineStage(): {
+function usePipelineStage(publishFailed: boolean): {
 	stage: PipelineStage;
 	label: string;
 } {
@@ -45,7 +45,7 @@ export function usePipelineStage(): {
 			return { stage: "invalid", label: "Conflict" };
 		}
 		if (state.status === "error") {
-			return { stage: "invalid", label: "Save failed" };
+			return { stage: "invalid", label: publishFailed ? "Publish failed" : "Save failed" };
 		}
 		if (state.issues.all.length > 0) {
 			const count = state.issues.all.length;
@@ -123,28 +123,18 @@ function PipelineStatus({
 		>
 			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage} aria-label={label}>
 				<span className="cms-status-content">
-					<AnimatePresence initial={false} mode="wait">
-						<motion.span
-							key={label}
-							className="cms-status-copy"
-							aria-hidden="true"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							transition={{ ...REDUCED, duration: 0.075 }}
-						>
-							{stage === "synced" ? (
-								<CheckCircleIcon />
-							) : stage === "invalid" ? (
-								<AlertTriangleIcon />
-							) : (
-								<span className="cms-status-mark">
-									{stage === "saving" ? "⋯" : stage === "ahead" ? "Δ" : "●"}
-								</span>
-							)}
-							{label}
-						</motion.span>
-					</AnimatePresence>
+					<span key={label} className="cms-status-copy" aria-hidden="true">
+						{stage === "synced" ? (
+							<CheckCircleIcon />
+						) : stage === "invalid" ? (
+							<AlertTriangleIcon />
+						) : (
+							<span className="cms-status-mark">
+								{stage === "saving" ? "⋯" : stage === "ahead" ? "Δ" : "●"}
+							</span>
+						)}
+						{label}
+					</span>
 				</span>
 			</PopoverTrigger>
 			<PopoverContent
@@ -214,15 +204,17 @@ export function PipelineBar({
 	onOpenDrawer,
 	onResolveConflict,
 	onRequestPublish,
+	publishFailed,
 	publishSweepKey,
 }: {
 	onOpenCommandBar: (trigger: HTMLButtonElement) => void;
 	onOpenDrawer: () => void;
 	onResolveConflict: () => void;
 	onRequestPublish: () => void;
+	publishFailed: boolean;
 	publishSweepKey: number;
 }) {
-	const { stage, label } = usePipelineStage();
+	const { stage, label } = usePipelineStage(publishFailed);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
@@ -350,7 +342,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				disabled={!canSave}
 				aria-busy={saving || undefined}
 				data-complete={justSaved || undefined}
-				className="cms-action cms-save-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={() => void store.save()}
 			>
 				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
@@ -361,7 +353,7 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 				disabled={!canPublish}
 				aria-busy={publishing || undefined}
 				data-complete={justPublished || undefined}
-				className="cms-action cms-publish-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				className="cms-action cms-publish-action min-h-11 min-w-[128px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={onRequestPublish}
 			>
 				{justPublished ? <CheckCircleIcon /> : <PublishIcon />}

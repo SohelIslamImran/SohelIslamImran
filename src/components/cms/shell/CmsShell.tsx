@@ -23,7 +23,7 @@ import {
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { animate, motion, useMotionValue } from "motion/react";
+import { animate, motion, spring, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
@@ -33,7 +33,7 @@ import { REDUCED, SPRING_MOVE } from "../motion";
 const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
 
 /** Near-critically damped; physics options so the release velocity carries over. */
-const DRAWER_SPRING = { type: "spring", stiffness: 300, damping: 34 } as const;
+const DRAWER_SPRING = { stiffness: 300, damping: 34 } as const;
 
 /**
  * The active-link pill of one rail region (the scrolling nav, or the pinned
@@ -552,7 +552,15 @@ const UNSAVED = { label: "Unsaved changes", tone: "busy" } as const;
 const AHEAD = { label: "Draft ahead of live", tone: "warn" } as const;
 const LIVE = { label: "Live is up to date", tone: "ok" } as const;
 
-function SessionBanners() {
+function SessionBanners({
+	publishFailed,
+	publishDialogOpen,
+	onRetryPublish,
+}: {
+	publishFailed: boolean;
+	publishDialogOpen: boolean;
+	onRetryPublish: () => void;
+}) {
 	const store = useDraftStore();
 	const authExpired = useDraftSelector((state) => state.authExpired);
 	const status = useDraftSelector((state) => state.status);
@@ -585,6 +593,7 @@ function SessionBanners() {
 	}
 
 	if (status === "error" && error) {
+		if (publishDialogOpen) return null;
 		return (
 			<div
 				role="alert"
@@ -593,15 +602,17 @@ function SessionBanners() {
 			>
 				<span className="flex items-center gap-2">
 					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
-					<span>{error}</span>
+					<span>
+						{publishFailed ? "The draft could not be published. Check your connection." : error}
+					</span>
 				</span>
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={() => void store.save()}
+					onClick={publishFailed ? onRetryPublish : () => void store.save()}
 					className="pointer-coarse:min-h-11"
 				>
-					Retry save
+					{publishFailed ? "Retry publish" : "Retry save"}
 				</Button>
 			</div>
 		);
@@ -632,22 +643,41 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const drawer = useRef<HTMLDivElement>(null);
 	const drawerScrim = useRef<HTMLDivElement>(null);
-	const drawerSettle = useRef<ReturnType<typeof animate> | null>(null);
+	const drawerFrame = useRef(0);
+	const drawerDismissSettling = useRef(false);
 	const drawerActions = useRef<Drawer.Root.Actions>(null);
 	const swipe = useRef<{ x: number; time: number }[]>([]);
-	const release = useRef<{ x: number; velocity: number } | null>(null);
+	const release = useRef<{ x: number; velocity: number; time: number } | null>(null);
 
-	useEffect(() => () => drawerSettle.current?.stop(), []);
-
-	const clearDrawerStyles = () => {
+	const clearDrawerStyles = useCallback(() => {
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
+		drawer.current?.removeAttribute("data-swipe-settling");
 		drawerScrim.current?.style.removeProperty("opacity");
 		drawerScrim.current?.style.removeProperty("transition");
-	};
+	}, []);
+
+	useEffect(() => {
+		const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
+		const onChange = () => {
+			release.current = null;
+			cancelAnimationFrame(drawerFrame.current);
+			clearDrawerStyles();
+			if (drawerDismissSettling.current) {
+				drawerDismissSettling.current = false;
+				drawerActions.current?.unmount();
+			}
+		};
+		preference.addEventListener("change", onChange);
+		return () => {
+			preference.removeEventListener("change", onChange);
+			cancelAnimationFrame(drawerFrame.current);
+		};
+	}, [clearDrawerStyles]);
 
 	const openDrawer = () => {
-		drawerSettle.current?.stop();
+		cancelAnimationFrame(drawerFrame.current);
+		drawerDismissSettling.current = false;
 		clearDrawerStyles();
 		setDrawerOpen(true);
 	};
@@ -657,12 +687,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	 * starting at the finger's speed, so release never jumps or stalls. Used for
 	 * both outcomes: dismissed (to off-screen) and not dismissed (back to 0).
 	 */
-	const settleDrawer = (from: number, to: number, velocity: number, onComplete: () => void) => {
+	const settleDrawer = (
+		{ x: from, velocity, time }: NonNullable<typeof release.current>,
+		to: number,
+		onComplete: () => void,
+	) => {
 		const popup = drawer.current;
 		if (!popup) return;
 		const scrim = drawerScrim.current;
 		const width = popup.offsetWidth;
-		drawerSettle.current?.stop();
+		cancelAnimationFrame(drawerFrame.current);
 		popup.style.transition = "none";
 		if (scrim) scrim.style.transition = "none";
 		const place = (value: number) => {
@@ -670,25 +704,41 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			popup.style.transform = `translateX(${x}px)`;
 			if (scrim) scrim.style.opacity = String(Math.max(0, 1 + x / width));
 		};
-		place(from);
-		drawerSettle.current = animate(from, to, {
-			...DRAWER_SPRING,
-			velocity,
-			onUpdate: place,
-			onComplete,
-		});
+		const trajectory = spring({ ...DRAWER_SPRING, keyframes: [from, to], velocity });
+		const tick = () => {
+			const { value, done } = trajectory.next(performance.now() - time);
+			place(value);
+			if (done) onComplete();
+			else drawerFrame.current = requestAnimationFrame(tick);
+		};
+		// Sample now, then before each paint. The first frame uses elapsed time
+		// since release and the measured velocity, even if Base UI took a beat.
+		tick();
 	};
 
-	const trackSwipe = (event: TouchEvent) => {
-		const touch = event.touches[0];
-		if (!touch) return;
-		if (event.type === "touchstart") swipe.current = [];
-		const samples = swipe.current;
-		samples.push({ x: touch.clientX, time: event.timeStamp });
-		// Velocity over the last ~100ms of movement, not just the last event pair.
-		while (samples.length > 2 && event.timeStamp - (samples[0]?.time ?? 0) > 100) samples.shift();
-		release.current = null;
-	};
+	useEffect(() => {
+		if (!drawerOpen) return;
+		const trackSwipe = (event: globalThis.TouchEvent) => {
+			const touch = event.touches[0];
+			if (!touch || !(event.target instanceof Node) || !drawer.current?.contains(event.target)) {
+				return;
+			}
+			if (event.type === "touchstart") swipe.current = [];
+			const samples = swipe.current;
+			samples.push({ x: touch.clientX, time: event.timeStamp });
+			// Velocity over the last ~100ms of movement, not just the last event pair.
+			while (samples.length > 2 && event.timeStamp - (samples[0]?.time ?? 0) > 100) samples.shift();
+			release.current = null;
+		};
+		// Base UI claims touchmove in document capture. Sample on the window
+		// before it stops propagation to the drawer's React handlers.
+		window.addEventListener("touchstart", trackSwipe, { capture: true, passive: true });
+		window.addEventListener("touchmove", trackSwipe, { capture: true, passive: true });
+		return () => {
+			window.removeEventListener("touchstart", trackSwipe, true);
+			window.removeEventListener("touchmove", trackSwipe, true);
+		};
+	}, [drawerOpen]);
 
 	const finishSwipe = (event: TouchEvent) => {
 		const popup = drawer.current;
@@ -707,7 +757,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			first && last && last.time > first.time && event.timeStamp - last.time < 100
 				? (1000 * (last.x - first.x)) / (last.time - first.time)
 				: 0;
-		const position = { x: popup.getBoundingClientRect().x, velocity };
+		const position = { x: popup.getBoundingClientRect().x, velocity, time: performance.now() };
 		release.current = position;
 		// Hold the drawer where the finger left it while Base UI decides, in this
 		// same touchend, whether the swipe dismisses it (see changeDrawerOpen).
@@ -716,7 +766,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		requestAnimationFrame(() => {
 			if (release.current !== position) return;
 			release.current = null;
-			settleDrawer(position.x, 0, velocity, clearDrawerStyles);
+			settleDrawer(position, 0, clearDrawerStyles);
 		});
 	};
 
@@ -725,9 +775,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		release.current = null;
 		if (!open && details.reason === "swipe" && position && drawer.current) {
 			details.preventUnmountOnClose();
-			settleDrawer(position.x, -drawer.current.offsetWidth, position.velocity, () =>
-				drawerActions.current?.unmount(),
-			);
+			drawerDismissSettling.current = true;
+			drawer.current.setAttribute("data-swipe-settling", "");
+			settleDrawer(position, -drawer.current.offsetWidth, () => {
+				drawerDismissSettling.current = false;
+				drawerActions.current?.unmount();
+			});
 		}
 		setDrawerOpen(open);
 	};
@@ -744,6 +797,18 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		return () => desktop.removeEventListener("change", close);
 	}, [drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+	const [publishFailed, setPublishFailed] = useState(false);
+	useEffect(() => {
+		// Observe the serialized operation before the store replaces its busy
+		// status with the generic error status. This also covers the release gate.
+		let previous = store.getState().status;
+		return store.subscribe(() => {
+			const { status } = store.getState();
+			if (status === previous) return;
+			setPublishFailed(status === "error" && previous === "publishing");
+			previous = status;
+		});
+	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
 	const requestPublish = () => {
@@ -869,9 +934,14 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						onOpenDrawer={openDrawer}
 						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={requestPublish}
+						publishFailed={publishFailed}
 						publishSweepKey={publishSweepKey}
 					/>
-					<SessionBanners />
+					<SessionBanners
+						publishFailed={publishFailed}
+						publishDialogOpen={publishDialogOpen}
+						onRetryPublish={requestPublish}
+					/>
 					<main
 						id="main-content"
 						tabIndex={-1}
@@ -900,8 +970,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 					<Drawer.Viewport className="pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
 						<Drawer.Popup
 							ref={drawer}
-							onTouchStartCapture={trackSwipe}
-							onTouchMoveCapture={trackSwipe}
 							onTouchEndCapture={finishSwipe}
 							onTouchCancelCapture={() => {
 								swipe.current = [];
@@ -942,7 +1010,11 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				onToggleRail={toggleRail}
 			/>
 
-			<PublishConfirmDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen} />
+			<PublishConfirmDialog
+				open={publishDialogOpen}
+				onOpenChange={setPublishDialogOpen}
+				publishFailed={publishFailed}
+			/>
 
 			<ConflictDialog
 				open={conflictOpen}
