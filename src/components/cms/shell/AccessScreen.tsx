@@ -1,4 +1,5 @@
 import { Link } from "@tanstack/react-router";
+import { cn } from "../../../lib/utils";
 import { buttonVariants } from "../../ui/button";
 import { ExternalArrowIcon, LockIcon } from "./cms-icons";
 
@@ -51,11 +52,10 @@ export function AccessScreen({ code }: { code: AccessCode }) {
 						{copy.action}
 					</Link>
 					<a
-						className={buttonVariants({
-							variant: "ghost",
-							size: "default",
-							className: "cms-chrome-control text-foreground",
-						})}
+						className={cn(
+							buttonVariants({ variant: "ghost", size: "default" }),
+							"cms-chrome-control text-foreground",
+						)}
 						href="https://sohelislamimran.com"
 					>
 						Public site <ExternalArrowIcon />
