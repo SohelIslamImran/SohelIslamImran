@@ -652,6 +652,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const clearDrawerStyles = useCallback(() => {
 		drawer.current?.style.removeProperty("transform");
 		drawer.current?.style.removeProperty("transition");
+		drawer.current?.removeAttribute("data-swipe-settling");
 		drawerScrim.current?.style.removeProperty("opacity");
 		drawerScrim.current?.style.removeProperty("transition");
 	}, []);
@@ -715,16 +716,29 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		});
 	};
 
-	const trackSwipe = (event: TouchEvent) => {
-		const touch = event.touches[0];
-		if (!touch) return;
-		if (event.type === "touchstart") swipe.current = [];
-		const samples = swipe.current;
-		samples.push({ x: touch.clientX, time: event.timeStamp });
-		// Velocity over the last ~100ms of movement, not just the last event pair.
-		while (samples.length > 2 && event.timeStamp - (samples[0]?.time ?? 0) > 100) samples.shift();
-		release.current = null;
-	};
+	useEffect(() => {
+		if (!drawerOpen) return;
+		const trackSwipe = (event: globalThis.TouchEvent) => {
+			const touch = event.touches[0];
+			if (!touch || !(event.target instanceof Node) || !drawer.current?.contains(event.target)) {
+				return;
+			}
+			if (event.type === "touchstart") swipe.current = [];
+			const samples = swipe.current;
+			samples.push({ x: touch.clientX, time: event.timeStamp });
+			// Velocity over the last ~100ms of movement, not just the last event pair.
+			while (samples.length > 2 && event.timeStamp - (samples[0]?.time ?? 0) > 100) samples.shift();
+			release.current = null;
+		};
+		// Base UI claims touchmove in document capture. Sample on the window
+		// before it stops propagation to the drawer's React handlers.
+		window.addEventListener("touchstart", trackSwipe, { capture: true, passive: true });
+		window.addEventListener("touchmove", trackSwipe, { capture: true, passive: true });
+		return () => {
+			window.removeEventListener("touchstart", trackSwipe, true);
+			window.removeEventListener("touchmove", trackSwipe, true);
+		};
+	}, [drawerOpen]);
 
 	const finishSwipe = (event: TouchEvent) => {
 		const popup = drawer.current;
@@ -743,7 +757,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			first && last && last.time > first.time && event.timeStamp - last.time < 100
 				? (1000 * (last.x - first.x)) / (last.time - first.time)
 				: 0;
-		const position = { x: popup.getBoundingClientRect().x, velocity, time: event.timeStamp };
+		const position = { x: popup.getBoundingClientRect().x, velocity, time: performance.now() };
 		release.current = position;
 		// Hold the drawer where the finger left it while Base UI decides, in this
 		// same touchend, whether the swipe dismisses it (see changeDrawerOpen).
@@ -762,6 +776,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		if (!open && details.reason === "swipe" && position && drawer.current) {
 			details.preventUnmountOnClose();
 			drawerDismissSettling.current = true;
+			drawer.current.setAttribute("data-swipe-settling", "");
 			settleDrawer(position, -drawer.current.offsetWidth, () => {
 				drawerDismissSettling.current = false;
 				drawerActions.current?.unmount();
@@ -955,8 +970,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 					<Drawer.Viewport className="pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
 						<Drawer.Popup
 							ref={drawer}
-							onTouchStartCapture={trackSwipe}
-							onTouchMoveCapture={trackSwipe}
 							onTouchEndCapture={finishSwipe}
 							onTouchCancelCapture={() => {
 								swipe.current = [];

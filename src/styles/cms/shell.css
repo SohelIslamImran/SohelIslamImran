@@ -9,7 +9,7 @@
 	}
 
 	.cms-command-secondary {
-		color: color-mix(in srgb, var(--theme-muted) 76%, var(--theme-ink));
+		color: color-mix(in srgb, var(--theme-muted) 64%, var(--theme-ink));
 	}
 
 	.cms-layout {
@@ -525,7 +525,16 @@
 		.cms-drawer-popup,
 		.cms-drawer-popup[data-starting-style],
 		.cms-drawer-popup[data-ending-style] {
-			transform: none;
+			/* Base UI writes the drag position inline. */
+			transform: none !important;
+		}
+		.cms-drawer-popup,
+		.cms-drawer-scrim {
+			/* Keep the opacity transition through the site's reduced-motion reset. */
+			transition-duration: 150ms !important;
+		}
+		.cms-drawer-popup[data-swipe-settling] {
+			visibility: hidden;
 		}
 		.cms-drawer-scrim:not([data-starting-style], [data-ending-style]) {
 			opacity: 1;
