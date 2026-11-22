@@ -26,7 +26,7 @@ import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField } from "../fields";
-import { UndoRemoval, editorButton } from "../fields/UndoRemoval";
+import { UndoRemoval, editorButton, useUndoRestoresLive } from "../fields/UndoRemoval";
 import { AddButton, RowMenu } from "../fields/RowControls";
 import {
 	ChevronLeftIcon,
@@ -108,6 +108,8 @@ export function CollectionEditor<T extends { id: string }>({
 	useEffect(() => {
 		if (removal && !removed) setRemoved(null);
 	}, [removal, removed]);
+	const restored = removed && restoreRow(removed.remaining, removed);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
@@ -484,15 +486,17 @@ export function CollectionEditor<T extends { id: string }>({
 						<p className="m-0 mt-1">Try another search.</p>
 					</div>
 				) : null}
-				<RevertList
-					path={path}
-					label={label}
-					onReverted={() => {
-						setRemoved(null);
-						if (item !== undefined) back();
-						else requestAnimationFrame(() => search.current?.focus());
-					}}
-				/>
+				{undoRestoresLive ? null : (
+					<RevertList
+						path={path}
+						label={label}
+						onReverted={() => {
+							setRemoved(null);
+							if (item !== undefined) back();
+							else requestAnimationFrame(() => search.current?.focus());
+						}}
+					/>
+				)}
 			</section>
 			<div
 				ref={detailPanel}
@@ -600,11 +604,7 @@ export function CollectionEditor<T extends { id: string }>({
 				</AnimatePresence>
 			</div>
 			<UndoRemoval
-				removal={
-					removed
-						? { label: removed.label, canUndo: !full && !rowIds.includes(removed.row.id) }
-						: null
-				}
+				removal={removed ? { label: removed.label, canUndo: restored !== null } : null}
 				onDismiss={() => {
 					setRemoved(null);
 					requestAnimationFrame(() => search.current?.focus({ preventScroll: true }));

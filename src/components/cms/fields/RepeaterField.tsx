@@ -7,7 +7,7 @@ import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../dr
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
-import { UndoRemoval } from "./UndoRemoval";
+import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
 import { ChevronRightIcon } from "./field-icons";
 import {
 	duplicateRow,
@@ -55,6 +55,8 @@ export function RepeaterField<T extends object>({
 	useEffect(() => {
 		if (removal && !removed) setRemoved(null);
 	}, [removal, removed]);
+	const restored = removed && restoreRow(removed.remaining, removed, max);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const duplicates = duplicateIds(keys.map((id) => ({ id })));
 
 	// Assign the same initial keys in SSR and hydration. Move them with rows
@@ -131,10 +133,14 @@ export function RepeaterField<T extends object>({
 			asGroup
 			issues={issues}
 			changed={changed}
-			onRevert={() => {
-				setRemoved(null);
-				store.revertAt(path);
-			}}
+			onRevert={
+				undoRestoresLive
+					? undefined
+					: () => {
+							setRemoved(null);
+							store.revertAt(path);
+						}
+			}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
 					{keys.length}/{max}
@@ -195,8 +201,7 @@ export function RepeaterField<T extends object>({
 					removed
 						? {
 								label: removed.label,
-								canUndo:
-									keys.length < max && (!rowId(removed.row) || !keys.includes(rowId(removed.row))),
+								canUndo: restored !== null,
 							}
 						: null
 				}

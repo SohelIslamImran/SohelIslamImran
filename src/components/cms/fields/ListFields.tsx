@@ -13,7 +13,7 @@ import {
 import { childPath, insertItem, moveItem, removeItem } from "../draft/paths";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { SortableRow } from "./SortableRow";
-import { UndoRemoval } from "./UndoRemoval";
+import { UndoRemoval, useUndoRestoresLive } from "./UndoRemoval";
 import { Counter } from "./TextFields";
 import {
 	FieldFrame,
@@ -77,6 +77,8 @@ export function TagsField({
 	const [limitReached, setLimitReached] = useState(false);
 	const [armed, setArmed] = useState(false);
 	const [removal, setRemoval] = usePendingRemoval(tags);
+	const restored = removal && restoreRow(tags, removal, max, sameTag);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const chips = useRef<HTMLUListElement>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const composing = useRef(false);
@@ -113,7 +115,7 @@ export function TagsField({
 			description={description}
 			issues={nested}
 			changed={field.changed}
-			onRevert={field.revert}
+			onRevert={undoRestoresLive ? undefined : field.revert}
 			meta={
 				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
 					{tags.length}/{max}
@@ -232,14 +234,15 @@ export function TagsField({
 					removal
 						? {
 								label: removal.label,
-								canUndo: tags.length < max && !tags.some((tag) => sameTag(tag, removal.row)),
+								canUndo: restored !== null,
 							}
 						: null
 				}
-				onDismiss={() => setRemoval(null)}
+				onDismiss={() => {
+					setRemoval(null);
+					input.current?.focus({ preventScroll: true });
+				}}
 				onUndo={() => {
-					if (!removal) return;
-					const restored = restoreRow(tags, removal, max, sameTag);
 					if (!restored) return;
 					field.set(restored);
 					setRemoval(null);
@@ -310,6 +313,8 @@ export function StringListField({
 		(_state, store) => (store.valueAt(path) as string[] | undefined) ?? EMPTY,
 	);
 	const [removal, setRemoval] = usePendingRemoval(rows);
+	const restored = removal && restoreRow(rows, removal, max, neverSame);
+	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const nextKey = useRef(0);
 	const keys = useRef<number[]>([]);
 	keys.current = Array.from(
@@ -355,10 +360,14 @@ export function StringListField({
 			description={description}
 			issues={issues}
 			changed={changed}
-			onRevert={() => {
-				setRemoval(null);
-				store.revertAt(path);
-			}}
+			onRevert={
+				undoRestoresLive
+					? undefined
+					: () => {
+							setRemoval(null);
+							store.revertAt(path);
+						}
+			}
 			asGroup
 			meta={
 				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -414,8 +423,11 @@ export function StringListField({
 				</AddButton>
 			</div>
 			<UndoRemoval
-				removal={removal ? { label: removal.label, canUndo: rows.length < max } : null}
-				onDismiss={() => setRemoval(null)}
+				removal={removal ? { label: removal.label, canUndo: restored !== null } : null}
+				onDismiss={() => {
+					setRemoval(null);
+					focusField(path);
+				}}
 				onUndo={() => {
 					const current = (store.valueAt(path) as string[] | undefined) ?? EMPTY;
 					if (!removal || !pendingRowRemoval(current, removal)) return;
