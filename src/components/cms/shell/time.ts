@@ -5,9 +5,22 @@
  */
 import { useEffect, useState } from "react";
 
+const ZONELESS_TIMESTAMP = /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$/u;
+
+/**
+ * Milliseconds for a CMS timestamp. D1's `CURRENT_TIMESTAMP` stores UTC
+ * without a zone (`2026-11-22 11:17:00`), which `Date.parse` would read in the
+ * runtime's local zone, so the Worker and the browser disagree. Treat
+ * zone-less values as UTC.
+ */
+export function parseCmsTimestamp(value: string): number {
+	const trimmed = value.trim();
+	return Date.parse(ZONELESS_TIMESTAMP.test(trimmed) ? `${trimmed.replace(" ", "T")}Z` : trimmed);
+}
+
 export function formatRelativeFromNow(iso: string | null | undefined, nowMs: number): string {
 	if (!iso) return "";
-	const timestamp = Date.parse(iso);
+	const timestamp = parseCmsTimestamp(iso);
 	if (!Number.isFinite(timestamp)) return "";
 	const diffSeconds = Math.max(0, Math.floor((nowMs - timestamp) / 1000));
 	if (diffSeconds < 5) return "just now";
@@ -46,7 +59,7 @@ export function useRelativeTime(
 /** Deterministic UTC timestamp string safe for SSR & tooltips. */
 export function formatUtcTimestamp(iso: string | null | undefined): string {
 	if (!iso) return "—";
-	const date = new Date(iso);
+	const date = new Date(parseCmsTimestamp(iso));
 	if (Number.isNaN(date.getTime())) return iso;
 	const y = date.getUTCFullYear();
 	const mo = String(date.getUTCMonth() + 1).padStart(2, "0");
