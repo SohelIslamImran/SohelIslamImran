@@ -149,6 +149,15 @@ export function AlertTriangleIcon(props: IconProps) {
 	);
 }
 
+export function LockIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<rect x="4.5" y="8.5" width="11" height="8" rx="2" />
+			<path d="M7 8.5V6a3 3 0 0 1 6 0v2.5M10 12v1.5" />
+		</Icon>
+	);
+}
+
 export function PublishIcon(props: IconProps) {
 	return (
 		<Icon {...props}>

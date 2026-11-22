@@ -9,13 +9,15 @@
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
  */
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { Dialog } from "@base-ui/react/dialog";
+import { Drawer } from "@base-ui/react/drawer";
+import { Tooltip } from "@base-ui/react/tooltip";
 import { Link, useRouterState } from "@tanstack/react-router";
-import { motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
 import {
 	ActivityIcon,
@@ -92,7 +94,9 @@ function RailLink({
 	label,
 	badge,
 	compactBadge,
+	badgeLabel,
 	active,
+	pending,
 	layoutScope,
 	onNavigate,
 }: {
@@ -102,53 +106,74 @@ function RailLink({
 	label: string;
 	badge?: ReactNode;
 	compactBadge?: ReactNode;
+	badgeLabel?: string;
 	active: boolean;
+	pending?: boolean;
 	layoutScope: "desktop" | "drawer";
 	onNavigate?: () => void;
 }) {
+	const reduce = useReducedMotion();
 	return (
-		<Link
-			to={to}
-			params={params}
-			activeOptions={{ exact: to === "/cms" }}
-			title={label}
-			aria-label={label}
-			onClick={onNavigate}
-			className={cn(
-				"cms-rail-link group/rail relative flex min-h-9 items-center justify-between gap-2 rounded-[10px] px-2.5 text-[13.5px] no-underline transition-colors duration-150 pointer-coarse:min-h-11",
-				active
-					? "font-medium text-foreground"
-					: "text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground",
-			)}
-		>
-			{active ? (
-				<motion.span
-					layoutId={`cms-rail-active-${layoutScope}`}
-					aria-hidden="true"
-					transition={{ type: "spring", duration: 0.28, bounce: 0 }}
-					className="pointer-events-none absolute inset-0 rounded-[10px] border border-line bg-surface-solid shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]"
-				>
-					<span className="absolute top-2 bottom-2 left-0 w-[2.5px] rounded-r-full bg-primary" />
-				</motion.span>
-			) : null}
-			<span className="relative z-[1] flex min-w-0 items-center gap-2.5">
-				<span
-					className={cn(
-						"shrink-0 transition-colors duration-150",
-						active ? "text-primary-text" : "text-muted-foreground group-hover/rail:text-foreground",
-					)}
-				>
+		<Tooltip.Root disabled={layoutScope === "drawer"}>
+			<Tooltip.Trigger
+				render={
+					<Link
+						to={to}
+						params={params}
+						preload="intent"
+						resetScroll={false}
+						activeOptions={{ exact: to === "/cms", includeSearch: false }}
+						activeProps={{ "aria-current": active ? "page" : undefined }}
+						aria-current={active ? "page" : undefined}
+						aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
+						aria-busy={pending || undefined}
+						data-pending={pending || undefined}
+						onClick={(event) => {
+							if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+								onNavigate?.();
+							}
+						}}
+						className="cms-rail-link cms-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
+					/>
+				}
+			>
+				{active ? (
+					<motion.span
+						layoutId={reduce ? undefined : `cms-rail-active-${layoutScope}`}
+						initial={reduce ? { opacity: 0 } : false}
+						animate={{ opacity: 1 }}
+						transition={reduce ? REDUCED : SPRING_MOVE}
+						aria-hidden="true"
+						className="cms-rail-pill pointer-events-none absolute inset-0 rounded-[10px]"
+						style={{ borderRadius: 10 }}
+					/>
+				) : null}
+				<span className="cms-rail-icon relative z-[1] grid size-4 shrink-0 place-items-center">
 					{icon}
 				</span>
-				<span className="cms-rail-label truncate">{label}</span>
-			</span>
-			{badge ? <span className="cms-rail-badge-full relative z-[1] shrink-0">{badge}</span> : null}
-			{compactBadge ? (
-				<span className="cms-rail-badge-dot pointer-events-none absolute top-1 right-1 z-[1] hidden">
-					{compactBadge}
-				</span>
-			) : null}
-		</Link>
+				<span className="cms-rail-label relative z-[1] ml-2.5 whitespace-nowrap">{label}</span>
+				{badge ? <span className="cms-rail-badge-full absolute right-2 z-[1]">{badge}</span> : null}
+				{compactBadge ? (
+					<span className="cms-rail-badge-dot pointer-events-none absolute top-1 right-1 z-[1]">
+						{compactBadge}
+					</span>
+				) : null}
+			</Tooltip.Trigger>
+			<Tooltip.Portal>
+				<Tooltip.Positioner
+					side="right"
+					sideOffset={12}
+					className="cms-rail-tooltip z-(--z-palette)"
+				>
+					<Tooltip.Popup
+						role="tooltip"
+						className="rounded-lg border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-float"
+					>
+						{label}
+					</Tooltip.Popup>
+				</Tooltip.Positioner>
+			</Tooltip.Portal>
+		</Tooltip.Root>
 	);
 }
 
@@ -167,6 +192,7 @@ function SectionRailItem({
 	label,
 	paths,
 	active,
+	pending,
 	layoutScope,
 	onNavigate,
 }: {
@@ -174,6 +200,7 @@ function SectionRailItem({
 	label: string;
 	paths: readonly string[];
 	active: boolean;
+	pending: boolean;
 	layoutScope: "desktop" | "drawer";
 	onNavigate?: () => void;
 }) {
@@ -181,7 +208,9 @@ function SectionRailItem({
 	const badge = errors ? (
 		<span className="inline-flex items-center gap-0.5 rounded-full border border-dashed border-destructive/45 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-destructive">
 			<span aria-hidden="true">!</span>
-			{errors}
+			<span key={errors} className="cms-count-tick tabular-nums">
+				{errors}
+			</span>
 			<span className="sr-only"> errors</span>
 		</span>
 	) : changed ? (
@@ -216,6 +245,14 @@ function SectionRailItem({
 			badge={badge}
 			compactBadge={compactBadge}
 			active={active}
+			pending={pending}
+			badgeLabel={
+				errors
+					? `${errors} validation ${errors === 1 ? "issue" : "issues"}`
+					: changed
+						? "Draft changed"
+						: undefined
+			}
 			layoutScope={layoutScope}
 			onNavigate={onNavigate}
 		/>
@@ -234,7 +271,9 @@ function ChangesRailBadge() {
 	return (
 		<span className="inline-flex items-center gap-0.5 rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text tabular-nums">
 			<span aria-hidden="true">Δ</span>
-			{changedCount}
+			<span key={changedCount} className="cms-count-tick">
+				{changedCount}
+			</span>
 			<span className="sr-only"> sections changed</span>
 		</span>
 	);
@@ -255,7 +294,7 @@ function ChangesCompactBadge() {
 
 function RailHeading({ children }: { children: ReactNode }) {
 	return (
-		<p className="cms-rail-heading mono-label m-0 mt-3.5 mb-1 px-2.5 text-[10px] text-muted-foreground">
+		<p className="cms-rail-heading m-0 mt-3 flex h-5 items-center px-3 text-[11px] font-medium text-muted-foreground">
 			{children}
 		</p>
 	);
@@ -274,8 +313,11 @@ function LayerRailContent({
 	onToggleRail?: () => void;
 	onNavigate?: () => void;
 }) {
-	const pathname = useRouterState({ select: (state) => state.location.pathname });
-	const normalized = pathname.replace(/\/+$/u, "") || "/";
+	const pathname = useCommittedPathname();
+	const pendingPath = useRouterState({
+		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
+	});
+	const normalized = pathname;
 
 	const isPathActive = (to: string) => {
 		if (to === "/cms") return normalized === "/cms" || normalized === "/";
@@ -283,51 +325,44 @@ function LayerRailContent({
 		return normalized === to || normalized === stripped;
 	};
 
-	const isSectionActive = (sectionId: string) =>
-		normalized === `/cms/content/${sectionId}` || normalized === `/content/${sectionId}`;
+	const isPending = (to: string) =>
+		!isPathActive(to) && (pendingPath === to || pendingPath === to.replace(/^\/cms/u, ""));
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
-			{/* Top brand + collapse toggle + live pulse slot */}
-			<div className="cms-rail-header grid shrink-0 gap-2.5 px-2.5 pt-3 pb-2.5">
-				<div className="cms-rail-top-row flex min-h-9 items-center justify-between gap-2">
-					<Link
-						to="/cms"
-						onClick={onNavigate}
-						className="flex min-w-0 items-center gap-2 text-foreground no-underline"
-					>
+			<div className="cms-rail-header grid shrink-0 grid-cols-1 gap-2 px-2 pt-3 pb-1">
+				<div className="cms-rail-top-row relative flex min-h-11 min-w-0 items-center pl-1.5">
+					<span className="cms-rail-brand flex items-center gap-2.5 whitespace-nowrap">
 						<span
 							aria-hidden="true"
-							className="grid size-7 shrink-0 place-items-center rounded-[9px] border border-primary-line bg-primary-soft font-mono text-[11px] font-semibold tracking-tight text-primary-text"
+							className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-primary-line bg-primary-soft font-mono text-[11px] font-semibold text-primary-text"
 						>
 							SI
 						</span>
-						<span className="cms-rail-brand-text min-w-0">
-							<span className="mono-label block truncate text-[10.5px] text-foreground">
-								Control plane
-							</span>
-							<span className="block truncate font-mono text-[10px] text-muted-foreground">
-								Trace CMS
-							</span>
-						</span>
-					</Link>
+						<span className="text-[14px] font-semibold tracking-[-0.02em]">Control plane</span>
+					</span>
 					{onToggleRail ? (
 						<button
 							type="button"
 							onClick={onToggleRail}
 							title={collapsed ? "Expand sidebar ([)" : "Collapse sidebar ([)"}
 							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-							className="pressable grid size-8 shrink-0 place-items-center rounded-[8px] text-muted-foreground transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
+							aria-expanded={!collapsed}
+							className="cms-rail-toggle cms-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
 						>
 							<SidebarToggleIcon collapsed={collapsed} />
 						</button>
 					) : null}
 				</div>
-				{pulseSlot ?? <RailPulseSlot />}
+				{pulseSlot ?? <RailPulseSlot onNavigate={onNavigate} />}
 			</div>
 
 			{/* Scrollable middle sections */}
-			<nav aria-label="CMS" className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+			<motion.nav
+				layoutScroll
+				aria-label="CMS"
+				className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+			>
 				<RailHeading>Signals</RailHeading>
 				<div className="grid gap-0.5">
 					{CMS_NAV.signals.map((item) => (
@@ -337,6 +372,7 @@ function LayerRailContent({
 							icon={<NavIconFor to={item.to} />}
 							label={item.label}
 							active={isPathActive(item.to)}
+							pending={isPending(item.to)}
 							layoutScope={layoutScope}
 							onNavigate={onNavigate}
 						/>
@@ -352,7 +388,8 @@ function LayerRailContent({
 								id={section.id}
 								label={section.label}
 								paths={section.paths}
-								active={isSectionActive(section.id)}
+								active={isPathActive(`/cms/content/${section.id}`)}
+								pending={isPending(`/cms/content/${section.id}`)}
 								layoutScope={layoutScope}
 								onNavigate={onNavigate}
 							/>
@@ -369,18 +406,17 @@ function LayerRailContent({
 							icon={<NavIconFor to={item.to} />}
 							label={item.label}
 							active={isPathActive(item.to)}
+							pending={isPending(item.to)}
 							layoutScope={layoutScope}
 							onNavigate={onNavigate}
 						/>
 					))}
 				</div>
-			</nav>
+			</motion.nav>
 
 			{/* Bottom pinned Release zone + Appearance & Live site */}
-			<div className="shrink-0 border-t border-line bg-[color-mix(in_srgb,var(--theme-ink)_1.5%,transparent)] px-2 pt-2 pb-2.5">
-				<p className="cms-rail-heading mono-label m-0 mb-1 px-2.5 text-[10px] text-muted-foreground">
-					Release
-				</p>
+			<div className="cms-rail-footer shrink-0 border-t border-line px-2 pb-2.5">
+				<RailHeading>Release</RailHeading>
 				<div className="grid gap-0.5">
 					{CMS_NAV.release.map((item) => (
 						<RailLink
@@ -391,6 +427,7 @@ function LayerRailContent({
 							badge={item.to === "/cms/release" ? <ChangesRailBadge /> : undefined}
 							compactBadge={item.to === "/cms/release" ? <ChangesCompactBadge /> : undefined}
 							active={isPathActive(item.to)}
+							pending={isPending(item.to)}
 							layoutScope={layoutScope}
 							onNavigate={onNavigate}
 						/>
@@ -398,17 +435,17 @@ function LayerRailContent({
 				</div>
 
 				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2">
-					<AccentSwitcher className="size-9 pointer-coarse:size-11" />
+					<AccentSwitcher className="cms-rail-appearance size-9 pointer-coarse:size-11" />
 					<a
 						href={PUBLIC_SITE_ORIGIN}
 						target="_blank"
 						rel="noreferrer"
 						title="Open live site"
 						aria-label="Open live site"
-						className="pressable inline-flex min-h-9 items-center gap-1.5 rounded-full border border-line bg-surface-solid px-2.5 font-mono text-[11px] text-ink-soft no-underline transition-colors duration-150 hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-rail-live cms-press cms-control inline-flex min-h-9 items-center gap-1.5 rounded-[10px] px-3 text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
-						<span className="cms-rail-footer-label">Live site</span>
 						<ExternalArrowIcon className="size-3.5" />
+						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
 					</a>
 				</div>
 			</div>
@@ -497,9 +534,23 @@ function SessionBanners() {
 	return null;
 }
 
+export function useCommittedPathname() {
+	return useRouterState({
+		select: (state) => state.matches.at(-1)?.pathname.replace(/\/+$/u, "") || "/",
+	});
+}
+
 export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSlot?: ReactNode }) {
 	const store = useDraftStore();
 	const [railMode, setRailMode] = useState<RailMode>("auto");
+	const [wide, setWide] = useState(false);
+	useEffect(() => {
+		const query = window.matchMedia("(min-width: 1280px)");
+		const sync = () => setWide(query.matches);
+		sync();
+		query.addEventListener("change", sync);
+		return () => query.removeEventListener("change", sync);
+	}, []);
 	const [commandOpen, setCommandOpen] = useState(false);
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	// The drawer is hidden by CSS at `lg`, but an open Base UI dialog would
@@ -515,12 +566,16 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		return () => desktop.removeEventListener("change", close);
 	}, [drawerOpen]);
 	const [publishDialogOpen, setPublishDialogOpen] = useState(false);
+	const conflict = useDraftSelector((state) => state.conflict);
+	const [dismissedConflict, setDismissedConflict] = useState<typeof conflict>(null);
+	const conflictOpen = conflict !== null && dismissedConflict !== conflict;
 	const [publishSweepKey, setPublishSweepKey] = useState(0);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const prevPublishedRev = useRef(publishedRevision);
 	const mobileActionVisible = useDraftSelector(
 		(state) =>
 			state.dirty ||
+			state.ahead ||
 			state.issues.all.length > 0 ||
 			state.status === "saving" ||
 			state.status === "publishing",
@@ -552,6 +607,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			const key = event.key.toLowerCase();
 			if (key === "k" && (event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey) {
 				event.preventDefault();
+				if (drawerOpen || publishDialogOpen || conflictOpen) return;
 				setCommandOpen((open) => !open);
 				return;
 			}
@@ -570,6 +626,8 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				!event.altKey &&
 				!commandOpen &&
 				!drawerOpen &&
+				!publishDialogOpen &&
+				!conflictOpen &&
 				!isEditableTarget(event.target)
 			) {
 				event.preventDefault();
@@ -578,9 +636,9 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [commandOpen, drawerOpen, store, toggleRail]);
+	}, [commandOpen, conflictOpen, drawerOpen, publishDialogOpen, store, toggleRail]);
 
-	const isExplicitlyCollapsed = railMode === "collapsed";
+	const collapsed = railMode === "collapsed" || (railMode === "auto" && !wide);
 
 	return (
 		<div className="cms-root min-h-svh">
@@ -594,20 +652,23 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			<div data-slot="cms-layout" data-rail={railMode} className="cms-layout">
 				<aside
 					aria-label="Workspace navigation"
-					className="cms-rail-desktop sticky top-0 h-svh flex-col border-r border-line bg-[color-mix(in_srgb,var(--theme-surface-solid)_55%,var(--theme-paper))]"
+					className="cms-rail-desktop sticky top-0 h-dvh min-h-0 min-w-0 flex-col border-r border-line"
 				>
-					<LayerRailContent
-						layoutScope="desktop"
-						pulseSlot={pulseSlot}
-						collapsed={isExplicitlyCollapsed}
-						onToggleRail={toggleRail}
-					/>
+					<Tooltip.Provider delay={450} closeDelay={0}>
+						<LayerRailContent
+							layoutScope="desktop"
+							pulseSlot={pulseSlot}
+							collapsed={collapsed}
+							onToggleRail={toggleRail}
+						/>
+					</Tooltip.Provider>
 				</aside>
 
 				<div className="flex min-w-0 flex-col">
 					<PipelineBar
 						onOpenCommandBar={() => setCommandOpen(true)}
 						onOpenDrawer={() => setDrawerOpen(true)}
+						onResolveConflict={() => setDismissedConflict(null)}
 						onRequestPublish={() => setPublishDialogOpen(true)}
 						publishSweepKey={publishSweepKey}
 					/>
@@ -626,33 +687,35 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			</div>
 
 			{/* Phone & tablet navigation drawer */}
-			<Dialog.Root open={drawerOpen} onOpenChange={setDrawerOpen}>
-				<Dialog.Portal>
-					<Dialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.35)] dark:bg-[rgb(0_0_0/0.6)] lg:hidden" />
-					<Dialog.Popup
-						data-slot="cms-mobile-drawer"
-						className="cms-drawer-popup cms-glass fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
-					>
-						<Dialog.Title className="sr-only">Control plane navigation</Dialog.Title>
-						<Dialog.Description className="sr-only">
-							Navigate CMS signals, content sections, assets, and release tools.
-						</Dialog.Description>
-						<div className="absolute top-3 right-3 z-10">
-							<Dialog.Close
-								aria-label="Close navigation menu"
-								className="pressable grid size-11 place-items-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
-							>
-								<CloseIcon className="size-4" />
-							</Dialog.Close>
-						</div>
-						<LayerRailContent
-							layoutScope="drawer"
-							pulseSlot={pulseSlot}
-							onNavigate={() => setDrawerOpen(false)}
-						/>
-					</Dialog.Popup>
-				</Dialog.Portal>
-			</Dialog.Root>
+			<Drawer.Root open={drawerOpen} onOpenChange={setDrawerOpen} swipeDirection="left">
+				<Drawer.Portal>
+					<Drawer.Backdrop className="cms-backdrop cms-drawer-scrim fixed inset-0 z-(--z-palette) lg:hidden" />
+					<Drawer.Viewport className="pointer-events-none fixed inset-0 z-(--z-palette) lg:hidden">
+						<Drawer.Popup
+							data-slot="cms-mobile-drawer"
+							className="cms-drawer-popup cms-overlay cms-glass pointer-events-auto fixed inset-y-0 left-0 z-(--z-palette) flex w-[min(288px,86vw)] flex-col border-r pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] text-foreground outline-hidden lg:hidden"
+						>
+							<Drawer.Title className="sr-only">Control plane navigation</Drawer.Title>
+							<Drawer.Description className="sr-only">
+								Navigate CMS signals, content sections, assets, and release tools.
+							</Drawer.Description>
+							<div className="absolute top-[calc(12px+env(safe-area-inset-top))] right-3 z-10">
+								<Drawer.Close
+									aria-label="Close navigation menu"
+									className="cms-press cms-control grid size-11 place-items-center rounded-full text-muted-foreground"
+								>
+									<CloseIcon className="size-4" />
+								</Drawer.Close>
+							</div>
+							<LayerRailContent
+								layoutScope="drawer"
+								pulseSlot={pulseSlot}
+								onNavigate={() => setDrawerOpen(false)}
+							/>
+						</Drawer.Popup>
+					</Drawer.Viewport>
+				</Drawer.Portal>
+			</Drawer.Root>
 
 			<MobileActionBar onRequestPublish={() => setPublishDialogOpen(true)} />
 
@@ -665,7 +728,10 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 
 			<PublishConfirmDialog open={publishDialogOpen} onOpenChange={setPublishDialogOpen} />
 
-			<ConflictDialog />
+			<ConflictDialog
+				open={conflictOpen}
+				onOpenChange={(next) => setDismissedConflict(next ? null : conflict)}
+			/>
 		</div>
 	);
 }

@@ -1,4 +1,596 @@
-/* CMS shell styles. Owned by the shell workstream; see docs/cms/DESIGN.md. */
+/* CMS workspace chrome and transitions. See docs/cms/DESIGN.md. */
 
 @layer components {
+	.cms-overlay {
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
+	}
+
+	.cms-layout {
+		--cms-rail-width: 232px;
+		--cms-rail-collapsed: 64px;
+		min-height: 100dvh;
+	}
+
+	html:has(.cms-layout) {
+		overflow-anchor: none;
+		scroll-padding-top: calc(56px + env(safe-area-inset-top));
+	}
+
+	.cms-root :is(.cms-control, .cms-status-pill, .cms-action):focus-visible,
+	.cms-overlay :is(a, button):focus-visible {
+		outline: 2px solid var(--theme-accent);
+		outline-offset: 2px;
+		box-shadow: var(--cms-ring);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-control:hover {
+			background-color: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+			color: var(--theme-ink);
+		}
+	}
+
+	.cms-rail-desktop {
+		background: color-mix(in srgb, var(--theme-surface-solid) 58%, var(--theme-paper));
+	}
+
+	.cms-rail-scroll {
+		overflow-x: clip;
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--theme-ink) 18%, transparent) transparent;
+		overscroll-behavior: contain;
+	}
+
+	.cms-rail-footer {
+		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
+	}
+
+	.cms-rail-footer > .cms-rail-heading {
+		margin-top: 5px;
+	}
+
+	.cms-rail-link {
+		min-width: 0;
+	}
+
+	.cms-rail-link:focus-visible,
+	.cms-rail-pulse:focus-visible {
+		outline-offset: -2px;
+	}
+
+	.cms-rail-link[aria-current="page"],
+	.cms-rail-link[data-pending] {
+		color: var(--theme-ink);
+		font-weight: 550;
+	}
+
+	.cms-rail-pill,
+	.cms-command-highlight {
+		background: color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface-solid));
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 17%, var(--theme-line));
+	}
+
+	.cms-rail-link[data-pending]::before {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--theme-accent) 8%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 26%, transparent);
+		content: "";
+	}
+
+	.cms-rail-link[data-pending] .cms-rail-icon,
+	.cms-rail-link[aria-current="page"] .cms-rail-icon {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-rail-link[data-pending] .cms-rail-icon::after {
+		position: absolute;
+		inset: -4px;
+		border: 1px dashed currentColor;
+		border-radius: 7px;
+		content: "";
+	}
+
+	.cms-rail-icon {
+		color: var(--theme-ink-soft);
+	}
+
+	.cms-rail-pulse {
+		margin-inline: 1px;
+		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
+	}
+
+	.cms-count-tick {
+		display: inline-block;
+		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	.cms-live-pulse {
+		animation: cms-live-breathe 2.4s ease-out infinite;
+	}
+
+	.cms-rail-tooltip {
+		display: none;
+	}
+
+	.cms-drawer-popup .cms-rail-badge-dot {
+		display: none;
+	}
+
+	@media (min-width: 1024px) {
+		.cms-layout {
+			transition: grid-template-columns var(--cms-dur-slow) var(--cms-ease-out);
+		}
+
+		.cms-rail-desktop {
+			--rail-opacity: 1;
+			--rail-offset: 0px;
+			--rail-badge-opacity: 0;
+			overflow: clip;
+		}
+
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-heading,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full
+			) {
+			display: block;
+			opacity: var(--rail-opacity);
+			white-space: nowrap;
+			translate: var(--rail-offset) 0;
+			transition:
+				opacity var(--cms-dur-fast) var(--cms-ease-out),
+				translate var(--cms-dur-base) var(--cms-ease-out);
+		}
+
+		.cms-rail-desktop .cms-rail-brand {
+			display: flex;
+			pointer-events: none;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-badge-dot {
+			display: block;
+			opacity: var(--rail-badge-opacity);
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-top-row {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-header {
+			padding-inline: 8px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-link {
+			justify-content: flex-start;
+			padding-inline: 12px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-pulse {
+			justify-content: flex-start;
+			padding-inline: 14px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-footer-row {
+			position: relative;
+			display: flex;
+			min-height: calc(2 * var(--rail-footer-target) + 8px);
+			padding-top: 6px;
+			justify-content: flex-start;
+			align-items: flex-start;
+			--rail-footer-target: 36px;
+		}
+
+		.cms-rail-desktop .cms-rail-appearance {
+			margin-inline-start: 2px;
+		}
+
+		.cms-rail-desktop .cms-rail-live {
+			position: absolute;
+			top: calc(var(--rail-footer-target) + 6px);
+			left: 0;
+		}
+
+		.cms-rail-desktop .cms-rail-toggle {
+			right: 14px;
+		}
+
+		.cms-rail-desktop .cms-rail-brand {
+			max-width: calc(100% - 48px);
+			overflow: clip;
+		}
+
+		.cms-layout[data-rail="collapsed"] .cms-rail-desktop {
+			--rail-opacity: 0;
+			--rail-offset: -4px;
+			--rail-badge-opacity: 1;
+		}
+
+		body:has(.cms-layout[data-rail="collapsed"]) .cms-rail-tooltip {
+			display: block;
+		}
+	}
+	@media (1024px <= width < 1280px) {
+		.cms-layout[data-rail="auto"] .cms-rail-desktop {
+			--rail-opacity: 0;
+			--rail-offset: -4px;
+			--rail-badge-opacity: 1;
+		}
+
+		body:has(.cms-layout[data-rail="auto"]) .cms-rail-tooltip {
+			display: block;
+		}
+	}
+	@media (min-width: 1024px) and (pointer: coarse) {
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-footer-row {
+			--rail-footer-target: 44px;
+		}
+
+		.cms-rail-desktop .cms-rail-toggle {
+			right: 0;
+		}
+	}
+
+	.cms-topbar {
+		background: var(--theme-paper);
+		backdrop-filter: none;
+		box-shadow: none;
+	}
+
+	.cms-topbar[data-scrolled="true"] {
+		background: color-mix(in srgb, var(--theme-surface-solid) 86%, transparent);
+		backdrop-filter: blur(20px) saturate(155%);
+	}
+
+	.cms-pipeline-connector {
+		display: block;
+		width: clamp(10px, 1.65vw, 26px);
+		height: 1px;
+		background: var(--theme-line);
+	}
+
+	@media (max-width: 639px) {
+		.cms-pipeline-connector {
+			width: 10px;
+		}
+		.cms-pipeline {
+			gap: 4px;
+		}
+	}
+
+	.cms-status-pill {
+		--status-fill: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-paper));
+		--status-ink: var(--theme-ink);
+		--status-line: var(--theme-line);
+		position: relative;
+		isolation: isolate;
+		min-height: 30px;
+		padding-inline: 10px;
+		border-radius: 24px;
+		color: var(--status-ink);
+		font-size: 12px;
+		font-weight: 570;
+		white-space: nowrap;
+	}
+
+	.cms-status-pill[data-stage="synced"] {
+		--status-fill: color-mix(in srgb, var(--theme-success) 9%, var(--theme-surface-solid));
+		--status-ink: var(--theme-success);
+		--status-line: color-mix(in srgb, var(--theme-success) 24%, transparent);
+	}
+
+	.cms-status-pill:is([data-stage="ahead"], [data-stage="saving"]) {
+		--status-fill: var(--theme-accent-soft);
+		--status-ink: var(--theme-accent-text);
+		--status-line: var(--theme-accent-line);
+	}
+
+	.cms-status-pill[data-stage="invalid"] {
+		--status-fill: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		--status-ink: var(--theme-destructive);
+		--status-line: color-mix(in srgb, var(--theme-destructive) 30%, transparent);
+	}
+
+	.cms-status-fill {
+		position: absolute;
+		z-index: -1;
+		inset: 0;
+		border: 1px solid var(--status-line);
+		background: var(--status-fill);
+		pointer-events: none;
+		transition:
+			background-color var(--cms-dur-fast),
+			border-color var(--cms-dur-fast);
+	}
+
+	.cms-status-content {
+		position: relative;
+		display: grid;
+		overflow: clip;
+	}
+
+	.cms-status-copy {
+		inset-inline-start: 0;
+		display: flex;
+		align-items: center;
+		gap: 5px;
+		white-space: nowrap;
+	}
+
+	.cms-status-copy > :is(svg, .cms-status-mark) {
+		display: inline-grid;
+		width: 14px;
+		height: 14px;
+		place-items: center;
+		line-height: 1;
+	}
+
+	.cms-status-pill[aria-expanded="true"] .cms-status-fill {
+		background: color-mix(in srgb, var(--status-fill) 88%, var(--status-ink));
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-status-pill:hover .cms-status-fill {
+			background: color-mix(in srgb, var(--status-fill) 92%, var(--status-ink));
+		}
+	}
+
+	@media (pointer: coarse), (max-width: 1023px) {
+		.cms-status-pill {
+			min-height: 44px;
+		}
+	}
+
+	.cms-save-action {
+		min-width: 83px;
+	}
+	.cms-publish-action {
+		min-width: 94px;
+	}
+	.cms-action[data-complete="true"] svg {
+		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	[data-slot="cms-mobile-action-bar"] .cms-action {
+		flex: 1;
+	}
+
+	.cms-backdrop {
+		background: rgb(0 0 0 / 0.32);
+	}
+	.dark .cms-backdrop {
+		background: rgb(0 0 0 / 0.56);
+	}
+
+	.cms-modal,
+	.cms-command-popup {
+		--cms-surface-curve: cubic-bezier(0.2, 0.82, 0.24, 1);
+		transition:
+			opacity 160ms ease-out,
+			scale 330ms var(--cms-surface-curve);
+	}
+	@supports (transition-timing-function: linear(0, 1)) {
+		.cms-modal,
+		.cms-command-popup {
+			--cms-surface-curve: linear(0, 0.25 8%, 0.63 20%, 0.87 37%, 0.98 59%, 1);
+		}
+	}
+	.cms-modal {
+		border-color: var(--theme-line);
+		background: var(--theme-surface-solid);
+		box-shadow: var(--shadow-glass);
+	}
+	.cms-modal[data-starting-style],
+	.cms-modal[data-ending-style] {
+		opacity: 0;
+		scale: 0.95;
+	}
+	.cms-command-popup[data-starting-style],
+	.cms-command-popup[data-ending-style] {
+		opacity: 0;
+		scale: 0.91;
+	}
+	.cms-command-search:has(input:focus-visible) {
+		box-shadow: inset 0 -1px color-mix(in srgb, var(--theme-accent) 42%, transparent);
+	}
+	.cms-result-enter {
+		animation: cms-fade 140ms ease-out both;
+	}
+	.cms-command-row:focus-visible {
+		outline-offset: -2px;
+	}
+
+	.cms-drawer-popup {
+		touch-action: pan-y;
+		/* Base UI takes over transform during tracking and supplies the release speed. */
+		transform: translateX(var(--drawer-swipe-movement-x, 0px));
+		transition:
+			transform calc(360ms * var(--drawer-swipe-strength, 1)) cubic-bezier(0.19, 0.82, 0.26, 1),
+			opacity 150ms ease-out;
+	}
+
+	.cms-drawer-popup[data-swiping],
+	.cms-drawer-scrim[data-swiping] {
+		transition: none;
+	}
+
+	.cms-drawer-popup[data-starting-style],
+	.cms-drawer-popup[data-ending-style] {
+		translate: none;
+		transform: translateX(-100%);
+		opacity: 1;
+	}
+
+	.cms-drawer-scrim {
+		opacity: calc(1 - var(--drawer-swipe-progress, 0));
+	}
+	.cms-drawer-scrim[data-starting-style],
+	.cms-drawer-scrim[data-ending-style] {
+		opacity: 0;
+	}
+
+	.cms-access {
+		background:
+			radial-gradient(
+				ellipse at 50% 24%,
+				color-mix(in srgb, var(--theme-accent) 8%, transparent),
+				transparent 60%
+			),
+			var(--theme-paper);
+	}
+
+	.cms-access-panel {
+		box-shadow: var(--shadow-glass);
+	}
+
+	@media (prefers-reduced-transparency: reduce) {
+		.cms-overlay.cms-glass,
+		.cms-drawer-popup,
+		.cms-topbar[data-scrolled="true"] {
+			background: var(--theme-surface-solid);
+			backdrop-filter: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-layout,
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-heading,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full,
+				.cms-rail-badge-dot
+			) {
+			translate: none;
+			transition: opacity 150ms linear;
+		}
+		.cms-backdrop,
+		.cms-modal,
+		.cms-command-popup,
+		.cms-drawer-popup {
+			transition: opacity 150ms linear;
+		}
+		.cms-modal[data-starting-style],
+		.cms-modal[data-ending-style],
+		.cms-command-popup[data-starting-style],
+		.cms-command-popup[data-ending-style] {
+			scale: 1;
+		}
+		.cms-drawer-popup,
+		.cms-drawer-popup[data-starting-style],
+		.cms-drawer-popup[data-ending-style] {
+			transform: none;
+		}
+		.cms-drawer-popup[data-starting-style],
+		.cms-drawer-popup[data-ending-style] {
+			opacity: 0;
+		}
+		.cms-live-pulse {
+			animation: none;
+		}
+		.cms-count-tick,
+		.cms-action[data-complete="true"] svg {
+			animation-name: cms-fade;
+		}
+		.cms-root .cms-action:active,
+		.cms-overlay [data-slot="button"]:active {
+			scale: 1;
+		}
+	}
+}
+
+@layer utilities {
+	.cms-action:is([aria-busy="true"], [data-complete="true"]):disabled {
+		opacity: 1;
+	}
+
+	.cms-action[data-complete="true"]:disabled {
+		border-color: color-mix(in srgb, var(--theme-success) 32%, transparent);
+		background: color-mix(in srgb, var(--theme-success) 10%, var(--theme-surface-solid));
+		color: var(--theme-success);
+		box-shadow: none;
+	}
+
+	.cms-publish-action:disabled:not([data-complete], [aria-busy]) {
+		background: var(--theme-surface-raised);
+		color: var(--theme-ink-soft);
+		box-shadow: none;
+	}
+}
+
+@keyframes cms-count-in {
+	from {
+		opacity: 0;
+		translate: 0 3px;
+	}
+}
+
+@keyframes cms-live-breathe {
+	0% {
+		opacity: 0.85;
+		scale: 0.9;
+	}
+	65%,
+	100% {
+		opacity: 0;
+		scale: 1.85;
+	}
+}
+
+/* The router still drives navigation. Exclude the live shell from its route snapshot. */
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) {
+	view-transition-name: none;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) [data-slot="cms-section"] {
+	view-transition-name: cms-section;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-transition {
+	clip-path: inset(max(56px, calc(45px + env(safe-area-inset-top))) 0 0);
+	pointer-events: none;
+}
+
+::view-transition-group(cms-section) {
+	animation: none;
+}
+::view-transition-old(cms-section) {
+	animation: cms-section-out 160ms ease-out both;
+	pointer-events: none;
+}
+::view-transition-new(cms-section) {
+	animation: cms-enter 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+	pointer-events: none;
+}
+@supports not (view-transition-name: none) {
+	[data-slot="cms-section"] {
+		animation: cms-enter 240ms var(--cms-ease-out) both;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-slot="cms-section"] {
+		animation: cms-fade 150ms linear both;
+	}
+}
+@keyframes cms-section-out {
+	to {
+		opacity: 0;
+	}
 }

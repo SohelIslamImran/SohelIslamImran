@@ -7,9 +7,9 @@
  * hydration-safe relative save timestamp, ⌘K trigger, single accent Publish
  * button, and the phone top bar + bottom glass action bar.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { cn } from "../../../lib/utils";
+import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { Button } from "../../ui/button";
 import { Kbd, MenuSurface } from "../../ui/portfolio";
 import {
@@ -21,6 +21,7 @@ import {
 } from "../../ui/popover";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { focusField } from "../fields";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { resolvePathTarget } from "../release/diff";
 import {
 	AlertTriangleIcon,
@@ -37,36 +38,34 @@ export type PipelineStage = "synced" | "dirty" | "saving" | "ahead" | "invalid";
 export function usePipelineStage(): {
 	stage: PipelineStage;
 	label: string;
-	shortLabel: string;
 } {
 	return useDraftSelector((state) => {
 		if (state.status === "conflict") {
-			return { stage: "invalid", label: "Conflict", shortLabel: "Conflict" };
+			return { stage: "invalid", label: "Conflict" };
 		}
 		if (state.status === "error") {
-			return { stage: "invalid", label: "Save failed", shortLabel: "Error" };
+			return { stage: "invalid", label: "Save failed" };
 		}
 		if (state.issues.all.length > 0) {
 			const count = state.issues.all.length;
 			return {
 				stage: "invalid",
 				label: `${count} ${count === 1 ? "issue" : "issues"}`,
-				shortLabel: `! ${count}`,
 			};
 		}
 		if (state.status === "publishing") {
-			return { stage: "saving", label: "Publishing…", shortLabel: "Publishing…" };
+			return { stage: "saving", label: "Publishing…" };
 		}
 		if (state.status === "saving") {
-			return { stage: "saving", label: "Saving…", shortLabel: "Saving…" };
+			return { stage: "saving", label: "Saving…" };
 		}
 		if (state.dirty) {
-			return { stage: "dirty", label: "Unsaved", shortLabel: "Unsaved" };
+			return { stage: "dirty", label: "Unsaved" };
 		}
 		if (state.ahead) {
-			return { stage: "ahead", label: "Draft ahead", shortLabel: "Ahead" };
+			return { stage: "ahead", label: "Draft ahead" };
 		}
-		return { stage: "synced", label: "Synced", shortLabel: "Live" };
+		return { stage: "synced", label: "Synced" };
 	});
 }
 
@@ -81,11 +80,17 @@ function focusFieldAfterNavigation(path: string) {
 	window.requestAnimationFrame(tryFocus);
 }
 
-function IssueJumpPopover({ trigger }: { trigger: React.ReactNode }) {
+function PipelineStatus({
+	stage,
+	label,
+	onResolveConflict,
+}: ReturnType<typeof usePipelineStage> & { onResolveConflict: () => void }) {
 	const [open, setOpen] = useState(false);
+	const reduce = useReducedMotion();
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const issues = useDraftSelector((state) => state.issues.all);
+	const conflict = useDraftSelector((state) => state.conflict !== null);
 
 	const jumpToIssue = (path: string) => {
 		setOpen(false);
@@ -95,6 +100,7 @@ function IssueJumpPopover({ trigger }: { trigger: React.ReactNode }) {
 				to: "/cms/content/$section",
 				params: { section: target.sectionId },
 				search: target.itemId ? { item: target.itemId } : {},
+				resetScroll: false,
 			}).then(() => {
 				focusFieldAfterNavigation(path);
 			});
@@ -104,48 +110,108 @@ function IssueJumpPopover({ trigger }: { trigger: React.ReactNode }) {
 	};
 
 	return (
-		<Popover open={open} onOpenChange={setOpen}>
-			<PopoverTrigger render={<span className="inline-flex" />}>{trigger}</PopoverTrigger>
+		<Popover
+			open={open && !conflict}
+			onOpenChange={(next) => {
+				if (next && conflict) {
+					setOpen(false);
+					onResolveConflict();
+				} else {
+					setOpen(next);
+				}
+			}}
+		>
+			<PopoverTrigger className="cms-status-pill cms-press" data-stage={stage}>
+				<motion.span
+					layout={reduce ? false : "size"}
+					transition={SPRING_MOVE}
+					style={{ borderRadius: 24 }}
+					className="cms-status-fill"
+					aria-hidden="true"
+				/>
+				<span className="cms-status-content">
+					<AnimatePresence initial={false}>
+						<motion.span
+							key={label}
+							className="cms-status-copy"
+							aria-hidden="true"
+							initial={{ opacity: 0 }}
+							animate={{ opacity: 1 }}
+							exit={{ opacity: 0, position: "absolute" }}
+							transition={REDUCED}
+						>
+							{stage === "synced" ? (
+								<CheckCircleIcon />
+							) : stage === "invalid" ? (
+								<AlertTriangleIcon />
+							) : (
+								<span className="cms-status-mark">
+									{stage === "saving" ? "⋯" : stage === "ahead" ? "Δ" : "●"}
+								</span>
+							)}
+							{label}
+						</motion.span>
+					</AnimatePresence>
+					<span className="sr-only">{label}</span>
+				</span>
+			</PopoverTrigger>
 			<PopoverContent
 				align="start"
 				sideOffset={10}
 				positionMethod="fixed"
 				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
-				<MenuSurface className="grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
+				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
 					<PopoverHeader className="flex flex-row items-center justify-between px-1.5 pt-0.5">
-						<PopoverTitle className="mono-label text-[10.5px] text-destructive">
-							! Validation issues ({issues.length})
+						<PopoverTitle className="text-[13px] font-semibold">
+							{issues.length > 0 ? "Validation issues" : "Release status"}
 						</PopoverTitle>
-						<span className="font-mono text-[10.5px] text-muted-foreground">Jump to field</span>
+						{issues.length > 0 ? (
+							<span className="text-[11px] text-muted-foreground">Jump to field</span>
+						) : null}
 					</PopoverHeader>
-					<ul className="m-0 grid max-h-[300px] list-none gap-1 overflow-y-auto p-0">
-						{issues.map((issue, index) => {
-							const target = resolvePathTarget(issue.path, store.getState().draft);
-							return (
-								<li key={`${issue.path}-${index}`}>
-									<button
-										type="button"
-										onClick={() => jumpToIssue(issue.path)}
-										className="pressable grid w-full gap-0.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left transition-colors duration-150 hover:border-line hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
-									>
-										<div className="flex items-center justify-between gap-2">
-											<span className="text-[12.5px] font-medium text-foreground">
-												{target ? `${target.sectionLabel} · ${target.fieldLabel}` : issue.path}
-											</span>
-											<span aria-hidden="true" className="font-mono text-[11px] text-primary-text">
-												→
-											</span>
-										</div>
-										<code className="truncate font-mono text-[11px] text-muted-foreground">
-											{issue.path}
-										</code>
-										<span className="text-[12px] text-destructive">{issue.message}</span>
-									</button>
-								</li>
-							);
-						})}
-					</ul>
+					{issues.length === 0 ? (
+						<Link
+							to="/cms/release"
+							preload="intent"
+							resetScroll={false}
+							onClick={() => setOpen(false)}
+							className="cms-press cms-control flex min-h-11 items-center justify-between rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline"
+						>
+							Review changes <span aria-hidden="true">→</span>
+						</Link>
+					) : (
+						<ul className="m-0 grid max-h-[300px] list-none gap-1 overflow-y-auto p-0">
+							{issues.map((issue, index) => {
+								const target = resolvePathTarget(issue.path, store.getState().draft);
+								return (
+									<li key={`${issue.path}-${index}`}>
+										<button
+											type="button"
+											onClick={() => jumpToIssue(issue.path)}
+											className="cms-press cms-control grid min-h-11 w-full gap-0.5 rounded-[10px] border border-transparent px-2.5 py-2 text-left transition-colors duration-150 hover:border-line hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
+										>
+											<div className="flex items-center justify-between gap-2">
+												<span className="text-[12.5px] font-medium text-foreground">
+													{target ? `${target.sectionLabel} · ${target.fieldLabel}` : issue.path}
+												</span>
+												<span
+													aria-hidden="true"
+													className="font-mono text-[11px] text-primary-text"
+												>
+													→
+												</span>
+											</div>
+											<code className="truncate font-mono text-[11px] text-muted-foreground">
+												{issue.path}
+											</code>
+											<span className="text-[12px] text-destructive">{issue.message}</span>
+										</button>
+									</li>
+								);
+							})}
+						</ul>
+					)}
 				</MenuSurface>
 			</PopoverContent>
 		</Popover>
@@ -155,28 +221,20 @@ function IssueJumpPopover({ trigger }: { trigger: React.ReactNode }) {
 export function PipelineBar({
 	onOpenCommandBar,
 	onOpenDrawer,
+	onResolveConflict,
 	onRequestPublish,
 	publishSweepKey,
 }: {
 	onOpenCommandBar: () => void;
 	onOpenDrawer: () => void;
+	onResolveConflict: () => void;
 	onRequestPublish: () => void;
 	publishSweepKey: number;
 }) {
-	const store = useDraftStore();
-	const { stage, label, shortLabel } = usePipelineStage();
+	const { stage, label } = usePipelineStage();
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
-	const dirty = useDraftSelector((state) => state.dirty);
-	const issueCount = useDraftSelector((state) => state.issues.all.length);
-	const canPublish = useDraftSelector(
-		(state) => (state.ahead || state.dirty) && state.issues.all.length === 0 && !state.conflict,
-	);
-	const busy = useDraftSelector(
-		(state) => state.status === "saving" || state.status === "publishing",
-	);
-	const conflict = useDraftSelector((state) => state.conflict !== null);
 	const relativeSaved = useRelativeTime(draftUpdatedAt, 10_000);
 	const [scrolled, setScrolled] = useState(false);
 
@@ -187,210 +245,67 @@ export function PipelineBar({
 		return () => window.removeEventListener("scroll", onScroll);
 	}, []);
 
-	const leftLineTone =
-		stage === "invalid"
-			? "invalid"
-			: stage === "synced"
-				? "success"
-				: stage === "ahead" || stage === "saving" || stage === "dirty"
-					? "accent"
-					: "neutral";
-
-	const rightLineTone =
-		stage === "invalid" ? "invalid" : stage === "synced" ? "success" : "neutral";
-
 	return (
 		<header
 			data-slot="cms-pipeline-bar"
 			data-stage={stage}
 			data-scrolled={scrolled || undefined}
-			className="cms-topbar sticky top-0 z-(--z-sticky) flex min-h-14 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] lg:px-6"
+			className="cms-topbar sticky top-0 z-(--z-sticky) flex min-h-14 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] lg:px-5"
 		>
-			{/* Phone & tablet (< lg) top bar */}
-			<div className="flex w-full items-center justify-between gap-2 lg:hidden">
-				<button
-					type="button"
-					onClick={onOpenDrawer}
-					aria-label="Open navigation menu"
-					className="pressable grid size-11 shrink-0 place-items-center rounded-full text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
+			<button
+				type="button"
+				onClick={onOpenDrawer}
+				aria-label="Open navigation menu"
+				aria-haspopup="dialog"
+				className="cms-press cms-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
+			>
+				<MenuIcon className="size-5" />
+			</button>
+
+			<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
+				<span
+					className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
+					aria-label={`Draft revision ${draftRevision}`}
+					title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
 				>
-					<MenuIcon className="size-5" />
-				</button>
+					<span className="hidden sm:inline">Draft </span>r{draftRevision}
+				</span>
+				<span aria-hidden="true" className="cms-pipeline-connector" />
+				<PipelineStatus stage={stage} label={label} onResolveConflict={onResolveConflict} />
+				<span aria-hidden="true" className="cms-pipeline-connector" />
+				<Link
+					to="/cms/release"
+					preload="intent"
+					resetScroll={false}
+					aria-label={`Live revision ${publishedRevision}`}
+					className="cms-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
+				>
+					<span className="hidden sm:inline">Live </span>r{publishedRevision}
+				</Link>
+				<span role="status" className="sr-only">
+					{label}
+				</span>
+			</div>
 
-				{issueCount > 0 ? (
-					<IssueJumpPopover
-						trigger={
-							<button
-								type="button"
-								className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border pointer-coarse:min-h-11 max-lg:min-h-11 border-dashed border-destructive/55 bg-destructive/10 px-3 font-mono text-[11.5px] font-medium text-destructive"
-							>
-								<AlertTriangleIcon className="size-3.5" />
-								<span>
-									r{draftRevision} · {label}
-								</span>
-							</button>
-						}
-					/>
-				) : (
-					<Link
-						to="/cms/release"
-						className={cn(
-							"inline-flex min-h-9 pointer-coarse:min-h-11 items-center gap-2 rounded-full border px-3 font-mono text-[11.5px] tabular-nums no-underline transition-colors duration-150",
-							stage === "synced" && "border-line bg-surface-solid text-ink-soft",
-							stage === "ahead" && "border-primary-line bg-primary-soft text-primary-text",
-							stage === "dirty" && "border-primary-line bg-surface-solid text-foreground",
-							stage === "saving" && "border-primary-line bg-primary-soft text-primary-text",
-							stage === "invalid" &&
-								"border-dashed border-destructive/55 bg-destructive/10 text-destructive",
-						)}
-					>
-						<span aria-hidden="true">
-							{stage === "synced" ? "✓" : stage === "ahead" ? "Δ" : stage === "dirty" ? "●" : "⋯"}
-						</span>
-						<span>
-							r{draftRevision} → r{publishedRevision}
-						</span>
-						<span className="opacity-75">· {shortLabel}</span>
-					</Link>
-				)}
-
+			<div className="flex shrink-0 items-center gap-2">
 				<button
 					type="button"
 					onClick={onOpenCommandBar}
 					aria-label="Search and commands"
-					className="pressable grid size-11 shrink-0 place-items-center rounded-full text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground"
+					aria-haspopup="dialog"
+					aria-keyshortcuts="Meta+K Control+K"
+					data-slot="cms-command-trigger"
+					className="cms-press cms-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
 				>
-					<SearchIcon className="size-[18px]" />
-				</button>
-			</div>
-
-			{/* Desktop (>= lg) 5-state pipeline bar */}
-			<div className="hidden min-w-0 flex-1 items-center justify-between gap-4 lg:flex">
-				<div
-					role="status"
-					aria-live="polite"
-					className="flex min-w-0 items-center gap-2.5 font-mono text-[12px] tabular-nums"
-				>
-					<span className="inline-flex shrink-0 items-center gap-1.5 text-foreground">
-						<span
-							aria-hidden="true"
-							className={cn(
-								"size-2 rounded-full",
-								stage === "dirty" && "border-2 border-primary bg-transparent",
-								stage === "saving" && "bg-primary",
-								stage === "ahead" && "bg-primary",
-								stage === "synced" && "bg-success",
-								stage === "invalid" && "bg-destructive",
-							)}
-						/>
-						<span>Draft r{draftRevision}</span>
-					</span>
-
-					<span
-						aria-hidden="true"
-						data-tone={leftLineTone}
-						className="cms-pipeline-line w-8 xl:w-12"
-					>
-						{stage === "saving" ? <span className="cms-pipeline-runner" /> : null}
-					</span>
-
-					{issueCount > 0 ? (
-						<IssueJumpPopover
-							trigger={
-								<button
-									type="button"
-									className="pressable inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-destructive/55 bg-destructive/10 px-2.5 font-mono text-[11.5px] font-medium text-destructive hover:bg-destructive/16"
-								>
-									<AlertTriangleIcon className="size-3.5" />
-									<span>{label}</span>
-								</button>
-							}
-						/>
-					) : stage === "ahead" ? (
-						<Link
-							to="/cms/release"
-							className="inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border border-primary-line bg-primary-soft px-2.5 font-mono text-[11.5px] font-medium text-primary-text no-underline transition-colors duration-150 hover:bg-primary/15"
-						>
-							<span aria-hidden="true">Δ</span>
-							<span>{label}</span>
-						</Link>
-					) : (
-						<span
-							className={cn(
-								"inline-flex min-h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 font-mono text-[11.5px]",
-								stage === "synced" && "border-success/35 bg-success/10 text-success",
-								stage === "dirty" && "border-primary-line bg-surface-solid text-foreground",
-								stage === "saving" && "border-primary-line bg-primary-soft text-primary-text",
-								stage === "invalid" &&
-									"border-dashed border-destructive/55 bg-destructive/10 text-destructive",
-							)}
-						>
-							{stage === "synced" ? (
-								<CheckCircleIcon className="size-3.5" />
-							) : stage === "invalid" ? (
-								<AlertTriangleIcon className="size-3.5" />
-							) : (
-								<span aria-hidden="true">{stage === "saving" ? "⋯" : "●"}</span>
-							)}
-							<span>{label}</span>
-						</span>
-					)}
-
-					<span
-						aria-hidden="true"
-						data-tone={rightLineTone}
-						className="cms-pipeline-line w-8 xl:w-12"
-					/>
-
-					<Link
-						to="/cms/release"
-						className="inline-flex shrink-0 items-center gap-1.5 text-muted-foreground no-underline transition-colors duration-150 hover:text-foreground"
-					>
-						<span
-							aria-hidden="true"
-							className={cn(
-								"size-2 rounded-full",
-								stage === "synced" ? "bg-success" : "border border-line-strong bg-transparent",
-							)}
-						/>
-						<span>Live r{publishedRevision}</span>
-					</Link>
-				</div>
-
-				<div className="flex shrink-0 items-center gap-2">
-					<span className="hidden font-mono text-[11.5px] text-muted-foreground xl:inline">
-						{dirty ? "Unsaved edits" : relativeSaved ? `Saved ${relativeSaved}` : "Saved"}
-					</span>
-
-					<button
-						type="button"
-						onClick={onOpenCommandBar}
-						className="pressable inline-flex min-h-9 items-center gap-2 rounded-full border pointer-coarse:min-h-11 max-lg:min-h-11 border-line bg-surface-solid px-3 text-[12.5px] text-muted-foreground transition-colors duration-150 hover:border-line-strong hover:text-foreground"
-					>
-						<SearchIcon className="size-3.5" />
-						<span className="hidden xl:inline">Jump</span>
+					<SearchIcon />
+					<span className="hidden text-[12px] xl:inline">Search</span>
+					<span className="hidden lg:inline">
 						<Kbd>⌘K</Kbd>
-					</button>
+					</span>
+				</button>
 
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={busy || conflict || issueCount > 0 || !dirty}
-						onClick={() => void store.save()}
-					>
-						<SaveIcon className="size-3.5" />
-						<span>{busy && dirty ? "Saving…" : "Save"}</span>
-					</Button>
-
-					<Button
-						variant="default"
-						size="sm"
-						disabled={!canPublish || busy}
-						onClick={onRequestPublish}
-					>
-						<PublishIcon className="size-3.5" />
-						<span>Publish</span>
-					</Button>
+				<div className="hidden items-center gap-2 lg:flex">
+					<PipelineActions onRequestPublish={onRequestPublish} />
 				</div>
 			</div>
 
@@ -401,64 +316,97 @@ export function PipelineBar({
 	);
 }
 
-/** Phone bottom glass action bar shown only while dirty, invalid, or actively saving/publishing. */
-export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
-	const store = useDraftStore();
-	const { stage, label } = usePipelineStage();
-	const dirty = useDraftSelector((state) => state.dirty);
-	const issueCount = useDraftSelector((state) => state.issues.all.length);
-	const conflict = useDraftSelector((state) => state.conflict !== null);
-	const busy = useDraftSelector(
-		(state) => state.status === "saving" || state.status === "publishing",
-	);
-	const canPublish = useDraftSelector(
-		(state) => (state.ahead || state.dirty) && state.issues.all.length === 0 && !state.conflict,
-	);
+function useRevisionFeedback(revision: number) {
+	const previous = useRef(revision);
+	const [recent, setRecent] = useState(false);
+	useEffect(() => {
+		if (previous.current === revision) return;
+		previous.current = revision;
+		setRecent(true);
+		const reset = window.setTimeout(() => setRecent(false), 1500);
+		return () => window.clearTimeout(reset);
+	}, [revision]);
+	return recent;
+}
 
-	const visible = dirty || issueCount > 0 || busy;
-	if (!visible) return null;
+function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void }) {
+	const store = useDraftStore();
+	const { dirty, ahead, canSave, canPublish, status, draftRevision, publishedRevision } =
+		useDraftSelector((state) => {
+			const busy = state.status === "saving" || state.status === "publishing";
+			const ready = !state.conflict && !busy && !state.authExpired && state.issues.all.length === 0;
+			return {
+				dirty: state.dirty,
+				ahead: state.ahead,
+				canSave: ready && state.dirty,
+				canPublish: ready && (state.dirty || state.ahead),
+				status: state.status,
+				draftRevision: state.draftRevision,
+				publishedRevision: state.publishedRevision,
+			};
+		});
+	const savedRecently = useRevisionFeedback(draftRevision);
+	const publishedRecently = useRevisionFeedback(publishedRevision);
+	const saving = status === "saving";
+	const publishing = status === "publishing";
+	const justSaved = savedRecently && !dirty && !saving && !publishing;
+	const justPublished = publishedRecently && !ahead && !dirty && !saving && !publishing;
 
 	return (
-		<div
-			data-slot="cms-mobile-action-bar"
-			className="cms-glass fixed inset-x-0 bottom-0 z-(--z-dock) flex items-center justify-between gap-2 border-t px-3 pt-2.5 pb-[max(10px,env(safe-area-inset-bottom))] lg:hidden"
-		>
-			<div className="flex min-w-0 items-center gap-2 font-mono text-[11.5px]">
-				{issueCount > 0 ? (
-					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
-				) : (
-					<span
-						aria-hidden="true"
-						className={cn(
-							"size-2 shrink-0 rounded-full",
-							stage === "saving" ? "bg-primary" : "border-2 border-primary bg-transparent",
-						)}
-					/>
-				)}
-				<span className={cn("truncate", issueCount > 0 ? "text-destructive" : "text-foreground")}>
-					{label}
-				</span>
-			</div>
-			<div className="flex shrink-0 items-center gap-2">
-				<Button
-					variant="outline"
-					size="default"
-					disabled={busy || conflict || issueCount > 0 || !dirty}
-					onClick={() => void store.save()}
-					className="min-h-11 px-4 text-[13.5px]"
+		<>
+			<Button
+				variant="outline"
+				size="sm"
+				disabled={!canSave}
+				aria-busy={saving || undefined}
+				data-complete={justSaved || undefined}
+				className="cms-action cms-save-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				onClick={() => void store.save()}
+			>
+				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
+				{saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+			</Button>
+			<Button
+				size="sm"
+				disabled={!canPublish}
+				aria-busy={publishing || undefined}
+				data-complete={justPublished || undefined}
+				className="cms-action cms-publish-action min-h-11 lg:min-h-9 pointer-coarse:min-h-11"
+				onClick={onRequestPublish}
+			>
+				{justPublished ? <CheckCircleIcon /> : <PublishIcon />}
+				{publishing ? "Publishing…" : justPublished ? "Published" : "Publish"}
+			</Button>
+		</>
+	);
+}
+
+/** Keep mobile actions visible while there are draft changes to save or publish. */
+export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
+	const reduce = useReducedMotion();
+	const visible = useDraftSelector(
+		(state) =>
+			state.dirty ||
+			state.ahead ||
+			state.issues.all.length > 0 ||
+			state.status === "saving" ||
+			state.status === "publishing",
+	);
+
+	return (
+		<AnimatePresence initial={false}>
+			{visible ? (
+				<motion.div
+					data-slot="cms-mobile-action-bar"
+					className="cms-overlay cms-glass fixed inset-x-0 bottom-0 z-(--z-dock) flex items-center gap-2 border-t px-3 pt-2 pb-[max(8px,env(safe-area-inset-bottom))] lg:hidden"
+					initial={{ y: reduce ? 0 : 20, opacity: 0 }}
+					animate={{ y: 0, opacity: 1 }}
+					exit={{ y: reduce ? 0 : 20, opacity: 0, pointerEvents: "none" }}
+					transition={reduce ? REDUCED : SPRING_MOVE}
 				>
-					Save
-				</Button>
-				<Button
-					variant="default"
-					size="default"
-					disabled={!canPublish || busy}
-					onClick={onRequestPublish}
-					className="min-h-11 px-4 text-[13.5px]"
-				>
-					Publish
-				</Button>
-			</div>
-		</div>
+					<PipelineActions onRequestPublish={onRequestPublish} />
+				</motion.div>
+			) : null}
+		</AnimatePresence>
 	);
 }
