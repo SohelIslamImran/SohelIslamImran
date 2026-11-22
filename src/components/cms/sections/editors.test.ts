@@ -142,6 +142,23 @@ describe("CMS editor rendering", () => {
 		);
 	});
 
+	it("keeps sortable list items out of the Tab order", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.social = draft.social.slice(0, 1);
+		const single = renderEditor(
+			createElement(LinksEditor, { tab: "social", select: vi.fn() }),
+			draft,
+		);
+		const multiple = renderEditor(createElement(ProjectsEditor, { select: vi.fn() }));
+		for (const html of [single, multiple]) {
+			const rows = html.match(/<li[^>]*class="[^"]*\bcms-sortable-row\b[^"]*"[^>]*>/gu);
+			expect(rows?.length).toBeGreaterThan(0);
+			for (const row of rows ?? []) {
+				expect(row).toContain('tabindex="-1"');
+			}
+		}
+	});
+
 	it("server-renders a compact headline textarea and a persistent error region", () => {
 		const html = renderEditor(createElement(HeroEditor));
 		expect(html).toMatch(/<textarea[^>]*id="cms-field-hero-title"[^>]*rows="1"/u);

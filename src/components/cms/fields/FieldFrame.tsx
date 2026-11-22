@@ -1,5 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+	useEffect,
+	useRef,
+	useState,
+	type MouseEvent,
+	type PointerEvent,
+	type ReactNode,
+} from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import type { ValidationIssue } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
@@ -18,7 +25,7 @@ export function fieldId(path: string): string {
 }
 
 /** Scroll to and focus the control for a path. Returns false when it is not on screen. */
-export function focusField(path: string): boolean {
+export function focusField(path: string, touch = false): boolean {
 	if (typeof document === "undefined") return false;
 	const id = fieldId(path);
 	const first = document.getElementById(id);
@@ -33,12 +40,16 @@ export function focusField(path: string): boolean {
 	const visible =
 		visibleControls.find((element) => element.matches("[aria-checked=true], [data-checked]")) ??
 		visibleControls[0];
+	const touchTarget = touch
+		? (control.closest(".cms-sortable-row")?.querySelector<HTMLElement>("[data-row-menu]") ?? frame)
+		: null;
 	const target =
-		control.getAttribute("aria-hidden") === "true"
+		touchTarget ??
+		(control.getAttribute("aria-hidden") === "true"
 			? visible
 			: control.matches(":disabled")
 				? frame
-				: (visible ?? control);
+				: (visible ?? control));
 	if (!target) return false;
 	// Keep the page still when the target is already on screen, even in
 	// part (after removing a row, its neighbour is usually right there);
@@ -98,6 +109,7 @@ export function FieldFrame({
 	const errorId = `${id}-error`;
 	const reduced = useLiveReducedMotion();
 	const frame = useRef<HTMLDivElement>(null);
+	const pointer = useActionPointer();
 	const LabelTag = asGroup ? "p" : "label";
 	const changedFromLive = useDraftSelector(({ draft, published }) => {
 		if (!changed) return false;
@@ -128,9 +140,12 @@ export function FieldFrame({
 					animate={{ opacity: 1, x: 0 }}
 					exit={{ opacity: 0, x: reduced ? 0 : 4, pointerEvents: "none" }}
 					transition={reduced ? REDUCED : SPRING_SNAPPY}
-					onClick={() => {
-						onRevert?.();
-						if (!focusField(path)) frame.current?.focus({ preventScroll: true });
+					onPointerDown={pointer.onPointerDown}
+					onClick={(event) => {
+						onRevert();
+						if (pointer.isTouchClick(event) || !focusField(path)) {
+							frame.current?.focus({ preventScroll: true });
+						}
 					}}
 					className="cms-field-revert cms-press -my-1 inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text pointer-coarse:-my-3 pointer-coarse:min-h-11"
 				>
@@ -235,6 +250,20 @@ export function FieldMessage({
 			</div>
 		</div>
 	);
+}
+
+/** Keyboard and assistive clicks have no pointer, even after a touch. */
+export function useActionPointer() {
+	const pointerType = useRef("");
+	return {
+		onPointerDown: (event: PointerEvent) => {
+			pointerType.current = event.pointerType;
+		},
+		isTouchClick: (event: MouseEvent) =>
+			event.detail > 0 &&
+			((event.nativeEvent as globalThis.PointerEvent).pointerType || pointerType.current) ===
+				"touch",
+	};
 }
 
 const NO_ISSUES: readonly ValidationIssue[] = [];

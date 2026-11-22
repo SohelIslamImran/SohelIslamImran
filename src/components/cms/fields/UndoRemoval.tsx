@@ -96,7 +96,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 			<RemovalListsContext.Provider value={removals}>{children}</RemovalListsContext.Provider>
 			{host
 				? createPortal(
-						<div className="pointer-events-none fixed inset-x-0 bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit max-w-full flex-col items-end gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
+						<div className="cms-undo-stack pointer-events-none fixed inset-x-0 bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit max-w-full flex-col gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
 							<AnimatePresence initial={false}>
 								{toasts.map((toast) => (
 									<UndoToast key={toast.id} {...toast} />
@@ -314,7 +314,7 @@ function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {
 				transition: reduced ? REDUCED : { duration: 0.16, ease: [0.55, 0, 1, 0.45] },
 			}}
 			transition={reduced ? REDUCED : SPRING_SURFACE}
-			className="cms-panel cms-undo pointer-events-auto flex w-fit max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-md"
+			className="cms-panel cms-undo pointer-events-auto flex max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-md"
 		>
 			<p role="status" className="m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]">
 				Removed {label}.{canUndo ? "" : " Make room in the list to undo."}

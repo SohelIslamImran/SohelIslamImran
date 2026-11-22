@@ -1,3 +1,4 @@
+import { useActionPointer } from "./FieldFrame";
 import { Menu } from "@base-ui/react/menu";
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
@@ -53,13 +54,14 @@ export function RowMenu({
 	onMoveDown: () => void;
 	onDuplicate?: () => void;
 	duplicateDisabled?: boolean;
-	onRemove?: () => void;
+	onRemove?: (touch: boolean) => void;
 	className?: string;
 }) {
 	const movable = canMoveUp || canMoveDown;
 	return (
 		<Menu.Root modal={false}>
 			<Menu.Trigger
+				data-row-menu=""
 				aria-label={`More actions for ${label}`}
 				className={cn("cms-row-tool cms-press", className)}
 			>
@@ -113,13 +115,15 @@ function MenuItem({
 	icon: ReactNode;
 	destructive?: boolean;
 	disabled?: boolean;
-	onClick: () => void;
+	onClick: (touch: boolean) => void;
 	children: ReactNode;
 }) {
+	const pointer = useActionPointer();
 	return (
 		<Menu.Item
 			disabled={disabled}
-			onClick={onClick}
+			onPointerDown={pointer.onPointerDown}
+			onClick={(event) => onClick(pointer.isTouchClick(event))}
 			data-destructive={destructive || undefined}
 			className="cms-menu-item"
 		>

@@ -17,7 +17,7 @@ import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
-import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
+import { FieldMessage, sentenceCase, useActionPointer } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField } from "../fields";
@@ -95,6 +95,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const listPanel = useRef<HTMLElement>(null);
 	const detailPanel = useRef<HTMLDivElement>(null);
 	const search = useRef<HTMLInputElement>(null);
+	const pointer = useActionPointer();
 	const [query, setQuery] = useState("");
 	const [adding, setAdding] = useState(false);
 	const [name, setName] = useState("");
@@ -103,6 +104,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const pendingListFocus = useRef<{
 		id?: string;
+		touch: boolean;
 		previous: typeof listPosition.current;
 	} | null>(null);
 	const filter = query.trim().toLowerCase();
@@ -212,11 +214,10 @@ export function CollectionEditor<T extends { id: string }>({
 		const pending = pendingListFocus.current;
 		if (detailOpen || !pending) return;
 		pendingListFocus.current = null;
-		const target =
-			rowButton(pending.id) ??
-			rowButton(pending.previous?.id) ??
-			search.current ??
-			document.getElementById(fieldId(path));
+		const row = rowButton(pending.id) ?? rowButton(pending.previous?.id);
+		const target = pending.touch
+			? (row?.closest("li")?.querySelector<HTMLElement>("[data-row-menu]") ?? listPanel.current)
+			: (row ?? search.current ?? document.getElementById(fieldId(path)));
 		target?.focus({ preventScroll: true });
 		if (pending.previous) window.scrollTo({ top: pending.previous.scroll, behavior: "instant" });
 		target?.scrollIntoView({ block: "nearest" });
@@ -255,8 +256,8 @@ export function CollectionEditor<T extends { id: string }>({
 		[item, narrow, select, focusAfterNavigation, detailHeadingId],
 	);
 
-	function back(focusId = activeId, slide = true) {
-		pendingListFocus.current = { id: focusId, previous: listPosition.current };
+	function back(focusId = activeId, slide = true, touch = false) {
+		pendingListFocus.current = { id: focusId, touch, previous: listPosition.current };
 		listPosition.current = null;
 		if (narrow && slide && activeId !== undefined) {
 			leavingId.current = activeId;
@@ -298,12 +299,12 @@ export function CollectionEditor<T extends { id: string }>({
 		open(row.id);
 	}
 
-	function remove(index: number) {
+	function remove(index: number, touch: boolean) {
 		const rows = store.valueAt(path) as T[];
 		const row = rows[index];
 		if (!row) return;
 		removals.remove(index, describe(row).title || itemLabel.toLowerCase());
-		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false);
+		back(rows[index + 1]?.id ?? rows[index - 1]?.id, false, touch);
 	}
 
 	function closeAddForm() {
@@ -462,7 +463,7 @@ export function CollectionEditor<T extends { id: string }>({
 						}}
 						layoutScroll
 						ref={list}
-						className="cms-collection-rows m-0 grid min-w-0 list-none gap-1 p-1 empty:hidden"
+						className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
 					>
 						<AnimatePresence initial={false}>
 							{visible.map((index) => (
@@ -583,7 +584,8 @@ export function CollectionEditor<T extends { id: string }>({
 											<button
 												type="button"
 												className={`${editorButton} cms-editor-destructive`}
-												onClick={() => remove(shownIndex)}
+												onPointerDown={pointer.onPointerDown}
+												onClick={(event) => remove(shownIndex, pointer.isTouchClick(event))}
 											>
 												<TrashIcon className="size-3.5" />
 												Remove
@@ -864,7 +866,7 @@ function ConfirmListAction({
 		<button
 			ref={trigger}
 			type="button"
-			className={`${editorButton} justify-self-start`}
+			className={`${editorButton} self-start justify-self-start`}
 			onClick={() => {
 				setConfirming(true);
 				requestAnimationFrame(() => cancel.current?.focus());

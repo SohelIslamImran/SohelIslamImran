@@ -23,6 +23,8 @@ import {
 	describedBy,
 	fieldId,
 	focusField,
+	useActionPointer,
+	useFieldIssueFeedback,
 	sentenceCase,
 } from "./FieldFrame";
 import { AddButton, RowMenu } from "./RowControls";
@@ -65,6 +67,7 @@ export function TagsField({
 	const chips = useRef<HTMLUListElement>(null);
 	const input = useRef<HTMLInputElement>(null);
 	const composing = useRef(false);
+	const pointer = useActionPointer();
 	const add = (raw: string) => {
 		const parts = raw
 			.split(",")
@@ -104,11 +107,7 @@ export function TagsField({
 							field.revert();
 						}
 			}
-			meta={
-				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-					{tags.length}/{max}
-				</span>
-			}
+			meta={<Counter length={tags.length} max={max} />}
 			className={className}
 		>
 			<div
@@ -131,14 +130,18 @@ export function TagsField({
 								<span className="min-w-0 wrap-anywhere">{tag}</span>
 								<button
 									type="button"
-									onClick={() => {
+									onPointerDown={pointer.onPointerDown}
+									onClick={(event) => {
+										const touch = pointer.isTouchClick(event);
 										remove(index);
 										requestAnimationFrame(() => {
 											const buttons =
 												chips.current?.querySelectorAll<HTMLButtonElement>(
 													"li:not([inert]) button",
 												);
-											(buttons?.[index] ?? buttons?.[index - 1] ?? input.current)?.focus();
+											const nearest = buttons?.[index] ?? buttons?.[index - 1];
+											if (nearest) nearest.focus();
+											else focusField(path, touch);
 										});
 									}}
 									className={cn(
@@ -304,7 +307,7 @@ export function StringListField({
 	);
 
 	const remove = useCallback(
-		(index: number, label: string) => {
+		(index: number, label: string, touch: boolean) => {
 			const items = (store.valueAt(path) as string[] | undefined) ?? [];
 			const row = items[index];
 			if (row === undefined) return;
@@ -313,7 +316,7 @@ export function StringListField({
 			const excerpt = text.length > 40 ? `${text.slice(0, 40).trimEnd()}…` : text;
 			removeRow(index, excerpt ? `${itemLabel.toLowerCase()} “${excerpt}”` : label.toLowerCase());
 			const target = items.length > 1 ? childPath(path, Math.min(index, items.length - 2)) : path;
-			requestAnimationFrame(() => focusField(target));
+			requestAnimationFrame(() => focusField(target, touch));
 		},
 		[itemLabel, path, removeRow, store],
 	);
@@ -334,11 +337,7 @@ export function StringListField({
 						}
 			}
 			asGroup
-			meta={
-				<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-					{count}/{max}
-				</span>
-			}
+			meta={<Counter length={count} max={max} />}
 			className={className}
 		>
 			<Reorder.Group
@@ -420,10 +419,11 @@ const StringRow = memo(function StringRow({
 	placeholder?: string;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
-	remove: (index: number, label: string) => void;
+	remove: (index: number, label: string, touch: boolean) => void;
 }) {
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
+	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, value);
 	const reorderable = index > 0 || canMoveDown;
 	return (
 		<SortableRow
@@ -443,8 +443,8 @@ const StringRow = memo(function StringRow({
 							value={value}
 							placeholder={placeholder}
 							aria-label={label}
-							aria-invalid={field.issues.length > 0 || undefined}
-							aria-describedby={describedBy(path, false, field.issues)}
+							aria-invalid={issues.length > 0 || undefined}
+							aria-describedby={describedBy(path, false, issues)}
 							rows={multiline ? 3 : 1}
 							onKeyDown={
 								multiline
@@ -454,6 +454,8 @@ const StringRow = memo(function StringRow({
 												event.preventDefault();
 										}
 							}
+							onFocus={onFocus}
+							onBlur={onBlur}
 							onChange={(event) => {
 								const raw = event.currentTarget.value;
 								field.set(multiline ? raw : toSingleLine(raw));
@@ -471,7 +473,7 @@ const StringRow = memo(function StringRow({
 						</div>
 						<FieldMessage
 							id={`${fieldId(path)}-error`}
-							message={field.issues.map((issue) => sentenceCase(issue.message)).join(" ")}
+							message={issues.map((issue) => sentenceCase(issue.message)).join(" ")}
 						/>
 					</div>
 					<RowMenu
@@ -481,7 +483,7 @@ const StringRow = memo(function StringRow({
 						canMoveDown={canMoveDown}
 						onMoveUp={() => move(index, index - 1)}
 						onMoveDown={() => move(index, index + 1)}
-						onRemove={() => remove(index, label)}
+						onRemove={(touch) => remove(index, label, touch)}
 					/>
 				</>
 			)}
