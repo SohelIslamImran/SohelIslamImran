@@ -812,9 +812,12 @@
 		.cms-collection-list {
 			position: sticky;
 			top: calc(var(--cms-topbar-height) + 0.75rem);
-			max-height: calc(
-				100svh - max(var(--cms-collection-offset, 12rem), var(--cms-topbar-height) + 0.75rem) -
-					1.5rem
+			max-height: max(
+				12rem,
+				calc(
+					100svh - max(var(--cms-collection-offset, 12rem), var(--cms-topbar-height) + 0.75rem) -
+						1.5rem
+				)
 			);
 		}
 

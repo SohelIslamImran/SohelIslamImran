@@ -214,8 +214,11 @@ export function CollectionEditor<T extends { id: string }>({
 		const panel = listPanel.current;
 		const collection = panel?.parentElement;
 		if (narrow || !panel || !collection) return;
+		let offset: number | undefined;
 		const measure = () => {
-			const top = collection.getBoundingClientRect().top + window.scrollY;
+			const top = Math.max(0, Math.ceil(collection.getBoundingClientRect().top));
+			if (top === offset) return;
+			offset = top;
 			panel.style.setProperty("--cms-collection-offset", `${top}px`);
 		};
 		const observer = new ResizeObserver(measure);
@@ -234,9 +237,11 @@ export function CollectionEditor<T extends { id: string }>({
 		}
 		measure();
 		window.addEventListener("resize", measure);
+		window.addEventListener("scroll", measure, { passive: true });
 		return () => {
 			observer.disconnect();
 			window.removeEventListener("resize", measure);
+			window.removeEventListener("scroll", measure);
 		};
 	}, [narrow]);
 
@@ -602,11 +607,12 @@ export function CollectionEditor<T extends { id: string }>({
 						{shownId !== undefined ? (
 							<>
 								<EditorGroup
+									className="[&_h2]:text-[21px]"
 									title={
 										<span
 											id={detailHeadingId(shownId)}
 											tabIndex={-1}
-											className="block scroll-mt-32 wrap-anywhere rounded-sm text-[21px]"
+											className="block scroll-mt-32 wrap-anywhere rounded-sm"
 										>
 											<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
 										</span>
