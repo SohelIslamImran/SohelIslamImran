@@ -188,7 +188,9 @@
 		--cms-dur-base: 240ms;
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
+		--cms-ring:
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);

@@ -5,7 +5,9 @@
 		--cms-dur-press: 100ms;
 		--cms-dur-fast: 160ms;
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
+		--cms-ring:
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
 	}
 
 	.cms-command-secondary {
