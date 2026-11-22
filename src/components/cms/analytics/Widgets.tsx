@@ -1,7 +1,7 @@
 import { useRouter } from "@tanstack/react-router";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
+import { useEffect, useId, useRef, type CSSProperties, type ReactNode, type Ref } from "react";
 import { cn } from "../../../lib/utils";
 import type { AnalyticsCount } from "../../../server/analytics.server";
 import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
@@ -589,16 +589,21 @@ export function PageNotice({
 	tone,
 	text,
 	onDismiss,
+	ref,
 }: {
 	tone: "ok" | "error";
 	text: string;
 	onDismiss: () => void;
+	/** Focusable (tabIndex -1) so a page can move focus here after an action. */
+	ref?: Ref<HTMLDivElement>;
 }) {
 	return (
 		<div
+			ref={ref}
+			tabIndex={-1}
 			role="status"
 			className={cn(
-				"cms-enter flex items-center justify-between gap-3 rounded-[12px] border py-1.5 pr-1.5 pl-4 text-[13px]",
+				"cms-enter cms-page-focus flex outline-none items-center justify-between gap-3 rounded-[12px] border py-1.5 pr-1.5 pl-4 text-[13px]",
 				tone === "ok"
 					? "border-success/35 bg-success/10 text-success"
 					: "border-destructive/35 bg-destructive/10 text-destructive",

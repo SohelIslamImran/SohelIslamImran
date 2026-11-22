@@ -102,14 +102,16 @@ function FieldDiffRow({
 	onRevertField?: (path: string) => void;
 }) {
 	return (
-		<div className="grid gap-2.5 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3.5">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<span className="min-w-0 text-[13px] font-medium text-foreground">{field.label}</span>
+		<div className="grid gap-2 py-3.5 first:pt-0 last:pb-0">
+			<div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
+				<span className="min-w-0 text-[12.5px] font-medium text-muted-foreground">
+					{field.label}
+				</span>
 				{onRevertField && field.revertible ? (
 					<button
 						type="button"
 						onClick={() => onRevertField(field.path)}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 text-[12px] font-medium text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus -my-1 inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span aria-hidden="true">↺</span>
 						<span>Revert</span>
@@ -147,7 +149,8 @@ function FieldDiffRow({
 	);
 }
 
-function RowDiffCard({
+/** One collection row: status, title (a quiet link to the item), and its changed fields. */
+function RowDiffBlock({
 	sectionId,
 	row,
 	beforeLabel,
@@ -166,39 +169,39 @@ function RowDiffCard({
 		row.beforeIndex !== null && row.afterIndex !== null && row.beforeIndex !== row.afterIndex
 			? `from ${row.beforeIndex} to ${row.afterIndex}`
 			: null;
+	const linked = showEditLinks && row.status !== "removed" && Boolean(row.itemId);
 
 	return (
-		<div className="grid gap-3 rounded-[12px] border border-line bg-surface-solid p-3.5">
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<StatusChip
-						status={row.status}
-						detail={row.status === "reordered" && movedLabel ? movedLabel : undefined}
-					/>
-					{row.status === "edited" && movedLabel ? (
-						<StatusChip status="reordered" detail={movedLabel} />
-					) : null}
-					<span className="min-w-0 truncate text-[14px] font-medium text-foreground">
-						{row.title}
-					</span>
-				</div>
-				{showEditLinks && row.status !== "removed" ? (
+		<div className="grid gap-3 py-4 first:pt-0 last:pb-0">
+			<div className="flex min-w-0 flex-wrap items-center gap-2">
+				<StatusChip
+					status={row.status}
+					detail={row.status === "reordered" && movedLabel ? movedLabel : undefined}
+				/>
+				{row.status === "edited" && movedLabel ? (
+					<StatusChip status="reordered" detail={movedLabel} />
+				) : null}
+				{linked ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: sectionId }}
-						search={row.itemId ? { item: row.itemId } : {}}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+						search={{ item: row.itemId }}
+						className="cms-page-focus min-w-0 truncate rounded-[6px] text-[14px] font-medium text-foreground no-underline decoration-line-strong underline-offset-4 hover:underline"
 					>
-						<span>Edit</span>
-						<span aria-hidden="true">→</span>
+						<span className="sr-only">Edit </span>
+						{row.title}
 					</Link>
-				) : null}
+				) : (
+					<span className="min-w-0 truncate text-[14px] font-medium text-foreground">
+						{row.title}
+					</span>
+				)}
 			</div>
 
 			{row.preview ? <p className="m-0 text-[13px] text-muted-foreground">{row.preview}</p> : null}
 
 			{row.fields.length > 0 ? (
-				<div className="grid gap-2">
+				<div className="grid divide-y divide-line border-l border-line pl-3.5">
 					{row.fields.map((field) => (
 						<FieldDiffRow
 							key={field.path}
@@ -214,6 +217,19 @@ function RowDiffCard({
 	);
 }
 
+/** "1 added · 2 edited" for a section header; plain text, no chips. */
+function sectionSummary(entry: SectionDiff): string {
+	const parts: string[] = [];
+	if (entry.counts.added > 0) parts.push(`${entry.counts.added} added`);
+	if (entry.counts.edited > 0) parts.push(`${entry.counts.edited} edited`);
+	if (entry.counts.removed > 0) parts.push(`${entry.counts.removed} removed`);
+	if (entry.counts.reordered > 0) parts.push(`${entry.counts.reordered} moved`);
+	if (entry.fields.length > 0) {
+		parts.push(`${entry.fields.length} ${entry.fields.length === 1 ? "field" : "fields"}`);
+	}
+	return parts.join(" · ");
+}
+
 function SectionDiffCard({
 	entry,
 	open,
@@ -222,6 +238,7 @@ function SectionDiffCard({
 	afterLabel,
 	onRevertField,
 	showEditLinks,
+	showSummary,
 	stagger,
 }: {
 	entry: SectionDiff;
@@ -231,24 +248,20 @@ function SectionDiffCard({
 	afterLabel: string;
 	onRevertField?: (path: string) => void;
 	showEditLinks: boolean;
+	/** Off when the page already states the totals (a single changed section). */
+	showSummary: boolean;
 	stagger: number;
 }) {
 	const reduced = useLiveReducedMotion();
 	const bodyId = useId();
+	// Deep-link straight to the item when the section has exactly one changed row.
+	const onlyItem =
+		entry.fields.length === 0 && entry.rows.length === 1 && entry.rows[0]!.status !== "removed"
+			? entry.rows[0]!.itemId
+			: undefined;
 	return (
-		// `layout` animates size and position with transforms; the header is
-		// scale-corrected so it never stretches while the body collapses.
-		<motion.section
-			layout={!reduced}
-			transition={SPRING_MOVE}
-			style={{ ...staggerStyle(stagger), borderRadius: 18 }}
-			className="cms-panel cms-enter min-w-0 overflow-hidden"
-		>
-			<motion.div
-				layout={reduced ? false : "position"}
-				transition={SPRING_MOVE}
-				className="flex items-center gap-2 px-4 py-3 sm:px-5"
-			>
+		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0 overflow-hidden">
+			<div className="flex items-center gap-2 px-4 py-3 sm:px-5">
 				<h3 className="m-0 min-w-0 flex-1">
 					<button
 						type="button"
@@ -260,30 +273,15 @@ function SectionDiffCard({
 						<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
 							<SectionIcon id={entry.section.id} className="size-4" />
 						</span>
-						<span className="grid min-w-0 flex-1 gap-1">
+						<span className="grid min-w-0 flex-1 gap-0.5">
 							<span className="truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
 								{entry.section.label}
 							</span>
-							<span className="flex flex-wrap items-center gap-1.5">
-								{entry.counts.added > 0 ? (
-									<StatusChip status="added" detail={`${entry.counts.added}`} />
-								) : null}
-								{entry.counts.edited > 0 ? (
-									<StatusChip status="edited" detail={`${entry.counts.edited}`} />
-								) : null}
-								{entry.counts.removed > 0 ? (
-									<StatusChip status="removed" detail={`${entry.counts.removed}`} />
-								) : null}
-								{entry.counts.reordered > 0 ? (
-									<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
-								) : null}
-								{entry.rows.length === 0 && entry.counts.fields > 0 ? (
-									<StatusChip
-										status="edited"
-										detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
-									/>
-								) : null}
-							</span>
+							{showSummary ? (
+								<span className="truncate text-[12.5px] text-muted-foreground tabular-nums">
+									{sectionSummary(entry)}
+								</span>
+							) : null}
 						</span>
 						<span className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-150 group-hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] group-hover:text-foreground">
 							<ChevronIcon open={open} />
@@ -295,50 +293,58 @@ function SectionDiffCard({
 					<Link
 						to="/cms/content/$section"
 						params={{ section: entry.section.id }}
+						search={onlyItem ? { item: onlyItem } : {}}
 						className="cms-press cms-page-focus inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 text-[12.5px] font-medium text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span>Edit</span>
 						<span className="sr-only"> {entry.section.label}</span>
 					</Link>
 				) : null}
-			</motion.div>
+			</div>
 
 			<AnimatePresence initial={false}>
 				{open ? (
+					// Height animates both ways so collapse mirrors expand; the clip
+					// keeps the body from spilling while it closes.
 					<motion.div
 						key="body"
 						id={bodyId}
-						layout={reduced ? false : "position"}
-						initial={{ opacity: 0 }}
-						animate={{ opacity: 1 }}
-						exit={{ opacity: 0, transition: { duration: reduced ? 0.12 : 0.1 } }}
-						transition={reduced ? REDUCED : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-						className="grid gap-2.5 border-t border-line px-4 py-4 sm:px-5"
+						initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+						animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+						exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+						transition={
+							reduced
+								? REDUCED
+								: { ...SPRING_MOVE, opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] } }
+						}
+						className="overflow-hidden"
 					>
-						{entry.fields.map((field) => (
-							<FieldDiffRow
-								key={field.path}
-								field={field}
-								beforeLabel={beforeLabel}
-								afterLabel={afterLabel}
-								onRevertField={onRevertField}
-							/>
-						))}
-						{entry.rows.map((row) => (
-							<RowDiffCard
-								key={`${row.status}-${row.id}`}
-								sectionId={entry.section.id}
-								row={row}
-								beforeLabel={beforeLabel}
-								afterLabel={afterLabel}
-								onRevertField={onRevertField}
-								showEditLinks={showEditLinks}
-							/>
-						))}
+						<div className="grid divide-y divide-line border-t border-line px-4 py-4 sm:px-5">
+							{entry.fields.map((field) => (
+								<FieldDiffRow
+									key={field.path}
+									field={field}
+									beforeLabel={beforeLabel}
+									afterLabel={afterLabel}
+									onRevertField={onRevertField}
+								/>
+							))}
+							{entry.rows.map((row) => (
+								<RowDiffBlock
+									key={`${row.status}-${row.id}`}
+									sectionId={entry.section.id}
+									row={row}
+									beforeLabel={beforeLabel}
+									afterLabel={afterLabel}
+									onRevertField={onRevertField}
+									showEditLinks={showEditLinks}
+								/>
+							))}
+						</div>
 					</motion.div>
 				) : null}
 			</AnimatePresence>
-		</motion.section>
+		</section>
 	);
 }
 
@@ -353,7 +359,6 @@ export function DiffView({
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
 }: DiffViewProps) {
-	const reduced = useLiveReducedMotion();
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 
@@ -414,16 +419,13 @@ export function DiffView({
 					afterLabel={afterLabel}
 					onRevertField={onRevertField}
 					showEditLinks={showEditLinks}
+					showSummary={diff.changedSections.length > 1}
 					stagger={Math.min(idx, 6)}
 				/>
 			))}
 
 			{showUnchanged && diff.unchangedSections.length > 0 ? (
-				<motion.div
-					layout={reduced ? false : "position"}
-					transition={SPRING_MOVE}
-					className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]"
-				>
+				<div className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
@@ -466,7 +468,7 @@ export function DiffView({
 							))}
 						</ul>
 					) : null}
-				</motion.div>
+				</div>
 			) : null}
 		</div>
 	);

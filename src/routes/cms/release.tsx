@@ -38,7 +38,7 @@ export const Route = createFileRoute("/cms/release")({
 });
 
 const tabs = [
-	{ value: "changes", label: "Changes" },
+	{ value: "changes", label: "Review" },
 	{ value: "json", label: "Raw JSON" },
 ] as const;
 
@@ -61,7 +61,10 @@ function ReleaseRoute() {
 
 	const [tab, setTab] = useState<"changes" | "json">("changes");
 	const [reviewedDraft, setReviewedDraft] = useState<typeof draft | null>(null);
-	const confirmingPublish = reviewedDraft === draft;
+	// Held from Confirm until the publish settles, so the gate stays in its busy
+	// state instead of flashing the "up to date" empty state before the receipt.
+	const [publishing, setPublishing] = useState(false);
+	const confirmingPublish = publishing || reviewedDraft === draft;
 	const [discardReview, setDiscardReview] = useState<{
 		draft: typeof draft;
 		publishedRevision: number;
@@ -69,17 +72,23 @@ function ReleaseRoute() {
 	const [discarding, setDiscarding] = useState(false);
 	const [publishedReceipt, setPublishedReceipt] = useState<{ revision: number } | null>(null);
 	const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const [justDiscarded, setJustDiscarded] = useState(false);
 	const receiptRef = useRef<HTMLElement>(null);
 	const emptyRef = useRef<HTMLDivElement>(null);
 	const focusAfterRender = useRef<"receipt" | "empty" | null>(null);
 
 	const diff = useMemo(() => diffPortfolioDocuments(published, draft), [published, draft]);
 	const hasChanges = diff.changedSections.length > 0 || ahead || dirty;
-	const canPublish = hasChanges && issueCount === 0 && !conflict && !busy;
+	const showGate = hasChanges || publishing;
+	const gateBusy = busy || publishing;
+	const canPublish = hasChanges && issueCount === 0 && !conflict && !gateBusy;
 
-	// A new edit after publishing makes the receipt stale.
+	// A new edit after publishing or discarding makes the receipt stale.
 	useEffect(() => {
-		if (hasChanges) setPublishedReceipt(null);
+		if (hasChanges) {
+			setPublishedReceipt(null);
+			setJustDiscarded(false);
+		}
 	}, [hasChanges]);
 
 	useLayoutEffect(() => {
@@ -91,9 +100,16 @@ function ReleaseRoute() {
 
 	const handleConfirmPublish = async () => {
 		setNotice(null);
-		if (!reviewedDraft) return;
-		const ok = await store.publish({ reviewedDraft });
-		setReviewedDraft(null);
+		if (!reviewedDraft || publishing) return;
+		setPublishing(true);
+		setJustDiscarded(false);
+		let ok = false;
+		try {
+			ok = await store.publish({ reviewedDraft });
+		} finally {
+			setPublishing(false);
+			setReviewedDraft(null);
+		}
 		if (ok) {
 			focusAfterRender.current = "receipt";
 			setPublishedReceipt({ revision: store.getState().publishedRevision });
@@ -118,7 +134,7 @@ function ReleaseRoute() {
 			setReviewedDraft(null);
 			setTab("changes");
 			focusAfterRender.current = "empty";
-			setNotice({ tone: "ok", text: "Changes discarded. Your draft matches the live site again." });
+			setJustDiscarded(true);
 		} else if (state.error) {
 			setNotice({ tone: "error", text: state.error });
 		}
@@ -164,14 +180,14 @@ function ReleaseRoute() {
 				<PageNotice tone={notice.tone} text={notice.text} onDismiss={() => setNotice(null)} />
 			) : null}
 
-			{hasChanges ? (
+			{showGate ? (
 				<PublishGate
 					totalChanges={diff.totalChanges}
 					sectionCount={diff.changedSections.length}
 					issueCount={issueCount}
 					conflict={conflict}
 					dirty={dirty}
-					busy={busy}
+					busy={gateBusy}
 					canPublish={canPublish}
 					confirming={confirmingPublish}
 					host={host}
@@ -179,7 +195,7 @@ function ReleaseRoute() {
 					onCancel={() => setReviewedDraft(null)}
 					onConfirm={() => void handleConfirmPublish()}
 					onDiscard={() => setDiscardReview({ draft, publishedRevision })}
-					discardDisabled={busy || discarding}
+					discardDisabled={gateBusy || discarding}
 				/>
 			) : publishedReceipt ? (
 				<PublishedReceipt
@@ -195,7 +211,7 @@ function ReleaseRoute() {
 			) : null}
 
 			<Tabs.Panel value="changes" hidden={tab !== "changes"} className="min-w-0 empty:hidden">
-				{hasChanges ? (
+				{showGate ? (
 					diff.changedSections.length > 0 ? (
 						<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
 					) : null
@@ -203,8 +219,12 @@ function ReleaseRoute() {
 					<div ref={emptyRef} tabIndex={-1} className="outline-none">
 						<DiffView
 							diff={diff}
-							emptyTitle="Your live site is up to date"
-							emptyDescription="Edits you make show up here for review before you publish."
+							emptyTitle={justDiscarded ? "Changes discarded" : "Your live site is up to date"}
+							emptyDescription={
+								justDiscarded
+									? "Your draft matches the live site again. Earlier drafts stay in revision history."
+									: "Edits you make show up here for review before you publish."
+							}
 							emptyAction={
 								<Link to="/cms/history" className={controlClass}>
 									<HistoryIcon className="size-3.5 text-muted-foreground" />
@@ -237,10 +257,10 @@ function ReleaseRoute() {
 									Discard all unpublished changes?
 								</AlertDialog.Title>
 								<AlertDialog.Description className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">
-									Your draft goes back to what’s live, replacing changes in{" "}
-									{diff.changedSections.length}{" "}
-									{diff.changedSections.length === 1 ? "section" : "sections"}, unsaved edits
-									included. Earlier saved drafts stay in revision history.
+									{diff.changedSections.length > 0
+										? `Your draft goes back to what’s live, replacing changes in ${diff.changedSections.length} ${diff.changedSections.length === 1 ? "section" : "sections"}${dirty ? ", unsaved edits included" : ""}.`
+										: "Your draft goes back to what’s live."}{" "}
+									Earlier saved drafts stay in revision history.
 								</AlertDialog.Description>
 							</div>
 						</div>

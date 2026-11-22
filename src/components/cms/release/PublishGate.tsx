@@ -6,9 +6,10 @@
  */
 import { useId, useLayoutEffect, useRef, type Ref } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { controlClass } from "../analytics/Widgets";
-import { REDUCED, SPRING_SNAPPY } from "../motion";
+import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
+import { RELEASE_GATE_ID } from "../shell/CmsShell";
 import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
@@ -74,11 +75,11 @@ export function PublishGate({
 
 	return (
 		<section
-			id="release-gate"
+			id={RELEASE_GATE_ID}
 			ref={gateRef}
 			tabIndex={-1}
 			aria-label="Publish"
-			className="cms-panel cms-enter cms-page-focus grid scroll-mt-20 gap-3 p-4 sm:px-5"
+			className="cms-panel cms-enter cms-page-focus grid scroll-mt-20 p-4 sm:px-5"
 			onKeyDown={(event) => {
 				if (event.key === "Escape" && confirming && !busy) {
 					event.stopPropagation();
@@ -166,18 +167,28 @@ export function PublishGate({
 				</div>
 			</div>
 
-			{confirming ? (
-				<motion.p
-					id={confirmationId}
-					initial={reduced ? { opacity: 0 } : { opacity: 0, y: -3 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={reduced ? REDUCED : SPRING_SNAPPY}
-					className="m-0 rounded-[11px] border border-primary-line bg-primary-soft/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground"
-				>
-					Publish to <span className="font-medium">{host}</span>? Visitors see the changes right
-					away.{dirty ? " Unsaved edits are saved first." : ""}
-				</motion.p>
-			) : null}
+			{/* The confirmation opens its own room (height springs open) so the
+			    page below slides down instead of jumping. */}
+			<AnimatePresence initial={false}>
+				{confirming ? (
+					<motion.div
+						key="confirm"
+						initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+						animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
+						exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
+						transition={reduced ? REDUCED : { ...SPRING_MOVE, opacity: { duration: 0.18 } }}
+						className="overflow-hidden"
+					>
+						<p
+							id={confirmationId}
+							className="m-0 mt-3 rounded-[11px] border border-primary-line bg-primary-soft/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground"
+						>
+							Publish to <span className="font-medium">{host}</span>? Visitors see the changes right
+							away.{dirty ? " Unsaved edits are saved first." : ""}
+						</p>
+					</motion.div>
+				) : null}
+			</AnimatePresence>
 		</section>
 	);
 }

@@ -118,10 +118,12 @@ function WordDiffText({ before, after }: { before: string; after: string }) {
 						{core ? (
 							part.kind === "del" ? (
 								<del className="rounded-[4px] bg-destructive/12 px-0.5 text-destructive decoration-destructive/75 line-through [box-decoration-break:clone]">
+									<span className="sr-only">removed: </span>
 									{core}
 								</del>
 							) : (
 								<ins className="rounded-[4px] bg-success/14 px-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2 [box-decoration-break:clone]">
+									<span className="sr-only">added: </span>
 									{core}
 								</ins>
 							)

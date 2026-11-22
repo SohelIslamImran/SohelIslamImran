@@ -77,6 +77,18 @@ function HistoryRoute() {
 	const [restoreReview, setRestoreReview] = useState<typeof draft | null>(null);
 	const [restoring, setRestoring] = useState(false);
 	const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const noticeRef = useRef<HTMLDivElement>(null);
+	const restoredRef = useRef(false);
+
+	// Publishing copies draft rN to published rN, so "All" would list every
+	// published revision twice. Show the published row and hide its identical draft.
+	const visibleItems = useMemo(() => {
+		if (filter !== "all") return items;
+		const published = new Map(
+			items.filter((row) => row.kind === "published").map((row) => [row.revision, row.bytes]),
+		);
+		return items.filter((row) => row.kind !== "draft" || published.get(row.revision) !== row.bytes);
+	}, [filter, items]);
 
 	const baselineBytes = useMemo(() => {
 		const match = items.find((row) => row.kind === "draft" && row.revision === draftRevision);
@@ -107,7 +119,9 @@ function HistoryRoute() {
 				setItems(result.items);
 				setNextBefore(result.nextBefore);
 
-				const matching = result.items.find((row) => row.revision === searchRevision);
+				const matching =
+					result.items.find((row) => row.revision === searchRevision && row.kind === "published") ??
+					result.items.find((row) => row.revision === searchRevision);
 				if (matching || result.items.length === 0) {
 					setSelectedId(matching?.id ?? null);
 					return;
@@ -115,7 +129,16 @@ function HistoryRoute() {
 
 				const current = store.getState();
 				let defaultId = result.items[0]!.id;
+				const isMergedDraft = (row: RevisionSummary) =>
+					row.kind === "draft" &&
+					result.items.some(
+						(other) =>
+							other.kind === "published" &&
+							other.revision === row.revision &&
+							other.bytes === row.bytes,
+					);
 				for (const row of result.items) {
+					if (isMergedDraft(row)) continue;
 					if (!current.dirty && row.revision === current.draftRevision) continue;
 					try {
 						const candidate = await loadDetail(row.id);
@@ -221,6 +244,7 @@ function HistoryRoute() {
 		setRestoreReview(null);
 		const state = store.getState();
 		if (ok) {
+			restoredRef.current = true;
 			setNotice({
 				tone: "ok",
 				text: `Restored r${detail.revision} as your draft. Publish when you’re ready.`,
@@ -252,7 +276,12 @@ function HistoryRoute() {
 			/>
 
 			{notice ? (
-				<PageNotice tone={notice.tone} text={notice.text} onDismiss={() => setNotice(null)} />
+				<PageNotice
+					ref={noticeRef}
+					tone={notice.tone}
+					text={notice.text}
+					onDismiss={() => setNotice(null)}
+				/>
 			) : null}
 
 			<div className="grid min-w-0 items-start gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -305,7 +334,7 @@ function HistoryRoute() {
 									className="absolute top-5 bottom-5 left-[10.5px] w-px bg-line-strong"
 								/>
 								<ul className="m-0 grid list-none gap-0.5 p-0">
-									{items.map((item, idx) => (
+									{visibleItems.map((item, idx) => (
 										<RevisionRow
 											key={item.id}
 											item={item}
@@ -350,11 +379,12 @@ function HistoryRoute() {
 							baselineBytes={baselineBytes}
 							restoring={restoring}
 							onRestore={() => {
+								restoredRef.current = false;
 								setRestoreReview(draft);
 								setRestoreOpen(true);
 							}}
 						/>
-					) : selectedId !== null ? (
+					) : selectedId !== null || loadingList ? (
 						<InspectorSkeleton />
 					) : (
 						<div className="cms-panel">
@@ -373,6 +403,7 @@ function HistoryRoute() {
 				diff={diff}
 				open={restoreOpen}
 				restoring={restoring}
+				finalFocus={() => (restoredRef.current ? noticeRef.current : null)}
 				onCancel={() => {
 					setRestoreOpen(false);
 					setRestoreReview(null);

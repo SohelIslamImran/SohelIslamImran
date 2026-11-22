@@ -31,6 +31,53 @@ function mergeAdjacent(parts: WordDiffPart[]): WordDiffPart[] {
 }
 
 /**
+ * LCS happily matches the single spaces between words, which turns a phrase
+ * rewrite ("I'll take" → "I will carry") into confetti: ~~I'll~~ I ~~take~~
+ * will carry. Treat whitespace that sits between changes as part of the
+ * change, so each run reads as one deletion followed by one insertion.
+ */
+function coalesceChanges(parts: WordDiffPart[]): WordDiffPart[] {
+	const out: WordDiffPart[] = [];
+	let index = 0;
+	while (index < parts.length) {
+		const part = parts[index]!;
+		if (part.kind === "same") {
+			out.push(part);
+			index += 1;
+			continue;
+		}
+		let end = index;
+		let del = "";
+		let add = "";
+		let hasDel = false;
+		let hasAdd = false;
+		while (end < parts.length) {
+			const current = parts[end]!;
+			if (current.kind === "del") {
+				del += current.text;
+				hasDel = true;
+			} else if (current.kind === "add") {
+				add += current.text;
+				hasAdd = true;
+			} else if (/^\s+$/u.test(current.text) && parts[end + 1] && parts[end + 1]!.kind !== "same") {
+				del += current.text;
+				add += current.text;
+			} else {
+				break;
+			}
+			end += 1;
+		}
+		if (hasDel && hasAdd) {
+			out.push({ kind: "del", text: del }, { kind: "add", text: add });
+		} else {
+			out.push(...parts.slice(index, end));
+		}
+		index = end;
+	}
+	return out;
+}
+
+/**
  * Compute a readable word-level diff between `before` (live) and `after` (draft).
  * Trims common prefixes/suffixes first, then runs an exact LCS on the middle
  * window (falling back to coarse replace when an edit spans >420 tokens).
@@ -121,5 +168,5 @@ export function diffWords(before: string, after: string): WordDiffPart[] {
 		parts.push({ kind: "same", text: left.slice(left.length - suffix).join("") });
 	}
 
-	return mergeAdjacent(parts);
+	return mergeAdjacent(coalesceChanges(mergeAdjacent(parts)));
 }
