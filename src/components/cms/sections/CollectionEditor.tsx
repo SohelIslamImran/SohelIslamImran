@@ -25,9 +25,9 @@ import { REDUCED, SPRING_MOVE } from "../motion";
 import { FieldMessage, sentenceCase } from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
-import { controlClass, fieldId, focusField, RowActions } from "../fields";
+import { controlClass, fieldId, focusField } from "../fields";
 import { UndoRemoval, editorButton } from "../fields/UndoRemoval";
-import { AddButton } from "../fields/RowControls";
+import { AddButton, RowMenu } from "../fields/RowControls";
 import {
 	ChevronLeftIcon,
 	ChevronRightIcon,
@@ -249,6 +249,8 @@ export function CollectionEditor<T extends { id: string }>({
 			if (!row || to < 0 || to >= rows.length || filter) return;
 			const focused = document.activeElement;
 			store.update(path, moveItem(rows, from, to));
+			// The menu restores focus to the row trigger on close.
+			if (focused?.matches("[role=menuitem]")) return;
 			requestAnimationFrame(() => {
 				if (
 					focused instanceof HTMLElement &&
@@ -726,7 +728,9 @@ function CollectionRow<T extends { id: string }>({
 								{title || `Untitled ${itemLabel.toLowerCase()}`}
 							</span>
 							{subtitle ? (
-								<span className="wrap-anywhere text-[12px] text-muted-foreground">{subtitle}</span>
+								<span className="cms-collection-subtitle wrap-anywhere text-[12px]">
+									{subtitle}
+								</span>
 							) : null}
 							<span className="flex flex-wrap gap-1 empty:hidden">
 								{chips.map((chip) => (
@@ -748,8 +752,8 @@ function CollectionRow<T extends { id: string }>({
 					</button>
 					{handle}
 					{reorderable ? (
-						<RowActions
-							className="cms-collection-row-actions justify-end pr-1 pointer-fine:grid pointer-fine:gap-0 pointer-fine:pr-0 pointer-fine:[&>button]:size-6"
+						<RowMenu
+							className="cms-collection-row-actions"
 							label={title || `${itemLabel} ${index + 1}`}
 							canMoveUp={index > 0}
 							canMoveDown={!last}

@@ -219,8 +219,8 @@ export function SuggestionField({
 						setTyped(details.reason === "input-change");
 						field.set(next);
 					}}
-					onOpenChange={(open) => {
-						if (open) setTyped(false);
+					onOpenChange={(open, details) => {
+						if (open && details.reason !== "input-change") setTyped(false);
 					}}
 					openOnInputClick
 				>

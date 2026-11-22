@@ -53,7 +53,7 @@ export function RowMenu({
 	onMoveDown: () => void;
 	onDuplicate?: () => void;
 	duplicateDisabled?: boolean;
-	onRemove: () => void;
+	onRemove?: () => void;
 	className?: string;
 }) {
 	const movable = canMoveUp || canMoveDown;
@@ -88,10 +88,14 @@ export function RowMenu({
 								</MenuItem>
 							</>
 						) : null}
-						{onDuplicate || movable ? <Menu.Separator className="cms-menu-separator" /> : null}
-						<MenuItem icon={<TrashIcon />} destructive onClick={onRemove}>
-							Remove
-						</MenuItem>
+						{onRemove ? (
+							<>
+								{onDuplicate || movable ? <Menu.Separator className="cms-menu-separator" /> : null}
+								<MenuItem icon={<TrashIcon />} destructive onClick={onRemove}>
+									Remove
+								</MenuItem>
+							</>
+						) : null}
 					</Menu.Popup>
 				</Menu.Positioner>
 			</Menu.Portal>

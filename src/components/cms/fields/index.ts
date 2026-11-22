@@ -6,7 +6,7 @@
 export { FieldFrame, controlClass, describedBy, fieldId, focusField } from "./FieldFrame";
 export { NumberField, TextAreaField, TextField } from "./TextFields";
 export { SegmentedField, SelectField, SwitchField, type ChoiceOption } from "./ChoiceFields";
-export { RowActions, StringListField, TagsField } from "./ListFields";
+export { StringListField, TagsField } from "./ListFields";
 export { RepeaterField } from "./RepeaterField";
 export {
 	CoordinateField,

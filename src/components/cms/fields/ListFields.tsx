@@ -25,7 +25,6 @@ import {
 	sentenceCase,
 } from "./FieldFrame";
 import { AddButton, RowMenu } from "./RowControls";
-import { ChevronDownIcon, ChevronUpIcon } from "./field-icons";
 import { CloseIcon } from "../shell/cms-icons";
 import { tagBackspace, toSingleLine } from "./field-logic";
 import {
@@ -212,7 +211,7 @@ export function TagsField({
 						setArmed(false);
 						add(draft);
 					}}
-					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden placeholder:text-muted-foreground/70"
+					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden"
 				/>
 			</div>
 			<p role="status" className="sr-only">
@@ -522,49 +521,3 @@ const StringRow = memo(function StringRow({
 		</SortableRow>
 	);
 });
-
-/** Move up / move down buttons for collection rows (pointer users; keyboard uses Alt+Arrow). */
-export function RowActions({
-	label,
-	canMoveUp,
-	canMoveDown,
-	onMoveUp,
-	onMoveDown,
-	className,
-}: {
-	label: string;
-	canMoveUp: boolean;
-	canMoveDown: boolean;
-	onMoveUp: () => void;
-	onMoveDown: () => void;
-	className?: string;
-}) {
-	const button =
-		"cms-press inline-flex size-8 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_6%,transparent)] hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent pointer-coarse:size-11";
-	return (
-		<div className={cn("flex shrink-0 flex-wrap items-center gap-0.5", className)}>
-			<button
-				aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-				type="button"
-				data-row-reorder=""
-				className={button}
-				disabled={!canMoveUp}
-				onClick={onMoveUp}
-			>
-				<ChevronUpIcon className="size-3.5" />
-				<span className="sr-only">Move {label} up</span>
-			</button>
-			<button
-				aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
-				type="button"
-				data-row-reorder=""
-				className={button}
-				disabled={!canMoveDown}
-				onClick={onMoveDown}
-			>
-				<ChevronDownIcon className="size-3.5" />
-				<span className="sr-only">Move {label} down</span>
-			</button>
-		</div>
-	);
-}
