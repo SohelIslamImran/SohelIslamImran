@@ -126,9 +126,13 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
-		let cmsTransition: ViewTransition | undefined;
+		let cmsTransition: { view: ViewTransition; skipped: boolean } | undefined;
 		const startRouterTransition = router.startViewTransition;
-		const skipCmsTransition = () => cmsTransition?.skipTransition();
+		const skipCmsTransition = () => {
+			if (!cmsTransition) return;
+			cmsTransition.skipped = true;
+			cmsTransition.view.skipTransition();
+		};
 		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
@@ -138,15 +142,6 @@ function useRouteViewTransitions() {
 			const from = indexOf(fromState);
 			const to = indexOf(toState);
 			return from !== null && to !== null && to < from ? "back" : "forward";
-		};
-		const reportTransitionError = (error: unknown) => {
-			if (
-				error instanceof DOMException &&
-				(error.name === "AbortError" || error.name === "InvalidStateError")
-			) {
-				return;
-			}
-			if (import.meta.env.DEV) console.error("CMS view transition failed", error);
 		};
 		const onMotionChange = () => {
 			if (reduced.matches) skipCmsTransition();
@@ -173,19 +168,30 @@ function useRouteViewTransitions() {
 				return update();
 			}
 			root.dataset.routeVt = direction(from?.state, to.state);
-			const transition = document.startViewTransition(update);
+			const view = document.startViewTransition(update);
+			const transition = { view, skipped: false };
 			cmsTransition = transition;
-			void transition.ready.catch(reportTransitionError);
+			const reportTransitionError = (error: unknown) => {
+				if (
+					error instanceof DOMException &&
+					(error.name === "AbortError" ||
+						(transition.skipped && error.name === "InvalidStateError"))
+				) {
+					return;
+				}
+				if (import.meta.env.DEV) console.error("CMS view transition failed", error);
+			};
+			void view.ready.catch(reportTransitionError);
 			const finish = () => {
 				if (cmsTransition !== transition) return;
 				cmsTransition = undefined;
 				delete root.dataset.routeVt;
 			};
-			void transition.finished.then(finish, (error: unknown) => {
+			void view.finished.then(finish, (error: unknown) => {
 				finish();
 				reportTransitionError(error);
 			});
-			await transition.updateCallbackDone;
+			await view.updateCallbackDone;
 		};
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
 			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
