@@ -364,7 +364,7 @@ function ChangesCompactBadge() {
 
 function RailHeading({ children }: { children: ReactNode }) {
 	return (
-		<p className="cms-rail-heading m-0 mt-3 flex h-5 items-center px-3 text-[11px] font-medium text-muted-foreground">
+		<p className="cms-rail-heading flex items-center px-3 text-[11px] font-medium text-muted-foreground">
 			{children}
 		</p>
 	);
