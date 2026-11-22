@@ -30,7 +30,7 @@
 	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
 	.cms-control::placeholder,
 	.cms-control input::placeholder {
-		color: color-mix(in srgb, var(--theme-muted) 97%, var(--theme-surface-solid));
+		color: color-mix(in srgb, var(--theme-muted) 99%, var(--theme-surface-solid));
 		opacity: 1;
 	}
 
@@ -682,6 +682,20 @@
 	@media (pointer: coarse) {
 		.cms-collection-chevron {
 			display: block;
+		}
+
+		/*
+		 * Touch rows reorder by dragging the handle. The move buttons stay in
+		 * the accessibility tree (screen readers, a paired keyboard) and
+		 * appear when focused, but do not crowd the title.
+		 */
+		.cms-collection-row-actions:not(:focus-within) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
 		}
 	}
 
