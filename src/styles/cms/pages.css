@@ -57,7 +57,7 @@
 		font-size: 12.5px;
 		font-weight: 500;
 		letter-spacing: -0.005em;
-		color: var(--theme-muted);
+		color: color-mix(in srgb, var(--theme-muted) 78%, var(--theme-ink));
 		text-decoration: none;
 		white-space: nowrap;
 		cursor: pointer;
@@ -77,6 +77,24 @@
 
 	.cms-seg-item:active:not(:disabled) {
 		scale: 0.97;
+	}
+
+	/* Compact variant (chart Chart/Table toggle). The coarse-pointer rule below still wins. */
+	.cms-seg-item[data-compact="true"] {
+		min-height: 28px;
+		padding-inline: 10px;
+		font-size: 12px;
+	}
+
+	.cms-seg-badge {
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in srgb, var(--theme-muted) 78%, var(--theme-ink));
+	}
+
+	.cms-seg-badge[data-active="true"] {
+		color: var(--theme-accent-text, var(--theme-accent));
 	}
 
 	.cms-seg-item:focus-visible {
@@ -126,14 +144,6 @@
 			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
-	.cms-media-card[data-selected="true"] {
-		border-color: var(--theme-accent-line);
-		box-shadow:
-			0 0 0 1px color-mix(in srgb, var(--theme-accent) 32%, transparent),
-			0 8px 24px -10px var(--theme-accent-shadow),
-			inset 0 1px var(--theme-highlight);
-	}
-
 	.cms-media-thumb {
 		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
@@ -173,13 +183,11 @@
 				0 16px 32px -16px var(--theme-shadow-strong),
 				inset 0 1px var(--theme-highlight);
 		}
-		.cms-media-card[data-selected="true"]:hover {
-			border-color: var(--theme-accent-line);
-		}
 		.cms-media-card:hover .cms-media-thumb {
 			scale: 1.03;
 		}
-		.cms-row-hover:hover {
+		.cms-row-hover:hover,
+		.cms-ranked-row:hover {
 			background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
 		}
 	}
@@ -192,10 +200,23 @@
 
 	/* Coarse pointers: ensure 44px minimum touch targets. */
 	@media (pointer: coarse) {
-		.cms-seg-item {
+		.cms-seg-item,
+		.cms-seg-item[data-compact="true"] {
 			min-height: 44px;
 			padding-inline: 14px;
 		}
+	}
+
+	/* Inset focus ring for full-bleed controls inside clipped containers. */
+	.cms-inset-focus:focus-visible {
+		outline: none;
+		box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--theme-accent) 55%, transparent);
+	}
+
+	/* Relative time labels fade in after hydration instead of swapping text. */
+	.cms-time-in {
+		animation: cms-fade var(--cms-dur-base, 240ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
 	}
 
 	/* Smooth collapsible reveal (transform + opacity only; content unmounts when closed so hidden controls stay out of Tab order). */
@@ -215,7 +236,6 @@
 	.cms-chart-tooltip {
 		position: absolute;
 		top: 8px;
-		left: 0;
 		pointer-events: none;
 		z-index: 10;
 		border-radius: 12px;
@@ -227,22 +247,40 @@
 			0 2px 6px var(--theme-shadow-soft),
 			0 12px 30px -10px var(--theme-shadow-strong),
 			inset 0 1px var(--theme-highlight);
-		transition:
-			transform 110ms var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
-			opacity var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
 	}
 
-	/* Ranked list proportional bar (transform-only). */
+	/* Ranked list: a thin 3px data bar under each row (transform-only). */
+	.cms-ranked-row {
+		transition: background-color var(--cms-dur-fast, 160ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-ranked-row[data-active="true"] {
+		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
+	}
+
+	.cms-bar-track {
+		display: block;
+		height: 3px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+	}
+
 	.cms-bar-fill {
-		position: absolute;
-		inset: 2px 0;
-		border-radius: 8px;
-		background: color-mix(in srgb, var(--theme-accent) 9%, transparent);
+		display: block;
+		height: 100%;
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--theme-accent) 70%, transparent);
 		transform-origin: left center;
 		transition:
 			transform var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
 			background-color var(--cms-dur-fast, 160ms)
 				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-ranked-row[data-active="true"] .cms-bar-fill {
+		background: var(--theme-accent);
 	}
 
 	/* Media upload dropzone. */
@@ -322,8 +360,11 @@
 		.cms-collapse-panel {
 			animation: cms-fade 140ms linear both;
 		}
-		.cms-chart-tooltip {
-			transition: opacity 120ms linear;
+		.cms-time-in {
+			animation: cms-fade 120ms linear both;
+		}
+		.cms-chart-series {
+			clip-path: none;
 		}
 		.cms-kpi-card,
 		.cms-jump-card,

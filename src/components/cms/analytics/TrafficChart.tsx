@@ -1,5 +1,6 @@
-import { motion, useReducedMotion } from "motion/react";
-import { useId, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import type { TrafficPoint } from "../../../server/analytics.server";
 import { REDUCED } from "../motion";
@@ -20,6 +21,18 @@ const hour = new Intl.DateTimeFormat("en", {
 	hourCycle: "h23",
 	timeZone: "UTC",
 });
+
+/**
+ * Round the axis maximum up so the middle gridline lands on a whole number
+ * (a max of 7 becomes 8, so the mid label reads 4 on the 4 line).
+ */
+export function niceAxisMax(rawMax: number): number {
+	const half = Math.max(1, rawMax / 2);
+	if (half <= 10) return Math.ceil(half) * 2;
+	const magnitude = 10 ** Math.floor(Math.log10(half));
+	const step = magnitude / 2;
+	return Math.ceil(half / step) * step * 2;
+}
 
 interface Coord {
 	x: number;
@@ -99,7 +112,7 @@ export function TrafficChart({
 	title?: string;
 	stagger?: number;
 }) {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 	const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
 	const [mode, setMode] = useState<"chart" | "table">("chart");
@@ -108,6 +121,18 @@ export function TrafficChart({
 	const id = useId();
 	const fillId = `${id}-pv-fill`;
 	const clipId = `${id}-draw-clip`;
+	const visitorLabel = hourly ? "Visitor-days / hr" : "Visitor-days";
+
+	useEffect(() => {
+		const element = wrapRef.current;
+		if (!element) return;
+		setCanvasWidth(element.getBoundingClientRect().width);
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) setCanvasWidth(entry.contentRect.width);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [mode]);
 
 	const last = Math.max(0, points.length - 1);
 	const rawMax = useMemo(
@@ -115,11 +140,12 @@ export function TrafficChart({
 		[points],
 	);
 	const isAllZero = rawMax === 0;
-	const max = Math.max(1, rawMax);
-	const midLabel = Math.round(max / 2);
+	const max = niceAxisMax(rawMax);
+	const plotTop = padTop;
+	const plotBottom = height - padBottom;
 
 	const xOf = (i: number) => (points.length <= 1 ? padX : padX + (i / last) * (width - 2 * padX));
-	const yOf = (value: number) => height - padBottom - (value / max) * (height - padTop - padBottom);
+	const yOf = (value: number) => plotBottom - (value / max) * (plotBottom - plotTop);
 
 	const format = (point: TrafficPoint | undefined) =>
 		point ? (hourly ? hour : date).format(new Date(point.at)) : "";
@@ -129,31 +155,35 @@ export function TrafficChart({
 		const vd = points.map((point, i) => ({ x: xOf(i), y: yOf(point.visitorDays) }));
 		const pvPath = monotonePath(pv);
 		const vdPath = monotonePath(vd);
-		const baseLine = height - padBottom;
 		const area =
 			pv.length > 1
-				? `${pvPath} L${pv[pv.length - 1]!.x.toFixed(1)},${baseLine} L${pv[0]!.x.toFixed(1)},${baseLine} Z`
+				? `${pvPath} L${pv[pv.length - 1]!.x.toFixed(1)},${plotBottom} L${pv[0]!.x.toFixed(1)},${plotBottom} Z`
 				: "";
 		return { pvCoords: pv, vdCoords: vd, pvLine: pvPath, vdLine: vdPath, pvArea: area };
 	}, [points, max, last]);
 
 	const activeIndex = hoverIndex ?? keyboardIndex;
 	const activePoint = activeIndex !== null ? points[activeIndex] : undefined;
-	const summaryPoint = activePoint ?? points[last];
-	const activeRatio = activeIndex !== null && last > 0 ? activeIndex / last : 0;
+	const activePv = activeIndex !== null ? pvCoords[activeIndex] : undefined;
+	const activeVd = activeIndex !== null ? vdCoords[activeIndex] : undefined;
 
-	const tooltipWidth = 186;
-	const rawLeft = activeRatio * Math.max(tooltipWidth, canvasWidth);
-	const clampedLeft = Math.max(
-		6,
-		Math.min(Math.max(6, canvasWidth - tooltipWidth - 6), rawLeft - tooltipWidth / 2),
-	);
+	// The callout sits on the far side of the crosshair (flipping past the
+	// midpoint) so it never covers the point it describes.
+	const tooltipWidth = Math.min(176, canvasWidth / 2 - 14);
+	const crossPx = activePv ? (activePv.x / width) * canvasWidth : 0;
+	const flip = activePv ? activePv.x / width > 0.5 : false;
+	const preferredLeft = flip ? crossPx - 14 - tooltipWidth : crossPx + 14;
+	const tooltipLeft = preferredLeft;
+
+	const clearInspection = () => {
+		setHoverIndex(null);
+		setKeyboardIndex(null);
+	};
 
 	const updateFromPointer = (clientX: number, target: HTMLElement) => {
 		if (points.length === 0) return;
 		const rect = target.getBoundingClientRect();
 		if (rect.width <= 0) return;
-		setCanvasWidth(rect.width);
 		const relX = ((clientX - rect.left) / rect.width) * width;
 		const idx = Math.max(
 			0,
@@ -162,15 +192,16 @@ export function TrafficChart({
 		setHoverIndex(idx);
 	};
 
-	const stepSelection = (delta: number) => {
+	const stepTo = (next: number) => {
 		if (points.length === 0) return;
-		const current = keyboardIndex ?? hoverIndex ?? last;
-		const next = Math.max(0, Math.min(last, current + delta));
-		setKeyboardIndex(next);
-		if (wrapRef.current) setCanvasWidth(wrapRef.current.getBoundingClientRect().width);
+		setHoverIndex(null);
+		setKeyboardIndex(Math.max(0, Math.min(last, next)));
 	};
 
 	const midIndex = Math.floor(last / 2);
+	const gridLines = [plotTop, (plotTop + plotBottom) / 2, plotBottom];
+	const axisLabels = [max, max / 2, 0];
+	const keyboardPoint = keyboardIndex !== null ? points[keyboardIndex] : undefined;
 
 	return (
 		<section
@@ -188,15 +219,12 @@ export function TrafficChart({
 					</h2>
 					<div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-muted-foreground">
 						<span className="inline-flex items-center gap-1.5">
-							<span aria-hidden="true" className="size-2 rounded-full bg-foreground" />
+							<SeriesSwatch kind="pageviews" />
 							<span>Pageviews</span>
 						</span>
 						<span className="inline-flex items-center gap-1.5">
-							<span
-								aria-hidden="true"
-								className="w-3.5 border-t-2 border-dashed border-primary-text"
-							/>
-							<span>{hourly ? "Visitor-days / hr" : "Visitor-days"}</span>
+							<SeriesSwatch kind="visitors" />
+							<span>{visitorLabel}</span>
 						</span>
 					</div>
 				</div>
@@ -216,21 +244,21 @@ export function TrafficChart({
 
 			{mode === "table" ? (
 				<div
-					className="max-h-96 overflow-auto rounded-[12px] border border-line"
+					className="cms-page-focus max-h-96 overflow-auto rounded-[12px] border border-line"
 					role="region"
 					aria-label="Traffic data"
 					tabIndex={0}
 				>
 					<table className="w-full border-collapse text-left text-[13px] tabular-nums">
 						<thead className="sticky top-0 bg-surface-solid">
-							<tr className="border-b border-line text-[11px] text-muted-foreground">
-								<th scope="col" className="px-3 py-2.5 font-mono font-medium">
-									UTC
+							<tr className="border-b border-line text-[12px] text-muted-foreground">
+								<th scope="col" className="px-3 py-2.5 font-medium">
+									{hourly ? "Hour (UTC)" : "Day (UTC)"}
 								</th>
-								<th scope="col" className="px-3 py-2.5 text-right font-mono font-medium">
-									{hourly ? "Visitor-days / hr" : "Visitor-days"}
+								<th scope="col" className="px-3 py-2.5 text-right font-medium">
+									{visitorLabel}
 								</th>
-								<th scope="col" className="px-3 py-2.5 text-right font-mono font-medium">
+								<th scope="col" className="px-3 py-2.5 text-right font-medium">
 									Pageviews
 								</th>
 							</tr>
@@ -244,10 +272,10 @@ export function TrafficChart({
 									>
 										{format(point)}
 									</th>
-									<td className="px-3 py-2 text-right font-medium text-primary-text">
+									<td className="px-3 py-2 text-right font-mono font-medium text-primary-text">
 										{countLabel(point.visitorDays)}
 									</td>
-									<td className="px-3 py-2 text-right font-medium text-foreground">
+									<td className="px-3 py-2 text-right font-mono font-medium text-foreground">
 										{countLabel(point.pageviews)}
 									</td>
 								</tr>
@@ -258,20 +286,28 @@ export function TrafficChart({
 			) : (
 				<div className="grid min-w-0 gap-2.5">
 					<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-stretch gap-2.5">
+						{/* Y-axis labels sit exactly on their gridlines. */}
 						<div
 							aria-hidden="true"
-							className="flex flex-col justify-between py-2.5 text-right font-mono text-[10.5px] tabular-nums text-muted-foreground"
+							className="relative min-w-[2ch] font-mono text-[10.5px] tabular-nums text-muted-foreground"
 						>
-							<span>{countLabel(max)}</span>
-							{max > 1 ? <span>{countLabel(midLabel)}</span> : null}
-							<span>0</span>
+							{axisLabels.map((value, index) => (
+								<span
+									key={index}
+									className="absolute right-0 -translate-y-1/2 leading-none"
+									style={{ top: `${(gridLines[index]! / height) * 100}%` }}
+								>
+									{countLabel(value)}
+								</span>
+							))}
+							<span className="invisible block leading-none">{countLabel(max)}</span>
 						</div>
 
 						<div
 							ref={wrapRef}
 							role="group"
 							tabIndex={0}
-							aria-label={`${title} interactive chart. Use left and right arrow keys to inspect data points.`}
+							aria-label={`${title}. Use the left and right arrow keys to read each ${hourly ? "hour" : "day"}.`}
 							onPointerMove={(event) => {
 								if (event.pointerType !== "mouse" && event.buttons === 0) return;
 								updateFromPointer(event.clientX, event.currentTarget);
@@ -279,31 +315,37 @@ export function TrafficChart({
 							onPointerDown={(event) => {
 								updateFromPointer(event.clientX, event.currentTarget);
 							}}
-							onPointerLeave={() => setHoverIndex(null)}
-							onFocus={() => {
-								if (wrapRef.current) setCanvasWidth(wrapRef.current.getBoundingClientRect().width);
-								if (keyboardIndex === null && points.length > 0) setKeyboardIndex(last);
-							}}
-							onBlur={() => setKeyboardIndex(null)}
-							onKeyDown={(event) => {
-								if (event.key === "ArrowLeft") {
-									event.preventDefault();
-									stepSelection(-1);
-								} else if (event.key === "ArrowRight") {
-									event.preventDefault();
-									stepSelection(1);
-								} else if (event.key === "Home") {
-									event.preventDefault();
-									setKeyboardIndex(0);
-								} else if (event.key === "End") {
-									event.preventDefault();
+							onPointerLeave={clearInspection}
+							onPointerCancel={clearInspection}
+							onFocus={(event) => {
+								if (
+									keyboardIndex === null &&
+									points.length > 0 &&
+									event.currentTarget.matches(":focus-visible")
+								) {
 									setKeyboardIndex(last);
-								} else if (event.key === "Escape") {
-									setKeyboardIndex(null);
-									setHoverIndex(null);
 								}
 							}}
-							className="cms-page-focus relative min-w-0 cursor-crosshair select-none rounded-[12px]"
+							onBlur={clearInspection}
+							onKeyDown={(event) => {
+								const current = keyboardIndex ?? hoverIndex ?? last;
+								if (event.key === "ArrowLeft") {
+									event.preventDefault();
+									stepTo(current - 1);
+								} else if (event.key === "ArrowRight") {
+									event.preventDefault();
+									stepTo(current + 1);
+								} else if (event.key === "Home") {
+									event.preventDefault();
+									stepTo(0);
+								} else if (event.key === "End") {
+									event.preventDefault();
+									stepTo(last);
+								} else if (event.key === "Escape") {
+									clearInspection();
+								}
+							}}
+							className="cms-page-focus relative min-w-0 cursor-crosshair touch-pan-y select-none rounded-[12px]"
 						>
 							<svg
 								aria-hidden="true"
@@ -317,47 +359,43 @@ export function TrafficChart({
 										<stop offset="100%" stopColor="var(--theme-accent)" stopOpacity="0" />
 									</linearGradient>
 									<clipPath id={clipId}>
+										{/* originX 0: Motion defaults SVG transforms to the box centre. */}
 										<motion.rect
 											x={0}
 											y={0}
 											width={width}
 											height={height}
-											style={{ transformOrigin: "0px 0px" }}
-											initial={reduced ? { scaleX: 1, opacity: 0 } : { scaleX: 0 }}
-											animate={reduced ? { scaleX: 1, opacity: 1 } : { scaleX: 1 }}
-											transition={reduced ? REDUCED : { duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
+											style={{ originX: 0, originY: 0 }}
+											initial={{ scaleX: 0 }}
+											animate={{ scaleX: 1 }}
+											transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
 										/>
 									</clipPath>
 								</defs>
 
-								{/* Horizontal guide tracks */}
-								{[padTop, (padTop + height - padBottom) / 2, height - padBottom].map(
-									(lineY, idx) => (
-										<line
-											key={lineY}
-											x1={padX}
-											x2={width - padX}
-											y1={lineY}
-											y2={lineY}
-											stroke="currentColor"
-											strokeDasharray={idx === 2 ? undefined : "3 4"}
-											className={idx === 2 ? "text-line-strong" : "text-line"}
-											vectorEffect="non-scaling-stroke"
-										/>
-									),
-								)}
+								{gridLines.map((lineY, idx) => (
+									<line
+										key={lineY}
+										x1={padX}
+										x2={width - padX}
+										y1={lineY}
+										y2={lineY}
+										stroke="currentColor"
+										strokeDasharray={idx === 2 ? undefined : "3 4"}
+										className={idx === 2 ? "text-line-strong" : "text-line"}
+										vectorEffect="non-scaling-stroke"
+									/>
+								))}
 
-								{/* Series group revealed smoothly left-to-right once (preserves custom dashes) */}
+								{/* Series revealed left to right once; reduced motion fades instead. */}
 								<motion.g
+									className="cms-chart-series"
 									clipPath={reduced ? undefined : `url(#${clipId})`}
 									initial={reduced ? { opacity: 0 } : undefined}
 									animate={reduced ? { opacity: 1 } : undefined}
 									transition={reduced ? REDUCED : undefined}
 								>
-									{/* Area fill under pageviews */}
 									{pvArea && !isAllZero ? <path d={pvArea} fill={`url(#${fillId})`} /> : null}
-
-									{/* Pageviews series (solid) */}
 									{pvLine ? (
 										<path
 											d={pvLine}
@@ -370,8 +408,6 @@ export function TrafficChart({
 											vectorEffect="non-scaling-stroke"
 										/>
 									) : null}
-
-									{/* Visitor-days series (dashed accent) */}
 									{vdLine ? (
 										<path
 											d={vdLine}
@@ -386,93 +422,70 @@ export function TrafficChart({
 										/>
 									) : null}
 								</motion.g>
-
-								{/* Hover / keyboard crosshair */}
-								{activeIndex !== null && pvCoords[activeIndex] ? (
-									<line
-										x1={pvCoords[activeIndex]!.x}
-										x2={pvCoords[activeIndex]!.x}
-										y1={padTop}
-										y2={height - padBottom}
-										stroke="currentColor"
-										strokeWidth="1.25"
-										className="text-muted-foreground/70"
-										vectorEffect="non-scaling-stroke"
-									/>
-								) : null}
 							</svg>
 
-							{/* Crisp non-distorted active data dots overlaid in CSS space (transform-only) */}
-							{activeIndex !== null && pvCoords[activeIndex] && vdCoords[activeIndex] ? (
+							{/* Crosshair, dots, and callout move together in one frame. */}
+							{activePoint && activePv && activeVd ? (
 								<>
 									<span
 										aria-hidden="true"
-										className="pointer-events-none absolute inset-0 transition-transform duration-100 ease-out motion-reduce:transition-none"
+										className="pointer-events-none absolute w-px -translate-x-1/2 bg-muted-foreground/60"
 										style={{
-											transform: `translate3d(${(pvCoords[activeIndex]!.x / width) * 100}%, ${(pvCoords[activeIndex]!.y / height) * 100}%, 0)`,
+											left: `${(activePv.x / width) * 100}%`,
+											top: `${(plotTop / height) * 100}%`,
+											bottom: `${(padBottom / height) * 100}%`,
 										}}
-									>
-										<span className="absolute top-0 left-0 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-foreground shadow-[0_1px_4px_var(--theme-shadow-strong)]" />
-									</span>
+									/>
 									<span
 										aria-hidden="true"
-										className="pointer-events-none absolute inset-0 transition-transform duration-100 ease-out motion-reduce:transition-none"
+										className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-accent)_22%,transparent)]"
 										style={{
-											transform: `translate3d(${(vdCoords[activeIndex]!.x / width) * 100}%, ${(vdCoords[activeIndex]!.y / height) * 100}%, 0)`,
+											left: `${(activeVd.x / width) * 100}%`,
+											top: `${(activeVd.y / height) * 100}%`,
 										}}
+									/>
+									<span
+										aria-hidden="true"
+										className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-foreground shadow-[0_1px_4px_var(--theme-shadow-strong)]"
+										style={{
+											left: `${(activePv.x / width) * 100}%`,
+											top: `${(activePv.y / height) * 100}%`,
+										}}
+									/>
+									<div
+										aria-hidden="true"
+										className="cms-chart-tooltip px-3 py-2"
+										style={{ width: `${tooltipWidth}px`, left: `${tooltipLeft}px` }}
 									>
-										<span className="absolute top-0 left-0 size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-accent)_22%,transparent)]" />
-									</span>
-								</>
-							) : null}
-
-							{/* Quiet center pill on flat zero-data chart */}
-							{isAllZero && activeIndex === null ? (
-								<div className="pointer-events-none absolute inset-0 grid place-items-center">
-									<span className="rounded-full border border-line bg-surface-solid/95 px-3 py-1 font-mono text-[11px] text-muted-foreground shadow-[0_1px_3px_var(--theme-shadow-soft)]">
-										Flat baseline · no visits in this range
-									</span>
-								</div>
-							) : null}
-
-							{/* Floating glass tooltip following pointer smoothly */}
-							{activePoint ? (
-								<div
-									className="cms-chart-tooltip px-3 py-2"
-									style={{
-										width: `${tooltipWidth}px`,
-										transform: `translate3d(${clampedLeft}px, 0, 0)`,
-									}}
-								>
-									<p className="m-0 mb-1.5 font-mono text-[10.5px] font-medium text-muted-foreground">
-										{format(activePoint)} UTC
-									</p>
-									<div className="grid gap-1 text-[12px] tabular-nums">
-										<div className="flex items-center justify-between gap-3">
-											<span className="inline-flex items-center gap-1.5 text-ink-soft">
-												<span aria-hidden="true" className="size-1.5 rounded-full bg-foreground" />
-												Pageviews
-											</span>
-											<span className="font-mono font-semibold text-foreground">
-												{countLabel(activePoint.pageviews)}
-											</span>
-										</div>
-										<div className="flex items-center justify-between gap-3">
-											<span className="inline-flex items-center gap-1.5 text-ink-soft">
-												<span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-												Visitor-days
-											</span>
-											<span className="font-mono font-semibold text-primary-text">
-												{countLabel(activePoint.visitorDays)}
-											</span>
+										<p className="m-0 mb-1.5 text-[11.5px] font-medium text-muted-foreground">
+											{format(activePoint)} UTC
+										</p>
+										<div className="grid gap-1 text-[12px] tabular-nums">
+											<div className="flex items-center justify-between gap-3">
+												<span className="inline-flex items-center gap-1.5 text-ink-soft">
+													<SeriesSwatch kind="pageviews" />
+													Pageviews
+												</span>
+												<span className="font-mono font-semibold text-foreground">
+													{countLabel(activePoint.pageviews)}
+												</span>
+											</div>
+											<div className="flex items-center justify-between gap-3">
+												<span className="inline-flex items-center gap-1.5 text-ink-soft">
+													<SeriesSwatch kind="visitors" />
+													{visitorLabel}
+												</span>
+												<span className="font-mono font-semibold text-primary-text">
+													{countLabel(activePoint.visitorDays)}
+												</span>
+											</div>
 										</div>
 									</div>
-								</div>
+								</>
 							) : null}
 						</div>
 					</div>
 
-					{/* X-axis tick labels */}
 					<div className="flex items-center justify-between gap-3 pl-7 font-mono text-[11px] text-muted-foreground">
 						<span>{format(points[0])}</span>
 						{points.length > 4 ? (
@@ -481,46 +494,26 @@ export function TrafficChart({
 						<span>{format(points[last])} UTC</span>
 					</div>
 
-					{/* Subtle inspection footer with keyboard stepper */}
-					{summaryPoint ? (
-						<div className="flex flex-wrap items-center justify-between gap-2 rounded-[11px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.2%,transparent)] px-3 py-2">
-							<div
-								aria-live={keyboardIndex !== null ? "polite" : undefined}
-								className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-[11.5px] tabular-nums"
-							>
-								<span className="font-medium text-foreground">{format(summaryPoint)} UTC</span>
-								<span className="text-primary-text">
-									{countLabel(summaryPoint.visitorDays)}{" "}
-									{hourly ? "visitor-days / hr" : "visitor-days"}
-								</span>
-								<span className="text-muted-foreground">
-									{countLabel(summaryPoint.pageviews)} pageviews
-								</span>
-							</div>
-							<div className="flex items-center gap-1">
-								<button
-									type="button"
-									aria-label="Inspect previous point"
-									disabled={(activeIndex ?? last) <= 0}
-									onClick={() => stepSelection(-1)}
-									className="cms-press cms-page-focus inline-grid size-7 place-items-center rounded-full border border-line bg-surface-solid font-mono text-[12px] text-ink-soft hover:border-line-strong hover:text-foreground disabled:opacity-40 pointer-coarse:size-11"
-								>
-									←
-								</button>
-								<button
-									type="button"
-									aria-label="Inspect next point"
-									disabled={(activeIndex ?? last) >= last}
-									onClick={() => stepSelection(1)}
-									className="cms-press cms-page-focus inline-grid size-7 place-items-center rounded-full border border-line bg-surface-solid font-mono text-[12px] text-ink-soft hover:border-line-strong hover:text-foreground disabled:opacity-40 pointer-coarse:size-11"
-								>
-									→
-								</button>
-							</div>
-						</div>
-					) : null}
+					<p className="sr-only" aria-live="polite">
+						{keyboardPoint
+							? `${format(keyboardPoint)} UTC: ${countLabel(keyboardPoint.pageviews)} pageviews, ${countLabel(keyboardPoint.visitorDays)} ${visitorLabel.toLowerCase()}`
+							: ""}
+					</p>
 				</div>
 			)}
 		</section>
+	);
+}
+
+/** Legend and tooltip swatch: solid line for pageviews, dashed accent for visitor-days. */
+function SeriesSwatch({ kind }: { kind: "pageviews" | "visitors" }) {
+	return (
+		<span
+			aria-hidden="true"
+			className={cn(
+				"inline-block w-3.5 shrink-0 border-t-2",
+				kind === "pageviews" ? "border-foreground" : "border-dashed border-primary-text",
+			)}
+		/>
 	);
 }

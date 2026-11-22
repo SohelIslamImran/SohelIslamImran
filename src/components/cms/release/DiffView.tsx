@@ -3,21 +3,22 @@
  * and Raw JSON import preview. Pairs every state with an icon and text label
  * (never hue alone) and supports smooth collapsible section groups.
  */
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { Link } from "@tanstack/react-router";
-import { mediaHref } from "../../../lib/media";
+import { AnimatePresence, motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { EmptyState, staggerStyle } from "../analytics/Widgets";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { CheckCircleIcon, SectionIcon } from "../shell/cms-icons";
 import {
-	asMediaAsset,
 	type DocumentDiff,
 	type FieldDiff,
 	type RowDiff,
 	type RowDiffStatus,
 	type SectionDiff,
 } from "./diff";
-import { diffWords } from "./word-diff";
+import { ListDiff, MediaDiff, ProseDiff, ShortDiff, StatusGlyph, TagsDiff } from "./DiffValues";
 
 interface DiffViewProps {
 	diff: DocumentDiff;
@@ -35,51 +36,6 @@ interface DiffViewProps {
 	emptyDescription?: string;
 	/** Optional action rendered inside the empty state. */
 	emptyAction?: ReactNode;
-}
-
-function StatusGlyph({ status }: { status: RowDiffStatus }) {
-	switch (status) {
-		case "added":
-			return (
-				<svg
-					viewBox="0 0 14 14"
-					aria-hidden="true"
-					className="size-3 shrink-0 fill-none stroke-current stroke-[1.9] [stroke-linecap:round]"
-				>
-					<path d="M7 2.75v8.5M2.75 7h8.5" />
-				</svg>
-			);
-		case "edited":
-			return (
-				<svg
-					viewBox="0 0 14 14"
-					aria-hidden="true"
-					className="size-3 shrink-0 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-				>
-					<path d="M9.5 2.5 11.5 4.5 5 11H3V9l6.5-6.5Z" />
-				</svg>
-			);
-		case "removed":
-			return (
-				<svg
-					viewBox="0 0 14 14"
-					aria-hidden="true"
-					className="size-3 shrink-0 fill-none stroke-current stroke-[1.9] [stroke-linecap:round]"
-				>
-					<path d="M3 7h8" />
-				</svg>
-			);
-		case "reordered":
-			return (
-				<svg
-					viewBox="0 0 14 14"
-					aria-hidden="true"
-					className="size-3 shrink-0 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-				>
-					<path d="M7 2.5v9M4.5 5 7 2.5 9.5 5M4.5 9 7 11.5 9.5 9" />
-				</svg>
-			);
-	}
 }
 
 function ChevronIcon({ open }: { open: boolean }) {
@@ -121,7 +77,7 @@ function StatusChip({ status, detail }: { status: RowDiffStatus; detail?: string
 	return (
 		<span
 			className={cn(
-				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-mono text-[10.5px] font-medium",
+				"inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11.5px] font-medium",
 				meta.className,
 			)}
 		>
@@ -131,268 +87,6 @@ function StatusChip({ status, detail }: { status: RowDiffStatus; detail?: string
 				{detail ? ` ${detail}` : ""}
 			</span>
 		</span>
-	);
-}
-
-function formatScalar(value: unknown): string {
-	if (value === undefined || value === null || value === "") return "Empty";
-	if (typeof value === "boolean") return value ? "Yes" : "No";
-	if (typeof value === "number") return String(value);
-	if (typeof value === "string") return value;
-	return JSON.stringify(value);
-}
-
-function isEmptyScalar(value: unknown): boolean {
-	return value === undefined || value === null || value === "";
-}
-
-function TagsDiff({ before, after }: { before: unknown; after: unknown }) {
-	const left = Array.isArray(before) ? before.map(String) : [];
-	const right = Array.isArray(after) ? after.map(String) : [];
-	const leftSet = new Set(left);
-	const rightSet = new Set(right);
-	const removed = left.filter((item) => !rightSet.has(item));
-	const added = right.filter((item) => !leftSet.has(item));
-	const kept = right.filter((item) => leftSet.has(item));
-
-	return (
-		<div className="flex flex-wrap items-center gap-1.5">
-			{removed.map((tag) => (
-				<span
-					key={`del-${tag}`}
-					className="inline-flex items-center gap-1 rounded-full border border-dashed border-destructive/45 bg-destructive/10 px-2.5 py-0.5 text-[12px] text-destructive line-through"
-				>
-					<StatusGlyph status="removed" />
-					{tag}
-					<span className="sr-only"> (removed)</span>
-				</span>
-			))}
-			{added.map((tag) => (
-				<span
-					key={`add-${tag}`}
-					className="inline-flex items-center gap-1 rounded-full border border-success/40 bg-success/10 px-2.5 py-0.5 text-[12px] font-medium text-success"
-				>
-					<StatusGlyph status="added" />
-					{tag}
-					<span className="sr-only"> (added)</span>
-				</span>
-			))}
-			{kept.length > 0 ? (
-				<span className="font-mono text-[11px] text-muted-foreground">{kept.length} unchanged</span>
-			) : null}
-		</div>
-	);
-}
-
-function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
-	const left = typeof before === "string" ? before : "";
-	const right = typeof after === "string" ? after : "";
-	const parts = diffWords(left, right);
-
-	return (
-		<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
-			{parts.map((part, index) => {
-				if (part.kind === "same") return <span key={index}>{part.text}</span>;
-				if (part.kind === "del") {
-					return (
-						<del
-							key={index}
-							className="rounded-[4px] bg-destructive/12 px-1 py-0.5 text-destructive decoration-destructive/75 line-through"
-						>
-							{part.text}
-						</del>
-					);
-				}
-				return (
-					<ins
-						key={index}
-						className="rounded-[4px] bg-success/14 px-1 py-0.5 text-foreground underline decoration-success/80 decoration-2 underline-offset-2"
-					>
-						{part.text}
-					</ins>
-				);
-			})}
-		</p>
-	);
-}
-
-function MediaCard({ value, label }: { value: unknown; label: string }) {
-	const asset = asMediaAsset(value);
-	const href = mediaHref(asset);
-	return (
-		<div className="flex min-w-0 items-center gap-2.5 rounded-[10px] border border-line bg-surface-solid p-2">
-			{asset && href ? (
-				<img
-					src={href}
-					alt={asset.alt || asset.id}
-					className="size-11 shrink-0 rounded-[7px] border border-line bg-muted object-cover"
-				/>
-			) : (
-				<span
-					aria-hidden="true"
-					className="grid size-11 shrink-0 place-items-center rounded-[7px] border border-dashed border-line-strong font-mono text-[11px] text-muted-foreground"
-				>
-					—
-				</span>
-			)}
-			<div className="min-w-0">
-				<p className="mono-label m-0 text-[10px] text-muted-foreground">{label}</p>
-				<p className="m-0 truncate text-[12.5px] font-medium text-foreground">
-					{asset ? asset.alt || asset.id : "None"}
-				</p>
-				{asset ? (
-					<p className="m-0 truncate font-mono text-[11px] text-muted-foreground">{asset.id}</p>
-				) : null}
-			</div>
-		</div>
-	);
-}
-
-function MediaDiff({
-	before,
-	after,
-	beforeLabel,
-	afterLabel,
-}: {
-	before: unknown;
-	after: unknown;
-	beforeLabel: string;
-	afterLabel: string;
-}) {
-	return (
-		<div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center">
-			<MediaCard value={before} label={beforeLabel} />
-			<span aria-hidden="true" className="hidden font-mono text-muted-foreground sm:inline">
-				→
-			</span>
-			<MediaCard value={after} label={afterLabel} />
-		</div>
-	);
-}
-
-function ShortDiff({
-	before,
-	after,
-	beforeLabel,
-	afterLabel,
-}: {
-	before: unknown;
-	after: unknown;
-	beforeLabel: string;
-	afterLabel: string;
-}) {
-	return (
-		<div className="flex flex-wrap items-center gap-2 text-[13px]">
-			<span
-				className={cn(
-					"inline-flex max-w-full items-center gap-1.5 rounded-[9px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
-					isEmptyScalar(before) && "italic",
-				)}
-			>
-				<span className="font-mono text-[10px] uppercase tracking-[0.06em] opacity-75">
-					{beforeLabel}
-				</span>
-				<span className="line-through decoration-destructive/65 [overflow-wrap:anywhere]">
-					{formatScalar(before)}
-				</span>
-			</span>
-			<span aria-hidden="true" className="font-mono text-[12px] text-primary-text">
-				→
-			</span>
-			<span
-				className={cn(
-					"inline-flex max-w-full items-center gap-1.5 rounded-[9px] border border-primary-line bg-primary-soft px-2.5 py-1 font-medium text-foreground",
-					isEmptyScalar(after) && "italic text-muted-foreground",
-				)}
-			>
-				<span className="font-mono text-[10px] uppercase tracking-[0.06em] text-primary-text">
-					{afterLabel}
-				</span>
-				<span className="[overflow-wrap:anywhere]">{formatScalar(after)}</span>
-			</span>
-		</div>
-	);
-}
-
-function ListDiff({
-	before,
-	after,
-	beforeLabel,
-	afterLabel,
-}: {
-	before: unknown;
-	after: unknown;
-	beforeLabel: string;
-	afterLabel: string;
-}) {
-	const left = Array.isArray(before) ? before : [];
-	const right = Array.isArray(after) ? after : [];
-	const max = Math.max(left.length, right.length);
-
-	const summarize = (item: unknown): string => {
-		if (typeof item === "string") return item;
-		if (item && typeof item === "object") {
-			const rec = item as Record<string, unknown>;
-			const label = rec.label ?? rec.title ?? rec.platform ?? rec.key;
-			const value = rec.value ?? rec.href ?? rec.handle;
-			if (typeof label === "string" && typeof value === "string") return `${label}: ${value}`;
-			if (typeof label === "string") return label;
-		}
-		return JSON.stringify(item);
-	};
-
-	return (
-		<ul className="m-0 grid list-none gap-1.5 p-0">
-			{Array.from({ length: max }).map((_, index) => {
-				const l = left[index];
-				const r = right[index];
-				if (JSON.stringify(l) === JSON.stringify(r)) return null;
-				if (l === undefined) {
-					return (
-						<li
-							key={index}
-							className="flex items-start gap-2 rounded-[9px] border border-success/35 bg-success/8 px-2.5 py-1.5 text-[13px] text-foreground"
-						>
-							<span className="mt-0.5 text-success">
-								<StatusGlyph status="added" />
-							</span>
-							<span className="min-w-0 break-words">{summarize(r)}</span>
-						</li>
-					);
-				}
-				if (r === undefined) {
-					return (
-						<li
-							key={index}
-							className="flex items-start gap-2 rounded-[9px] border border-dashed border-destructive/35 bg-destructive/8 px-2.5 py-1.5 text-[13px] text-destructive line-through"
-						>
-							<span className="mt-0.5">
-								<StatusGlyph status="removed" />
-							</span>
-							<span className="min-w-0 break-words">{summarize(l)}</span>
-						</li>
-					);
-				}
-				if (typeof l === "string" && typeof r === "string" && (l.length >= 60 || r.length >= 60)) {
-					return (
-						<li key={index} className="grid gap-1">
-							<span className="font-mono text-[11px] text-muted-foreground">#{index + 1}</span>
-							<ProseDiff before={l} after={r} />
-						</li>
-					);
-				}
-				return (
-					<li key={index} className="grid gap-1">
-						<ShortDiff
-							before={summarize(l)}
-							after={summarize(r)}
-							beforeLabel={`${beforeLabel} #${index + 1}`}
-							afterLabel={`${afterLabel} #${index + 1}`}
-						/>
-					</li>
-				);
-			})}
-		</ul>
 	);
 }
 
@@ -410,15 +104,12 @@ function FieldDiffRow({
 	return (
 		<div className="grid gap-2.5 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)] p-3.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="flex min-w-0 flex-wrap items-baseline gap-2">
-					<span className="text-[13px] font-medium text-foreground">{field.label}</span>
-					<code className="truncate font-mono text-[11px] text-muted-foreground">{field.path}</code>
-				</div>
+				<span className="min-w-0 text-[13px] font-medium text-foreground">{field.label}</span>
 				{onRevertField && field.revertible ? (
 					<button
 						type="button"
 						onClick={() => onRevertField(field.path)}
-						className="cms-press cms-page-focus inline-flex min-h-7 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full border border-line bg-surface-solid px-2.5 text-[12px] font-medium text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span aria-hidden="true">↺</span>
 						<span>Revert</span>
@@ -473,7 +164,7 @@ function RowDiffCard({
 }) {
 	const movedLabel =
 		row.beforeIndex !== null && row.afterIndex !== null && row.beforeIndex !== row.afterIndex
-			? `#${row.beforeIndex} → #${row.afterIndex}`
+			? `from ${row.beforeIndex} to ${row.afterIndex}`
 			: null;
 
 	return (
@@ -490,14 +181,13 @@ function RowDiffCard({
 					<span className="min-w-0 truncate text-[14px] font-medium text-foreground">
 						{row.title}
 					</span>
-					<code className="font-mono text-[11px] text-muted-foreground">{row.id}</code>
 				</div>
 				{showEditLinks && row.status !== "removed" ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: sectionId }}
 						search={row.itemId ? { item: row.itemId } : {}}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 font-mono text-[11.5px] text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
 					>
 						<span>Edit</span>
 						<span aria-hidden="true">→</span>
@@ -543,85 +233,112 @@ function SectionDiffCard({
 	showEditLinks: boolean;
 	stagger: number;
 }) {
+	const reduced = useLiveReducedMotion();
+	const bodyId = useId();
 	return (
-		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0 overflow-hidden">
-			<div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3.5 sm:px-5">
-				<button
-					type="button"
-					aria-expanded={open}
-					onClick={onToggle}
-					className="cms-page-focus group flex min-h-9 min-w-0 flex-1 items-center gap-3 rounded-[10px] text-left pointer-coarse:min-h-11"
-				>
-					<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
-						<SectionIcon id={entry.section.id} className="size-4" />
-					</span>
-					<div className="grid min-w-0 flex-1 gap-1">
-						<div className="flex items-center gap-2">
-							<h3 className="m-0 truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+		// `layout` animates size and position with transforms; the header is
+		// scale-corrected so it never stretches while the body collapses.
+		<motion.section
+			layout={!reduced}
+			transition={SPRING_MOVE}
+			style={{ ...staggerStyle(stagger), borderRadius: 18 }}
+			className="cms-panel cms-enter min-w-0 overflow-hidden"
+		>
+			<motion.div
+				layout={reduced ? false : "position"}
+				transition={SPRING_MOVE}
+				className="flex items-center gap-2 px-4 py-3 sm:px-5"
+			>
+				<h3 className="m-0 min-w-0 flex-1">
+					<button
+						type="button"
+						aria-expanded={open}
+						aria-controls={bodyId}
+						onClick={onToggle}
+						className="cms-press cms-inset-focus group flex min-h-11 w-full min-w-0 items-center gap-3 rounded-[12px] text-left"
+					>
+						<span className="grid size-8 shrink-0 place-items-center rounded-[10px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] text-primary-text">
+							<SectionIcon id={entry.section.id} className="size-4" />
+						</span>
+						<span className="grid min-w-0 flex-1 gap-1">
+							<span className="truncate text-[15px] font-semibold tracking-[-0.012em] text-foreground">
 								{entry.section.label}
-							</h3>
+							</span>
+							<span className="flex flex-wrap items-center gap-1.5">
+								{entry.counts.added > 0 ? (
+									<StatusChip status="added" detail={`${entry.counts.added}`} />
+								) : null}
+								{entry.counts.edited > 0 ? (
+									<StatusChip status="edited" detail={`${entry.counts.edited}`} />
+								) : null}
+								{entry.counts.removed > 0 ? (
+									<StatusChip status="removed" detail={`${entry.counts.removed}`} />
+								) : null}
+								{entry.counts.reordered > 0 ? (
+									<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
+								) : null}
+								{entry.rows.length === 0 && entry.counts.fields > 0 ? (
+									<StatusChip
+										status="edited"
+										detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
+									/>
+								) : null}
+							</span>
+						</span>
+						<span className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors duration-150 group-hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] group-hover:text-foreground">
 							<ChevronIcon open={open} />
-						</div>
-						<div className="flex flex-wrap items-center gap-1.5">
-							{entry.counts.added > 0 ? (
-								<StatusChip status="added" detail={`${entry.counts.added}`} />
-							) : null}
-							{entry.counts.edited > 0 ? (
-								<StatusChip status="edited" detail={`${entry.counts.edited}`} />
-							) : null}
-							{entry.counts.removed > 0 ? (
-								<StatusChip status="removed" detail={`${entry.counts.removed}`} />
-							) : null}
-							{entry.counts.reordered > 0 ? (
-								<StatusChip status="reordered" detail={`${entry.counts.reordered}`} />
-							) : null}
-							{entry.rows.length === 0 && entry.counts.fields > 0 ? (
-								<StatusChip
-									status="edited"
-									detail={`${entry.counts.fields} ${entry.counts.fields === 1 ? "field" : "fields"}`}
-								/>
-							) : null}
-						</div>
-					</div>
-				</button>
+						</span>
+					</button>
+				</h3>
 
 				{showEditLinks ? (
 					<Link
 						to="/cms/content/$section"
 						params={{ section: entry.section.id }}
-						className="cms-press cms-page-focus inline-flex min-h-8 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 font-mono text-[11.5px] text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full border border-line bg-surface-solid px-3 text-[12.5px] font-medium text-ink-soft no-underline hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
 					>
 						<span>Edit</span>
-						<span aria-hidden="true">→</span>
+						<span className="sr-only"> {entry.section.label}</span>
 					</Link>
 				) : null}
-			</div>
+			</motion.div>
 
-			{open ? (
-				<div className="cms-collapse-panel grid gap-2.5 border-t border-line px-4 py-4 sm:px-5">
-					{entry.fields.map((field) => (
-						<FieldDiffRow
-							key={field.path}
-							field={field}
-							beforeLabel={beforeLabel}
-							afterLabel={afterLabel}
-							onRevertField={onRevertField}
-						/>
-					))}
-					{entry.rows.map((row) => (
-						<RowDiffCard
-							key={`${row.status}-${row.id}`}
-							sectionId={entry.section.id}
-							row={row}
-							beforeLabel={beforeLabel}
-							afterLabel={afterLabel}
-							onRevertField={onRevertField}
-							showEditLinks={showEditLinks}
-						/>
-					))}
-				</div>
-			) : null}
-		</section>
+			<AnimatePresence initial={false}>
+				{open ? (
+					<motion.div
+						key="body"
+						id={bodyId}
+						layout={reduced ? false : "position"}
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0, transition: { duration: reduced ? 0.12 : 0.1 } }}
+						transition={reduced ? REDUCED : { duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+						className="grid gap-2.5 border-t border-line px-4 py-4 sm:px-5"
+					>
+						{entry.fields.map((field) => (
+							<FieldDiffRow
+								key={field.path}
+								field={field}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+							/>
+						))}
+						{entry.rows.map((row) => (
+							<RowDiffCard
+								key={`${row.status}-${row.id}`}
+								sectionId={entry.section.id}
+								row={row}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+								showEditLinks={showEditLinks}
+							/>
+						))}
+					</motion.div>
+				) : null}
+			</AnimatePresence>
+		</motion.section>
 	);
 }
 
@@ -636,6 +353,7 @@ export function DiffView({
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
 }: DiffViewProps) {
+	const reduced = useLiveReducedMotion();
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 
@@ -675,15 +393,11 @@ export function DiffView({
 	return (
 		<div className="grid gap-4">
 			{diff.changedSections.length > 1 ? (
-				<div className="flex flex-wrap items-center justify-between gap-2 px-0.5">
-					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-						{diff.changedSections.length} changed sections · {diff.totalChanges}{" "}
-						{diff.totalChanges === 1 ? "change" : "changes"}
-					</p>
+				<div className="flex flex-wrap items-center justify-end gap-2 px-0.5">
 					<button
 						type="button"
 						onClick={toggleAll}
-						className="cms-press cms-page-focus inline-flex min-h-8 items-center rounded-full border border-line bg-surface-solid px-3 font-mono text-[11px] text-ink-soft hover:border-line-strong hover:text-foreground pointer-coarse:min-h-11"
+						className="cms-press cms-page-focus inline-flex min-h-9 items-center rounded-full px-3 text-[12.5px] font-medium text-ink-soft hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 					>
 						{allCollapsed ? "Expand all" : "Collapse all"}
 					</button>
@@ -705,24 +419,24 @@ export function DiffView({
 			))}
 
 			{showUnchanged && diff.unchangedSections.length > 0 ? (
-				<div className="overflow-hidden rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
+				<motion.div
+					layout={reduced ? false : "position"}
+					transition={SPRING_MOVE}
+					className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]"
+				>
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
 						onClick={() => setUnchangedOpen((open) => !open)}
-						className="cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground transition-colors duration-150 hover:text-foreground"
+						className="cms-press cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 rounded-[13px] px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
 					>
 						<span className="flex items-center gap-2">
 							<CheckCircleIcon className="size-3.5 text-success" />
 							<span>
-								{diff.unchangedSections.length} unchanged{" "}
-								{diff.unchangedSections.length === 1 ? "section" : "sections"}
+								{`${diff.unchangedSections.length} unchanged ${diff.unchangedSections.length === 1 ? "section" : "sections"}`}
 							</span>
 						</span>
-						<span className="inline-flex items-center gap-1.5 font-mono text-[11px]">
-							<span>{unchangedOpen ? "Hide" : "Show"}</span>
-							<ChevronIcon open={unchangedOpen} />
-						</span>
+						<ChevronIcon open={unchangedOpen} />
 					</button>
 					{unchangedOpen ? (
 						<ul className="cms-collapse-panel m-0 grid list-none gap-1 border-t border-line p-2 sm:grid-cols-2 md:grid-cols-3">
@@ -732,16 +446,13 @@ export function DiffView({
 										<Link
 											to="/cms/content/$section"
 											params={{ section: section.id }}
-											className="cms-page-focus flex min-h-9 items-center justify-between gap-2 rounded-[9px] px-2.5 text-[13px] text-ink-soft no-underline transition-colors duration-150 hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
+											className="cms-press cms-page-focus flex min-h-9 items-center justify-between gap-2 rounded-[9px] px-2.5 text-[13px] text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 										>
 											<span className="flex items-center gap-2 truncate">
 												<SectionIcon id={section.id} className="size-3.5 text-muted-foreground" />
 												<span className="truncate">{section.label}</span>
 											</span>
-											<span
-												aria-hidden="true"
-												className="font-mono text-[11px] text-muted-foreground"
-											>
+											<span aria-hidden="true" className="text-[12px] text-muted-foreground">
 												→
 											</span>
 										</Link>
@@ -755,7 +466,7 @@ export function DiffView({
 							))}
 						</ul>
 					) : null}
-				</div>
+				</motion.div>
 			) : null}
 		</div>
 	);

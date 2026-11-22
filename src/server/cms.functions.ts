@@ -36,6 +36,7 @@ export type CmsSnapshotResult =
 			csrfToken: string;
 			owner: string;
 			mediaEnabled: boolean;
+			publicOrigin: string;
 	  }
 	| {
 			ok: false;
@@ -63,6 +64,7 @@ export const getCmsSnapshot = createServerFn({ method: "GET" }).handler(
 				csrfToken: result.csrfToken,
 				owner: result.owner,
 				mediaEnabled: result.mediaEnabled,
+				publicOrigin: result.publicOrigin,
 			};
 		} catch (error) {
 			if (error instanceof Response) {

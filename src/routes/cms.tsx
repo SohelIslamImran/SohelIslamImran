@@ -61,8 +61,13 @@ function CmsWorkspace({
 		[save, publish, restore, discard, csrfToken],
 	);
 	const session = useMemo(
-		() => ({ csrfToken, owner: initial.owner, mediaEnabled: initial.mediaEnabled }),
-		[csrfToken, initial.owner, initial.mediaEnabled],
+		() => ({
+			csrfToken,
+			owner: initial.owner,
+			mediaEnabled: initial.mediaEnabled,
+			publicOrigin: initial.publicOrigin,
+		}),
+		[csrfToken, initial.owner, initial.mediaEnabled, initial.publicOrigin],
 	);
 	return (
 		<CmsDraftProvider snapshot={initial.snapshot} session={session} api={api}>

@@ -1,75 +1,56 @@
 /**
- * Release & Changes page (`/cms/release`, served at `/release` on the CMS host).
- * Shows per-section diffs against live, per-field revert, Publish with a confirm
- * step and satisfying confirmation moment, Discard draft with confirm, and a
- * Raw JSON inspect / export / import tab.
+ * Changes page (`/cms/release`, served at `/release` on the CMS host).
+ * One publish gate at the top (title, validation line, Publish), the
+ * per-section diff against live with per-field revert, a quiet Discard with a
+ * confirm dialog, and a Raw JSON inspect / export / import tab. After a publish
+ * the receipt replaces the page body.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
 import {
 	PageHeader,
-	TickingNumber,
+	PageNotice,
 	controlClass,
-	staggerStyle,
+	pageClass,
 } from "../../components/cms/analytics/Widgets";
-import { useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
-import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../../components/cms/motion";
+import {
+	useDraftSelector,
+	useDraftStore,
+	usePublicOrigin,
+} from "../../components/cms/draft/context";
+import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { DiffView } from "../../components/cms/release/DiffView";
+import { PublishGate, PublishedReceipt } from "../../components/cms/release/PublishGate";
 import { RawJsonTab } from "../../components/cms/release/RawJsonTab";
-import {
-	AlertTriangleIcon,
-	CheckCircleIcon,
-	DiscardIcon,
-	ExternalArrowIcon,
-	HistoryIcon,
-	PublishIcon,
-} from "../../components/cms/shell/cms-icons";
-import { formatUtcTimestamp, useRelativeTime } from "../../components/cms/shell/time";
+import { DiscardIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
-import { cn } from "../../lib/utils";
 
 export const Route = createFileRoute("/cms/release")({
 	head: () => ({
-		meta: [{ title: "Changes & release · Control plane" }],
+		meta: [{ title: "Changes · Control plane" }],
 	}),
 	component: ReleaseRoute,
 });
 
-function AnimatedCheckBadge() {
-	const reduced = useReducedMotion();
-	return (
-		<span
-			aria-hidden="true"
-			className="grid size-9 shrink-0 place-items-center rounded-full border border-success/40 bg-success/12 text-success"
-		>
-			<svg
-				viewBox="0 0 20 20"
-				className="size-4.5 fill-none stroke-current stroke-[2] [stroke-linecap:round] [stroke-linejoin:round]"
-			>
-				<motion.path
-					d="m5 10.5 3.2 3.2L15 7"
-					initial={reduced ? { opacity: 0 } : { pathLength: 0, opacity: 0.4 }}
-					animate={reduced ? { opacity: 1 } : { pathLength: 1, opacity: 1 }}
-					transition={reduced ? REDUCED : { duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
-				/>
-			</svg>
-		</span>
-	);
-}
+const tabs = [
+	{ value: "changes", label: "Changes" },
+	{ value: "json", label: "Raw JSON" },
+] as const;
 
 function ReleaseRoute() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const store = useDraftStore();
+	const publicOrigin = usePublicOrigin();
+	const host = new URL(publicOrigin).host;
 
 	const draft = useDraftSelector((state) => state.draft);
 	const published = useDraftSelector((state) => state.published);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
-	const publishedAt = useDraftSelector((state) => state.publishedAt);
 	const dirty = useDraftSelector((state) => state.dirty);
 	const ahead = useDraftSelector((state) => state.ahead);
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
@@ -86,28 +67,40 @@ function ReleaseRoute() {
 		publishedRevision: number;
 	} | null>(null);
 	const [discarding, setDiscarding] = useState(false);
-	const [publishedReceipt, setPublishedReceipt] = useState<{
-		revision: number;
-		publishedAt: string | null;
-	} | null>(null);
+	const [publishedReceipt, setPublishedReceipt] = useState<{ revision: number } | null>(null);
 	const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const receiptRef = useRef<HTMLElement>(null);
+	const emptyRef = useRef<HTMLDivElement>(null);
+	const focusAfterRender = useRef<"receipt" | "empty" | null>(null);
 
 	const diff = useMemo(() => diffPortfolioDocuments(published, draft), [published, draft]);
-	const relativePublished = useRelativeTime(publishedAt, 30_000);
-
 	const hasChanges = diff.changedSections.length > 0 || ahead || dirty;
 	const canPublish = hasChanges && issueCount === 0 && !conflict && !busy;
+
+	// A new edit after publishing makes the receipt stale.
+	useEffect(() => {
+		if (hasChanges) setPublishedReceipt(null);
+	}, [hasChanges]);
+
+	useLayoutEffect(() => {
+		const target = focusAfterRender.current;
+		if (!target) return;
+		focusAfterRender.current = null;
+		(target === "receipt" ? receiptRef.current : emptyRef.current)?.focus();
+	});
 
 	const handleConfirmPublish = async () => {
 		setNotice(null);
 		if (!reviewedDraft) return;
 		const ok = await store.publish({ reviewedDraft });
+		setReviewedDraft(null);
 		if (ok) {
-			setReviewedDraft(null);
-			const nextState = store.getState();
-			setPublishedReceipt({
-				revision: nextState.publishedRevision,
-				publishedAt: nextState.publishedAt,
+			focusAfterRender.current = "receipt";
+			setPublishedReceipt({ revision: store.getState().publishedRevision });
+		} else {
+			setNotice({
+				tone: "error",
+				text: store.getState().error ?? "Review the draft and try publishing again.",
 			});
 		}
 	};
@@ -123,320 +116,109 @@ function ReleaseRoute() {
 		const state = store.getState();
 		if (ok) {
 			setReviewedDraft(null);
-			setNotice({
-				tone: "ok",
-				text: `Draft discarded. Reset to Live r${state.publishedRevision} as Draft r${state.draftRevision}.`,
-			});
+			setTab("changes");
+			focusAfterRender.current = "empty";
+			setNotice({ tone: "ok", text: "Changes discarded. Your draft matches the live site again." });
 		} else if (state.error) {
 			setNotice({ tone: "error", text: state.error });
 		}
 	};
 
 	return (
-		<div className="grid min-w-0 max-w-[1160px] grid-cols-1 gap-6">
+		<Tabs.Root
+			className={pageClass}
+			value={tab}
+			onValueChange={(value: "changes" | "json") => setTab(value)}
+		>
 			<PageHeader
-				eyebrow={`Release · Draft r${draftRevision} vs Live r${publishedRevision}`}
-				title="Changes and release"
-				description="Review every field that differs from what visitors see before promoting a revision live."
+				title="Changes"
+				description="Everything in your draft that differs from the live site."
 				actions={
-					<Tabs.Root value={tab} onValueChange={(value) => setTab(value as "changes" | "json")}>
-						<Tabs.List className="cms-seg-track">
-							{(
-								[
-									{ value: "changes", label: "Changes", badge: diff.changedSections.length },
-									{ value: "json", label: "Raw JSON" },
-								] as const
-							).map((item) => {
-								const active = tab === item.value;
-								return (
-									<Tabs.Tab
-										key={item.value}
-										value={item.value}
-										data-active={active ? "true" : "false"}
-										className="cms-seg-item"
-									>
-										{active ? (
-											<motion.span
-												layoutId="cms-release-tab-pill"
-												aria-hidden="true"
-												transition={reduced ? REDUCED : SPRING_MOVE}
-												className="cms-seg-pill"
-											/>
-										) : null}
-										{active ? (
-											<span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-										) : null}
-										<span>{item.label}</span>
-										{"badge" in item ? (
-											<span
-												className={cn(
-													"font-mono text-[10.5px] tabular-nums",
-													active ? "text-primary-text" : "text-muted-foreground",
-												)}
-											>
-												{item.badge}
-											</span>
-										) : null}
-									</Tabs.Tab>
-								);
-							})}
-						</Tabs.List>
-					</Tabs.Root>
+					<Tabs.List className="cms-seg-track">
+						{tabs.map((item) => {
+							const active = tab === item.value;
+							return (
+								<Tabs.Tab
+									key={item.value}
+									value={item.value}
+									data-active={active ? "true" : "false"}
+									className="cms-seg-item"
+								>
+									{active ? (
+										<motion.span
+											layoutId="cms-release-tab-pill"
+											aria-hidden="true"
+											transition={reduced ? REDUCED : SPRING_MOVE}
+											className="cms-seg-pill"
+										/>
+									) : null}
+									<span>{item.label}</span>
+								</Tabs.Tab>
+							);
+						})}
+					</Tabs.List>
 				}
 			/>
 
-			{/* Satisfying publish confirmation moment */}
-			<AnimatePresence>
-				{publishedReceipt ? (
-					<motion.section
-						key={`published-${publishedReceipt.revision}`}
-						role="status"
-						initial={reduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.99 }}
-						animate={{ opacity: 1, y: 0, scale: 1 }}
-						exit={{ opacity: 0 }}
-						transition={reduced ? REDUCED : SPRING_SNAPPY}
-						className="cms-panel cms-confirm-card flex flex-wrap items-center justify-between gap-4 border-success/40 bg-surface-solid p-4 sm:px-5"
-					>
-						<div className="flex min-w-0 items-center gap-3.5">
-							<AnimatedCheckBadge />
-							<div className="grid min-w-0 gap-0.5">
-								<p className="m-0 text-[14.5px] font-semibold tracking-[-0.01em] text-foreground">
-									Live r{publishedReceipt.revision} is now published
-								</p>
-								<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-									Promoted to sohelislamimran.com ·{" "}
-									{formatUtcTimestamp(publishedReceipt.publishedAt)}
-								</p>
-							</div>
-						</div>
-						<div className="flex flex-wrap items-center gap-2">
-							<a
-								href="https://sohelislamimran.com/"
-								target="_blank"
-								rel="noreferrer"
-								className={controlClass}
-							>
-								<span>View live site</span>
-								<ExternalArrowIcon className="size-3.5 text-muted-foreground" />
-							</a>
-							<button
-								type="button"
-								onClick={() => setPublishedReceipt(null)}
-								className="cms-press cms-page-focus inline-flex min-h-9 items-center rounded-full px-3 font-mono text-[11px] text-muted-foreground hover:text-foreground pointer-coarse:min-h-11"
-							>
-								Dismiss
-							</button>
-						</div>
-					</motion.section>
-				) : null}
-			</AnimatePresence>
-
 			{notice ? (
-				<div
-					role="status"
-					className={cn(
-						"cms-enter flex items-center justify-between gap-3 rounded-[12px] border px-4 py-2.5 text-[13px]",
-						notice.tone === "ok"
-							? "border-success/35 bg-success/10 text-success"
-							: "border-destructive/35 bg-destructive/10 text-destructive",
-					)}
-				>
-					<span className="flex items-center gap-2">
-						{notice.tone === "ok" ? (
-							<CheckCircleIcon className="size-4 shrink-0" />
-						) : (
-							<AlertTriangleIcon className="size-4 shrink-0" />
-						)}
-						<span>{notice.text}</span>
-					</span>
-					<button
-						type="button"
-						onClick={() => setNotice(null)}
-						className="cms-page-focus rounded-full px-2 py-1 font-mono text-[11px] opacity-80 hover:opacity-100"
-					>
-						Dismiss
-					</button>
-				</div>
+				<PageNotice tone={notice.tone} text={notice.text} onDismiss={() => setNotice(null)} />
 			) : null}
 
-			{tab === "changes" ? (
-				<div className="grid min-w-0 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_328px]">
-					<div className="min-w-0">
+			{hasChanges ? (
+				<PublishGate
+					totalChanges={diff.totalChanges}
+					sectionCount={diff.changedSections.length}
+					issueCount={issueCount}
+					conflict={conflict}
+					dirty={dirty}
+					busy={busy}
+					canPublish={canPublish}
+					confirming={confirmingPublish}
+					host={host}
+					onRequestPublish={() => setReviewedDraft(draft)}
+					onCancel={() => setReviewedDraft(null)}
+					onConfirm={() => void handleConfirmPublish()}
+					onDiscard={() => setDiscardReview({ draft, publishedRevision })}
+					discardDisabled={busy || discarding}
+				/>
+			) : publishedReceipt ? (
+				<PublishedReceipt
+					ref={receiptRef}
+					revision={publishedReceipt.revision}
+					publicOrigin={publicOrigin}
+					onDismiss={() => {
+						setTab("changes");
+						focusAfterRender.current = "empty";
+						setPublishedReceipt(null);
+					}}
+				/>
+			) : null}
+
+			<Tabs.Panel value="changes" hidden={tab !== "changes"} className="min-w-0 empty:hidden">
+				{hasChanges ? (
+					diff.changedSections.length > 0 ? (
+						<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
+					) : null
+				) : publishedReceipt ? null : (
+					<div ref={emptyRef} tabIndex={-1} className="outline-none">
 						<DiffView
 							diff={diff}
-							onRevertField={(path) => store.revertAt(path)}
+							emptyTitle="Your live site is up to date"
+							emptyDescription="Edits you make show up here for review before you publish."
 							emptyAction={
-								<>
-									<Link to="/cms/history" className={controlClass}>
-										<HistoryIcon className="size-3.5 text-muted-foreground" />
-										<span>View revision history</span>
-									</Link>
-									<Link to="/cms" className={controlClass}>
-										<span>Back to overview</span>
-									</Link>
-								</>
+								<Link to="/cms/history" className={controlClass}>
+									<HistoryIcon className="size-3.5 text-muted-foreground" />
+									<span>Revision history</span>
+								</Link>
 							}
 						/>
 					</div>
-
-					{/* Sticky Release Gate Panel — single clear primary publish CTA */}
-					<aside
-						style={staggerStyle(1)}
-						className="cms-panel cms-enter grid gap-4 p-4 sm:p-5 xl:sticky xl:top-[76px]"
-					>
-						<div className="grid gap-1">
-							<p className="mono-label m-0 text-[10.5px] text-muted-foreground">Release gate</p>
-							<h2 className="m-0 text-[16px] font-semibold tracking-[-0.015em] text-foreground">
-								{hasChanges ? (
-									<>
-										<TickingNumber value={diff.changedSections.length} />{" "}
-										{diff.changedSections.length === 1 ? "section" : "sections"} ready
-									</>
-								) : (
-									"Nothing to publish"
-								)}
-							</h2>
-							<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-								Live r{publishedRevision}
-								{relativePublished ? ` · ${relativePublished}` : ""}
-							</p>
-						</div>
-
-						<div className="grid gap-2 rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] p-3 text-[12.5px]">
-							<div className="flex items-center justify-between gap-2">
-								<span className="text-muted-foreground">Validation</span>
-								{issueCount === 0 ? (
-									<span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-success">
-										<CheckCircleIcon className="size-3.5" />
-										<span>Valid</span>
-									</span>
-								) : (
-									<span className="inline-flex items-center gap-1 font-mono text-[11.5px] text-destructive">
-										<AlertTriangleIcon className="size-3.5" />
-										<span>
-											{issueCount} {issueCount === 1 ? "issue" : "issues"}
-										</span>
-									</span>
-								)}
-							</div>
-							<div className="flex items-center justify-between gap-2">
-								<span className="text-muted-foreground">Changes</span>
-								<span className="font-mono text-[11.5px] tabular-nums text-foreground">
-									<TickingNumber value={diff.totalChanges} />{" "}
-									{diff.totalChanges === 1 ? "field" : "fields"}
-								</span>
-							</div>
-							<div className="flex items-center justify-between gap-2">
-								<span className="text-muted-foreground">Draft revision</span>
-								<span className="font-mono text-[11.5px] tabular-nums text-foreground">
-									r{draftRevision} {dirty ? "(unsaved)" : "(saved)"}
-								</span>
-							</div>
-							<div className="flex items-center justify-between gap-2">
-								<span className="text-muted-foreground">Last published</span>
-								<span className="font-mono text-[11px] tabular-nums text-muted-foreground">
-									{formatUtcTimestamp(publishedAt)}
-								</span>
-							</div>
-						</div>
-
-						{/* Single clear primary Publish CTA with smooth inline confirm */}
-						<AnimatePresence mode="wait" initial={false}>
-							{confirmingPublish ? (
-								<motion.div
-									key="confirm"
-									initial={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
-									animate={{ opacity: 1, y: 0 }}
-									exit={reduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
-									transition={reduced ? REDUCED : SPRING_SNAPPY}
-									className="grid gap-3 rounded-[12px] border border-primary-line bg-primary-soft/65 p-3.5"
-								>
-									<p className="m-0 text-[13px] font-medium text-foreground">
-										Publish Draft r{draftRevision} to sohelislamimran.com?
-									</p>
-									<p className="m-0 text-[12px] leading-relaxed text-muted-foreground">
-										{dirty
-											? "Unsaved edits will be saved first, then promoted live immediately."
-											: `Promotes ${diff.totalChanges} ${diff.totalChanges === 1 ? "change" : "changes"} across ${diff.changedSections.length} ${diff.changedSections.length === 1 ? "section" : "sections"} immediately.`}
-									</p>
-									<div className="flex items-center gap-2">
-										<Button
-											variant="default"
-											size="sm"
-											disabled={!canPublish}
-											onClick={() => void handleConfirmPublish()}
-											className="flex-1 pointer-coarse:min-h-11"
-										>
-											<PublishIcon className="size-3.5" />
-											<span>{busy ? "Publishing…" : "Confirm publish"}</span>
-										</Button>
-										<Button
-											variant="outline"
-											size="sm"
-											disabled={busy}
-											onClick={() => setReviewedDraft(null)}
-											className="pointer-coarse:min-h-11"
-										>
-											Cancel
-										</Button>
-									</div>
-								</motion.div>
-							) : (
-								<motion.div
-									key="idle"
-									initial={reduced ? { opacity: 0 } : { opacity: 0, y: 4 }}
-									animate={{ opacity: 1, y: 0 }}
-									exit={reduced ? { opacity: 0 } : { opacity: 0, y: -4 }}
-									transition={reduced ? REDUCED : SPRING_SNAPPY}
-								>
-									<Button
-										variant="default"
-										size="default"
-										disabled={!canPublish}
-										onClick={() => setReviewedDraft(draft)}
-										className="w-full"
-									>
-										<PublishIcon className="size-4" />
-										<span>Publish draft</span>
-									</Button>
-								</motion.div>
-							)}
-						</AnimatePresence>
-
-						<div className="border-t border-line pt-3">
-							<Button
-								variant="destructive"
-								size="sm"
-								disabled={!hasChanges || busy || discarding}
-								onClick={() => setDiscardReview({ draft, publishedRevision })}
-								className="w-full pointer-coarse:min-h-11"
-							>
-								<DiscardIcon className="size-3.5" />
-								<span>Discard draft to live</span>
-							</Button>
-						</div>
-
-						<div className="flex items-center justify-between font-mono text-[11px] text-muted-foreground">
-							<Link
-								to="/cms/history"
-								className="cms-page-focus rounded-md px-1 py-0.5 text-primary-text no-underline hover:underline"
-							>
-								Revision history →
-							</Link>
-							<Link
-								to="/cms/activity"
-								className="cms-page-focus rounded-md px-1 py-0.5 text-muted-foreground no-underline hover:text-foreground"
-							>
-								Activity log
-							</Link>
-						</div>
-					</aside>
-				</div>
-			) : (
+				)}
+			</Tabs.Panel>
+			<Tabs.Panel value="json" className="min-w-0">
 				<RawJsonTab />
-			)}
+			</Tabs.Panel>
 
-			{/* Discard confirmation AlertDialog */}
 			<AlertDialog.Root
 				open={discardReview !== null}
 				onOpenChange={(open) => {
@@ -451,15 +233,14 @@ function ReleaseRoute() {
 								<DiscardIcon className="size-4" />
 							</span>
 							<div className="grid gap-1">
-								<p className="mono-label m-0 text-[10.5px] text-destructive">Discard draft</p>
 								<AlertDialog.Title className="m-0 text-[17px] font-semibold tracking-[-0.015em]">
-									Reset draft back to Live r{discardReview?.publishedRevision}?
+									Discard all unpublished changes?
 								</AlertDialog.Title>
 								<AlertDialog.Description className="m-0 text-[13.5px] leading-relaxed text-muted-foreground">
-									All unpublished changes across {diff.changedSections.length}{" "}
-									{diff.changedSections.length === 1 ? "section" : "sections"} will be replaced by
-									the live revision, including unsaved edits. Saved drafts remain in Revision
-									history.
+									Your draft goes back to what’s live, replacing changes in{" "}
+									{diff.changedSections.length}{" "}
+									{diff.changedSections.length === 1 ? "section" : "sections"}, unsaved edits
+									included. Earlier saved drafts stay in revision history.
 								</AlertDialog.Description>
 							</div>
 						</div>
@@ -467,7 +248,7 @@ function ReleaseRoute() {
 							<AlertDialog.Close
 								render={<Button variant="outline" size="sm" disabled={discarding} />}
 							>
-								Keep draft
+								Keep editing
 							</AlertDialog.Close>
 							<Button
 								variant="destructive"
@@ -475,12 +256,12 @@ function ReleaseRoute() {
 								disabled={discarding}
 								onClick={() => void handleConfirmDiscard()}
 							>
-								{discarding ? "Discarding…" : "Discard draft"}
+								{discarding ? "Discarding…" : "Discard changes"}
 							</Button>
 						</div>
 					</AlertDialog.Popup>
 				</AlertDialog.Portal>
 			</AlertDialog.Root>
-		</div>
+		</Tabs.Root>
 	);
 }

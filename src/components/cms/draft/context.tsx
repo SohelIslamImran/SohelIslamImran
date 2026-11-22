@@ -14,6 +14,11 @@ export interface CmsSession {
 	csrfToken: string;
 	owner: string;
 	mediaEnabled: boolean;
+	/**
+	 * Public portfolio origin (derived from `APP_ORIGIN` on the server). Optional
+	 * so test sessions can omit it; read it through `usePublicOrigin()`.
+	 */
+	publicOrigin?: string;
 }
 
 interface CmsContextValue {
@@ -84,6 +89,11 @@ export function useDraftStore(): DraftStore {
 
 export function useCmsSession(): CmsSession {
 	return useCmsContext().session;
+}
+
+/** Public portfolio origin for links and publish copy (falls back to production). */
+export function usePublicOrigin(): string {
+	return useCmsContext().session.publicOrigin ?? "https://sohelislamimran.com";
 }
 
 /**

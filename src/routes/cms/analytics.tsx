@@ -1,28 +1,43 @@
 import { Link, createFileRoute, useRouterState } from "@tanstack/react-router";
-import { motion, useReducedMotion } from "motion/react";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
+import { motion } from "motion/react";
 import { CountryMap } from "../../components/cms/analytics/CountryMap";
 import { useLiveVisitors } from "../../components/cms/analytics/LiveVisitors";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
 	AnalyticsUnavailable,
-	Delta,
+	Kpi,
 	LiveControls,
 	LiveDot,
-	NoVisits,
 	PageHeader,
 	Panel,
+	QuietNote,
 	RankedList,
 	TickingNumber,
 	controlClass,
-	countLabel,
+	inlineLinkClass,
+	pageClass,
 	staggerStyle,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
-import { useDraftSelector } from "../../components/cms/draft/context";
+import { useDraftSelector, usePublicOrigin } from "../../components/cms/draft/context";
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
 import { cn } from "../../lib/utils";
-import { analyticsSearch, getAnalyticsSummary } from "../../server/analytics.functions";
+import {
+	analyticsSearch,
+	getAnalyticsOverview,
+	getAnalyticsSummary,
+} from "../../server/analytics.functions";
+
+const pageLabels = new Map([
+	["/", "Home"],
+	["/work", "Work"],
+	["/story", "Story"],
+	["/resume", "Résumé"],
+	["/links", "Links"],
+	["/field-notes", "Field notes"],
+]);
 
 const ranges = [
 	["24h", "24 hours"],
@@ -35,7 +50,14 @@ const ranges = [
 export const Route = createFileRoute("/cms/analytics")({
 	validateSearch: analyticsSearch,
 	loaderDeps: ({ search: { range } }) => ({ range }),
-	loader: ({ deps }) => getAnalyticsSummary({ data: deps }).catch(() => null),
+	loader: async ({ deps }) => {
+		const summary = await getAnalyticsSummary({ data: deps }).catch(() => null);
+		const overview =
+			summary?.totals.pageviews === 0 && deps.range !== "24h"
+				? await getAnalyticsOverview().catch(() => null)
+				: null;
+		return { summary, hasVisitsToday: (overview?.today.value ?? 0) > 0 };
+	},
 	pendingComponent: AnalyticsSkeleton,
 	head: () => ({
 		meta: [{ title: "Analytics · Control plane" }],
@@ -45,15 +67,15 @@ export const Route = createFileRoute("/cms/analytics")({
 
 function AnalyticsSkeleton() {
 	return (
-		<div className="grid min-w-0 max-w-[1160px] grid-cols-1 gap-6">
+		<div className={pageClass}>
 			<div className="grid gap-2">
-				<div className="cms-skeleton h-3.5 w-32" />
-				<div className="cms-skeleton h-8 w-40" />
+				<h1 className="sr-only">Analytics</h1>
+				<div aria-hidden="true" className="cms-skeleton h-8 w-40" />
 				<div className="cms-skeleton h-4 w-64" />
 			</div>
 			<div className="cms-skeleton h-10 w-[380px] max-w-full rounded-full" />
-			<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-				{[0, 1, 2, 3].map((slot) => (
+			<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+				{[0, 1, 2].map((slot) => (
 					<div key={slot} className="cms-panel grid gap-3 p-4">
 						<div className="cms-skeleton h-3 w-20" />
 						<div className="cms-skeleton h-7 w-16" />
@@ -80,25 +102,48 @@ function AnalyticsSkeleton() {
 }
 
 function Analytics() {
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
-	const summary = Route.useLoaderData();
-	const live = useLiveVisitors();
+	const { summary, hasVisitsToday } = Route.useLoaderData();
 	const isPending = useRouterState({ select: (state) => state.status === "pending" });
+	const publicOrigin = usePublicOrigin();
 	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);
 	const links = new Map(profileLinks.map((link) => [link.id, link.label]));
-	const engagement = summary?.totals.medianEngagedSeconds ?? null;
-	const active = live.data?.live.count ?? null;
+	const projects = new Map(summary?.topProjects.map((row) => [row.value, row.label]));
+	const pageLabel = (path: string) => pageLabels.get(path) ?? projects.get(path) ?? path;
+	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
+
+	const breakdowns = summary
+		? [
+				{
+					title: "Top pages",
+					rows: summary.topPages.map((row) => ({ ...row, label: pageLabel(row.value) })),
+				},
+				{ title: "Top projects", rows: summary.topProjects },
+				{ title: "Referrers", rows: summary.referrers },
+				{ title: "Devices", rows: summary.devices },
+				{ title: "Browsers", rows: summary.browsers },
+				{
+					title: "Profile link clicks",
+					rows: summary.outboundLinks.map((row) => ({
+						...row,
+						label: links.get(row.value) ?? row.value,
+					})),
+				},
+				{ title: "Other outbound clicks", rows: summary.outboundHosts },
+			]
+		: [];
+	const filled = breakdowns.filter((entry) => entry.rows.length > 0);
+	const noVisits = summary !== null && summary.totals.pageviews === 0;
 
 	return (
-		<div className="grid min-w-0 max-w-[1160px] grid-cols-1 gap-6">
+		<div className={pageClass}>
 			<PageHeader
-				eyebrow="Signals · Analytics"
 				title="Analytics"
-				description="First-party, cookieless portfolio telemetry in UTC."
+				description="Cookieless visits to your public site, counted in UTC."
 				actions={
 					<a
-						href="https://sohelislamimran.com/?analytics=off"
+						href={new URL("/?analytics=off", publicOrigin).href}
 						target="_blank"
 						rel="noreferrer"
 						className={controlClass}
@@ -135,9 +180,6 @@ function Analytics() {
 										className="cms-seg-pill"
 									/>
 								) : null}
-								{isActive ? (
-									<span aria-hidden="true" className="size-1.5 rounded-full bg-primary" />
-								) : null}
 								<span className="sm:hidden">{value}</span>
 								<span className="hidden sm:inline">{label}</span>
 							</Link>
@@ -145,17 +187,9 @@ function Analytics() {
 					})}
 				</nav>
 
-				<div className="flex flex-wrap items-center gap-3">
-					{range !== "24h" ? (
-						<span className="font-mono text-[11.5px] text-muted-foreground">
-							Completed UTC days
-						</span>
-					) : (
-						<span className="font-mono text-[11.5px] text-muted-foreground">
-							Rolling 24 hours · UTC
-						</span>
-					)}
-				</div>
+				<span className="text-[12.5px] text-muted-foreground">
+					{range === "24h" ? "Rolling 24 hours" : "Completed days, today excluded"}
+				</span>
 			</div>
 
 			{summary ? (
@@ -165,137 +199,116 @@ function Analytics() {
 						isPending && "opacity-60",
 					)}
 				>
-					{summary.totals.pageviews === 0 ? <NoVisits /> : null}
-
-					{/* Primary KPI row */}
-					<div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-						<section
-							style={staggerStyle(1)}
-							className="cms-panel cms-kpi-card cms-enter grid min-w-0 content-between gap-2.5 p-4"
+					{noVisits ? (
+						<QuietNote
+							action={
+								hasVisitsToday ? (
+									<Link
+										to="/cms/analytics"
+										search={{ range: "24h" }}
+										resetScroll={false}
+										className={inlineLinkClass}
+									>
+										<span>Last 24 hours</span>
+										<span aria-hidden="true">→</span>
+									</Link>
+								) : undefined
+							}
 						>
-							<div className="flex items-center justify-between gap-2">
-								<h2 className="mono-label m-0 text-[10.5px] text-muted-foreground">Active now</h2>
-								<LiveDot active={!live.paused && (active ?? 0) > 0} paused={live.paused} />
+							{hasVisitsToday
+								? "Today’s visits appear here tomorrow."
+								: `No visits in the last ${rangeLabel.toLowerCase()}.`}
+						</QuietNote>
+					) : (
+						<>
+							<div className="grid grid-cols-1 gap-3 min-[420px]:grid-cols-3">
+								<Kpi
+									label="Visitor-days"
+									title={visitorDayDescription}
+									value={summary.totals.visitorDays}
+									points={summary.series.map((point) => point.visitorDays)}
+									delta={summary.deltas.visitorDays}
+									comparison="vs previous period"
+									stagger={1}
+								/>
+								<Kpi
+									label="Pageviews"
+									value={summary.totals.pageviews}
+									points={summary.series.map((point) => point.pageviews)}
+									delta={summary.deltas.pageviews}
+									comparison="vs previous period"
+									stagger={2}
+								/>
+								<Kpi
+									label="Median engaged time"
+									value={summary.totals.medianEngagedSeconds}
+									suffix="s"
+									delta={summary.deltas.medianEngagedSeconds}
+									unit="s"
+									comparison="vs previous period"
+									stagger={3}
+								/>
 							</div>
-							<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-								<TickingNumber value={active} />
-							</div>
-							<p className="m-0 text-[12px] text-muted-foreground">
-								{active !== null
-									? `${active === 1 ? "Active tab" : "Active tabs"} in last 2m`
-									: live.failed
-										? "Unavailable right now"
-										: live.paused
-											? "Live updates paused"
-											: "Checking active tabs…"}
-							</p>
-						</section>
 
-						<section
-							style={staggerStyle(2)}
-							className="cms-panel cms-kpi-card cms-enter grid min-w-0 content-between gap-2.5 p-4"
-							title={visitorDayDescription}
-						>
-							<h2 className="mono-label m-0 text-[10.5px] text-muted-foreground">Visitor-days</h2>
-							<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-								<TickingNumber value={summary.totals.visitorDays} />
-							</div>
-							<Delta value={summary.deltas.visitorDays} comparison="vs prior" />
-						</section>
-
-						<section
-							style={staggerStyle(3)}
-							className="cms-panel cms-kpi-card cms-enter grid min-w-0 content-between gap-2.5 p-4"
-						>
-							<h2 className="mono-label m-0 text-[10.5px] text-muted-foreground">Pageviews</h2>
-							<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-								<TickingNumber value={summary.totals.pageviews} />
-							</div>
-							<Delta value={summary.deltas.pageviews} comparison="vs prior" />
-						</section>
-
-						<section
-							style={staggerStyle(4)}
-							className="cms-panel cms-kpi-card cms-enter grid min-w-0 content-between gap-2.5 p-4"
-						>
-							<h2 className="mono-label m-0 text-[10.5px] text-muted-foreground">Engaged time</h2>
-							<div className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-								<TickingNumber value={engagement} suffix="s" />
-							</div>
-							<Delta value={summary.deltas.medianEngagedSeconds} unit="s" comparison="vs prior" />
-						</section>
-					</div>
-
-					<TrafficChart
-						key={range}
-						points={summary.series}
-						hourly={range === "24h"}
-						title={range === "24h" ? "24-hour traffic" : "Traffic over time"}
-						stagger={3}
-					/>
-
-					{/* Active now live breakdown (pulse kept outside aria-live) */}
-					<Panel
-						title="Live presence"
-						stagger={4}
-						badge={<LiveDot active={!live.paused && (active ?? 0) > 0} paused={live.paused} />}
-						action={<LiveControls {...live} />}
-					>
-						<p className="m-0 font-mono text-[12.5px] tabular-nums text-muted-foreground">
-							{active !== null
-								? `${countLabel(active)} ${active === 1 ? "tab" : "tabs"} active in the last 2 minutes`
-								: live.failed
-									? "Active tab count unavailable"
-									: live.paused
-										? "Live updates paused"
-										: "Checking active tabs…"}
-						</p>
-						{live.data ? (
-							<RankedList rows={live.data.live.paths} empty="No active tabs right now." />
-						) : !live.paused && !live.failed ? (
-							<div className="grid gap-2">
-								<div className="cms-skeleton h-8 w-full" />
-								<div className="cms-skeleton h-8 w-3/4" />
-							</div>
-						) : null}
-					</Panel>
-
-					<div className="grid gap-4 md:grid-cols-2">
-						<Panel title="Top pages" stagger={5}>
-							<RankedList rows={summary.topPages} empty="No pageviews in this period." />
-						</Panel>
-						<Panel title="Top projects" stagger={5}>
-							<RankedList rows={summary.topProjects} empty="No project views in this period." />
-						</Panel>
-						<Panel title="Referrers" stagger={6}>
-							<RankedList rows={summary.referrers} empty="No referrers in this period." />
-						</Panel>
-						<Panel title="Countries" stagger={6}>
-							<CountryMap rows={summary.countries} />
-						</Panel>
-						<Panel title="Devices" stagger={7}>
-							<RankedList rows={summary.devices} empty="No device data in this period." />
-						</Panel>
-						<Panel title="Browsers" stagger={7}>
-							<RankedList rows={summary.browsers} empty="No browser data in this period." />
-						</Panel>
-						<Panel title="Profile link clicks" stagger={8}>
-							<RankedList
-								rows={summary.outboundLinks.map((row) => ({
-									...row,
-									label: links.get(row.value) ?? row.value,
-								}))}
-								empty="No profile link clicks in this period."
+							<TrafficChart
+								key={range}
+								points={summary.series}
+								hourly={range === "24h"}
+								title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
+								stagger={3}
 							/>
-						</Panel>
-						<Panel title="Other outbound clicks" stagger={8}>
-							<RankedList rows={summary.outboundHosts} empty="No outbound clicks in this period." />
-						</Panel>
+						</>
+					)}
+
+					<div className="grid items-start gap-4 md:grid-cols-2">
+						<LivePanel pageLabel={pageLabel} />
+						{filled.map((entry, index) => (
+							<Panel key={entry.title} title={entry.title} stagger={Math.min(4 + index, 8)}>
+								<RankedList rows={entry.rows} />
+							</Panel>
+						))}
+						{summary.countries.length > 0 ? (
+							<Panel title="Countries" stagger={8} className="md:col-span-2">
+								<CountryMap rows={summary.countries} />
+							</Panel>
+						) : null}
 					</div>
 				</div>
 			) : (
 				<AnalyticsUnavailable />
 			)}
 		</div>
+	);
+}
+
+/** One card for live presence: a single live dot, the count, the pages, and the pause toggle. */
+function LivePanel({ pageLabel }: { pageLabel: (path: string) => string }) {
+	const live = useLiveVisitors();
+	const active = live.data?.live.count ?? null;
+	const isLive = !live.paused && !live.failed && (active ?? 0) > 0;
+
+	return (
+		<Panel title="Active now" stagger={4} action={<LiveControls {...live} />}>
+			<div className="flex items-baseline gap-2.5">
+				<LiveDot active={isLive} paused={live.paused} className="self-center" />
+				<span className="text-[28px] leading-none font-semibold tracking-[-0.03em] text-foreground">
+					<TickingNumber value={active} />
+				</span>
+				<span className="text-[13px] text-muted-foreground">
+					{active !== null
+						? `${active === 1 ? "tab" : "tabs"} open in the last 2 minutes`
+						: live.failed
+							? "Unavailable right now"
+							: live.paused
+								? "Updates paused"
+								: "Checking…"}
+				</span>
+			</div>
+			{live.data && live.data.live.paths.length > 0 ? (
+				<RankedList
+					rows={live.data.live.paths.map((row) => ({ ...row, label: pageLabel(row.value) }))}
+				/>
+			) : null}
+		</Panel>
 	);
 }
