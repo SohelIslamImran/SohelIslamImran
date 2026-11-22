@@ -1,5 +1,5 @@
 import { AnimatePresence, Reorder } from "motion/react";
-import { memo, useCallback, useRef, useState, type ComponentType } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
 import { childPath, duplicateIds, insertItem, moveItem, removeItem } from "../draft/paths";
@@ -7,7 +7,13 @@ import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { RowActions } from "./ListFields";
 import { UndoRemoval, editorButton } from "./UndoRemoval";
-import { duplicateRow, restoreRow, rowId, type RemovedRow } from "./row-list";
+import {
+	duplicateRow,
+	pendingRowRemoval,
+	restoreRow,
+	rowId,
+	type PendingRowRemoval,
+} from "./row-list";
 
 const EMPTY: readonly never[] = [];
 
@@ -38,7 +44,13 @@ export function RepeaterField<T extends object>({
 	const changed = useChangedAt(path);
 	const localKeys = useRef<number[]>([]);
 	const nextKey = useRef(0);
-	const [removed, setRemoved] = useState<RemovedRow<T> | null>(null);
+	const [removal, setRemoved] = useState<PendingRowRemoval<T> | null>(null);
+	const removed = useDraftSelector((_state, store) =>
+		pendingRowRemoval((store.valueAt(path) as T[] | undefined) ?? EMPTY, removal),
+	);
+	useEffect(() => {
+		if (removal && !removed) setRemoved(null);
+	}, [removal, removed]);
 	const duplicates = duplicateIds(keys.map((id) => ({ id })));
 
 	// Assign the same initial keys in SSR and hydration. Move them with rows
@@ -98,8 +110,9 @@ export function RepeaterField<T extends object>({
 			const row = rows[index];
 			if (!row) return;
 			localKeys.current = removeItem(localKeys.current, index);
-			store.update(path, removeItem(rows, index));
-			setRemoved({ row, index, label });
+			const remaining = removeItem(rows, index);
+			store.update(path, remaining);
+			setRemoved({ row, index, label, remaining });
 			const target = rows.length === 1 ? path : childPath(path, Math.min(index, rows.length - 2));
 			requestAnimationFrame(() => focusField(target));
 		},
@@ -114,7 +127,10 @@ export function RepeaterField<T extends object>({
 			asGroup
 			issues={issues}
 			changed={changed}
-			onRevert={() => store.revertAt(path)}
+			onRevert={() => {
+				setRemoved(null);
+				store.revertAt(path);
+			}}
 			meta={
 				<span className="font-mono text-[11px] text-muted-foreground">
 					{keys.length}/{max}
@@ -179,6 +195,7 @@ export function RepeaterField<T extends object>({
 					}}
 					onUndo={() => {
 						const current = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
+						if (!pendingRowRemoval(current, removed)) return;
 						const restored = restoreRow(current, removed, max);
 						if (!restored) return;
 						const index = Math.min(removed.index, current.length);
@@ -231,23 +248,15 @@ function RepeaterRow<T extends object>({
 			label={name}
 			reorderable={index > 0 || canMoveDown}
 			className="cms-repeater-row"
-			onKeyDown={(event) => {
-				if (
-					event.defaultPrevented ||
-					!event.altKey ||
-					!["ArrowUp", "ArrowDown"].includes(event.key)
-				)
-					return;
-				event.preventDefault();
-				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
-			}}
+			onMove={index > 0 || canMoveDown ? (offset) => move(index, index + offset) : undefined}
 		>
 			{(handle) => (
 				<>
 					<details onToggle={(event) => setOpened(event.currentTarget.open)}>
 						<summary
 							id={fieldId(path)}
-							aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+							data-row-reorder=""
+							aria-keyshortcuts={index > 0 || canMoveDown ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
 							className="cms-repeater-summary cms-press"
 						>
 							{name}

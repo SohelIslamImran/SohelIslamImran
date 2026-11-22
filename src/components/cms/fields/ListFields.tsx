@@ -365,11 +365,7 @@ const StringRow = memo(function StringRow({
 			label={label}
 			reorderable={index > 0 || canMoveDown}
 			className="cms-string-row"
-			onKeyDown={(event) => {
-				if (!event.altKey || !["ArrowUp", "ArrowDown"].includes(event.key)) return;
-				event.preventDefault();
-				move(index, index + (event.key === "ArrowUp" ? -1 : 1));
-			}}
+			onMove={(offset) => move(index, index + offset)}
 		>
 			{(handle) => (
 				<>
@@ -378,7 +374,6 @@ const StringRow = memo(function StringRow({
 						value={value}
 						placeholder={placeholder}
 						aria-label={label}
-						aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
 						aria-invalid={field.issues.length > 0 || undefined}
 						aria-describedby={describedBy(path, false, field.issues)}
 						rows={multiline ? 3 : undefined}
@@ -437,11 +432,25 @@ export function RowActions({
 	return (
 		<div className={cn("flex shrink-0 flex-wrap items-center gap-0.5", className)}>
 			{children}
-			<button type="button" className={button} disabled={!canMoveUp} onClick={onMoveUp}>
+			<button
+				aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+				type="button"
+				data-row-reorder=""
+				className={button}
+				disabled={!canMoveUp}
+				onClick={onMoveUp}
+			>
 				<span aria-hidden="true">↑</span>
 				<span className="sr-only">Move {label} up</span>
 			</button>
-			<button type="button" className={button} disabled={!canMoveDown} onClick={onMoveDown}>
+			<button
+				aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+				type="button"
+				data-row-reorder=""
+				className={button}
+				disabled={!canMoveDown}
+				onClick={onMoveDown}
+			>
 				<span aria-hidden="true">↓</span>
 				<span className="sr-only">Move {label} down</span>
 			</button>

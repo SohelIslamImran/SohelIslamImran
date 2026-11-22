@@ -36,9 +36,9 @@ export function EditorLayout({
 						{description}
 					</p>
 				</div>
-				{issues}
 			</header>
 			{children}
+			{issues}
 		</div>
 	);
 }
