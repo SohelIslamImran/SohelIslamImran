@@ -135,6 +135,10 @@ function useRouteViewTransitions() {
 			cmsTransition.skipped = true;
 			cmsTransition.view.skipTransition();
 		};
+		const sectionSelector = '[data-slot="cms-section"]';
+		const cmsOverlaySelector =
+			'[data-slot="cms-mobile-drawer"], [data-slot="cms-command-bar"], [data-slot="cms-publish-dialog"], [data-slot="cms-conflict-dialog"], [data-slot="cms-issues-popover"], .appearance-pop';
+		let navigateWithOverlay = false;
 		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
@@ -166,8 +170,16 @@ function useRouteViewTransitions() {
 			router.shouldViewTransition = undefined;
 			// A search-only update (an editor selecting its first item) commits
 			// without a snapshot and leaves a running content fade alone.
-			if (!supported || reduced.matches || !requested || from?.pathname === to.pathname) {
+			if (!supported || reduced.matches || from?.pathname === to.pathname) {
 				return update();
+			}
+			const outgoing = document.querySelector<HTMLElement>(sectionSelector);
+			if (!requested || navigateWithOverlay || document.querySelector(cmsOverlaySelector)) {
+				// Leave the closing layer in the live paint tree, above the page.
+				await update();
+				const incoming = document.querySelector<HTMLElement>(sectionSelector);
+				if (incoming && incoming !== outgoing) incoming.dataset.cmsFade = "";
+				return;
 			}
 			const types =
 				typeof requested === "object" &&
@@ -187,7 +199,6 @@ function useRouteViewTransitions() {
 			root.dataset.routeVt = direction(from?.state, to.state);
 			// Give the keyed sections separate groups so each keeps the viewport
 			// position captured on its side of scroll restoration.
-			const outgoing = document.querySelector<HTMLElement>('[data-slot="cms-section"]');
 			if (outgoing) outgoing.style.viewTransitionName = "cms-section-out";
 			const view = document.startViewTransition(types ? { update, types } : update);
 			const transition = { view, skipped: false, outgoing };
@@ -220,6 +231,7 @@ function useRouteViewTransitions() {
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
 			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
 				if (event.pathChanged) {
+					navigateWithOverlay = document.querySelector(cmsOverlaySelector) !== null;
 					skipCmsTransition();
 					window.clearTimeout(clearTimer);
 					if (!cmsTransition) delete root.dataset.routeVt;

@@ -116,6 +116,7 @@ function PipelineStatus({
 				params: { section: target.sectionId },
 				search: target.itemId ? { item: target.itemId } : {},
 				resetScroll: false,
+				viewTransition: false,
 			}).then(() => {
 				focusFieldAfterNavigation(path);
 			});
@@ -161,6 +162,7 @@ function PipelineStatus({
 				</span>
 			</PopoverTrigger>
 			<PopoverContent
+				data-slot="cms-issues-popover"
 				sideOffset={10}
 				positionMethod="fixed"
 				finalFocus={() => !reviewingGate.current && !jumping.current}
@@ -179,6 +181,7 @@ function PipelineStatus({
 						<Link
 							to="/cms/release"
 							preload="intent"
+							viewTransition={false}
 							onClick={(event) => {
 								if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
 									if (onReviewRelease()) {

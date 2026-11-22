@@ -266,6 +266,7 @@ function PublishConfirmDialogBody({
 					<Link
 						to="/cms/release"
 						preload="intent"
+						viewTransition={false}
 						resetScroll={false}
 						onClick={() => onOpenChange(false)}
 						className={buttonVariants({

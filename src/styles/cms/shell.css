@@ -344,7 +344,7 @@
 	}
 
 	.cms-session-banner {
-		border-block: 1px solid color-mix(in srgb, var(--theme-destructive) 30%, var(--theme-line));
+		border: 1px solid color-mix(in srgb, var(--theme-destructive) 30%, var(--theme-line));
 		background: color-mix(in srgb, var(--theme-destructive) 8%, var(--theme-surface-solid));
 		box-shadow: var(--shadow-raised);
 		animation: cms-enter 160ms var(--cms-ease-out) both;
@@ -705,6 +705,15 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) [data-slot=
 	view-transition-name: cms-section;
 }
 
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) .cms-session-banner {
+	view-transition-name: cms-session-banner;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])
+	[data-slot="cms-mobile-action-bar"] {
+	view-transition-name: cms-mobile-actions;
+}
+
 html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-transition {
 	clip-path: inset(max(56px, calc(45px + env(safe-area-inset-top))) 0 0);
 	pointer-events: none;
@@ -714,15 +723,33 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 ::view-transition-group(cms-section-out) {
 	animation: none;
 }
+::view-transition-group(cms-session-banner),
+::view-transition-group(cms-mobile-actions) {
+	z-index: 1;
+	animation: none;
+}
+::view-transition-old(cms-session-banner),
+::view-transition-old(cms-mobile-actions) {
+	animation: none;
+	opacity: 0;
+}
+::view-transition-new(cms-session-banner),
+::view-transition-new(cms-mobile-actions) {
+	animation: none;
+	mix-blend-mode: normal;
+}
 ::view-transition-old(cms-section-out) {
 	animation: cms-section-out 100ms ease-out both;
 	pointer-events: none;
 }
 ::view-transition-new(cms-section) {
 	animation:
-		cms-section-rise 240ms var(--cms-ease-out) both,
+		cms-section-rise 140ms ease-out 100ms both,
 		cms-fade 140ms var(--cms-ease-out) 100ms both;
 	pointer-events: none;
+}
+[data-slot="cms-section"][data-cms-fade] {
+	animation: cms-fade 150ms linear both;
 }
 @supports not (view-transition-name: none) {
 	[data-slot="cms-section"] {

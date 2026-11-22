@@ -26,6 +26,7 @@ export function RailPulseSlot({
 		<RailRouterLink
 			to="/cms/analytics"
 			preload="intent"
+			viewTransition={onNavigate ? false : undefined}
 			onClick={(event) => {
 				if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
 					return;

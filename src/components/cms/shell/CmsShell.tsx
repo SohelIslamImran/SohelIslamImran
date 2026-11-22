@@ -212,6 +212,7 @@ function RailLink({
 						to={to}
 						params={params}
 						preload="intent"
+						viewTransition={layoutScope !== "drawer" ? undefined : false}
 						currentPage={active}
 						aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
 						aria-busy={pending || undefined}
@@ -608,7 +609,7 @@ function SessionBanners({
 		<div
 			role="alert"
 			data-slot={authExpired ? "cms-auth-expired-banner" : "cms-error-banner"}
-			className="cms-session-banner absolute inset-x-0 top-[calc(100%+1px)] px-3 text-[13px] text-foreground lg:px-8"
+			className="cms-session-banner absolute top-[calc(100%+12px)] right-3 left-3 rounded-[14px] px-3 text-[13px] text-foreground sm:left-auto sm:max-w-md"
 		>
 			<div className="cms-topbar-inner mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2">
 				<span className="flex min-w-0 flex-[1_0_min(240px,100%)] items-center gap-2">
