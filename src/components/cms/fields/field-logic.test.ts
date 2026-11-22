@@ -1,7 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { removeItem } from "../draft/paths";
 import { tagBackspace, toSingleLine } from "./field-logic";
-import { neverSame, pendingRowRemoval, restoreRow, sameTag, sameValue } from "./row-list";
+import {
+	createRemoval,
+	neverSame,
+	removalRules,
+	restoreRemoval,
+	sameRow,
+	sameTag,
+	sameValue,
+} from "./row-list";
 
 describe("single-line text", () => {
 	it("turns typed, pasted, and Windows line breaks into one space", () => {
@@ -30,30 +38,35 @@ describe("tag backspace", () => {
 });
 
 describe("undo for string lists, tags, and photos", () => {
+	const paragraphs = removalRules<string>({ max: 20, same: neverSame, match: sameRow });
+	const tags = removalRules<string>({ max: 100, same: sameTag, match: sameTag });
+	const photos = removalRules<string>({ max: 30, same: sameValue, match: sameValue });
+
 	it("restores a removed paragraph at its index, even when another equals it", () => {
 		const rows = ["Intro", "Intro", "Close"];
-		const remaining = removeItem(rows, 1);
-		const removal = { row: "Intro", index: 1, label: "Paragraph 2", remaining };
-		const pending = pendingRowRemoval(remaining, removal);
-		expect(pending && restoreRow(remaining, pending, 20, neverSame)).toEqual(rows);
+		const removal = createRemoval(rows, 1, "paragraph 2", [], paragraphs.match, 0);
+		expect(restoreRemoval(removeItem(rows, 1), removal, paragraphs)?.rows).toEqual(rows);
 	});
 
 	it("refuses to restore a tag that was added again in another case", () => {
-		const removed = { row: "React", index: 0, label: "React" };
-		expect(restoreRow(["TypeScript"], removed, 100, sameTag)).toEqual(["React", "TypeScript"]);
-		expect(restoreRow(["react", "TypeScript"], removed, 100, sameTag)).toBeNull();
+		const removal = createRemoval(["React", "TypeScript"], 0, "React", [], tags.match, 0);
+		expect(restoreRemoval(["TypeScript"], removal, tags)?.rows).toEqual(["React", "TypeScript"]);
+		expect(restoreRemoval(["react", "TypeScript"], removal, tags)).toBeNull();
 	});
 
 	it("refuses to restore a photo that is attached again or into a full list", () => {
-		const removed = { row: "asset-a", index: 1, label: "Photo 2" };
-		expect(restoreRow(["asset-b"], removed, 30, sameValue)).toEqual(["asset-b", "asset-a"]);
-		expect(restoreRow(["asset-a"], removed, 30, sameValue)).toBeNull();
-		expect(restoreRow(["asset-b"], removed, 1, sameValue)).toBeNull();
+		const removal = createRemoval(["asset-b", "asset-a"], 1, "Photo 2", [], photos.match, 0);
+		expect(restoreRemoval(["asset-b"], removal, photos)?.rows).toEqual(["asset-b", "asset-a"]);
+		expect(restoreRemoval(["asset-a"], removal, photos)).toBeNull();
+		expect(restoreRemoval(["asset-b"], removal, { ...photos, max: 1 })).toBeNull();
 	});
 
-	it("drops the undo once the list changes after the removal", () => {
-		const remaining = ["Close"];
-		const removal = { row: "Intro", index: 0, label: "Paragraph 1", remaining };
-		expect(pendingRowRemoval(["Close", ""], removal)).toBeNull();
+	it("keeps an edit made after the removal", () => {
+		const removal = createRemoval(["Intro", "Close"], 0, "paragraph 1", [], paragraphs.match, 0);
+		expect(restoreRemoval(["Close", "Added later"], removal, paragraphs)?.rows).toEqual([
+			"Intro",
+			"Close",
+			"Added later",
+		]);
 	});
 });

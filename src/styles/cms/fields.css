@@ -254,6 +254,15 @@
 		background: var(--theme-accent-soft);
 	}
 
+	/*
+	 * The highlighted option is the keyboard focus in selects and suggestion
+	 * lists. The soft fill alone is too faint, so it carries the focus ring's
+	 * solid accent line inset, and the ring moves with the fill.
+	 */
+	.cms-choice-option > .cms-choice-highlight {
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
 	.cms-choice-trigger > span:last-child {
 		transition: rotate var(--cms-dur-fast) var(--cms-ease-out);
 	}
@@ -909,6 +918,9 @@
 			min-height: 44px;
 		}
 		.cms-issue-link {
+			display: flex;
+			align-items: center;
+			min-height: 44px;
 			padding-block: 0.75rem;
 		}
 	}

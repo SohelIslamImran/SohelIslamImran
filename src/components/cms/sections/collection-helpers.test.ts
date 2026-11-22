@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { duplicateRow, newRowId, restoreRow } from "../fields/row-list";
+import {
+	createRemoval,
+	duplicateRow,
+	newRowId,
+	removalRules,
+	restoreRemoval,
+} from "../fields/row-list";
 import {
 	duplicateProject,
 	issueLabel,
@@ -47,18 +53,19 @@ describe("collection editor helpers", () => {
 		expect(rows.some((row) => row.id === copy.id)).toBe(false);
 	});
 
-	it("undoes a removal at its original index and preserves other edits", () => {
-		const removed = { row: { id: "b", value: "removed" }, index: 1, label: "B" };
+	it("undoes a removal beside its old neighbours and preserves other edits", () => {
+		const rules = removalRules<{ id: string; value: string }>();
+		const rows = [
+			{ id: "a", value: "a" },
+			{ id: "b", value: "removed" },
+		];
+		const removal = createRemoval(rows, 1, "B", [], rules.match, 0);
 		const edited = { id: "a", value: "edited after removal" };
 		const newer = { id: "c", value: "new" };
-		expect(restoreRow([edited, newer], removed)).toEqual([edited, removed.row, newer]);
-		expect(restoreRow([], removed)).toEqual([removed.row]);
-		expect(restoreRow([edited], removed, 1)).toBeNull();
-		expect(restoreRow([removed.row], removed)).toBeNull();
-		expect(restoreRow(["edited"], { row: "removed", index: 0, label: "Row" })).toEqual([
-			"removed",
-			"edited",
-		]);
+		expect(restoreRemoval([edited, newer], removal, rules)?.rows).toEqual([edited, rows[1], newer]);
+		expect(restoreRemoval([], removal, rules)?.rows).toEqual([rows[1]]);
+		expect(restoreRemoval([edited], removal, { ...rules, max: 1 })).toBeNull();
+		expect(restoreRemoval([rows[1]!], removal, rules)).toBeNull();
 	});
 
 	it("routes errors by current item ID even after the rows are reordered", () => {

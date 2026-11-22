@@ -1,11 +1,6 @@
-import {
-	Reorder,
-	useDragControls,
-	useIsPresent,
-	useReducedMotion,
-	type HTMLMotionProps,
-} from "motion/react";
+import { Reorder, useDragControls, useIsPresent, type HTMLMotionProps } from "motion/react";
 import { useState, type ReactNode } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_MOMENTUM, SPRING_MOVE } from "../motion";
 import { reorderOffset } from "./row-list";
@@ -26,7 +21,7 @@ export function SortableRow({
 	children: (handle: ReactNode) => ReactNode;
 }) {
 	const controls = useDragControls();
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	const present = useIsPresent();
 	const [dragging, setDragging] = useState(false);
 	const handle = reorderable ? (

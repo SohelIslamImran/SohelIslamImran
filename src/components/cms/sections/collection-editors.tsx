@@ -1,5 +1,6 @@
-import { LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { LayoutGroup, motion } from "motion/react";
 import { useId } from "react";
+import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { SPRING_MOVE } from "../motion";
 import { Tabs } from "@base-ui/react/tabs";
 import { categoryLabels } from "../../work/project-utils";
@@ -429,7 +430,7 @@ function ProfileLinkFields({ path }: { path: string }) {
 export function LinksEditor(props: EditorProps) {
 	const tab = props.tab ?? "profile";
 	const groupId = useId();
-	const reduced = useReducedMotion();
+	const reduced = useLiveReducedMotion();
 	return (
 		<Tabs.Root
 			value={tab}
