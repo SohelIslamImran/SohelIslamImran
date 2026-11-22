@@ -1,7 +1,7 @@
 /**
  * Control Plane CMS Shell:
  * - Skip link + exactly one `<main id="main-content" tabIndex={-1}>`
- * - Responsive Layer Rail (248px at >=1280px, 56px icon rail at 1024-1279px,
+ * - Responsive Layer Rail (232px at >=1280px, 56px icon rail at 1024-1279px,
  *   collapsible via ⌘\ / Ctrl+\, slide-over glass drawer on phones/tablets)
  * - Live-pulse slot at the top of the rail (`RailPulseSlot` or `pulseSlot` prop)
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
@@ -28,6 +28,28 @@ import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { REDUCED, SPRING_MOVE } from "../motion";
+
+import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
+import {
+	ActivityIcon,
+	AlertTriangleIcon,
+	AnalyticsIcon,
+	CloseIcon,
+	ExternalArrowIcon,
+	HistoryIcon,
+	MediaLibraryIcon,
+	OverviewIcon,
+	ReleaseChangesIcon,
+	SectionIcon,
+	SidebarToggleIcon,
+} from "./cms-icons";
+import { CommandBar } from "./CommandBar";
+import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
+import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
+import { MobileActionBar, PipelineBar, useSaveFeedback } from "./PipelineBar";
+import { RailPulseSlot } from "./RailPulseSlot";
+import { RailRouterLink } from "./RailRouterLink";
+import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
 
@@ -102,27 +124,6 @@ function RailIndicator({ active }: { active: string }) {
 		/>
 	);
 }
-import { SECTION_GROUPS, SECTIONS } from "../sections/registry";
-import {
-	ActivityIcon,
-	AlertTriangleIcon,
-	AnalyticsIcon,
-	CloseIcon,
-	ExternalArrowIcon,
-	HistoryIcon,
-	MediaLibraryIcon,
-	OverviewIcon,
-	ReleaseChangesIcon,
-	SectionIcon,
-	SidebarToggleIcon,
-} from "./cms-icons";
-import { CommandBar } from "./CommandBar";
-import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
-import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
-import { MobileActionBar, PipelineBar } from "./PipelineBar";
-import { RailPulseSlot } from "./RailPulseSlot";
-import { RailRouterLink } from "./RailRouterLink";
-import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export { RailPulseSlot };
 
@@ -145,6 +146,7 @@ export const CMS_NAV = {
 } as const;
 
 type RailMode = "auto" | "expanded" | "collapsed";
+const RAIL_STORAGE_KEY = "cms:rail-mode";
 
 function isEditableTarget(target: EventTarget | null): boolean {
 	if (!(target instanceof HTMLElement)) return false;
@@ -242,9 +244,9 @@ function RailLink({
 				>
 					<Tooltip.Popup
 						role="tooltip"
-						className="rounded-lg border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-medium text-foreground shadow-float"
+						className="cms-rail-tooltip-popup rounded-lg border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-medium text-foreground"
 					>
-						{label}
+						{badgeLabel ? `${label} · ${badgeLabel}` : label}
 					</Tooltip.Popup>
 				</Tooltip.Positioner>
 			</Tooltip.Portal>
@@ -286,7 +288,7 @@ function SectionRailItem({
 			<span key={errors} className="cms-count-tick tabular-nums">
 				{errors}
 			</span>
-			<span className="sr-only"> errors</span>
+			<span className="sr-only"> {errors === 1 ? "error" : "errors"}</span>
 		</span>
 	) : changed ? (
 		<span className="inline-flex items-center rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text">
@@ -323,7 +325,7 @@ function SectionRailItem({
 			pending={pending}
 			badgeLabel={
 				errors
-					? `${errors} validation ${errors === 1 ? "issue" : "issues"}`
+					? `${errors} validation ${errors === 1 ? "error" : "errors"}`
 					: changed
 						? "Draft changed"
 						: undefined
@@ -600,57 +602,40 @@ function SessionBanners({
 	const status = useDraftSelector((state) => state.status);
 	const error = useDraftSelector((state) => state.error);
 
-	if (authExpired) {
-		return (
-			<div
-				role="alert"
-				data-slot="cms-auth-expired-banner"
-				className="flex flex-wrap items-center justify-between gap-3 border-b border-destructive/35 bg-destructive/10 px-4 py-2.5 text-[13px] text-foreground lg:px-6"
-			>
-				<span className="flex items-center gap-2">
-					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
-					<span>
-						Your session expired. Reload the console to sign in again — your unsaved edits stay in
-						this browser until you reload.
-					</span>
-				</span>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={() => window.location.reload()}
-					className="pointer-coarse:min-h-11"
-				>
-					Reload console
-				</Button>
-			</div>
-		);
-	}
+	if (!authExpired && (status !== "error" || !error || publishDialogOpen)) return null;
 
-	if (status === "error" && error) {
-		if (publishDialogOpen) return null;
-		return (
-			<div
-				role="alert"
-				data-slot="cms-error-banner"
-				className="flex flex-wrap items-center justify-between gap-3 border-b border-destructive/35 bg-destructive/10 px-4 py-2 text-[13px] text-foreground lg:px-6"
-			>
-				<span className="flex items-center gap-2">
+	return (
+		<div
+			role="alert"
+			data-slot={authExpired ? "cms-auth-expired-banner" : "cms-error-banner"}
+			className="cms-session-banner absolute inset-x-0 top-[calc(100%+1px)] px-3 text-[13px] text-foreground lg:px-8"
+		>
+			<div className="cms-topbar-inner mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2">
+				<span className="flex min-w-0 flex-[1_0_min(240px,100%)] items-center gap-2">
 					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
 					<span>
-						{publishFailed ? "The draft could not be published. Check your connection." : error}
+						{authExpired
+							? "Your session expired. Reload the console to sign in again. Your unsaved edits stay in this browser until you reload."
+							: publishFailed
+								? "The draft could not be published. Check your connection."
+								: error}
 					</span>
 				</span>
 				<Button
 					variant="outline"
 					size="sm"
 					onClick={(event) => {
+						if (authExpired) {
+							window.location.reload();
+							return;
+						}
 						if (publishFailed) {
 							onRetryPublish();
 							return;
 						}
 						if (document.activeElement === event.currentTarget) {
 							event.currentTarget
-								.closest(".cms-layout")
+								.closest(".cms-topbar")
 								?.querySelector<HTMLElement>(".cms-status-pill")
 								?.focus({ preventScroll: true });
 						}
@@ -658,13 +643,11 @@ function SessionBanners({
 					}}
 					className="pointer-coarse:min-h-11"
 				>
-					{publishFailed ? "Retry publish" : "Retry save"}
+					{authExpired ? "Reload console" : publishFailed ? "Retry publish" : "Retry save"}
 				</Button>
 			</div>
-		);
-	}
-
-	return null;
+		</div>
+	);
 }
 
 export function useCommittedPathname() {
@@ -675,7 +658,24 @@ export function useCommittedPathname() {
 
 export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSlot?: ReactNode }) {
 	const store = useDraftStore();
+	const saveFeedback = useSaveFeedback();
 	const [railMode, setRailMode] = useState<RailMode>("auto");
+	useEffect(() => {
+		try {
+			const saved = localStorage.getItem(RAIL_STORAGE_KEY);
+			if (saved === "collapsed" || saved === "expanded") setRailMode(saved);
+		} catch {
+			// The rail still works when storage is unavailable.
+		}
+	}, []);
+	useEffect(() => {
+		if (railMode === "auto") return;
+		try {
+			localStorage.setItem(RAIL_STORAGE_KEY, railMode);
+		} catch {
+			// Keep the in-memory preference.
+		}
+	}, [railMode]);
 	const [wide, setWide] = useState(false);
 	useEffect(() => {
 		const query = window.matchMedia("(min-width: 1280px)");
@@ -982,7 +982,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 		<div className="cms-root min-h-svh">
 			<a
 				href="#main-content"
-				className="fixed top-2 left-2 z-(--z-skip) min-h-11 -translate-y-[200%] rounded-full bg-foreground px-4 py-2.5 text-[13px] font-semibold text-background no-underline shadow-float transition-transform duration-200 ease-trace focus-visible:translate-y-0 focus-visible:transition-none"
+				className="fixed top-2 left-2 z-(--z-skip) min-h-11 -translate-y-[200%] rounded-full bg-foreground px-4 py-2.5 text-[13px] font-semibold text-background no-underline transition-transform duration-200 ease-trace focus-visible:translate-y-0 focus-visible:shadow-float focus-visible:transition-none"
 			>
 				Skip to content
 			</a>
@@ -990,7 +990,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			<div data-slot="cms-layout" data-rail={railMode} className="cms-layout">
 				<aside
 					aria-label="Workspace navigation"
-					className="cms-rail-desktop sticky top-0 h-dvh min-h-0 min-w-0 flex-col border-r border-line"
+					className="cms-rail-desktop sticky top-0 h-dvh min-h-0 min-w-0 flex-col"
 				>
 					<Tooltip.Provider delay={450} closeDelay={0}>
 						<LayerRailContent
@@ -1019,12 +1019,14 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 						}}
 						publishFailed={publishFailed}
 						publishSweepKey={publishSweepKey}
-					/>
-					<SessionBanners
-						publishFailed={publishFailed}
-						publishDialogOpen={publishDialogOpen}
-						onRetryPublish={requestPublish}
-					/>
+						saveFeedback={saveFeedback}
+					>
+						<SessionBanners
+							publishFailed={publishFailed}
+							publishDialogOpen={publishDialogOpen}
+							onRetryPublish={requestPublish}
+						/>
+					</PipelineBar>
 					<main
 						id="main-content"
 						tabIndex={-1}
@@ -1075,7 +1077,7 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				</Drawer.Portal>
 			</Drawer.Root>
 
-			<MobileActionBar onRequestPublish={requestPublish} />
+			<MobileActionBar onRequestPublish={requestPublish} saveFeedback={saveFeedback} />
 
 			<CommandBar
 				opener={commandOpener}

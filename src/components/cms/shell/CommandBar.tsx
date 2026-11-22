@@ -158,6 +158,14 @@ function CommandBarOpen({
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
 	const { canSave, canPublish } = useDraftSelector(draftActionAvailability);
 	const appearance = useAppearance();
+	const [desktop, setDesktop] = useState(false);
+	useLayoutEffect(() => {
+		const query = window.matchMedia("(min-width: 1024px)");
+		const sync = () => setDesktop(query.matches);
+		sync();
+		query.addEventListener("change", sync);
+		return () => query.removeEventListener("change", sync);
+	}, []);
 
 	const [query, setQuery] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
@@ -411,7 +419,9 @@ function CommandBarOpen({
 				run: () =>
 					void window.open(`${PUBLIC_SITE_ORIGIN}/?analytics=off`, "_blank", "noopener,noreferrer"),
 			},
-			{
+		];
+		if (desktop) {
+			actions.push({
 				id: "action-toggle-rail",
 				group: "Actions",
 				label: "Toggle sidebar width",
@@ -420,8 +430,8 @@ function CommandBarOpen({
 				shortcut: "⌘\\ / Ctrl+\\",
 				icon: <SidebarToggleIcon />,
 				run: () => onToggleRail(),
-			},
-		];
+			});
+		}
 
 		const appearanceEntries: CommandEntry[] = themeModes.map((mode) => ({
 			id: `theme-${mode}`,
@@ -449,6 +459,7 @@ function CommandBarOpen({
 		appearance.transitioning,
 		canPublish,
 		canSave,
+		desktop,
 		dirty,
 		draft,
 		issueCount,

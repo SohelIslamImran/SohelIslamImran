@@ -7,7 +7,7 @@
  * hydration-safe relative save timestamp, ⌘K trigger, single accent Publish
  * button, and the phone top bar + bottom glass action bar.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "../../ui/button";
@@ -21,6 +21,7 @@ import {
 } from "../../ui/popover";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { focusField } from "../fields";
+import { sentenceCase } from "../fields/FieldFrame";
 import { REDUCED, SPRING_MOVE } from "../motion";
 import { resolvePathTarget } from "../release/diff";
 import {
@@ -37,7 +38,10 @@ import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 export type PipelineStage = "synced" | "dirty" | "saving" | "ahead" | "invalid";
 
-function usePipelineStage(publishFailed: boolean): {
+function usePipelineStage(
+	publishFailed: boolean,
+	saveFeedback: SaveFeedback,
+): {
 	stage: PipelineStage;
 	label: string;
 } {
@@ -52,14 +56,17 @@ function usePipelineStage(publishFailed: boolean): {
 			const count = state.issues.all.length;
 			return {
 				stage: "invalid",
-				label: `${count} ${count === 1 ? "issue" : "issues"}`,
+				label: `${count} ${count === 1 ? "error" : "errors"}`,
 			};
 		}
 		if (state.status === "publishing") {
 			return { stage: "saving", label: "Publishing…" };
 		}
-		if (state.status === "saving") {
+		if (state.status === "saving" || saveFeedback === "saving") {
 			return { stage: "saving", label: "Saving…" };
+		}
+		if (saveFeedback === "saved" && !state.dirty) {
+			return { stage: "synced", label: "Saved" };
 		}
 		if (state.dirty) {
 			return { stage: "dirty", label: "Unsaved" };
@@ -93,12 +100,14 @@ function PipelineStatus({
 }) {
 	const [open, setOpen] = useState(false);
 	const reviewingGate = useRef(false);
+	const jumping = useRef(false);
 	const navigate = useNavigate();
 	const store = useDraftStore();
 	const issues = useDraftSelector((state) => state.issues.all);
 	const conflict = useDraftSelector((state) => state.conflict !== null);
 
 	const jumpToIssue = (path: string) => {
+		jumping.current = true;
 		setOpen(false);
 		const target = resolvePathTarget(path, store.getState().draft);
 		if (target) {
@@ -123,7 +132,10 @@ function PipelineStatus({
 					setOpen(false);
 					onResolveConflict();
 				} else {
-					if (next) reviewingGate.current = false;
+					if (next) {
+						reviewingGate.current = false;
+						jumping.current = false;
+					}
 					setOpen(next);
 				}
 			}}
@@ -149,16 +161,15 @@ function PipelineStatus({
 				</span>
 			</PopoverTrigger>
 			<PopoverContent
-				align="start"
 				sideOffset={10}
 				positionMethod="fixed"
-				finalFocus={() => !reviewingGate.current}
+				finalFocus={() => !reviewingGate.current && !jumping.current}
 				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
 				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
 					<PopoverHeader className="flex flex-row items-center justify-between px-1.5 pt-0.5">
 						<PopoverTitle className="text-[13px] font-semibold">
-							{issues.length > 0 ? "Validation issues" : "Release status"}
+							{issues.length > 0 ? "Validation errors" : "Release status"}
 						</PopoverTitle>
 						{issues.length > 0 ? (
 							<span className="text-[11px] text-muted-foreground">Jump to field</span>
@@ -206,7 +217,9 @@ function PipelineStatus({
 											<code className="truncate font-mono text-[11px] text-muted-foreground">
 												{issue.path}
 											</code>
-											<span className="text-[12px] text-destructive">{issue.message}</span>
+											<span className="text-[12px] text-destructive">
+												{sentenceCase(issue.message)}
+											</span>
 										</button>
 									</li>
 								);
@@ -227,6 +240,8 @@ export function PipelineBar({
 	onReviewRelease,
 	publishFailed,
 	publishSweepKey,
+	saveFeedback,
+	children,
 }: {
 	onOpenCommandBar: (trigger: HTMLButtonElement) => void;
 	onOpenDrawer: () => void;
@@ -235,8 +250,10 @@ export function PipelineBar({
 	onReviewRelease: () => boolean;
 	publishFailed: boolean;
 	publishSweepKey: number;
+	saveFeedback: SaveFeedback;
+	children: ReactNode;
 }) {
-	const { stage, label } = usePipelineStage(publishFailed);
+	const { stage, label } = usePipelineStage(publishFailed, saveFeedback);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
@@ -274,7 +291,10 @@ export function PipelineBar({
 						aria-label={`Draft revision ${draftRevision}`}
 						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
 					>
-						<span className="hidden sm:inline">Draft </span>r{draftRevision}
+						<span className="hidden sm:inline">Draft </span>
+						<span key={draftRevision} className="cms-count-tick">
+							r{draftRevision}
+						</span>
 					</span>
 					<span aria-hidden="true" className="cms-pipeline-connector" />
 					<PipelineStatus
@@ -315,7 +335,7 @@ export function PipelineBar({
 					</button>
 
 					<div className="hidden items-center gap-2 lg:flex">
-						<PipelineActions onRequestPublish={onRequestPublish} />
+						<PipelineActions onRequestPublish={onRequestPublish} saveFeedback={saveFeedback} />
 					</div>
 				</div>
 			</div>
@@ -323,6 +343,7 @@ export function PipelineBar({
 			{publishSweepKey > 0 ? (
 				<span key={publishSweepKey} aria-hidden="true" className="cms-publish-sweep" />
 			) : null}
+			{children}
 		</header>
 	);
 }
@@ -340,24 +361,76 @@ function useRevisionFeedback(revision: number) {
 	return recent;
 }
 
-function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void }) {
+type SaveFeedback = "saving" | "saved" | null;
+
+export function useSaveFeedback(): SaveFeedback {
 	const store = useDraftStore();
-	const { dirty, ahead, canSave, canPublish, status, draftRevision, publishedRevision } =
-		useDraftSelector((state) => {
+	const [feedback, setFeedback] = useState<SaveFeedback>(null);
+	const savingSince = useRef(0);
+
+	useLayoutEffect(() => {
+		// Count the minimum from the committed label, including on a fast save.
+		if (feedback === "saving") savingSince.current = performance.now();
+	}, [feedback]);
+
+	useEffect(() => {
+		let previous = store.getState().status;
+		let timer: number | undefined;
+		const showSaved = () => {
+			const remaining = 400 - (performance.now() - savingSince.current);
+			if (remaining > 0) {
+				timer = window.setTimeout(showSaved, remaining);
+				return;
+			}
+			setFeedback("saved");
+			timer = window.setTimeout(() => setFeedback(null), 1000);
+		};
+		const unsubscribe = store.subscribe(() => {
+			const { status } = store.getState();
+			if (status === previous) return;
+			window.clearTimeout(timer);
+			if (status === "saving") {
+				savingSince.current = performance.now();
+				setFeedback("saving");
+			} else if (previous === "saving" && status === "idle") {
+				showSaved();
+			} else {
+				setFeedback(null);
+			}
+			previous = status;
+		});
+		return () => {
+			unsubscribe();
+			window.clearTimeout(timer);
+		};
+	}, [store]);
+
+	return feedback;
+}
+
+function PipelineActions({
+	onRequestPublish,
+	saveFeedback,
+}: {
+	onRequestPublish: () => void;
+	saveFeedback: SaveFeedback;
+}) {
+	const store = useDraftStore();
+	const { dirty, ahead, canSave, canPublish, status, publishedRevision } = useDraftSelector(
+		(state) => {
 			return {
 				dirty: state.dirty,
 				ahead: state.ahead,
 				...draftActionAvailability(state),
 				status: state.status,
-				draftRevision: state.draftRevision,
 				publishedRevision: state.publishedRevision,
 			};
-		});
-	const savedRecently = useRevisionFeedback(draftRevision);
+		},
+	);
 	const publishedRecently = useRevisionFeedback(publishedRevision);
-	const saving = status === "saving";
+	const saving = status === "saving" || (status === "idle" && saveFeedback === "saving");
 	const publishing = status === "publishing";
-	const justSaved = savedRecently && !dirty && !saving && !publishing;
+	const justSaved = saveFeedback === "saved" && status === "idle" && !dirty;
 	const justPublished = publishedRecently && !ahead && !dirty && !saving && !publishing;
 
 	return (
@@ -392,7 +465,13 @@ function PipelineActions({ onRequestPublish }: { onRequestPublish: () => void })
 }
 
 /** Keep mobile actions visible while there are draft changes to save or publish. */
-export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => void }) {
+export function MobileActionBar({
+	onRequestPublish,
+	saveFeedback,
+}: {
+	onRequestPublish: () => void;
+	saveFeedback: SaveFeedback;
+}) {
 	const reduce = useLiveReducedMotion();
 	const bar = useRef<HTMLDivElement>(null);
 	const visible = useDraftSelector(
@@ -422,7 +501,7 @@ export function MobileActionBar({ onRequestPublish }: { onRequestPublish: () => 
 					exit={{ y: reduce ? 0 : 20, opacity: 0, pointerEvents: "none" }}
 					transition={reduce ? REDUCED : SPRING_MOVE}
 				>
-					<PipelineActions onRequestPublish={onRequestPublish} />
+					<PipelineActions onRequestPublish={onRequestPublish} saveFeedback={saveFeedback} />
 				</motion.div>
 			) : null}
 		</AnimatePresence>
