@@ -11,6 +11,7 @@ import { z } from "zod";
 import { requireOwner } from "./auth.server";
 import { assertMutation, runtime } from "./cms.server";
 import {
+	AUDIT_EVENT_KINDS,
 	discardDraft as discardDraftInStorage,
 	getAdminSnapshot,
 	getRevision as getRevisionInStorage,
@@ -95,6 +96,7 @@ export const listAuditEvents = createServerFn({ method: "GET" })
 		z.object({
 			limit: z.number().int().min(1).max(100).optional(),
 			before: z.string().max(120).optional(),
+			kind: z.enum(AUDIT_EVENT_KINDS).optional(),
 		}),
 	)
 	.handler(async ({ data }) => {

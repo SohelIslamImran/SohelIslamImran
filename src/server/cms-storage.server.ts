@@ -1,5 +1,5 @@
 import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
-import { and, desc, eq, exists, inArray, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, exists, inArray, like, lt, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { CONTENT_SCHEMA_VERSION, type MediaAsset, type PortfolioContent } from "../types/content";
@@ -922,9 +922,30 @@ export async function discardDraft(
 }
 
 /** List owner audit events newest first, paginated with an opaque `before` cursor. */
+/** Activity filters, applied in the query so pagination and empty states cover every event. */
+export const AUDIT_EVENT_KINDS = ["publish", "save", "restore", "discard", "media"] as const;
+export type AuditEventKind = (typeof AUDIT_EVENT_KINDS)[number];
+
+function auditKindFilter(kind: AuditEventKind | undefined) {
+	switch (kind) {
+		case "publish":
+			return eq(auditEvents.eventType, "draft.publish");
+		case "save":
+			return eq(auditEvents.eventType, "draft.save");
+		case "restore":
+			return eq(auditEvents.eventType, "revision.restore");
+		case "discard":
+			return eq(auditEvents.eventType, "draft.discard");
+		case "media":
+			return like(auditEvents.eventType, "media.%");
+		default:
+			return undefined;
+	}
+}
+
 export async function listAuditEvents(
 	env: CmsEnvironment,
-	options: { limit?: number; before?: string } = {},
+	options: { limit?: number; before?: string; kind?: AuditEventKind } = {},
 ): Promise<AuditEventListResult> {
 	const db = requireDatabase(env);
 	const limit = clampLimit(options.limit, 40);
@@ -955,7 +976,7 @@ export async function listAuditEvents(
 			createdAt: auditEvents.createdAt,
 		})
 		.from(auditEvents)
-		.where(cursorFilter)
+		.where(and(cursorFilter, auditKindFilter(options.kind)))
 		.orderBy(desc(auditEvents.createdAt), desc(auditEvents.id))
 		.limit(limit + 1);
 
