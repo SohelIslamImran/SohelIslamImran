@@ -263,10 +263,11 @@ function RepeaterRow<T extends object>({
 							aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
 							className="cms-repeater-summary"
 						>
-							<span className={cn("min-w-0 flex-1 wrap-anywhere", summaryClassName)}>
-								{name}
+							{/* The count sits beside the name so a truncated name never hides it. */}
+							<span className="flex min-w-0 flex-1 items-baseline gap-2">
+								<span className={cn("min-w-0 wrap-anywhere", summaryClassName)}>{name}</span>
 								{issueCount ? (
-									<span className="ml-2 text-xs font-medium text-destructive">
+									<span className="shrink-0 text-xs font-medium whitespace-nowrap text-destructive">
 										{issueCount} {issueCount === 1 ? "error" : "errors"}
 									</span>
 								) : null}
