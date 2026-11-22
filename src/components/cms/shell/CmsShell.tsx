@@ -336,22 +336,17 @@ function SectionRailItem({
 	);
 }
 
-function ChangesRailBadge() {
-	const changedCount = useDraftSelector((state, store) =>
-		SECTIONS.reduce(
-			(count, section) =>
-				count + (section.paths.some((path) => store.changedAt(path, state)) ? 1 : 0),
-			0,
-		),
-	);
+function ChangesRailBadge({ changedCount }: { changedCount: number }) {
 	if (changedCount === 0) return null;
 	return (
-		<span className="inline-flex items-center gap-0.5 rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text tabular-nums">
+		<span
+			aria-hidden="true"
+			className="inline-flex items-center gap-0.5 rounded-full border border-primary-line bg-primary-soft px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-primary-text tabular-nums"
+		>
 			<span aria-hidden="true">Δ</span>
 			<span key={changedCount} className="cms-count-tick">
 				{changedCount}
 			</span>
-			<span className="sr-only"> sections changed</span>
 		</span>
 	);
 }
@@ -395,6 +390,32 @@ function LayerRailContent({
 		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
 	});
 	const normalized = pathname;
+	const railScroll = useRef<HTMLElement>(null);
+	const changedCount = useDraftSelector((state, store) =>
+		SECTIONS.reduce(
+			(count, section) =>
+				count + (section.paths.some((path) => store.changedAt(path, state)) ? 1 : 0),
+			0,
+		),
+	);
+
+	useLayoutEffect(() => {
+		const nav = railScroll.current;
+		const link = nav?.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
+		if (!nav || !link) return;
+		const reveal = () => {
+			if (!nav.clientHeight) return;
+			const viewport = nav.getBoundingClientRect();
+			const item = link.getBoundingClientRect();
+			if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top;
+			else if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom;
+		};
+		reveal();
+		// Also reveal when a previously hidden desktop rail gains a viewport.
+		const observer = new ResizeObserver(reveal);
+		observer.observe(nav);
+		return () => observer.disconnect();
+	}, [pathname]);
 
 	const isPathActive = (to: string) => {
 		if (to === "/cms") return normalized === "/cms" || normalized === "/";
@@ -435,7 +456,11 @@ function LayerRailContent({
 			</div>
 
 			{/* Scrollable middle sections */}
-			<nav aria-label="CMS" className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+			<nav
+				ref={railScroll}
+				aria-label="CMS"
+				className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+			>
 				<div className="cms-rail-region relative">
 					<RailIndicator active={pathname} />
 					<RailHeading>Signals</RailHeading>
@@ -501,7 +526,16 @@ function LayerRailContent({
 							to={item.to}
 							icon={<NavIconFor to={item.to} />}
 							label={item.label}
-							badge={item.to === "/cms/release" ? <ChangesRailBadge /> : undefined}
+							badge={
+								item.to === "/cms/release" ? (
+									<ChangesRailBadge changedCount={changedCount} />
+								) : undefined
+							}
+							badgeLabel={
+								item.to === "/cms/release" && changedCount > 0
+									? `${changedCount} ${changedCount === 1 ? "section" : "sections"} changed`
+									: undefined
+							}
 							compactBadge={item.to === "/cms/release" ? <ChangesCompactBadge /> : undefined}
 							active={isPathActive(item.to)}
 							pending={isPending(item.to)}
