@@ -8,6 +8,10 @@
 		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
 	}
 
+	.cms-command-secondary {
+		color: color-mix(in srgb, var(--theme-muted) 76%, var(--theme-ink));
+	}
+
 	.cms-layout {
 		--cms-rail-width: 232px;
 		--cms-rail-collapsed: 64px;
@@ -158,6 +162,7 @@
 			--rail-opacity: 1;
 			--rail-offset: 0px;
 			--rail-badge-opacity: 0;
+			container: cms-rail / inline-size;
 			overflow: clip;
 		}
 
@@ -220,15 +225,10 @@
 			padding-inline: 2px;
 		}
 
-		.cms-layout[data-rail="expanded"] .cms-rail-desktop .cms-rail-footer-row {
-			grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
-		}
-
-		.cms-layout[data-rail="expanded"] .cms-rail-desktop .cms-rail-live {
-			justify-self: end;
-			grid-template-columns: auto auto;
-			column-gap: 6px;
-			padding-inline-start: 10px;
+		.cms-rail-desktop .cms-rail-live {
+			justify-self: start;
+			inline-size: var(--rail-footer-target);
+			padding-inline: 0;
 		}
 
 		.cms-rail-desktop .cms-rail-toggle {
@@ -250,16 +250,17 @@
 			display: block;
 		}
 	}
-	@media (min-width: 1280px) {
-		.cms-layout[data-rail="auto"] .cms-rail-desktop .cms-rail-footer-row {
+	/* Switch only when the actual rail width can fit the two hit areas. */
+	@container cms-rail (min-width: 128px) {
+		.cms-rail-desktop .cms-rail-footer-row {
 			grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
 		}
 
-		.cms-layout[data-rail="auto"] .cms-rail-desktop .cms-rail-live {
+		.cms-rail-desktop .cms-rail-live {
 			justify-self: end;
-			grid-template-columns: auto auto;
-			column-gap: 6px;
-			padding-inline-start: 10px;
+			inline-size: max-content;
+			max-inline-size: 100%;
+			padding-inline-end: 10px;
 		}
 	}
 	@media (1024px <= width < 1280px) {

@@ -51,7 +51,11 @@ export function AccessScreen({ code }: { code: AccessCode }) {
 						{copy.action}
 					</Link>
 					<a
-						className={buttonVariants({ variant: "ghost", size: "default" })}
+						className={buttonVariants({
+							variant: "ghost",
+							size: "default",
+							className: "cms-chrome-control text-foreground",
+						})}
 						href="https://sohelislamimran.com"
 					>
 						Public site <ExternalArrowIcon />

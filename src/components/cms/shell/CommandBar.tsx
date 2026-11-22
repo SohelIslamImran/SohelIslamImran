@@ -45,15 +45,29 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
-import { PUBLIC_SITE_ORIGIN, RELEASE_GATE_ID } from "./CmsShell";
+import { PUBLIC_SITE_ORIGIN, RELEASE_GATE_ID, useCommittedPathname } from "./CmsShell";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 /** After a navigation command, land on the destination's heading (or `main`). */
-function focusDestination() {
+function focusDestination(previousPath: string) {
 	const main = document.getElementById("main-content");
 	const heading = main?.querySelector<HTMLElement>("h1");
-	if (heading && !heading.hasAttribute("tabindex")) heading.tabIndex = -1;
-	(heading ?? main)?.focus({ preventScroll: true });
+	const target = heading ?? main;
+	if (!target) return;
+	const toolbar = document.querySelector(".cms-topbar")?.getBoundingClientRect().bottom ?? 0;
+	const rect = target.getBoundingClientRect();
+	if (rect.top < toolbar || rect.top >= window.innerHeight) {
+		if (location.pathname === previousPath) {
+			// An item-only jump keeps the editor's scroll position.
+			document
+				.querySelector<HTMLElement>('[data-slot="cms-command-trigger"]')
+				?.focus({ preventScroll: true });
+			return;
+		}
+		target.scrollIntoView({ block: "start", behavior: "instant" });
+	}
+	if (!target.hasAttribute("tabindex")) target.tabIndex = -1;
+	target.focus({ preventScroll: true });
 }
 
 type CommandGroup = "Pages" | "Sections" | "Items" | "Actions" | "Appearance";
@@ -127,6 +141,7 @@ function CommandBarOpen({
 	const reduce = useLiveReducedMotion();
 	const popupRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
+	const pathname = useCommittedPathname();
 	const afterClose = useRef<(() => void) | null>(null);
 	const finalFocus = () => {
 		const next = afterClose.current;
@@ -151,6 +166,13 @@ function CommandBarOpen({
 	const optionPrefix = useId();
 
 	const entries = useMemo<CommandEntry[]>(() => {
+		const openItem = (section: string, item: string) =>
+			navigate({
+				to: "/cms/content/$section",
+				params: { section },
+				search: { item },
+				resetScroll: pathname.replace(/^\/cms(?=\/)/u, "") !== `/content/${section}`,
+			});
 		const pages: CommandEntry[] = [
 			{
 				id: "page-overview",
@@ -242,13 +264,7 @@ function CommandBarOpen({
 				detail: `Project · ${project.category}${project.year ? ` · ${project.year}` : ""}`,
 				keywords: `${project.slug} ${project.role} ${project.tags.join(" ")}`,
 				icon: <SectionIcon id="projects" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "projects" },
-						search: { item: project.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("projects", project.id),
 			});
 		}
 		for (const exp of draft.experience) {
@@ -259,13 +275,7 @@ function CommandBarOpen({
 				detail: `Experience · ${exp.period}`,
 				keywords: `${exp.company} ${exp.technologies.join(" ")}`,
 				icon: <SectionIcon id="experience" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "experience" },
-						search: { item: exp.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("experience", exp.id),
 			});
 		}
 		for (const cap of draft.capabilities) {
@@ -276,13 +286,7 @@ function CommandBarOpen({
 				detail: "Capability",
 				keywords: cap.tools.join(" "),
 				icon: <SectionIcon id="capabilities" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "capabilities" },
-						search: { item: cap.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("capabilities", cap.id),
 			});
 		}
 		for (const testimonial of draft.testimonials) {
@@ -293,13 +297,7 @@ function CommandBarOpen({
 				detail: `Testimonial · ${testimonial.role}`,
 				keywords: testimonial.quote,
 				icon: <SectionIcon id="testimonials" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "testimonials" },
-						search: { item: testimonial.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("testimonials", testimonial.id),
 			});
 		}
 		for (const cred of draft.credentials) {
@@ -310,13 +308,7 @@ function CommandBarOpen({
 				detail: `Credential · ${cred.issuer}`,
 				keywords: cred.issuedAt,
 				icon: <SectionIcon id="credentials" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "credentials" },
-						search: { item: cred.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("credentials", cred.id),
 			});
 		}
 		for (const post of draft.writing) {
@@ -327,13 +319,7 @@ function CommandBarOpen({
 				detail: `Field note · ${post.publishedAt}`,
 				keywords: post.tags.join(" "),
 				icon: <SectionIcon id="writing" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "writing" },
-						search: { item: post.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("writing", post.id),
 			});
 		}
 		for (const link of draft.profileLinks) {
@@ -344,13 +330,7 @@ function CommandBarOpen({
 				detail: `Profile link · ${link.handle?.trim() || link.href}`,
 				keywords: `${link.platform} ${link.kind ?? ""}`,
 				icon: <SectionIcon id="links" />,
-				run: () =>
-					navigate({
-						to: "/cms/content/$section",
-						params: { section: "links" },
-						search: { item: link.id },
-						resetScroll: false,
-					}),
+				run: () => openItem("links", link.id),
 			});
 		}
 		for (const chapter of draft.story.chapters) {
@@ -475,6 +455,7 @@ function CommandBarOpen({
 		navigate,
 		onRequestPublish,
 		onToggleRail,
+		pathname,
 		store,
 	]);
 
@@ -529,12 +510,13 @@ function CommandBarOpen({
 	const execute = (item: CommandEntry, origin?: Element | null) => {
 		if (item.disabled) return;
 		if (!item.stayOpen) onOpenChange(false);
+		const previousPath = location.pathname;
 		const result = item.run(origin ?? document.getElementById(`${optionPrefix}-${item.id}`));
 		afterClose.current =
 			typeof result === "function"
 				? result
 				: result instanceof Promise
-					? () => void result.then(focusDestination)
+					? () => void result.then(() => focusDestination(previousPath))
 					: null;
 	};
 
@@ -723,7 +705,7 @@ function CommandBarOpen({
 															{item.label}
 														</span>
 														{item.detail ? (
-															<span className="block truncate text-[12px] text-muted-foreground">
+															<span className="cms-command-secondary block truncate text-[12px]">
 																{item.detail}
 															</span>
 														) : null}
@@ -750,23 +732,23 @@ function CommandBarOpen({
 					)}
 				</motion.div>
 
-				<footer className="flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 font-mono text-[11px] text-muted-foreground pointer-coarse:hidden">
+				<footer className="cms-command-secondary flex shrink-0 items-center justify-between gap-3 border-t border-line px-4 py-2 font-mono text-[11px] pointer-coarse:hidden">
 					<span className="flex items-center gap-3">
 						<span>
-							<Kbd>↑</Kbd> <Kbd>↓</Kbd> navigate
+							<Kbd className="text-inherit">↑</Kbd> <Kbd className="text-inherit">↓</Kbd> navigate
 						</span>
 						<span>
-							<Kbd>↵</Kbd> open
+							<Kbd className="text-inherit">↵</Kbd> open
 						</span>
 						<span className="hidden sm:inline">
-							<Kbd>⌘S</Kbd> save
+							<Kbd className="text-inherit">⌘S</Kbd> save
 						</span>
 						<span className="hidden sm:inline">
-							<Kbd>[</Kbd> rail
+							<Kbd className="text-inherit">[</Kbd> rail
 						</span>
 					</span>
 					<span>
-						<Kbd>esc</Kbd> close
+						<Kbd className="text-inherit">esc</Kbd> close
 					</span>
 				</footer>
 			</Dialog.Popup>
