@@ -81,7 +81,7 @@ function ProjectSlug({ path }: { path: string }) {
 function ProjectFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<ProjectSlug path={path} />
 			<SelectField path={`${path}.category`} label="Category" options={CATEGORY_OPTIONS} />
 			<SwitchField path={`${path}.featured`} label="Featured project" />
@@ -91,7 +91,7 @@ function ProjectFields({ path }: { path: string }) {
 				<TextField path={`${path}.year`} label="Year" maxLength={32} />
 				<TextField path={`${path}.status`} label="Status" maxLength={120} />
 			</div>
-			<TextAreaField rows={1} path={`${path}.role`} label="Role" maxLength={240} />
+			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} />
 			<TagsField path={`${path}.tags`} label="Tags" />
 			<StringListField
 				path={`${path}.highlights`}
@@ -157,7 +157,7 @@ function ExperienceFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
 			<TextField path={`${path}.company`} label="Company" maxLength={240} required />
-			<TextAreaField rows={1} path={`${path}.role`} label="Role" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} required />
 			<TextField path={`${path}.period`} label="Period" maxLength={120} />
 			<TextField path={`${path}.location`} label="Location" maxLength={160} optional />
 			<SwitchField path={`${path}.current`} label="Current role" />
@@ -206,7 +206,7 @@ export function ExperienceEditor(props: EditorProps) {
 function CapabilityFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
 			<TagsField path={`${path}.tools`} label="Tools" />
 		</div>
@@ -233,7 +233,7 @@ function TestimonialFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
 			<TextField path={`${path}.author`} label="Author" maxLength={160} required />
-			<TextAreaField rows={1} path={`${path}.role`} label="Author's role" maxLength={240} />
+			<TextAreaField singleLine path={`${path}.role`} label="Author's role" maxLength={240} />
 			<TextAreaField path={`${path}.quote`} label="Quote" maxLength={1_200} required />
 			<TextField path={`${path}.date`} label="Date" maxLength={80} optional />
 			<HrefField path={`${path}.href`} label="Source link" optional />
@@ -260,7 +260,7 @@ export function TestimonialsEditor(props: EditorProps) {
 function CredentialFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextField path={`${path}.issuer`} label="Issuer" maxLength={240} required />
 			<TextField path={`${path}.issuedAt`} label="Issue date" maxLength={80} />
 			<HrefField path={`${path}.href`} label="Credential link" optional />
@@ -287,7 +287,7 @@ export function CredentialsEditor(props: EditorProps) {
 function WritingFields({ path }: { path: string }) {
 	return (
 		<div className="grid gap-4">
-			<TextAreaField rows={1} path={`${path}.title`} label="Title" maxLength={240} required />
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
 			<TextAreaField path={`${path}.excerpt`} label="Excerpt" maxLength={1_200} />
 			<DateField path={`${path}.publishedAt`} label="Publication date" />
 			<TextField
@@ -373,8 +373,8 @@ export function TravelEditor(props: EditorProps) {
 function TravelPageFields() {
 	return (
 		<EditorGroup title="Travel page">
-			<TextAreaField rows={1} path="travel.eyebrow" label="Line above heading" maxLength={160} />
-			<TextAreaField rows={1} path="travel.title" label="Heading" maxLength={240} required />
+			<TextAreaField singleLine path="travel.eyebrow" label="Line above heading" maxLength={160} />
+			<TextAreaField singleLine path="travel.title" label="Heading" maxLength={240} required />
 			<TextAreaField path="travel.intro" label="Introduction" maxLength={1_200} />
 			<TextField path="travel.origin" label="Travel origin" maxLength={160} />
 		</EditorGroup>

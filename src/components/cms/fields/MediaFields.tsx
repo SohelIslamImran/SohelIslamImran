@@ -160,7 +160,7 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 				{field.value ? (
 					<div className="cms-enter">
 						<TextAreaField
-							rows={1}
+							singleLine
 							path={`${path}.alt`}
 							label="Alt text for this image"
 							maxLength={240}
@@ -342,7 +342,7 @@ function PhotoRow({
 							</summary>
 							<div className="cms-enter px-2 pb-2">
 								<TextAreaField
-									rows={1}
+									singleLine
 									path={`media[${assetIndex}].alt`}
 									label="Alt text"
 									description="Used wherever this photo appears in travel entries."

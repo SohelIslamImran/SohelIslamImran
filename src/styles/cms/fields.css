@@ -18,14 +18,25 @@
 		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
 		color: var(--theme-ink);
 		box-shadow: inset 0 1px 1px var(--theme-shadow-soft);
+		/* Lists `scale` and `color` too, so `.cms-press` keeps its press animation. */
 		transition:
 			background-color var(--cms-dur-fast) var(--cms-ease-out),
 			border-color var(--cms-dur-fast) var(--cms-ease-out),
-			box-shadow var(--cms-dur-fast) var(--cms-ease-out);
+			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
+			color var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-control::placeholder {
-		color: var(--theme-ink-soft);
+	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
+	.cms-control::placeholder,
+	.cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 97%, var(--theme-surface-solid));
+		opacity: 1;
+	}
+
+	html[data-theme-resolved="dark"] .cms-control::placeholder,
+	html[data-theme-resolved="dark"] .cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-surface-solid));
 	}
 
 	.cms-control:disabled,
@@ -53,17 +64,85 @@
 		resize: vertical;
 	}
 
+	/* A wrapping single line: no grip, same height as a text input until it wraps. */
+	.cms-textarea-single {
+		resize: none;
+		min-block-size: 40px;
+	}
+
 	.cms-control[type="date"] {
 		inline-size: 100%;
 		max-inline-size: 100%;
 		text-align: start;
 	}
 
-	.cms-field-message {
+	/*
+	 * Field rhythm: label to control 6px, control to helper 6px, field to
+	 * field 20 to 24px (set by the containing grid's gap).
+	 */
+	.cms-field-head {
+		display: flex;
+		min-width: 0;
+		min-height: 20px;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		column-gap: 8px;
+		margin-bottom: 6px;
+	}
+
+	.cms-field-inline {
+		display: flex;
+		min-width: 0;
+		min-height: 44px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	.cms-field-description {
+		margin: 0;
+		color: var(--theme-muted);
 		font-size: 12.5px;
 		line-height: 1.5;
-		block-size: 2lh;
-		overflow: auto;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	/*
+	 * The line under a control. It takes no space while the field is valid
+	 * and has no description; an error opens it with a row transition (the one
+	 * layout transition fields use), and replaces the description in place.
+	 */
+	.cms-field-foot {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-foot[data-open] {
+		grid-template-rows: 1fr;
+	}
+
+	.cms-field-foot-clip {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.cms-field-foot-stack {
+		display: grid;
+		padding-top: 6px;
+		font-size: 12.5px;
+		line-height: 1.5;
+	}
+
+	.cms-field-foot-stack > * {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+
+	.cms-field-foot[data-error] .cms-field-description {
+		opacity: 0;
+		visibility: hidden;
 	}
 
 	.cms-field-message > p {
@@ -107,11 +186,24 @@
 		padding: 4px;
 		box-shadow: var(--shadow-float);
 		font-size: 14px;
+		/*
+		 * Base UI keeps popups mounted and sets these attributes on every open
+		 * and close, so the transition runs each time (a mount animation would
+		 * only run once).
+		 */
+		transition:
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+		opacity: 0;
+		scale: 0.96;
 	}
 
 	.cms-field-popup[data-ending-style] {
-		opacity: 0 !important;
-		transition: opacity 160ms ease-out;
+		transition-duration: var(--cms-dur-fast);
+		transition-timing-function: var(--cms-ease-in);
 	}
 
 	.cms-popup-list {
@@ -173,9 +265,10 @@
 		width: 46px;
 		height: 26px;
 		padding-inline: 2px;
-		border: 1px solid var(--theme-line-strong);
+		/* The off edge keeps 3:1 against the panel in both themes. */
+		border: 1px solid var(--theme-control-border);
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 12%, var(--theme-surface-solid));
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
 		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
@@ -275,6 +368,12 @@
 		.cms-choice-trigger > span:last-child,
 		.cms-checkbox-check {
 			transition-property: opacity;
+		}
+		.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+			scale: 1;
+		}
+		.cms-field-foot {
+			transition: none;
 		}
 	}
 

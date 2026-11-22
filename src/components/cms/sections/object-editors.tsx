@@ -23,7 +23,7 @@ export function SiteEditor() {
 				title="Search and sharing"
 				description="Shown in search results and link previews."
 			>
-				<TextAreaField rows={2} path="site.title" label="Site title" maxLength={160} required />
+				<TextAreaField singleLine path="site.title" label="Site title" maxLength={160} required />
 				<TextAreaField
 					path="site.description"
 					label="Meta description"
@@ -71,8 +71,13 @@ export function IdentityEditor() {
 					<TextField path="identity.name" label="Name" maxLength={160} required />
 					<TextField path="identity.handle" label="Handle" maxLength={160} mono required />
 				</div>
-				<TextAreaField rows={1} path="identity.role" label="Role" maxLength={240} />
-				<TextAreaField rows={1} path="identity.availability" label="Availability" maxLength={240} />
+				<TextAreaField singleLine path="identity.role" label="Role" maxLength={240} />
+				<TextAreaField
+					singleLine
+					path="identity.availability"
+					label="Availability"
+					maxLength={240}
+				/>
 				<MediaField path="identity.avatar" label="Portrait" />
 			</EditorGroup>
 			<EditorGroup title="Contact details">
@@ -83,6 +88,7 @@ export function IdentityEditor() {
 						path="identity.timezone"
 						label="Time zone"
 						items={TIME_ZONES}
+						emptyMessage="No matching time zone."
 						description="Use an IANA time zone ID, such as Asia/Dhaka."
 					/>
 				</div>
@@ -95,8 +101,8 @@ export function HeroEditor() {
 	return (
 		<>
 			<EditorGroup title="Opening copy">
-				<TextAreaField rows={1} path="hero.eyebrow" label="Line above headline" maxLength={160} />
-				<TextAreaField rows={1} path="hero.title" label="Headline" maxLength={240} required />
+				<TextAreaField singleLine path="hero.eyebrow" label="Line above headline" maxLength={160} />
+				<TextAreaField singleLine path="hero.title" label="Headline" maxLength={240} required />
 				<TextAreaField path="hero.intro" label="Introduction" maxLength={1_200} />
 			</EditorGroup>
 			<EditorGroup title="Actions and metrics">
@@ -111,7 +117,7 @@ export function AboutEditor() {
 	return (
 		<>
 			<EditorGroup title="About copy">
-				<TextAreaField rows={1} path="about.title" label="Heading" maxLength={240} />
+				<TextAreaField singleLine path="about.title" label="Heading" maxLength={240} />
 				<StringListField
 					path="about.paragraphs"
 					label="Paragraphs"
@@ -133,7 +139,7 @@ export function ContactEditor() {
 	return (
 		<>
 			<EditorGroup title="Contact copy">
-				<TextAreaField rows={1} path="contact.title" label="Heading" maxLength={240} />
+				<TextAreaField singleLine path="contact.title" label="Heading" maxLength={240} />
 				<TextAreaField path="contact.intro" label="Introduction" maxLength={1_200} />
 				<TextField path="contact.email" label="Email" type="email" maxLength={320} required />
 				<TextField path="contact.responseTime" label="Response time" maxLength={160} optional />
@@ -160,8 +166,13 @@ function ChapterFields({ path }: { path: string }) {
 	const id = useDraftValue<string>(`${path}.id`);
 	return (
 		<>
-			<TextAreaField rows={1} path={`${path}.eyebrow`} label="Line above heading" maxLength={160} />
-			<TextAreaField rows={1} path={`${path}.title`} label="Heading" maxLength={240} required />
+			<TextAreaField
+				singleLine
+				path={`${path}.eyebrow`}
+				label="Line above heading"
+				maxLength={160}
+			/>
+			<TextAreaField singleLine path={`${path}.title`} label="Heading" maxLength={240} required />
 			<StringListField
 				path={`${path}.paragraphs`}
 				label="Paragraphs"
@@ -187,8 +198,8 @@ export function StoryEditor() {
 	return (
 		<>
 			<EditorGroup title="Opening copy">
-				<TextAreaField rows={1} path="story.eyebrow" label="Line above heading" maxLength={160} />
-				<TextAreaField rows={1} path="story.title" label="Heading" maxLength={240} required />
+				<TextAreaField singleLine path="story.eyebrow" label="Line above heading" maxLength={160} />
+				<TextAreaField singleLine path="story.title" label="Heading" maxLength={240} required />
 				<TextAreaField path="story.intro" label="Introduction" maxLength={1_200} />
 				<TextAreaField path="story.quote" label="Quote" maxLength={800} />
 			</EditorGroup>

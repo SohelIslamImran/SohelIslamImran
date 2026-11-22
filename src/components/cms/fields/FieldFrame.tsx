@@ -5,6 +5,7 @@ import { cn } from "../../../lib/utils";
 import { useDraftSelector } from "../draft/context";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { correspondingPath, getAt, parsePath } from "../draft/paths";
+import { AlertCircleIcon, RevertIcon } from "./field-icons";
 
 /**
  * Deterministic DOM id for the control at a content path, so a validation
@@ -38,7 +39,13 @@ export function focusField(path: string): boolean {
 				? frame
 				: (visible ?? control);
 	if (!target) return false;
-	target.scrollIntoView({ block: "center", inline: "nearest" });
+	// Keep the page still when the target is already in view (after removing
+	// a row, the next row is usually right there); otherwise bring it to the
+	// middle, clear of the sticky top bar.
+	const rect = target.getBoundingClientRect();
+	const topBar = document.querySelector<HTMLElement>(".cms-topbar")?.getBoundingClientRect().bottom;
+	const inView = rect.top >= Math.max(0, topBar ?? 0) && rect.bottom <= window.innerHeight;
+	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest" });
 	target.focus({ preventScroll: true });
 	return true;
 }
@@ -54,6 +61,12 @@ export interface FieldFrameProps {
 	meta?: ReactNode;
 	/** Render the label as a legend-like title, not a `<label for>` (for groups). */
 	asGroup?: boolean;
+	/**
+	 * `inline` puts the label and description on the left and the control on
+	 * the right in one row, like a settings toggle. `stack` puts the control
+	 * under its label.
+	 */
+	layout?: "stack" | "inline";
 	className?: string;
 	children: ReactNode;
 }
@@ -62,6 +75,9 @@ export interface FieldFrameProps {
  * Label, description, trace mark, revert action, and errors around one
  * control. The trace mark (a 2px accent bar in the gutter plus a "Changed"
  * text label for assistive tech) appears when the draft differs from live.
+ *
+ * A valid field reserves no space for errors. An error replaces the
+ * description line when there is one, or opens a line under the control.
  */
 export function FieldFrame({
 	path,
@@ -72,6 +88,7 @@ export function FieldFrame({
 	onRevert,
 	meta,
 	asGroup = false,
+	layout = "stack",
 	className,
 	children,
 }: FieldFrameProps) {
@@ -90,6 +107,38 @@ export function FieldFrame({
 		const key = livePath.at(-1);
 		return parent != null && (typeof key !== "number" || getAt(parent, [key]) !== undefined);
 	});
+	const message = issues.map((issue) => sentenceCase(issue.message)).join(" ");
+	const labelNode = (
+		<LabelTag
+			id={`${id}-label`}
+			{...(asGroup ? {} : { htmlFor: id })}
+			className="m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground"
+		>
+			{label}
+			{changed ? <span className="sr-only"> (changed from live)</span> : null}
+		</LabelTag>
+	);
+	const revert = (
+		<AnimatePresence initial={false}>
+			{canRevert ? (
+				<motion.button
+					type="button"
+					initial={{ opacity: 0, x: reduced ? 0 : 4 }}
+					animate={{ opacity: 1, x: 0 }}
+					exit={{ opacity: 0, x: reduced ? 0 : 4, pointerEvents: "none" }}
+					transition={reduced ? REDUCED : SPRING_SNAPPY}
+					onClick={() => {
+						onRevert?.();
+						if (!focusField(path)) frame.current?.focus({ preventScroll: true });
+					}}
+					className="cms-field-revert cms-press -my-1 inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text pointer-coarse:-my-3 pointer-coarse:min-h-11"
+				>
+					<RevertIcon className="size-3.5" /> Revert
+					<span className="sr-only"> {typeof label === "string" ? label : "field"} to live</span>
+				</motion.button>
+			) : null}
+		</AnimatePresence>
+	);
 	return (
 		<div
 			data-slot="cms-field"
@@ -97,74 +146,92 @@ export function FieldFrame({
 			tabIndex={-1}
 			data-changed={changed || undefined}
 			data-invalid={issues.length > 0 || undefined}
-			className={cn("cms-field group/cms-field relative grid min-w-0 gap-2", className)}
+			data-layout={layout}
+			className={cn("cms-field group/cms-field relative grid min-w-0 content-start", className)}
 		>
 			<span aria-hidden="true" data-slot="cms-trace-mark" className="cms-trace-mark" />
-			<div className="flex min-h-7 min-w-0 flex-wrap items-center justify-between gap-x-2 gap-y-0 pointer-coarse:min-h-11">
-				<LabelTag
-					id={`${id}-label`}
-					{...(asGroup ? {} : { htmlFor: id })}
-					className="m-0 min-w-0 text-[13px] font-semibold text-foreground"
-				>
-					{label}
-					{changed ? <span className="sr-only"> (changed from live)</span> : null}
-				</LabelTag>
-				<div className="flex shrink-0 items-center gap-2">
-					{meta}
-					<AnimatePresence initial={false}>
-						{canRevert ? (
-							<motion.button
-								type="button"
-								initial={{ opacity: 0, x: reduced ? 0 : 4 }}
-								animate={{ opacity: 1, x: 0 }}
-								exit={{ opacity: 0, x: reduced ? 0 : 4, pointerEvents: "none" }}
-								transition={reduced ? REDUCED : SPRING_SNAPPY}
-								onClick={() => {
-									onRevert?.();
-									if (!focusField(path)) frame.current?.focus({ preventScroll: true });
-								}}
-								className="cms-field-revert cms-press inline-flex min-h-7 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text pointer-coarse:min-h-11"
-							>
-								<span aria-hidden="true">↺</span> Revert
-								<span className="sr-only">
-									{" "}
-									{typeof label === "string" ? label : "field"} to live
-								</span>
-							</motion.button>
-						) : null}
-					</AnimatePresence>
-				</div>
-			</div>
-			{children}
-			{description ? (
-				<p id={descriptionId} className="m-0 text-[12.5px] leading-normal text-muted-foreground">
-					{description}
-				</p>
-			) : null}
-			<FieldMessage
-				id={errorId}
-				message={issues.map((issue) => sentenceCase(issue.message)).join(" ")}
-			/>
+			{layout === "inline" ? (
+				<>
+					<div className="cms-field-inline">
+						<div className="grid min-w-0 gap-0.5">
+							{labelNode}
+							{description ? (
+								<p id={descriptionId} className="cms-field-description">
+									{description}
+								</p>
+							) : null}
+						</div>
+						<div className="flex shrink-0 items-center gap-2">
+							{revert}
+							{children}
+						</div>
+					</div>
+					<FieldMessage id={errorId} message={message} />
+				</>
+			) : (
+				<>
+					<div className="cms-field-head">
+						{labelNode}
+						<div className="flex shrink-0 items-center gap-2">
+							{meta}
+							{revert}
+						</div>
+					</div>
+					{children}
+					<FieldMessage
+						id={errorId}
+						message={message}
+						description={description}
+						descriptionId={descriptionId}
+					/>
+				</>
+			)}
 		</div>
 	);
 }
 
-/** Keep the live region mounted and its space reserved while the field is valid. */
-export function FieldMessage({ id, message }: { id: string; message: string }) {
+/**
+ * The line under a control. With a description, the error takes the
+ * description's place, so the field keeps its height. Without one, the
+ * line opens only while there is an error. The live region stays mounted.
+ */
+export function FieldMessage({
+	id,
+	message,
+	description,
+	descriptionId,
+}: {
+	id: string;
+	message: string;
+	description?: ReactNode;
+	descriptionId?: string;
+}) {
+	const hasDescription = description != null && description !== false && description !== "";
 	return (
-		<div className="cms-field-message" aria-live="polite" aria-atomic="true">
-			<p
-				id={id}
-				data-open={Boolean(message) || undefined}
-				className="m-0 flex items-start gap-1.5 wrap-anywhere text-destructive"
-			>
-				{message ? (
-					<span aria-hidden="true" className="font-mono">
-						!
-					</span>
-				) : null}
-				<span>{message}</span>
-			</p>
+		<div
+			className="cms-field-foot"
+			data-open={Boolean(message) || hasDescription || undefined}
+			data-error={Boolean(message) || undefined}
+		>
+			<div className="cms-field-foot-clip">
+				<div className="cms-field-foot-stack">
+					{hasDescription ? (
+						<p id={descriptionId} className="cms-field-description">
+							{description}
+						</p>
+					) : null}
+					<div className="cms-field-message" aria-live="polite" aria-atomic="true">
+						<p
+							id={id}
+							data-open={Boolean(message) || undefined}
+							className="m-0 flex items-start gap-1.5 wrap-anywhere text-destructive"
+						>
+							{message ? <AlertCircleIcon className="mt-px size-3.5" /> : null}
+							<span>{message}</span>
+						</p>
+					</div>
+				</div>
+			</div>
 		</div>
 	);
 }
@@ -177,7 +244,7 @@ export function describedBy(path: string, hasDescription: boolean, issues: reado
 	return value === "" ? undefined : value;
 }
 
-function sentenceCase(message: string): string {
+export function sentenceCase(message: string): string {
 	const trimmed = message.trim();
 	if (trimmed === "") return trimmed;
 	const text = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);

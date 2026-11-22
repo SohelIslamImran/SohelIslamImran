@@ -441,6 +441,21 @@ function readSite(value: unknown, issues: ValidationIssue[]): SiteContent {
 	};
 }
 
+/**
+ * Whether a string names an IANA time zone the runtime can format with
+ * (`Asia/Tokyo`, `UTC`, and aliases such as `Asia/Calcutta`). Offsets such
+ * as `+06:00` are rejected; the public pages expect a zone ID.
+ */
+export function isTimeZone(value: string): boolean {
+	if (!/^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+)*$/u.test(value)) return false;
+	try {
+		new Intl.DateTimeFormat("en-US", { timeZone: value });
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 function readIdentity(value: unknown, issues: ValidationIssue[]): IdentityContent {
 	const object = asObject(value);
 	if (!object) {
@@ -458,6 +473,10 @@ function readIdentity(value: unknown, issues: ValidationIssue[]): IdentityConten
 	}
 
 	const avatar = readOptionalMedia(object, "avatar", "identity.avatar", issues);
+	const timezone = readRequiredString(object, "timezone", "identity.timezone", issues, {
+		allowEmpty: true,
+		maxLength: 80,
+	});
 	const email = readRequiredString(object, "email", "identity.email", issues, {
 		maxLength: 320,
 	});
@@ -476,10 +495,7 @@ function readIdentity(value: unknown, issues: ValidationIssue[]): IdentityConten
 			allowEmpty: true,
 			maxLength: 160,
 		}),
-		timezone: readRequiredString(object, "timezone", "identity.timezone", issues, {
-			allowEmpty: true,
-			maxLength: 80,
-		}),
+		timezone,
 		availability: readRequiredString(object, "availability", "identity.availability", issues, {
 			allowEmpty: true,
 			maxLength: 240,
@@ -1597,6 +1613,13 @@ function readPortfolioContent(value: unknown, stored: boolean): PortfolioContent
 		checkUnique(result.story.chapters, "story.chapters", "id", issues);
 		checkUnique(result.travel.entries, "travel.entries", "id", issues);
 		checkUnique(result.projects, "projects", "slug", issues);
+		const timezone = result.identity.timezone.trim();
+		if (timezone !== "" && !isTimeZone(timezone)) {
+			issues.push({
+				path: "identity.timezone",
+				message: "must be an IANA time zone ID, such as Europe/London",
+			});
+		}
 		for (const [index, { slug }] of result.projects.entries()) {
 			if (slug && !PUBLIC_SLUG_PATTERN.test(slug)) {
 				issues.push({

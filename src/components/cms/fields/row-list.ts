@@ -19,15 +19,31 @@ export function pendingRowRemoval<T>(
 	return removal?.remaining === rows ? removal : null;
 }
 
+/**
+ * Put a removed row back at its old index. Returns null when the list is
+ * full or already holds an equal row (by `same`; by `id` by default).
+ */
 export function restoreRow<T>(
 	rows: readonly T[],
 	removed: RemovedRow<T>,
 	max = MAX_COLLECTION_ITEMS,
+	same: (a: T, b: T) => boolean = sameRowId,
 ): T[] | null {
-	const id = rowId(removed.row);
-	if (rows.length >= max || (id && rows.some((row) => rowId(row) === id))) return null;
+	if (rows.length >= max || rows.some((row) => same(row, removed.row))) return null;
 	return insertItem(rows, removed.index, removed.row);
 }
+
+function sameRowId(a: unknown, b: unknown): boolean {
+	const id = rowId(a);
+	return id !== undefined && rowId(b) === id;
+}
+
+/** Tags are unique regardless of case. */
+export const sameTag = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+/** Attached media IDs are unique. */
+export const sameValue = (a: unknown, b: unknown) => a === b;
+/** Paragraphs and highlights may repeat. */
+export const neverSame = () => false;
 
 export function reorderOffset(event: {
 	target: EventTarget | null;
