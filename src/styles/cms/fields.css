@@ -176,6 +176,16 @@
 	}
 
 	.cms-field-popup {
+		/*
+		 * Base UI portals popups to <body>, outside .cms-root where the motion
+		 * tokens live (motion.css), so the popup carries its own copy.
+		 */
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-dur-base: 240ms;
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 28%, transparent);
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);

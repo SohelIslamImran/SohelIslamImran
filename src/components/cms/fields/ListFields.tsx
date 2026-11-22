@@ -27,7 +27,7 @@ import {
 import { AddButton, RowMenu } from "./RowControls";
 import { ChevronDownIcon, ChevronUpIcon } from "./field-icons";
 import { CloseIcon } from "../shell/cms-icons";
-import { tagBackspace } from "./field-logic";
+import { tagBackspace, toSingleLine } from "./field-logic";
 import {
 	neverSame,
 	pendingRowRemoval,
@@ -158,7 +158,12 @@ export function TagsField({
 											(buttons?.[index] ?? buttons?.[index - 1] ?? input.current)?.focus();
 										});
 									}}
-									className="cms-press inline-flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] hover:text-foreground pointer-coarse:size-11"
+									className={cn(
+										"cms-press inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] pointer-coarse:size-11",
+										armed && index === tags.length - 1
+											? "text-primary-foreground"
+											: "text-muted-foreground hover:text-foreground",
+									)}
 								>
 									<CloseIcon className="size-3" />
 									<span className="sr-only">Remove {tag}</span>
@@ -453,7 +458,6 @@ const StringRow = memo(function StringRow({
 }) {
 	const field = useField<string | undefined>(path);
 	const value = field.value ?? "";
-	const Control = multiline ? "textarea" : "input";
 	const reorderable = index > 0 || canMoveDown;
 	return (
 		<SortableRow
@@ -467,18 +471,33 @@ const StringRow = memo(function StringRow({
 				<>
 					{handle ? <div className="cms-string-handle">{handle}</div> : null}
 					<div className="grid min-w-0 [grid-column:2]">
-						<Control
+						{/* Highlights wrap like paragraphs but stay one line of text. */}
+						<textarea
 							id={fieldId(path)}
 							value={value}
 							placeholder={placeholder}
 							aria-label={label}
 							aria-invalid={field.issues.length > 0 || undefined}
 							aria-describedby={describedBy(path, false, field.issues)}
-							rows={multiline ? 3 : undefined}
-							onChange={(event) => field.set(event.currentTarget.value)}
+							rows={multiline ? 3 : 1}
+							onKeyDown={
+								multiline
+									? undefined
+									: (event) => {
+											if (event.key === "Enter" && !event.nativeEvent.isComposing)
+												event.preventDefault();
+										}
+							}
+							onChange={(event) => {
+								const raw = event.currentTarget.value;
+								field.set(multiline ? raw : toSingleLine(raw));
+							}}
 							className={cn(
 								controlClass,
-								multiline ? "cms-textarea min-h-20 py-2.5 leading-relaxed" : "min-h-10",
+								"cms-textarea",
+								multiline
+									? "min-h-20 py-2.5 leading-relaxed"
+									: "cms-textarea-single min-h-10 py-[8px] leading-[22px]",
 							)}
 						/>
 						<div className="justify-self-end empty:hidden">

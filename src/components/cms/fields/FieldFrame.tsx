@@ -39,12 +39,12 @@ export function focusField(path: string): boolean {
 				? frame
 				: (visible ?? control);
 	if (!target) return false;
-	// Keep the page still when the target is already in view (after removing
-	// a row, the next row is usually right there); otherwise bring it to the
-	// middle, clear of the sticky top bar.
+	// Keep the page still when the target is already on screen, even in
+	// part (after removing a row, its neighbour is usually right there);
+	// otherwise bring it to the middle, clear of the sticky top bar.
 	const rect = target.getBoundingClientRect();
 	const topBar = document.querySelector<HTMLElement>(".cms-topbar")?.getBoundingClientRect().bottom;
-	const inView = rect.top >= Math.max(0, topBar ?? 0) && rect.bottom <= window.innerHeight;
+	const inView = rect.bottom > Math.max(0, topBar ?? 0) + 24 && rect.top < window.innerHeight - 24;
 	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest" });
 	target.focus({ preventScroll: true });
 	return true;
