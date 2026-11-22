@@ -17,6 +17,11 @@ import { findSection, isSectionId, type SectionMeta } from "../../components/cms
 export const sectionSearch = z.object({
 	item: z.string().max(160).optional().catch(undefined),
 	tab: z.literal("social").optional().catch(undefined),
+	field: z
+		.string()
+		.regex(/^social\[(?:0|[1-9]\d{0,5})\]\.(?:label|platform|handle|href)$/u)
+		.optional()
+		.catch(undefined),
 });
 
 export const Route = createFileRoute("/cms/content/$section")({
@@ -32,7 +37,7 @@ export const Route = createFileRoute("/cms/content/$section")({
 
 function SectionRoute() {
 	const { section: sectionId } = Route.useParams();
-	const { item, tab } = Route.useSearch();
+	const { item, tab, field } = Route.useSearch();
 	const navigate = Route.useNavigate();
 	const select = useCallback(
 		(nextItem?: string, nextTab?: "social", replace = false) =>
@@ -58,7 +63,7 @@ function SectionRoute() {
 			issues={<SectionIssues section={section} />}
 		>
 			<UndoRemovalHost key={sectionId}>
-				<Editor item={item} tab={tab} select={select} />
+				<Editor item={item} tab={tab} field={field} select={select} />
 			</UndoRemovalHost>
 		</EditorLayout>
 	);
@@ -117,12 +122,13 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 									section.id === "links" && isPathWithin(issue.path, "social")
 										? ("social" as const)
 										: undefined;
+								const field = tab ? sectionSearch.shape.field.parse(issue.path) : undefined;
 								return (
 									<li key={`${issue.path}-${index}`}>
 										<Link
 											to="/cms/content/$section"
 											params={{ section: section.id }}
-											search={{ item, tab }}
+											search={{ item, tab, field }}
 											hash={fieldId(issue.path)}
 											replace
 											resetScroll={false}
@@ -140,7 +146,9 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 												void navigate({
 													to: "/cms/content/$section",
 													params: { section: section.id },
-													search: { item, tab },
+													search: { item, tab, field },
+													hash: fieldId(issue.path),
+													hashScrollIntoView: false,
 													replace: true,
 													resetScroll: false,
 												}).then(() => revealIssue(issue.path));

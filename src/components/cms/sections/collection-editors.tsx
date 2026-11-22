@@ -492,6 +492,7 @@ export function LinksEditor(props: EditorProps) {
 				<EditorGroup title="Résumé social links">
 					<RepeaterField<SocialLinkContent>
 						path="social"
+						targetPath={props.field}
 						summaryClassName="max-sm:truncate"
 						label="Social links"
 						itemLabel="Social link"

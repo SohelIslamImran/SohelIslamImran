@@ -42,6 +42,7 @@ import { EditorGroup } from "./EditorLayout";
 export interface EditorProps {
 	item?: string;
 	tab?: "social";
+	field?: string;
 	select: (item?: string, tab?: "social", replace?: boolean) => Promise<void>;
 }
 

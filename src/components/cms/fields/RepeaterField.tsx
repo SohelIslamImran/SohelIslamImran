@@ -3,7 +3,7 @@ import { memo, useCallback, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
-import { childPath } from "../draft/paths";
+import { childPath, isPathWithin } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
@@ -19,6 +19,7 @@ export function RepeaterField<T extends object>({
 	itemLabel,
 	description,
 	summaryClassName,
+	targetPath,
 	create,
 	summarize,
 	Editor,
@@ -29,6 +30,7 @@ export function RepeaterField<T extends object>({
 	itemLabel: string;
 	description?: string;
 	summaryClassName?: string;
+	targetPath?: string;
 	create: () => T;
 	summarize: (row: T) => string;
 	Editor: ComponentType<{ path: string }>;
@@ -129,6 +131,9 @@ export function RepeaterField<T extends object>({
 							key={rowKey}
 							rowKey={rowKey}
 							path={childPath(path, index)}
+							targeted={
+								targetPath !== undefined && isPathWithin(targetPath, childPath(path, index))
+							}
 							index={index}
 							itemLabel={itemLabel}
 							summarize={summarize}
@@ -178,6 +183,7 @@ export function RepeaterField<T extends object>({
 function RepeaterRow<T extends object>({
 	rowKey,
 	path,
+	targeted,
 	index,
 	itemLabel,
 	summarize,
@@ -191,6 +197,7 @@ function RepeaterRow<T extends object>({
 }: {
 	rowKey: number;
 	path: string;
+	targeted: boolean;
 	index: number;
 	itemLabel: string;
 	summarize: (row: T) => string;
@@ -203,7 +210,7 @@ function RepeaterRow<T extends object>({
 	Editor: ComponentType<{ path: string }>;
 }) {
 	// Mount the editor on first open and keep it, so closing can animate.
-	const [opened, setOpened] = useState(false);
+	const [opened, setOpened] = useState(targeted);
 	const summary = useDraftSelector((_state, store) => {
 		const row = store.valueAt(path) as T | undefined;
 		return row ? summarize(row).trim() : "";
@@ -224,6 +231,7 @@ function RepeaterRow<T extends object>({
 				<>
 					<details
 						className="cms-disclosure"
+						open={targeted || undefined}
 						onToggle={(event) => {
 							if (event.currentTarget.open) setOpened(true);
 						}}
@@ -245,7 +253,7 @@ function RepeaterRow<T extends object>({
 							</span>
 							<ChevronRightIcon className="cms-disclosure-chevron size-3.5 text-muted-foreground" />
 						</summary>
-						{opened ? (
+						{opened || targeted ? (
 							<div className="cms-repeater-body grid min-w-0 gap-5 px-4 pt-1 pb-4">
 								<Editor path={path} />
 							</div>
