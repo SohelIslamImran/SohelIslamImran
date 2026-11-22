@@ -2,7 +2,7 @@
  * Conflict resolution dialog (`@base-ui/react/alert-dialog`) and
  * reusable publish confirmation dialog for the Control Plane shell.
  */
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "../../ui/button";
@@ -168,6 +168,7 @@ function PublishConfirmDialogBody({
 }) {
 	const store = useDraftStore();
 	const cancelRef = useRef<HTMLButtonElement>(null);
+	const reloadRef = useRef<HTMLButtonElement>(null);
 	const publishedSuccessfully = useRef(false);
 	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
@@ -183,7 +184,11 @@ function PublishConfirmDialogBody({
 	);
 	const error = useDraftSelector((state) => (state.status === "error" ? state.error : null));
 	const authExpired = useDraftSelector((state) => state.authExpired);
-	const showError = error !== null && (publishFailed || attemptFailed);
+	const showError = error !== null && (authExpired || publishFailed || attemptFailed);
+
+	useLayoutEffect(() => {
+		if (authExpired) reloadRef.current?.focus();
+	}, [authExpired]);
 
 	const changedSections = useMemo(
 		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
@@ -204,7 +209,7 @@ function PublishConfirmDialogBody({
 			<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
 			<AlertDialog.Popup
 				data-slot="cms-publish-dialog"
-				initialFocus={cancelRef}
+				initialFocus={authExpired ? reloadRef : cancelRef}
 				finalFocus={() => {
 					if (store.getState().conflict) return false;
 					return publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
@@ -286,17 +291,28 @@ function PublishConfirmDialogBody({
 						>
 							Cancel
 						</AlertDialog.Close>
-						<Button
-							variant="default"
-							size="sm"
-							disabled={!canPublish || reviewExpired}
-							focusableWhenDisabled
-							aria-busy={busy || undefined}
-							className="pointer-coarse:min-h-11"
-							onClick={() => void confirmPublish()}
-						>
-							{busy ? "Publishing…" : showError ? "Retry publish" : "Publish now"}
-						</Button>
+						{authExpired ? (
+							<Button
+								ref={reloadRef}
+								size="sm"
+								className="pointer-coarse:min-h-11"
+								onClick={() => window.location.reload()}
+							>
+								Reload console
+							</Button>
+						) : (
+							<Button
+								variant="default"
+								size="sm"
+								disabled={!canPublish || reviewExpired}
+								focusableWhenDisabled
+								aria-busy={busy || undefined}
+								className="pointer-coarse:min-h-11"
+								onClick={() => void confirmPublish()}
+							>
+								{busy ? "Publishing…" : showError ? "Retry publish" : "Publish now"}
+							</Button>
+						)}
 					</div>
 				</div>
 			</AlertDialog.Popup>

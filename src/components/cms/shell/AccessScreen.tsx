@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { cn } from "../../../lib/utils";
+import { useSystemThemeSync } from "../../AccentSwitcher";
 import { buttonVariants } from "../../ui/button";
 import { ExternalArrowIcon, LockIcon } from "./cms-icons";
 
@@ -29,6 +30,7 @@ const COPY: Record<AccessCode, { title: string; body: string; action: string }> 
 };
 
 export function AccessScreen({ code }: { code: AccessCode }) {
+	useSystemThemeSync();
 	const copy = COPY[code];
 	return (
 		<main

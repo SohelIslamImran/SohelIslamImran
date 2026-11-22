@@ -643,7 +643,19 @@ function SessionBanners({
 				<Button
 					variant="outline"
 					size="sm"
-					onClick={publishFailed ? onRetryPublish : () => saveDraftIfAvailable(store)}
+					onClick={(event) => {
+						if (publishFailed) {
+							onRetryPublish();
+							return;
+						}
+						if (document.activeElement === event.currentTarget) {
+							event.currentTarget
+								.closest(".cms-layout")
+								?.querySelector<HTMLElement>(".cms-status-pill")
+								?.focus({ preventScroll: true });
+						}
+						saveDraftIfAvailable(store);
+					}}
 					className="pointer-coarse:min-h-11"
 				>
 					{publishFailed ? "Retry publish" : "Retry save"}
