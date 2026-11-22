@@ -47,8 +47,10 @@ import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar, useSaveFeedback } from "./PipelineBar";
+import { RAIL_STORAGE_KEY, type RailMode } from "./rail-preference";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { RailRouterLink } from "./RailRouterLink";
+import { RailTooltip } from "./RailTooltip";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
 const RAIL_PILL_FADE = { duration: 0.16, ease: [0.22, 1, 0.36, 1] } as const;
@@ -145,9 +147,6 @@ export const CMS_NAV = {
 	],
 } as const;
 
-type RailMode = "auto" | "expanded" | "collapsed";
-const RAIL_STORAGE_KEY = "cms:rail-mode";
-
 function isEditableTarget(target: EventTarget | null): boolean {
 	if (!(target instanceof HTMLElement)) return false;
 	if (target.isContentEditable) return true;
@@ -205,25 +204,26 @@ function RailLink({
 	onNavigate?: () => void;
 }) {
 	return (
-		<Tooltip.Root disabled={layoutScope === "drawer"}>
-			<Tooltip.Trigger
-				render={
-					<RailRouterLink
-						to={to}
-						params={params}
-						preload="intent"
-						currentPage={active}
-						aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
-						aria-busy={pending || undefined}
-						data-pending={pending || undefined}
-						onClick={(event) => {
-							if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
-								onNavigate?.();
-							}
-						}}
-						className="cms-rail-link cms-chrome-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
-					/>
-				}
+		<RailTooltip
+			disabled={layoutScope === "drawer"}
+			label={badgeLabel ? `${label} · ${badgeLabel}` : label}
+			showExpanded={to === "/cms/release" && !!badgeLabel}
+		>
+			<RailRouterLink
+				to={to}
+				params={params}
+				preload="intent"
+				viewTransition={layoutScope === "drawer" ? false : undefined}
+				currentPage={active}
+				aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
+				aria-busy={pending || undefined}
+				data-pending={pending || undefined}
+				onClick={(event) => {
+					if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
+						onNavigate?.();
+					}
+				}}
+				className="cms-rail-link cms-chrome-control cms-press relative flex min-h-9 items-center rounded-[10px] px-3 text-[13px] text-ink-soft no-underline pointer-coarse:min-h-11"
 			>
 				<span className="cms-rail-icon relative z-[1] grid size-4 shrink-0 place-items-center">
 					{icon}
@@ -235,22 +235,8 @@ function RailLink({
 				</span>
 				<span className="cms-rail-label relative z-[1] ml-2.5 whitespace-nowrap">{label}</span>
 				{badge ? <span className="cms-rail-badge-full absolute right-2 z-[1]">{badge}</span> : null}
-			</Tooltip.Trigger>
-			<Tooltip.Portal>
-				<Tooltip.Positioner
-					side="right"
-					sideOffset={12}
-					className="cms-rail-tooltip z-(--z-palette)"
-				>
-					<Tooltip.Popup
-						role="tooltip"
-						className="cms-rail-tooltip-popup rounded-lg border border-line bg-surface-solid px-2.5 py-1.5 text-[12px] font-medium text-foreground"
-					>
-						{badgeLabel ? `${label} · ${badgeLabel}` : label}
-					</Tooltip.Popup>
-				</Tooltip.Positioner>
-			</Tooltip.Portal>
-		</Tooltip.Root>
+			</RailRouterLink>
+		</RailTooltip>
 	);
 }
 
@@ -366,8 +352,8 @@ function ChangesCompactBadge() {
 
 function RailHeading({ children }: { children: ReactNode }) {
 	return (
-		<p className="cms-rail-heading flex items-center px-3 text-[11px] font-medium text-muted-foreground">
-			{children}
+		<p className="cms-rail-heading relative px-3 text-[11px] leading-5 font-medium text-muted-foreground">
+			<span>{children}</span>
 		</p>
 	);
 }
@@ -440,17 +426,22 @@ function LayerRailContent({
 						<span className="text-[14px] font-semibold tracking-[-0.02em]">Control plane</span>
 					</span>
 					{onToggleRail ? (
-						<button
-							type="button"
-							onClick={onToggleRail}
-							title={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}
-							aria-keyshortcuts={"Meta+\\ Control+\\"}
-							aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-							aria-expanded={!collapsed}
-							className="cms-rail-toggle cms-chrome-control cms-press absolute right-0 grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
-						>
-							<SidebarToggleIcon collapsed={collapsed} />
-						</button>
+						<RailTooltip label={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}>
+							<button
+								type="button"
+								onClick={onToggleRail}
+								aria-keyshortcuts={"Meta+\\ Control+\\"}
+								aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+								aria-expanded={!collapsed}
+								className="cms-rail-toggle cms-chrome-control cms-press absolute grid size-8 place-items-center rounded-[9px] text-muted-foreground pointer-coarse:size-11"
+							>
+								<SidebarToggleIcon className="cms-rail-toggle-expanded col-start-1 row-start-1" />
+								<SidebarToggleIcon
+									collapsed
+									className="cms-rail-toggle-collapsed col-start-1 row-start-1"
+								/>
+							</button>
+						</RailTooltip>
 					) : null}
 				</div>
 				{pulseSlot ?? <RailPulseSlot onNavigate={onNavigate} />}
@@ -547,18 +538,23 @@ function LayerRailContent({
 				</div>
 
 				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2 lg:grid">
-					<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
-					<a
-						href={PUBLIC_SITE_ORIGIN}
-						target="_blank"
-						rel="noreferrer"
-						title="Open live site"
-						aria-label="Open live site"
-						className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
-					>
-						<ExternalArrowIcon className="size-3.5 justify-self-center" />
-						<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
-					</a>
+					<RailTooltip label="Appearance" disabled={layoutScope === "drawer"}>
+						<span className="grid w-fit">
+							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
+						</span>
+					</RailTooltip>
+					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
+						<a
+							href={PUBLIC_SITE_ORIGIN}
+							target="_blank"
+							rel="noreferrer"
+							aria-label="Open live site"
+							className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
+						>
+							<ExternalArrowIcon className="size-3.5 justify-self-center" />
+							<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
+						</a>
+					</RailTooltip>
 				</div>
 			</div>
 		</div>
@@ -608,7 +604,7 @@ function SessionBanners({
 		<div
 			role="alert"
 			data-slot={authExpired ? "cms-auth-expired-banner" : "cms-error-banner"}
-			className="cms-session-banner absolute inset-x-0 top-[calc(100%+1px)] px-3 text-[13px] text-foreground lg:px-8"
+			className="cms-session-banner absolute top-[calc(100%+12px)] right-3 left-3 rounded-[14px] px-3 text-[13px] text-foreground sm:left-auto sm:max-w-md"
 		>
 			<div className="cms-topbar-inner mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2">
 				<span className="flex min-w-0 flex-[1_0_min(240px,100%)] items-center gap-2">
@@ -660,13 +656,21 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 	const store = useDraftStore();
 	const saveFeedback = useSaveFeedback();
 	const [railMode, setRailMode] = useState<RailMode>("auto");
-	useEffect(() => {
+	const [railReady, setRailReady] = useState(false);
+	const [wide, setWide] = useState(false);
+	useLayoutEffect(() => {
+		const query = window.matchMedia("(min-width: 1280px)");
+		const sync = () => setWide(query.matches);
+		sync();
+		query.addEventListener("change", sync);
 		try {
 			const saved = localStorage.getItem(RAIL_STORAGE_KEY);
 			if (saved === "collapsed" || saved === "expanded") setRailMode(saved);
 		} catch {
 			// The rail still works when storage is unavailable.
 		}
+		setRailReady(true);
+		return () => query.removeEventListener("change", sync);
 	}, []);
 	useEffect(() => {
 		if (railMode === "auto") return;
@@ -676,14 +680,6 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 			// Keep the in-memory preference.
 		}
 	}, [railMode]);
-	const [wide, setWide] = useState(false);
-	useEffect(() => {
-		const query = window.matchMedia("(min-width: 1280px)");
-		const sync = () => setWide(query.matches);
-		sync();
-		query.addEventListener("change", sync);
-		return () => query.removeEventListener("change", sync);
-	}, []);
 	const [commandOpen, setCommandOpen] = useState(false);
 	const commandOpener = useRef<HTMLElement | null>(null);
 	const [drawerOpen, setDrawerOpen] = useState(false);
@@ -987,7 +983,12 @@ export function CmsShell({ children, pulseSlot }: { children: ReactNode; pulseSl
 				Skip to content
 			</a>
 
-			<div data-slot="cms-layout" data-rail={railMode} className="cms-layout">
+			<div
+				data-slot="cms-layout"
+				data-rail={railMode}
+				data-rail-ready={railReady ? "" : undefined}
+				className="cms-layout"
+			>
 				<aside
 					aria-label="Workspace navigation"
 					className="cms-rail-desktop sticky top-0 h-dvh min-h-0 min-w-0 flex-col"

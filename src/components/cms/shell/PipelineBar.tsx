@@ -116,6 +116,7 @@ function PipelineStatus({
 				params: { section: target.sectionId },
 				search: target.itemId ? { item: target.itemId } : {},
 				resetScroll: false,
+				viewTransition: false,
 			}).then(() => {
 				focusFieldAfterNavigation(path);
 			});
@@ -164,7 +165,7 @@ function PipelineStatus({
 				sideOffset={10}
 				positionMethod="fixed"
 				finalFocus={() => !reviewingGate.current && !jumping.current}
-				className="w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
+				className="cms-issues-popover w-auto rounded-none border-0 bg-transparent p-0 shadow-none ring-0"
 			>
 				<MenuSurface className="cms-overlay grid w-[min(380px,calc(100vw-24px))] gap-2 p-2.5">
 					<PopoverHeader className="flex flex-row items-center justify-between px-1.5 pt-0.5">
@@ -179,6 +180,7 @@ function PipelineStatus({
 						<Link
 							to="/cms/release"
 							preload="intent"
+							viewTransition={false}
 							onClick={(event) => {
 								if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
 									if (onReviewRelease()) {
@@ -430,7 +432,6 @@ function PipelineActions({
 	const publishedRecently = useRevisionFeedback(publishedRevision);
 	const saving = status === "saving" || (status === "idle" && saveFeedback === "saving");
 	const publishing = status === "publishing";
-	const justSaved = saveFeedback === "saved" && status === "idle" && !dirty;
 	const justPublished = publishedRecently && !ahead && !dirty && !saving && !publishing;
 
 	return (
@@ -441,12 +442,11 @@ function PipelineActions({
 				disabled={!canSave}
 				focusableWhenDisabled
 				aria-busy={saving || undefined}
-				data-complete={justSaved || undefined}
 				className="cms-action cms-save-action min-h-11 min-w-[104px] whitespace-nowrap lg:min-h-9 pointer-coarse:min-h-11"
 				onClick={() => saveDraftIfAvailable(store)}
 			>
-				{justSaved ? <CheckCircleIcon /> : <SaveIcon />}
-				{saving ? "Saving…" : justSaved ? "Saved" : "Save"}
+				<SaveIcon />
+				{saving ? "Saving…" : "Save"}
 			</Button>
 			<Button
 				size="sm"

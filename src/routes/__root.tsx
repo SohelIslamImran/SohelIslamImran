@@ -10,6 +10,7 @@ import {
 } from "@tanstack/react-router";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
 import { Beacon } from "../components/analytics/Beacon";
+import { railBootScript } from "../components/cms/shell/rail-preference";
 import { accentBootScript, themeColors } from "../components/AccentSwitcher";
 import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/CommandPalette";
 import { NavDock } from "../components/chrome/NavDock";
@@ -76,7 +77,7 @@ function RootComponent() {
 	if (isCmsRoute) {
 		return (
 			<MotionConfig reducedMotion="user">
-				<RootDocument>
+				<RootDocument cms>
 					<Outlet />
 				</RootDocument>
 			</MotionConfig>
@@ -135,6 +136,10 @@ function useRouteViewTransitions() {
 			cmsTransition.skipped = true;
 			cmsTransition.view.skipTransition();
 		};
+		const sectionSelector = '[data-slot="cms-section"]';
+		const cmsOverlaySelector =
+			'[data-slot="cms-mobile-drawer"], [data-slot="cms-command-bar"], [data-slot="cms-publish-dialog"], [data-slot="cms-conflict-dialog"], .cms-issues-popover, .appearance-pop';
+		let navigateWithOverlay = false;
 		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
@@ -166,9 +171,20 @@ function useRouteViewTransitions() {
 			router.shouldViewTransition = undefined;
 			// A search-only update (an editor selecting its first item) commits
 			// without a snapshot and leaves a running content fade alone.
-			if (!supported || reduced.matches || !requested || from?.pathname === to.pathname) {
+			if (reduced.matches || from?.pathname === to.pathname) {
 				return update();
 			}
+			const outgoing = document.querySelector<HTMLElement>(sectionSelector);
+			if (!requested || navigateWithOverlay || document.querySelector(cmsOverlaySelector)) {
+				// Leave the closing layer in the live paint tree, above the page.
+				await update();
+				if (router.stores.resolvedLocation.get()?.pathname === to.pathname) {
+					const incoming = document.querySelector<HTMLElement>(sectionSelector);
+					if (incoming && incoming !== outgoing) incoming.dataset.cmsFade = "";
+				}
+				return;
+			}
+			if (!supported) return update();
 			const types =
 				typeof requested === "object" &&
 				window.CSS?.supports?.("selector(:active-view-transition-type(a))")
@@ -187,7 +203,6 @@ function useRouteViewTransitions() {
 			root.dataset.routeVt = direction(from?.state, to.state);
 			// Give the keyed sections separate groups so each keeps the viewport
 			// position captured on its side of scroll restoration.
-			const outgoing = document.querySelector<HTMLElement>('[data-slot="cms-section"]');
 			if (outgoing) outgoing.style.viewTransitionName = "cms-section-out";
 			const view = document.startViewTransition(types ? { update, types } : update);
 			const transition = { view, skipped: false, outgoing };
@@ -220,6 +235,7 @@ function useRouteViewTransitions() {
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
 			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
 				if (event.pathChanged) {
+					navigateWithOverlay = document.querySelector(cmsOverlaySelector) !== null;
 					skipCmsTransition();
 					window.clearTimeout(clearTimer);
 					if (!cmsTransition) delete root.dataset.routeVt;
@@ -294,12 +310,13 @@ function RouteOutlet({ focusOnClientNavigation }: { focusOnClientNavigation: boo
 	);
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({ children, cms }: Readonly<{ children: ReactNode; cms?: boolean }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 				<script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
+				{cms ? <script dangerouslySetInnerHTML={{ __html: railBootScript }} /> : null}
 			</head>
 			<body className="bg-background font-sans text-foreground">
 				{children}
