@@ -4,6 +4,7 @@ import {
 	LayoutGroup,
 	motion,
 	Reorder,
+	useIsPresent,
 	useReducedMotion,
 } from "motion/react";
 import {
@@ -15,7 +16,9 @@ import {
 	useRef,
 	useState,
 	useSyncExternalStore,
+	type ComponentPropsWithRef,
 	type ComponentType,
+	type ReactNode,
 } from "react";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
@@ -69,6 +72,7 @@ export function CollectionEditor<T extends { id: string }>({
 	duplicate = duplicateRow,
 	describe,
 	orderNote,
+	listSettings,
 	Editor,
 }: EditorProps & {
 	path: string;
@@ -80,6 +84,7 @@ export function CollectionEditor<T extends { id: string }>({
 	duplicate?: (row: T, rows: readonly T[]) => T;
 	describe: (row: T) => CollectionSummary;
 	orderNote?: string;
+	listSettings?: ReactNode;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	const store = useDraftStore();
@@ -111,6 +116,10 @@ export function CollectionEditor<T extends { id: string }>({
 	const restored = removed && restoreRow(removed.remaining, removed);
 	const undoRestoresLive = useUndoRestoresLive(path, restored);
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
+	const pendingListFocus = useRef<{
+		id?: string;
+		previous: typeof listPosition.current;
+	} | null>(null);
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
 	const full = length >= MAX_COLLECTION_ITEMS;
@@ -158,10 +167,8 @@ export function CollectionEditor<T extends { id: string }>({
 		};
 		// Motion commits the final keyframe after the promise settles; clear
 		// the inline styles a frame later so neither pane keeps an offset.
-		const finish = () => {
-			setPane("idle");
-			requestAnimationFrame(clear);
-		};
+		let frame = 0;
+		let stopped = false;
 		const controls = reduced
 			? [animate(detail, { opacity: entering ? [0, 1] : [1, 0] }, REDUCED)]
 			: [
@@ -174,9 +181,15 @@ export function CollectionEditor<T extends { id: string }>({
 						SPRING_MOVE,
 					),
 				];
-		void Promise.all(controls).then(finish);
+		void Promise.all(controls).then(() => {
+			if (stopped) return;
+			frame = requestAnimationFrame(() => setPane("idle"));
+		});
 		return () => {
+			stopped = true;
+			cancelAnimationFrame(frame);
 			for (const control of controls) control.stop();
+			clear();
 		};
 	}, [pane, paneReady, reduced]);
 
@@ -188,15 +201,28 @@ export function CollectionEditor<T extends { id: string }>({
 		[],
 	);
 
+	// Wait until the detail and any page settings have settled before restoring the list.
+	useLayoutEffect(() => {
+		const pending = pendingListFocus.current;
+		if (detailOpen || !pending) return;
+		pendingListFocus.current = null;
+		const target =
+			rowButton(pending.id) ??
+			rowButton(pending.previous?.id) ??
+			search.current ??
+			document.getElementById(fieldId(path));
+		target?.focus({ preventScroll: true });
+		if (pending.previous) window.scrollTo({ top: pending.previous.scroll, behavior: "instant" });
+		target?.scrollIntoView({ block: "nearest" });
+	}, [detailOpen, path, rowButton]);
+
 	const detailHeadingId = useCallback((id: string) => `${listId}-item-${id}`, [listId]);
 
 	const focusAfterNavigation = useCallback(
-		(id: string | undefined, callback: () => void) => {
+		(id: string, callback: () => void) => {
 			// Router navigation may settle before React commits the next pane.
 			const ready = () =>
-				id
-					? document.getElementById(detailHeadingId(id))
-					: listPanel.current?.getClientRects().length;
+				document.querySelector(`[id="${CSS.escape(detailHeadingId(id))}"]:not([inert] *)`);
 			let attempts = 12;
 			const wait = () => {
 				if (ready()) callback();
@@ -224,24 +250,13 @@ export function CollectionEditor<T extends { id: string }>({
 	);
 
 	function back(focusId = activeId, slide = true) {
-		const previous = listPosition.current;
+		pendingListFocus.current = { id: focusId, previous: listPosition.current };
 		listPosition.current = null;
 		if (narrow && slide && activeId !== undefined) {
 			leavingId.current = activeId;
 			setPane("leaving");
 		}
-		void select(undefined, undefined, true).then(() =>
-			focusAfterNavigation(undefined, () => {
-				const target =
-					rowButton(focusId) ??
-					rowButton(previous?.id) ??
-					search.current ??
-					document.getElementById(fieldId(path));
-				target?.focus({ preventScroll: true });
-				if (previous) window.scrollTo({ top: previous.scroll, behavior: "instant" });
-				target?.scrollIntoView({ block: "nearest" });
-			}),
-		);
+		void select(undefined, undefined, true);
 	}
 
 	const move = useCallback(
@@ -330,7 +345,7 @@ export function CollectionEditor<T extends { id: string }>({
 
 	const detailKey = shownId ?? (item !== undefined ? "missing" : "placeholder");
 
-	return (
+	const collection = (
 		<div
 			className={cn(
 				"cms-collection grid min-w-0 items-start gap-4",
@@ -344,6 +359,7 @@ export function CollectionEditor<T extends { id: string }>({
 					"cms-panel cms-collection-list grid min-w-0 gap-3 p-3",
 					item !== undefined && pane === "idle" && "max-lg:hidden",
 				)}
+				inert={narrow && detailOpen}
 				aria-labelledby={headingId}
 				aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
 				data-slot="cms-field"
@@ -500,8 +516,9 @@ export function CollectionEditor<T extends { id: string }>({
 			</section>
 			<div
 				ref={detailPanel}
+				inert={pane === "leaving"}
 				className={cn(
-					"cms-collection-detail relative grid min-w-0 gap-3",
+					"cms-collection-detail relative grid min-w-0 content-start gap-3",
 					!detailOpen && "max-lg:hidden",
 				)}
 			>
@@ -518,7 +535,7 @@ export function CollectionEditor<T extends { id: string }>({
 					</div>
 				) : null}
 				<AnimatePresence initial={false} mode="popLayout">
-					<motion.div
+					<CollectionDetailPane
 						key={detailKey}
 						initial={narrow ? false : { opacity: 0, y: reduced ? 0 : 6 }}
 						animate={{ opacity: 1, y: 0 }}
@@ -600,7 +617,7 @@ export function CollectionEditor<T extends { id: string }>({
 								</p>
 							</EditorGroup>
 						) : null}
-					</motion.div>
+					</CollectionDetailPane>
 				</AnimatePresence>
 			</div>
 			<UndoRemoval
@@ -621,6 +638,25 @@ export function CollectionEditor<T extends { id: string }>({
 			/>
 		</div>
 	);
+	return listSettings ? (
+		<>
+			<div className={detailOpen ? "max-lg:hidden" : undefined}>{listSettings}</div>
+			{collection}
+		</>
+	) : (
+		collection
+	);
+}
+
+function CollectionDetailPane(props: ComponentPropsWithRef<typeof motion.div>) {
+	const present = useIsPresent();
+	useLayoutEffect(() => {
+		const active = document.activeElement;
+		// Chromium can retain focus briefly on an element that just became inert.
+		if (!present && active instanceof HTMLElement && active.closest("[data-detail-pane][inert]"))
+			active.blur();
+	}, [present]);
+	return <motion.div {...props} data-detail-pane="" inert={!present} />;
 }
 
 const NARROW_QUERY = "(max-width: 63.999rem)";

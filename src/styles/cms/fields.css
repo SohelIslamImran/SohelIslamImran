@@ -742,6 +742,10 @@
 			grid-area: pane;
 		}
 
+		.cms-collection[data-pane] {
+			overflow-anchor: none;
+		}
+
 		.cms-collection[data-pane] > .cms-collection-detail {
 			align-self: stretch;
 			background: var(--theme-paper);
