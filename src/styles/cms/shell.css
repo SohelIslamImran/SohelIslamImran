@@ -284,6 +284,19 @@
 		}
 	}
 
+	[data-slot="cms-section"] > * {
+		width: 100%;
+		margin-inline: auto;
+	}
+
+	.cms-topbar-inner {
+		max-width: 1160px;
+	}
+
+	.cms-layout:has([data-slot="cms-section"] > .cms-editor) .cms-topbar-inner {
+		max-width: 69rem;
+	}
+
 	.cms-topbar {
 		background: var(--theme-paper);
 		backdrop-filter: none;

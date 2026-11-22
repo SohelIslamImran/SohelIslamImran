@@ -617,9 +617,7 @@ function CommandBarOpen({
 
 				<div role="status">
 					{flat.length === 0 ? (
-						<div
-							className="cms-result-enter grid justify-items-center gap-2 px-4 py-9 text-center"
-						>
+						<div className="cms-result-enter grid justify-items-center gap-2 px-4 py-9 text-center">
 							<span className="grid size-10 place-items-center rounded-[12px] bg-primary-soft text-primary-text">
 								<SearchIcon />
 							</span>
@@ -650,7 +648,10 @@ function CommandBarOpen({
 								className={cn("cms-result-enter", sectionIndex > 0 && "mt-2.5")}
 							>
 								{section.group ? (
-									<p aria-hidden="true" className="cms-command-secondary m-0 px-2.5 py-1 text-[11px] font-medium">
+									<p
+										aria-hidden="true"
+										className="cms-command-secondary m-0 px-2.5 py-1 text-[11px] font-medium"
+									>
 										{section.group}
 									</p>
 								) : null}
@@ -740,7 +741,7 @@ function CommandBarOpen({
 						<span className="hidden sm:inline">
 							<Kbd className="text-inherit">⌘S</Kbd> save
 						</span>
-						</span>
+					</span>
 					<span>
 						<Kbd className="text-inherit">esc</Kbd> close
 					</span>

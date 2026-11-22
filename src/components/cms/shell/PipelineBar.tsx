@@ -255,66 +255,68 @@ export function PipelineBar({
 			data-slot="cms-pipeline-bar"
 			data-stage={stage}
 			data-scrolled={scrolled || undefined}
-			className="cms-topbar sticky top-0 z-(--z-sticky) flex min-h-14 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] lg:px-5"
+			className="cms-topbar sticky top-0 z-(--z-sticky) px-3 pt-[env(safe-area-inset-top)] lg:px-8"
 		>
-			<button
-				type="button"
-				onClick={onOpenDrawer}
-				aria-label="Open navigation menu"
-				aria-haspopup="dialog"
-				className="cms-press cms-chrome-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
-			>
-				<MenuIcon className="size-5" />
-			</button>
-
-			<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
-				<span
-					className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
-					aria-label={`Draft revision ${draftRevision}`}
-					title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
-				>
-					<span className="hidden sm:inline">Draft </span>r{draftRevision}
-				</span>
-				<span aria-hidden="true" className="cms-pipeline-connector" />
-				<PipelineStatus
-					stage={stage}
-					label={label}
-					onResolveConflict={onResolveConflict}
-					onReviewRelease={onReviewRelease}
-				/>
-				<span aria-hidden="true" className="cms-pipeline-connector" />
-				<Link
-					to="/cms/release"
-					preload="intent"
-					aria-label={`Live revision ${publishedRevision}`}
-					className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
-				>
-					<span className="hidden sm:inline">Live </span>r{publishedRevision}
-				</Link>
-				<span role="status" className="sr-only">
-					{label}
-				</span>
-			</div>
-
-			<div className="flex shrink-0 items-center gap-2">
+			<div className="cms-topbar-inner mx-auto flex min-h-14 items-center justify-between gap-2">
 				<button
 					type="button"
-					onClick={(event) => onOpenCommandBar(event.currentTarget)}
-					aria-label="Search and commands"
+					onClick={onOpenDrawer}
+					aria-label="Open navigation menu"
 					aria-haspopup="dialog"
-					aria-keyshortcuts="Meta+K Control+K"
-					data-slot="cms-command-trigger"
-					className="cms-press cms-chrome-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
+					className="cms-press cms-chrome-control grid size-11 shrink-0 place-items-center rounded-[10px] text-ink-soft lg:hidden"
 				>
-					<SearchIcon />
-					<span className="hidden text-[12px] xl:inline">Search</span>
-					<span className="hidden lg:inline">
-						<Kbd>⌘K</Kbd>
-					</span>
+					<MenuIcon className="size-5" />
 				</button>
 
-				<div className="hidden items-center gap-2 lg:flex">
-					<PipelineActions onRequestPublish={onRequestPublish} />
+				<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
+					<span
+						className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
+						aria-label={`Draft revision ${draftRevision}`}
+						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
+					>
+						<span className="hidden sm:inline">Draft </span>r{draftRevision}
+					</span>
+					<span aria-hidden="true" className="cms-pipeline-connector" />
+					<PipelineStatus
+						stage={stage}
+						label={label}
+						onResolveConflict={onResolveConflict}
+						onReviewRelease={onReviewRelease}
+					/>
+					<span aria-hidden="true" className="cms-pipeline-connector" />
+					<Link
+						to="/cms/release"
+						preload="intent"
+						aria-label={`Live revision ${publishedRevision}`}
+						className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
+					>
+						<span className="hidden sm:inline">Live </span>r{publishedRevision}
+					</Link>
+					<span role="status" className="sr-only">
+						{label}
+					</span>
+				</div>
+
+				<div className="flex shrink-0 items-center gap-2">
+					<button
+						type="button"
+						onClick={(event) => onOpenCommandBar(event.currentTarget)}
+						aria-label="Search and commands"
+						aria-haspopup="dialog"
+						aria-keyshortcuts="Meta+K Control+K"
+						data-slot="cms-command-trigger"
+						className="cms-press cms-chrome-control flex size-11 shrink-0 items-center justify-center gap-2 rounded-[10px] text-ink-soft lg:h-9 lg:w-auto lg:border lg:border-line lg:bg-surface-solid lg:px-2.5 pointer-coarse:min-h-11"
+					>
+						<SearchIcon />
+						<span className="hidden text-[12px] xl:inline">Search</span>
+						<span className="hidden lg:inline">
+							<Kbd>⌘K</Kbd>
+						</span>
+					</button>
+
+					<div className="hidden items-center gap-2 lg:flex">
+						<PipelineActions onRequestPublish={onRequestPublish} />
+					</div>
 				</div>
 			</div>
 
