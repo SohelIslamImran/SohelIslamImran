@@ -129,6 +129,7 @@
 
 	.cms-rail-pulse {
 		margin-inline: 1px;
+		padding-inline: 12px;
 		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
 	}
 
@@ -298,7 +299,7 @@
 		}
 
 		.cms-rail-desktop .cms-rail-toggle {
-			right: clamp(4px, calc(50cqi - 24px), 14px);
+			right: clamp(4px, calc(50cqi - 24px), 6px);
 		}
 
 		.cms-rail-desktop .cms-rail-brand {
@@ -632,7 +633,20 @@
 			transform: none !important;
 		}
 		.cms-drawer-popup,
-		.cms-drawer-scrim {
+		.cms-drawer-scrim,
+		.cms-backdrop,
+		.cms-modal,
+		.cms-command-popup,
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full,
+				.cms-rail-badge-dot
+			) {
 			/* Keep the opacity transition through the site's reduced-motion reset. */
 			transition-duration: 150ms !important;
 		}

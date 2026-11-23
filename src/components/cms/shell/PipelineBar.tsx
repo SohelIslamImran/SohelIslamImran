@@ -469,20 +469,15 @@ function PipelineActions({
 export function MobileActionBar({
 	onRequestPublish,
 	saveFeedback,
+	visible,
 }: {
 	onRequestPublish: () => void;
 	saveFeedback: SaveFeedback;
+	/** Owned by the shell so the bar and the content padding agree. */
+	visible: boolean;
 }) {
 	const reduce = useLiveReducedMotion();
 	const bar = useRef<HTMLDivElement>(null);
-	const visible = useDraftSelector(
-		(state) =>
-			state.dirty ||
-			state.ahead ||
-			state.issues.all.length > 0 ||
-			state.status === "saving" ||
-			state.status === "publishing",
-	);
 
 	useLayoutEffect(() => {
 		if (!visible && bar.current?.contains(document.activeElement)) {

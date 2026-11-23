@@ -426,7 +426,10 @@ function LayerRailContent({
 						<span className="text-[14px] font-semibold tracking-[-0.02em]">Control plane</span>
 					</span>
 					{onToggleRail ? (
-						<RailTooltip label={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}>
+						<RailTooltip
+							label={`${collapsed ? "Expand" : "Collapse"} sidebar (⌘\\ / Ctrl+\\)`}
+							showExpanded
+						>
 							<button
 								type="button"
 								onClick={onToggleRail}
@@ -538,7 +541,7 @@ function LayerRailContent({
 				</div>
 
 				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2 lg:grid">
-					<RailTooltip label="Appearance" disabled={layoutScope === "drawer"}>
+					<RailTooltip label="Appearance" showExpanded disabled={layoutScope === "drawer"}>
 						<span className="grid w-fit">
 							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
 						</span>
@@ -912,13 +915,15 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 	const [publishSweepKey, setPublishSweepKey] = useState(0);
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const prevPublishedRev = useRef(publishedRevision);
+	// On Changes the page's release gate owns Publish and error status, so the
+	// phone action bar only appears there while there is something to save.
+	const onReleasePage = useCommittedPathname() === "/cms/release";
 	const mobileActionVisible = useDraftSelector(
 		(state) =>
 			state.dirty ||
-			state.ahead ||
-			state.issues.all.length > 0 ||
 			state.status === "saving" ||
-			state.status === "publishing",
+			(!onReleasePage &&
+				(state.ahead || state.issues.all.length > 0 || state.status === "publishing")),
 	);
 
 	// Trigger a single trace sweep across the pipeline bar whenever a new revision publishes.
@@ -1086,7 +1091,11 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 				</Drawer.Portal>
 			</Drawer.Root>
 
-			<MobileActionBar onRequestPublish={requestPublish} saveFeedback={saveFeedback} />
+			<MobileActionBar
+				onRequestPublish={requestPublish}
+				saveFeedback={saveFeedback}
+				visible={mobileActionVisible}
+			/>
 
 			<CommandBar
 				opener={commandOpener}
