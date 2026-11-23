@@ -7,6 +7,7 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
+import { CloudflarePanel } from "../../components/cms/CloudflarePanel";
 import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import {
 	AnalyticsUnavailable,
@@ -289,7 +290,7 @@ function CmsOverview() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Overview"
-				description="Draft changes, recent activity, and site traffic."
+				description="Draft changes, recent activity, site traffic, and hosting."
 			/>
 
 			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
@@ -299,6 +300,7 @@ function CmsOverview() {
 				</div>
 				<RecentActivityCard />
 			</div>
+			<CloudflarePanel stagger={3} />
 		</div>
 	);
 }

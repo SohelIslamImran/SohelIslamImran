@@ -16,6 +16,7 @@ import {
 import { Dialog } from "@base-ui/react/dialog";
 import { useNavigate } from "@tanstack/react-router";
 import { motion } from "motion/react";
+import { cloudflareLinks } from "../../../lib/cloudflare-dashboard";
 import { cn } from "../../../lib/utils";
 import {
 	applyThemeMode,
@@ -33,6 +34,7 @@ import {
 	ActivityIcon,
 	AnalyticsIcon,
 	CloseIcon,
+	CloudIcon,
 	DiscardIcon,
 	ExternalArrowIcon,
 	HistoryIcon,
@@ -71,12 +73,13 @@ function focusDestination(previousPath: string) {
 	target.focus({ preventScroll: true });
 }
 
-type CommandGroup = "Pages" | "Sections" | "Items" | "Actions" | "Appearance";
+type CommandGroup = "Pages" | "Sections" | "Items" | "Actions" | "Cloudflare" | "Appearance";
 const GROUP_ORDER: readonly CommandGroup[] = [
 	"Pages",
 	"Sections",
 	"Items",
 	"Actions",
+	"Cloudflare",
 	"Appearance",
 ];
 
@@ -436,6 +439,17 @@ function CommandBarOpen({
 			});
 		}
 
+		const cloudflareEntries: CommandEntry[] = cloudflareLinks(publicOrigin).map((link) => ({
+			id: `cloudflare-${link.id}`,
+			group: "Cloudflare",
+			label: link.label,
+			detail: link.detail,
+			keywords: `cloudflare dashboard ${link.keywords}`,
+			icon: <CloudIcon />,
+			external: true,
+			run: () => void window.open(link.href, "_blank", "noopener,noreferrer"),
+		}));
+
 		const appearanceEntries: CommandEntry[] = themeModes.map((mode) => ({
 			id: `theme-${mode}`,
 			group: "Appearance",
@@ -455,7 +469,14 @@ function CommandBarOpen({
 			},
 		}));
 
-		return [...pages, ...sections, ...items, ...actions, ...appearanceEntries];
+		return [
+			...pages,
+			...sections,
+			...items,
+			...actions,
+			...cloudflareEntries,
+			...appearanceEntries,
+		];
 	}, [
 		ahead,
 		appearance.theme,

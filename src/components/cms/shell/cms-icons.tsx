@@ -130,6 +130,15 @@ export function ExternalArrowIcon(props: IconProps) {
 	);
 }
 
+/** Hosting and infrastructure (the Cloudflare dashboard). */
+export function CloudIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<path d="M6 15.5h8.25a3.25 3.25 0 0 0 .4-6.48A4.75 4.75 0 0 0 5.6 10a2.75 2.75 0 0 0 .4 5.5Z" />
+		</Icon>
+	);
+}
+
 export function CheckCircleIcon(props: IconProps) {
 	return (
 		<Icon {...props}>

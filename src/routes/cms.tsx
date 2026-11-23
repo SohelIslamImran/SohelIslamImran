@@ -66,8 +66,9 @@ function CmsWorkspace({
 			owner: initial.owner,
 			mediaEnabled: initial.mediaEnabled,
 			publicOrigin: initial.publicOrigin,
+			build: initial.build,
 		}),
-		[csrfToken, initial.owner, initial.mediaEnabled, initial.publicOrigin],
+		[csrfToken, initial.owner, initial.mediaEnabled, initial.publicOrigin, initial.build],
 	);
 	return (
 		<CmsDraftProvider snapshot={initial.snapshot} session={session} api={api}>

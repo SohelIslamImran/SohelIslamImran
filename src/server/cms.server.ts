@@ -22,9 +22,14 @@ import {
 	type AccessAuthEnvironment,
 } from "./auth.server";
 import { uploadMedia as uploadStoredMedia, type MediaEnvironment } from "./media.server";
+import type { CmsBuildInfo } from "../lib/cloudflare-dashboard";
 import type { PortfolioContent } from "../types/content";
 
-export type CmsRuntime = AccessAuthEnvironment & MediaEnvironment & { CMS_ORIGIN?: string };
+export type CmsRuntime = AccessAuthEnvironment &
+	MediaEnvironment & {
+		CMS_ORIGIN?: string;
+		CF_VERSION_METADATA?: WorkerVersionMetadata;
+	};
 
 export function runtime(): CmsRuntime {
 	return env;
@@ -42,6 +47,13 @@ export function publicOrigin(environment: CmsRuntime = runtime()): string {
 	return environment.APP_ORIGIN || "https://sohelislamimran.com";
 }
 
+/** The running Worker version, or null when the binding is absent. */
+export function buildInfo(environment: CmsRuntime = runtime()): CmsBuildInfo | null {
+	const metadata = environment.CF_VERSION_METADATA;
+	if (!metadata?.id) return null;
+	return { id: metadata.id, tag: metadata.tag ?? "", timestamp: metadata.timestamp ?? "" };
+}
+
 export async function readPublished(): Promise<PortfolioContent> {
 	return readPublishedContent(runtime());
 }
@@ -53,6 +65,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 	owner: string;
 	mediaEnabled: boolean;
 	publicOrigin: string;
+	build: CmsBuildInfo | null;
 }> {
 	const identity = await requireOwner(request, runtime());
 	const csrf = getCsrfToken(request);
@@ -65,6 +78,7 @@ export async function readAdminSnapshot(request: Request): Promise<{
 		owner: identity.email,
 		mediaEnabled: Boolean(runtime().MEDIA),
 		publicOrigin: publicOrigin(),
+		build: buildInfo(),
 	};
 }
 

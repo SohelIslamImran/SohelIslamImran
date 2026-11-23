@@ -4,7 +4,7 @@
  * - Responsive Layer Rail (232px at >=1280px, 56px icon rail at 1024-1279px,
  *   collapsible via ⌘\ / Ctrl+\, slide-over glass drawer on phones/tablets)
  * - Live-pulse slot at the top of the rail (`RailPulseSlot` or `pulseSlot` prop)
- * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗
+ * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗ + Cloudflare ↗
  * - Sticky 56px five-state Pipeline Bar + phone bottom action bar while dirty
  * - ⌘K Command Bar, ⌘S save shortcut, Conflict AlertDialog, Auth expired banner
  * - On the Changes page, the command bar and release status can focus the
@@ -23,6 +23,7 @@ import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, animate, motion, spring, useMotionValue } from "motion/react";
+import { CLOUDFLARE_DASHBOARD_URL } from "../../../lib/cloudflare-dashboard";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button, buttonVariants } from "../../ui/button";
@@ -36,6 +37,7 @@ import {
 	AlertTriangleIcon,
 	AnalyticsIcon,
 	CloseIcon,
+	CloudIcon,
 	ExternalArrowIcon,
 	HistoryIcon,
 	MediaLibraryIcon,
@@ -555,6 +557,18 @@ function LayerRailContent({
 						>
 							<ExternalArrowIcon className="size-3.5 justify-self-center" />
 							<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
+						</a>
+					</RailTooltip>
+					<RailTooltip label="Open Cloudflare dashboard" disabled={layoutScope === "drawer"}>
+						<a
+							href={CLOUDFLARE_DASHBOARD_URL}
+							target="_blank"
+							rel="noreferrer"
+							aria-label="Open Cloudflare dashboard"
+							className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
+						>
+							<CloudIcon className="size-3.5 justify-self-center" />
+							<span className="cms-rail-footer-label whitespace-nowrap">Cloudflare</span>
 						</a>
 					</RailTooltip>
 				</div>

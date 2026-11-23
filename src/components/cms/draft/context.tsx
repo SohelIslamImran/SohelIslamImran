@@ -7,6 +7,7 @@ import {
 	useSyncExternalStore,
 	type ReactNode,
 } from "react";
+import type { CmsBuildInfo } from "../../../lib/cloudflare-dashboard";
 import type { ValidationIssue } from "../../../lib/validation";
 import { DraftStore, type DraftApi, type DraftSnapshotInput, type DraftState } from "./store";
 
@@ -19,6 +20,8 @@ export interface CmsSession {
 	 * so test sessions can omit it; read it through `usePublicOrigin()`.
 	 */
 	publicOrigin?: string;
+	/** The running Worker version (version metadata binding), when known. */
+	build?: CmsBuildInfo | null;
 }
 
 interface CmsContextValue {
