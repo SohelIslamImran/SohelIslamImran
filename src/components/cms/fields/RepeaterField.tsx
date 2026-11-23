@@ -10,7 +10,7 @@ import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
-import { ChevronRightIcon } from "./field-icons";
+import { ChevronDownIcon } from "./field-icons";
 import { duplicateRow } from "./row-list";
 
 const EMPTY: readonly never[] = [];
@@ -20,6 +20,7 @@ export function RepeaterField<T extends object>({
 	label,
 	itemLabel,
 	description,
+	labelHidden,
 	summaryClassName,
 	targetPath,
 	create,
@@ -31,6 +32,7 @@ export function RepeaterField<T extends object>({
 	label: string;
 	itemLabel: string;
 	description?: string;
+	labelHidden?: boolean;
 	summaryClassName?: string;
 	targetPath?: string;
 	create: () => T;
@@ -102,6 +104,7 @@ export function RepeaterField<T extends object>({
 			path={path}
 			label={label}
 			description={description}
+			labelHidden={labelHidden}
 			asGroup
 			issues={issues}
 			changed={changed}
@@ -249,7 +252,7 @@ function RepeaterRow<T extends object>({
 									</span>
 								) : null}
 							</span>
-							<ChevronRightIcon className="cms-disclosure-chevron size-3.5 text-muted-foreground" />
+							<ChevronDownIcon className="cms-disclosure-chevron cms-disclosure-chevron-down size-3.5 text-muted-foreground" />
 						</summary>
 						{opened || targeted ? (
 							<div className="cms-repeater-body grid min-w-0 gap-5 px-4 pt-1 pb-4">

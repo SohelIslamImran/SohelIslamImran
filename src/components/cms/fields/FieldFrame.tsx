@@ -86,6 +86,11 @@ export interface FieldFrameProps {
 	/** Render the label as a legend-like title, not a `<label for>` (for groups). */
 	asGroup?: boolean;
 	/**
+	 * Keep the label for assistive tech only, when a visible group heading
+	 * already names the field. The counter and Revert stay visible.
+	 */
+	labelHidden?: boolean;
+	/**
 	 * `inline` puts the label and description on the left and the control on
 	 * the right in one row, like a settings toggle. `stack` puts the control
 	 * under its label.
@@ -112,6 +117,7 @@ export function FieldFrame({
 	onRevert,
 	meta,
 	asGroup = false,
+	labelHidden = false,
 	layout = "stack",
 	className,
 	children,
@@ -137,7 +143,10 @@ export function FieldFrame({
 		<LabelTag
 			id={`${id}-label`}
 			{...(asGroup ? {} : { htmlFor: id })}
-			className="m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground"
+			className={cn(
+				"m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground",
+				labelHidden && "sr-only",
+			)}
 		>
 			{label}
 			{changedFromLive ? <span className="sr-only"> (changed from live)</span> : null}
@@ -198,7 +207,7 @@ export function FieldFrame({
 				</>
 			) : (
 				<>
-					<div className="cms-field-head">
+					<div className="cms-field-head" data-label-hidden={labelHidden || undefined}>
 						{labelNode}
 						<div className="flex shrink-0 items-center gap-2">
 							{meta}

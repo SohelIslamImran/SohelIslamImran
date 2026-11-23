@@ -37,7 +37,10 @@ export function SiteEditor() {
 					description="Use the full public address, starting with https://."
 				/>
 			</EditorGroup>
-			<EditorGroup title="Document">
+			<EditorGroup
+				title="Document"
+				description="The locale sets the page language for search engines and link previews."
+			>
 				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
 					<TextField
 						path="site.locale"
@@ -105,9 +108,14 @@ export function HeroEditor() {
 				<TextAreaField singleLine path="hero.title" label="Headline" maxLength={240} required />
 				<TextAreaField path="hero.intro" label="Introduction" maxLength={1_200} />
 			</EditorGroup>
-			<EditorGroup title="Actions and metrics">
-				<LinksField path="hero.actions" label="Actions" itemLabel="Action" />
-				<MetricsField path="hero.metrics" label="Metrics" itemLabel="Metric" />
+			<EditorGroup
+				title="Actions"
+				description="The first two actions with a link appear as buttons under the introduction."
+			>
+				<LinksField path="hero.actions" label="Actions" labelHidden itemLabel="Action" />
+			</EditorGroup>
+			<EditorGroup title="Metrics" description="Shown in the home page's at-a-glance section.">
+				<MetricsField path="hero.metrics" label="Metrics" labelHidden itemLabel="Metric" />
 			</EditorGroup>
 		</>
 	);
@@ -208,6 +216,7 @@ export function StoryEditor() {
 					path="story.chapters"
 					max={30}
 					label="Chapters"
+					labelHidden
 					itemLabel="Chapter"
 					create={() => ({ id: newRowId(), eyebrow: "", title: "", paragraphs: [] })}
 					summarize={(row) => row.title}

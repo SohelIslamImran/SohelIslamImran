@@ -153,16 +153,19 @@ export function MetricRow({ path, labelDescription }: { path: string; labelDescr
 export function LinksField({
 	path,
 	label,
+	labelHidden,
 	itemLabel = "Link",
 }: {
 	path: string;
 	label: string;
+	labelHidden?: boolean;
 	itemLabel?: string;
 }) {
 	return (
 		<RepeaterField<LinkContent>
 			path={path}
 			label={label}
+			labelHidden={labelHidden}
 			itemLabel={itemLabel}
 			create={() => ({ label: "", href: "" })}
 			summarize={(row) => row.label}
@@ -174,11 +177,13 @@ export function LinksField({
 export function MetricsField({
 	path,
 	label,
+	labelHidden,
 	itemLabel,
 	Editor = MetricRow,
 }: {
 	path: string;
 	label: string;
+	labelHidden?: boolean;
 	itemLabel: string;
 	Editor?: ComponentType<{ path: string }>;
 }) {
@@ -186,6 +191,7 @@ export function MetricsField({
 		<RepeaterField<MetricContent>
 			path={path}
 			label={label}
+			labelHidden={labelHidden}
 			itemLabel={itemLabel}
 			create={() => ({ label: "", value: "" })}
 			summarize={(row) => [row.label, row.value].filter(Boolean).join(" · ")}
