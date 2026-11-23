@@ -14,7 +14,8 @@ export const Route = createFileRoute("/draft-media/$assetId")({
 		handlers: {
 			GET: async ({ request, params }) => {
 				const url = new URL(request.url);
-				const local = env.ENVIRONMENT === "development";
+				// ENVIRONMENT is typed as the literal configured value, so widen it before comparing.
+				const local = String(env.ENVIRONMENT) === "development";
 				if (!isCmsHostname(url.hostname) && !local) return notFound();
 				if (!/^[A-Za-z0-9_-]{8,160}$/u.test(params.assetId)) return notFound();
 				try {
