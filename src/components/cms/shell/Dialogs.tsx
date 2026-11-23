@@ -6,9 +6,9 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "../../ui/button";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { diffPortfolioDocuments } from "../release/diff";
-import { AlertTriangleIcon, PublishIcon } from "./cms-icons";
+import { AlertTriangleIcon, ExternalArrowIcon, PublishIcon } from "./cms-icons";
 import { draftActionAvailability } from "./draft-actions";
 import { formatUtcTimestamp } from "./time";
 
@@ -30,21 +30,40 @@ export function ConflictDialog({
 
 function ConflictDialogBody() {
 	const store = useDraftStore();
-	const conflict = useDraftSelector((state) => state.conflict);
+	const liveConflict = useDraftSelector((state) => state.conflict);
 	const draft = useDraftSelector((state) => state.draft);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
-	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
+	const liveDraftRevision = useDraftSelector((state) => state.draftRevision);
+	const liveDraftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
 	const [busy, setBusy] = useState(false);
 	const popupRef = useRef<HTMLDivElement>(null);
 
-	const diffSections = useMemo(() => {
-		if (!conflict) return [];
-		return diffPortfolioDocuments(conflict.draft, draft).changedSections.map(
+	const liveDiffSections = useMemo(() => {
+		if (!liveConflict) return [];
+		return diffPortfolioDocuments(liveConflict.draft, draft).changedSections.map(
 			(entry) => entry.section.label,
 		);
-	}, [conflict, draft]);
+	}, [liveConflict, draft]);
 
-	if (!conflict) return null;
+	// Resolving the conflict clears it (and replaces the local draft) while the
+	// popup is still fading out. Keep showing what the owner decided on.
+	const lastView = useRef<{
+		conflict: NonNullable<typeof liveConflict>;
+		draftRevision: number;
+		draftUpdatedAt: typeof liveDraftUpdatedAt;
+		diffSections: string[];
+	} | null>(null);
+	if (liveConflict) {
+		lastView.current = {
+			conflict: liveConflict,
+			draftRevision: liveDraftRevision,
+			draftUpdatedAt: liveDraftUpdatedAt,
+			diffSections: liveDiffSections,
+		};
+	}
+	const view = lastView.current;
+	if (!view) return null;
+	// The store ignores both resolutions once the conflict is gone.
+	const { conflict, draftRevision, draftUpdatedAt, diffSections } = view;
 
 	const handleOverwrite = async () => {
 		setBusy(true);
@@ -167,28 +186,56 @@ function PublishConfirmDialogBody({
 	publishFailed: boolean;
 }) {
 	const store = useDraftStore();
+	const publicHost = new URL(usePublicOrigin()).host;
 	const cancelRef = useRef<HTMLButtonElement>(null);
-	const reloadRef = useRef<HTMLButtonElement>(null);
+	const signInRef = useRef<HTMLAnchorElement>(null);
+	const retryRef = useRef<HTMLButtonElement>(null);
+	const [signInOpened, setSignInOpened] = useState(false);
 	const publishedSuccessfully = useRef(false);
 	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
 	const [reviewedDraft] = useState(() => store.getState().draft);
-	const reviewExpired = reviewedDraft !== draft;
-	const { canPublish } = useDraftSelector(draftActionAvailability);
-	const published = useDraftSelector((state) => state.published);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
-	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
-	const dirty = useDraftSelector((state) => state.dirty);
-	const busy = useDraftSelector(
-		(state) => state.status === "saving" || state.status === "publishing",
-	);
+	const liveCanPublish = useDraftSelector(draftActionAvailability).canPublish;
+	const livePublished = useDraftSelector((state) => state.published);
+	const liveDraftRevision = useDraftSelector((state) => state.draftRevision);
+	const livePublishedRevision = useDraftSelector((state) => state.publishedRevision);
+	const liveDirty = useDraftSelector((state) => state.dirty);
+	const status = useDraftSelector((state) => state.status);
 	const error = useDraftSelector((state) => (state.status === "error" ? state.error : null));
 	const authExpired = useDraftSelector((state) => state.authExpired);
-	const showError = error !== null && (authExpired || publishFailed || attemptFailed);
+
+	// A successful publish updates the store while the popup is still fading
+	// out. Keep rendering the last "Publishing…" frame until it is gone, so the
+	// diff, revisions, and button never change under the exit animation.
+	const publishing = useRef<{
+		published: typeof livePublished;
+		draftRevision: number;
+		publishedRevision: number;
+	} | null>(null);
+	if (status === "publishing") {
+		publishing.current = {
+			published: livePublished,
+			draftRevision: liveDraftRevision,
+			publishedRevision: livePublishedRevision,
+		};
+	}
+	const frozen =
+		publishing.current && publishing.current.publishedRevision !== livePublishedRevision
+			? publishing.current
+			: null;
+	const published = frozen?.published ?? livePublished;
+	const draftRevision = frozen?.draftRevision ?? liveDraftRevision;
+	const publishedRevision = frozen?.publishedRevision ?? livePublishedRevision;
+	const dirty = !frozen && liveDirty;
+	const reviewExpired = !frozen && reviewedDraft !== draft;
+	const canPublish = !frozen && liveCanPublish;
+	const busy = frozen !== null || status === "saving" || status === "publishing";
+	const showError = !frozen && error !== null && (authExpired || publishFailed || attemptFailed);
 
 	useLayoutEffect(() => {
-		if (authExpired) reloadRef.current?.focus();
-	}, [authExpired]);
+		if (!authExpired) setSignInOpened(false);
+		else (signInOpened ? retryRef : signInRef).current?.focus();
+	}, [authExpired, signInOpened]);
 
 	const changedSections = useMemo(
 		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
@@ -209,7 +256,7 @@ function PublishConfirmDialogBody({
 			<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
 			<AlertDialog.Popup
 				data-slot="cms-publish-dialog"
-				initialFocus={authExpired ? reloadRef : cancelRef}
+				initialFocus={authExpired ? signInRef : cancelRef}
 				finalFocus={() => {
 					if (store.getState().conflict) return false;
 					return publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
@@ -224,8 +271,8 @@ function PublishConfirmDialogBody({
 					</span>
 					<div className="grid gap-1">
 						<p className="mono-label m-0 text-[10.5px] text-primary-text">
-							Release · <span className="normal-case">r{draftRevision}</span> → Live{" "}
-							<span className="normal-case">r{publishedRevision}</span>
+							Release · {dirty ? "Draft" : <span className="normal-case">r{draftRevision}</span>}{" "}
+							replaces live <span className="normal-case">r{publishedRevision}</span>
 						</p>
 						<AlertDialog.Title className="m-0 text-[17px] font-semibold tracking-[-0.015em]">
 							Publish draft to live site?
@@ -235,7 +282,7 @@ function PublishConfirmDialogBody({
 								? "The draft changed. Close this dialog and review the updated draft."
 								: dirty
 									? "Unsaved edits will be saved first, then promoted live immediately."
-									: "Visitors on sohelislamimran.com will see this revision immediately."}
+									: `Visitors on ${publicHost} will see this revision immediately.`}
 						</AlertDialog.Description>
 					</div>
 				</div>
@@ -293,15 +340,34 @@ function PublishConfirmDialogBody({
 						>
 							Cancel
 						</AlertDialog.Close>
-						{authExpired ? (
+						{authExpired && signInOpened ? (
 							<Button
-								ref={reloadRef}
+								ref={retryRef}
 								size="sm"
 								className="pointer-coarse:min-h-11"
-								onClick={() => window.location.reload()}
+								onClick={() => {
+									setSignInOpened(false);
+									void store.resumeAfterSignIn().then((ok) => {
+										if (ok) void confirmPublish();
+									});
+								}}
 							>
-								Reload console
+								Retry publish
 							</Button>
+						) : authExpired ? (
+							<a
+								ref={signInRef}
+								href={new URL("/", window.location.origin).href}
+								target="_blank"
+								rel="noopener"
+								onClick={() => setSignInOpened(true)}
+								className={buttonVariants({
+									size: "sm",
+									className: "cms-press no-underline pointer-coarse:min-h-11",
+								})}
+							>
+								Sign in again <ExternalArrowIcon className="size-3.5" />
+							</a>
 						) : (
 							<Button
 								variant="default"

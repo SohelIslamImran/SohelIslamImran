@@ -26,7 +26,7 @@ import {
 } from "../../AccentSwitcher";
 import { scoreItem } from "../../chrome/fuzzy";
 import { Kbd } from "../../ui/portfolio";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { REDUCED, SPRING_MOVE } from "../motion";
 import { SECTIONS } from "../sections/registry";
 import {
@@ -45,7 +45,7 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
-import { PUBLIC_SITE_ORIGIN, useCommittedPathname } from "./CmsShell";
+import { useCommittedPathname } from "./CmsShell";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -158,6 +158,7 @@ function CommandBarOpen({
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
 	const { canSave, canPublish } = useDraftSelector(draftActionAvailability);
 	const appearance = useAppearance();
+	const publicOrigin = usePublicOrigin();
 	const [desktop, setDesktop] = useState(false);
 	useLayoutEffect(() => {
 		const query = window.matchMedia("(min-width: 1024px)");
@@ -169,6 +170,8 @@ function CommandBarOpen({
 
 	const [query, setQuery] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [keyboardNav, setKeyboardNav] = useState(false);
+	const pointer = useRef<{ x: number; y: number } | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const listboxId = useId();
@@ -363,6 +366,7 @@ function CommandBarOpen({
 			});
 		}
 
+		const analyticsOptOut = new URL("/?analytics=off", publicOrigin).href;
 		const actions: CommandEntry[] = [
 			{
 				id: "action-save",
@@ -379,7 +383,7 @@ function CommandBarOpen({
 				id: "action-publish",
 				group: "Actions",
 				label: "Publish draft to live",
-				detail: "Promote the validated draft to sohelislamimran.com",
+				detail: `Promote the validated draft to ${new URL(publicOrigin).host}`,
 				keywords: "publish deploy release ship live",
 				icon: <PublishIcon />,
 				disabled: !canPublish,
@@ -402,22 +406,21 @@ function CommandBarOpen({
 				id: "action-live-site",
 				group: "Actions",
 				label: "Open live site",
-				detail: PUBLIC_SITE_ORIGIN,
+				detail: publicOrigin,
 				keywords: "public site preview visit",
 				icon: <ExternalArrowIcon />,
 				external: true,
-				run: () => void window.open(PUBLIC_SITE_ORIGIN, "_blank", "noopener,noreferrer"),
+				run: () => void window.open(publicOrigin, "_blank", "noopener,noreferrer"),
 			},
 			{
 				id: "action-exclude-analytics",
 				group: "Actions",
 				label: "Exclude this browser from analytics",
-				detail: `${PUBLIC_SITE_ORIGIN}/?analytics=off`,
+				detail: analyticsOptOut,
 				keywords: "analytics opt out ignore self browser privacy",
 				icon: <AnalyticsIcon />,
 				external: true,
-				run: () =>
-					void window.open(`${PUBLIC_SITE_ORIGIN}/?analytics=off`, "_blank", "noopener,noreferrer"),
+				run: () => void window.open(analyticsOptOut, "_blank", "noopener,noreferrer"),
 			},
 		];
 		if (desktop) {
@@ -468,6 +471,7 @@ function CommandBarOpen({
 		onToggleRail,
 		opener,
 		pathname,
+		publicOrigin,
 		store,
 	]);
 
@@ -534,6 +538,7 @@ function CommandBarOpen({
 
 	const move = (nextIndex: number) => {
 		if (!flat.length) return;
+		setKeyboardNav(true);
 		const wrapped = (nextIndex + flat.length) % flat.length;
 		setActiveId(flat[wrapped]?.id ?? null);
 	};
@@ -649,6 +654,7 @@ function CommandBarOpen({
 						// Options are driven from the combobox (aria-activedescendant); keep
 						// the scrollable list itself out of the Tab sequence too.
 						tabIndex={-1}
+						data-keyboard-nav={keyboardNav || undefined}
 						className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
 					>
 						{filtered.map((section, sectionIndex) => (
@@ -679,8 +685,19 @@ function CommandBarOpen({
 												aria-selected={isActive}
 												aria-disabled={item.disabled || undefined}
 												onPointerMove={(event) => {
-													if (event.pointerType === "mouse" && activeId !== item.id)
-														setActiveId(item.id);
+													if (event.pointerType !== "mouse") return;
+													// Scrolling the active option into view moves rows under a
+													// resting pointer; only a real move takes over from the keys.
+													const last = pointer.current;
+													pointer.current = { x: event.screenX, y: event.screenY };
+													if (
+														keyboardNav &&
+														(!last || (last.x === event.screenX && last.y === event.screenY))
+													) {
+														return;
+													}
+													setKeyboardNav(false);
+													if (activeId !== item.id) setActiveId(item.id);
 												}}
 												onMouseDown={(event) => event.preventDefault()}
 												onClick={(event) => execute(item, event.currentTarget)}

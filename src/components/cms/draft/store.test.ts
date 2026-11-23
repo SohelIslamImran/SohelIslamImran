@@ -242,6 +242,27 @@ describe("DraftStore", () => {
 		store.dispose();
 	});
 
+	it("retries a save after the owner signs in again", async () => {
+		const save = vi
+			.fn<DraftApi["save"]>()
+			.mockRejectedValueOnce(Object.assign(new Error("expired"), { status: 401 }))
+			.mockResolvedValue({ ok: true, revision: 6, updatedAt: "t" });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		store.update("hero.title", "Kept");
+		expect(await store.save()).toBe(false);
+		expect(store.getState().authExpired).toBe(true);
+		expect(store.getState().status).toBe("error");
+		expect(await store.resumeAfterSignIn()).toBe(true);
+		expect(store.getState()).toMatchObject({
+			authExpired: false,
+			status: "idle",
+			error: null,
+			dirty: false,
+			draftRevision: 6,
+		});
+		store.dispose();
+	});
+
 	it("does not save an invalid draft", async () => {
 		const save = vi.fn<DraftApi["save"]>();
 		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });

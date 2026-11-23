@@ -22,11 +22,11 @@ import {
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { useRouterState } from "@tanstack/react-router";
-import { animate, motion, spring, useMotionValue } from "motion/react";
+import { AnimatePresence, animate, motion, spring, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
-import { Button } from "../../ui/button";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { Button, buttonVariants } from "../../ui/button";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { SettledIssuesProvider, useSettledIssues } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_MOVE } from "../motion";
 
@@ -129,8 +129,6 @@ function RailIndicator({ active }: { active: string }) {
 }
 
 export { RailPulseSlot };
-
-export const PUBLIC_SITE_ORIGIN = "https://sohelislamimran.com";
 
 /** Element id of the Changes page's publish gate. See the file comment. */
 export const RELEASE_GATE_ID = "release-gate";
@@ -376,6 +374,7 @@ function LayerRailContent({
 		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
 	});
 	const normalized = pathname;
+	const publicOrigin = usePublicOrigin();
 	const railScroll = useRef<HTMLElement>(null);
 	const changedCount = useDraftSelector((state, store) =>
 		SECTIONS.reduce(
@@ -548,7 +547,7 @@ function LayerRailContent({
 					</RailTooltip>
 					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
 						<a
-							href={PUBLIC_SITE_ORIGIN}
+							href={publicOrigin}
 							target="_blank"
 							rel="noreferrer"
 							aria-label="Open live site"
@@ -567,6 +566,7 @@ function LayerRailContent({
 /** Save state in words, never color alone. */
 export function useStatusLine(): { label: string; tone: "ok" | "busy" | "warn" | "error" } {
 	return useDraftSelector((state) => {
+		if (state.authExpired) return SIGNED_OUT;
 		if (state.status === "conflict") return CONFLICT;
 		if (state.status === "error") return ERROR;
 		if (state.status === "saving") return SAVING;
@@ -578,6 +578,7 @@ export function useStatusLine(): { label: string; tone: "ok" | "busy" | "warn" |
 	});
 }
 
+const SIGNED_OUT = { label: "Signed out", tone: "error" } as const;
 const CONFLICT = { label: "Conflict: changed elsewhere", tone: "error" } as const;
 const ERROR = { label: "Not saved", tone: "error" } as const;
 const SAVING = { label: "Saving…", tone: "busy" } as const;
@@ -587,6 +588,14 @@ const UNSAVED = { label: "Unsaved changes", tone: "busy" } as const;
 const AHEAD = { label: "Draft ahead of live", tone: "warn" } as const;
 const LIVE = { label: "Live is up to date", tone: "ok" } as const;
 
+type SessionNotice = { kind: "expired" } | { kind: "publish" } | { kind: "save"; message: string };
+
+/**
+ * Save, publish, and expired-session notices: an in-flow strip under the top
+ * bar, inside its content width, so it never covers page controls. It opens
+ * and closes with a height spring (a fade under reduced motion). Save and
+ * publish notices can be dismissed; the status pill keeps the state.
+ */
 function SessionBanners({
 	publishFailed,
 	publishDialogOpen,
@@ -597,55 +606,181 @@ function SessionBanners({
 	onRetryPublish: () => void;
 }) {
 	const store = useDraftStore();
+	const reduce = useLiveReducedMotion();
 	const authExpired = useDraftSelector((state) => state.authExpired);
 	const status = useDraftSelector((state) => state.status);
 	const error = useDraftSelector((state) => state.error);
+	const dirty = useDraftSelector((state) => state.dirty);
+	const [dismissed, setDismissed] = useState<string | null>(null);
+	const [signInOpened, setSignInOpened] = useState(false);
+	const strip = useRef<HTMLDivElement>(null);
+	const retryRef = useRef<HTMLButtonElement>(null);
 
-	if (!authExpired && (status !== "error" || !error || publishDialogOpen)) return null;
+	const notice: SessionNotice | null = authExpired
+		? { kind: "expired" }
+		: status === "error" && error && !publishDialogOpen
+			? publishFailed
+				? { kind: "publish" }
+				: { kind: "save", message: error }
+			: null;
+	const key = notice ? (notice.kind === "save" ? `save:${notice.message}` : notice.kind) : null;
+	const visible = notice !== null && key !== dismissed;
+	// Keep the last notice on screen while the strip closes.
+	const shown = useRef<SessionNotice | null>(null);
+	if (notice && visible) shown.current = notice;
+	const content = shown.current;
+
+	useEffect(() => {
+		if (key === null) setDismissed(null);
+		if (!authExpired) setSignInOpened(false);
+	}, [authExpired, key]);
+
+	useLayoutEffect(() => {
+		if (signInOpened) retryRef.current?.focus({ preventScroll: true });
+	}, [signInOpened]);
+
+	useLayoutEffect(() => {
+		if (!visible && strip.current?.contains(document.activeElement)) {
+			document.querySelector<HTMLElement>(".cms-status-pill")?.focus({ preventScroll: true });
+		}
+	}, [visible]);
+
+	// Scroll targets and the route transition clip sit below the taller bar.
+	useEffect(() => {
+		const body = strip.current?.firstElementChild;
+		const root = document.documentElement;
+		if (!visible || !(body instanceof HTMLElement)) return;
+		const observer = new ResizeObserver(() => {
+			root.style.setProperty("--cms-topbar-extra", `${body.offsetHeight}px`);
+		});
+		observer.observe(body);
+		return () => {
+			observer.disconnect();
+			root.style.removeProperty("--cms-topbar-extra");
+		};
+	}, [visible]);
+
+	const focusPill = (button: HTMLElement) => {
+		if (document.activeElement === button) {
+			document.querySelector<HTMLElement>(".cms-status-pill")?.focus({ preventScroll: true });
+		}
+	};
+
+	const retryAfterSignIn = () => {
+		const retryPublish = publishFailed && !dirty;
+		setSignInOpened(false);
+		void store.resumeAfterSignIn().then((ok) => {
+			if (ok && retryPublish) onRetryPublish();
+		});
+	};
 
 	return (
-		<div
-			role="alert"
-			data-slot={authExpired ? "cms-auth-expired-banner" : "cms-error-banner"}
-			className="cms-session-banner absolute top-[calc(100%+12px)] right-3 left-3 rounded-[14px] px-3 text-[13px] text-foreground sm:left-auto sm:max-w-md"
-		>
-			<div className="cms-topbar-inner mx-auto flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2">
-				<span className="flex min-w-0 flex-[1_0_min(240px,100%)] items-center gap-2">
-					<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
-					<span>
-						{authExpired
-							? "Your session expired. Reload the console to sign in again. Your unsaved edits stay in this browser until you reload."
-							: publishFailed
-								? "The draft could not be published. Check your connection."
-								: error}
-					</span>
-				</span>
-				<Button
-					variant="outline"
-					size="sm"
-					onClick={(event) => {
-						if (authExpired) {
-							window.location.reload();
-							return;
-						}
-						if (publishFailed) {
-							onRetryPublish();
-							return;
-						}
-						if (document.activeElement === event.currentTarget) {
-							event.currentTarget
-								.closest(".cms-topbar")
-								?.querySelector<HTMLElement>(".cms-status-pill")
-								?.focus({ preventScroll: true });
-						}
-						saveDraftIfAvailable(store);
-					}}
-					className="pointer-coarse:min-h-11"
+		<AnimatePresence initial={false}>
+			{visible && content ? (
+				<motion.div
+					ref={strip}
+					key="session-notice"
+					className="overflow-hidden"
+					initial={{ height: 0, opacity: 0 }}
+					animate={{ height: "auto", opacity: 1 }}
+					exit={{ height: 0, opacity: 0 }}
+					transition={
+						reduce
+							? { height: { duration: 0 }, opacity: REDUCED }
+							: { height: SPRING_MOVE, opacity: RAIL_PILL_FADE }
+					}
 				>
-					{authExpired ? "Reload console" : publishFailed ? "Retry publish" : "Retry save"}
-				</Button>
-			</div>
-		</div>
+					<div className="cms-topbar-inner mx-auto pb-2.5">
+						<div
+							role="alert"
+							data-slot={
+								content.kind === "expired" ? "cms-auth-expired-banner" : "cms-error-banner"
+							}
+							className="cms-session-banner flex flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-[12px] py-2 pr-2 pl-3 text-[13px] text-foreground"
+						>
+							<span className="flex min-w-0 flex-[1_0_min(240px,100%)] items-center gap-2">
+								<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
+								<span>
+									{content.kind === "expired"
+										? signInOpened
+											? "Signed in again? Retry to save your edits from this tab."
+											: "You were signed out. Sign in again in a new tab; your edits stay in this one."
+										: content.kind === "publish"
+											? "The draft could not be published. Check your connection."
+											: content.message}
+								</span>
+							</span>
+							<span className="flex shrink-0 items-center gap-1.5">
+								{content.kind === "expired" ? (
+									<>
+										<Button
+											variant="ghost"
+											size="sm"
+											onClick={() => window.location.reload()}
+											className="pointer-coarse:min-h-11"
+										>
+											Reload console
+										</Button>
+										{signInOpened ? (
+											<Button
+												ref={retryRef}
+												size="sm"
+												onClick={retryAfterSignIn}
+												className="pointer-coarse:min-h-11"
+											>
+												{publishFailed && !dirty ? "Retry publish" : "Retry save"}
+											</Button>
+										) : (
+											<a
+												href={new URL("/", window.location.origin).href}
+												target="_blank"
+												rel="noopener"
+												onClick={() => setSignInOpened(true)}
+												className={buttonVariants({
+													size: "sm",
+													className: "cms-press no-underline pointer-coarse:min-h-11",
+												})}
+											>
+												Sign in again <ExternalArrowIcon className="size-3.5" />
+											</a>
+										)}
+									</>
+								) : (
+									<>
+										<Button
+											variant="outline"
+											size="sm"
+											onClick={(event) => {
+												if (content.kind === "publish") {
+													onRetryPublish();
+													return;
+												}
+												focusPill(event.currentTarget);
+												saveDraftIfAvailable(store);
+											}}
+											className="pointer-coarse:min-h-11"
+										>
+											{content.kind === "publish" ? "Retry publish" : "Retry save"}
+										</Button>
+										<button
+											type="button"
+											aria-label="Dismiss"
+											onClick={(event) => {
+												focusPill(event.currentTarget);
+												setDismissed(key);
+											}}
+											className="cms-chrome-control cms-press grid size-8 place-items-center rounded-[8px] text-muted-foreground pointer-coarse:size-11"
+										>
+											<CloseIcon className="size-3.5" />
+										</button>
+									</>
+								)}
+							</span>
+						</div>
+					</div>
+				</motion.div>
+			) : null}
+		</AnimatePresence>
 	);
 }
 

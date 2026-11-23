@@ -155,6 +155,15 @@ function useRouteViewTransitions() {
 		};
 		reduced.addEventListener("change", onMotionChange);
 
+		// Router internals (pinned: @tanstack/react-router 1.170.46 with
+		// @tanstack/router-core 1.171.39). This wraps the router instance's
+		// `startViewTransition(fn)` and reads and clears `shouldViewTransition`,
+		// which `navigate()` sets from the link's `viewTransition` option; it
+		// also reads `stores.resolvedLocation` and `latestLocation`. None of these
+		// are documented API. On a router upgrade, check that `load()` still calls
+		// `router.startViewTransition(fn)` with the commit as `fn`, and that
+		// `src/components/cms/shell/router-internals.test.ts` still passes.
+		//
 		// CMS navigations: the router's update callback commits the route and
 		// restores (or resets) scroll with `scrollRestorationBehavior: "instant"`,
 		// so the incoming snapshot is captured at its final scroll position and
@@ -204,7 +213,34 @@ function useRouteViewTransitions() {
 			// Give the keyed sections separate groups so each keeps the viewport
 			// position captured on its side of scroll restoration.
 			if (outgoing) outgoing.style.viewTransitionName = "cms-section-out";
-			const view = document.startViewTransition(types ? { update, types } : update);
+			// The section snapshot owns the entry rise. Opt the page's own
+			// `.cms-enter` rises out, both those in the first paint (tagged
+			// before the new snapshot is captured) and rows that mount while
+			// the snapshot still rises, so the content rises once. The tag
+			// stays on those elements (removing it would replay the animation);
+			// rows that mount after the transition keep their own enter.
+			let entering: MutationObserver | undefined;
+			const commit = async () => {
+				await update();
+				const incoming = document.querySelector<HTMLElement>(sectionSelector);
+				if (!incoming || incoming === outgoing) return;
+				const tag = (scope: Element) => {
+					for (const element of scope.querySelectorAll<HTMLElement>(".cms-enter")) {
+						element.dataset.cmsVtEnter = "";
+					}
+					if (scope instanceof HTMLElement && scope.classList.contains("cms-enter")) {
+						scope.dataset.cmsVtEnter = "";
+					}
+				};
+				tag(incoming);
+				entering = new MutationObserver((records) => {
+					for (const record of records) {
+						for (const node of record.addedNodes) if (node instanceof Element) tag(node);
+					}
+				});
+				entering.observe(incoming, { childList: true, subtree: true });
+			};
+			const view = document.startViewTransition(types ? { update: commit, types } : commit);
 			const transition = { view, skipped: false, outgoing };
 			cmsTransition = transition;
 			const reportTransitionError = (error: unknown) => {
@@ -219,6 +255,7 @@ function useRouteViewTransitions() {
 			};
 			void view.ready.catch(reportTransitionError);
 			const finish = () => {
+				entering?.disconnect();
 				if (cmsTransition === transition || cmsTransition?.outgoing !== outgoing) {
 					outgoing?.style.removeProperty("view-transition-name");
 				}
