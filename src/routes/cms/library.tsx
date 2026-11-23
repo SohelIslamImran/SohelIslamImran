@@ -67,7 +67,7 @@ function LibraryRoute() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Media library"
-				description="Images and PDFs you can attach to any section. Alt text here is the default for new attachments."
+				description="Images, PDFs, and default alt text for attachments."
 			/>
 
 			{!mediaEnabled ? (

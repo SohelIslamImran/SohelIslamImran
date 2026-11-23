@@ -3,8 +3,27 @@
 @layer components {
 	/* Unified focus ring for custom page controls. */
 	.cms-page-focus:focus-visible {
-		outline: none;
+		outline: 2px solid transparent;
+		outline-offset: 2px;
 		box-shadow: var(--cms-ring);
+	}
+
+	/* Keep header filters centered without letting the track padding grow the title row. */
+	.cms-page-header-actions > .cms-seg-track {
+		margin-block: -2px;
+	}
+
+	@media (pointer: coarse) {
+		.cms-page-header-actions > .cms-seg-track {
+			margin-block: -4px;
+		}
+	}
+
+	@media (max-width: 639px) {
+		.cms-page-header-actions .cms-seg-item {
+			min-width: 44px;
+			padding-inline: 5px;
+		}
 	}
 
 	/* Gentle <= 1 Hz live visitor pulse (0.42 Hz, scale + opacity only). */
@@ -26,6 +45,7 @@
 
 	/* Segmented control track and sliding elevated pill (never hue alone). */
 	.cms-seg-track {
+		position: relative;
 		display: inline-flex;
 		max-width: 100%;
 		flex-wrap: nowrap;
@@ -115,7 +135,7 @@
 	}
 
 	.cms-seg-item:focus-visible {
-		outline: none;
+		outline: 2px solid transparent;
 		box-shadow: var(--cms-ring);
 	}
 
@@ -198,8 +218,17 @@
 
 	/* Inset focus ring for full-bleed controls inside clipped containers. */
 	.cms-inset-focus:focus-visible {
-		outline: none;
+		outline: 2px solid transparent;
+		outline-offset: -2px;
 		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	@media (forced-colors: active) {
+		.cms-inset-focus:focus-visible,
+		.cms-seg-item:focus-visible {
+			/* Keep the site's system-color outline inside clipped controls. */
+			outline-offset: -2px !important;
+		}
 	}
 
 	/* Relative time labels fade in after hydration instead of swapping text. */
@@ -292,7 +321,7 @@
 	/* Media upload dropzone. */
 	.cms-dropzone {
 		border: 1.5px dashed var(--theme-line-strong);
-		border-radius: 14px;
+		border-radius: 12px;
 		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
 		transition:
 			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
@@ -365,9 +394,11 @@
 		}
 		.cms-collapse-panel {
 			animation: cms-fade 140ms linear both;
+			animation-duration: 140ms !important;
 		}
 		.cms-time-in {
 			animation: cms-fade 120ms linear both;
+			animation-duration: 120ms !important;
 		}
 		.cms-chart-series {
 			clip-path: none;
@@ -383,6 +414,7 @@
 				background-color 120ms linear,
 				border-color 120ms linear,
 				opacity 120ms linear;
+			transition-duration: 120ms !important;
 		}
 		.cms-jump-card:hover {
 			translate: 0 0;

@@ -11,7 +11,6 @@ import {
 	QuietNote,
 	RankedList,
 	SegmentedControl,
-	controlClass,
 	formatDuration,
 	inlineLinkClass,
 	pageClass,
@@ -145,17 +144,18 @@ function Analytics() {
 						href={new URL("/?analytics=off", publicOrigin).href}
 						target="_blank"
 						rel="noreferrer"
-						className={controlClass}
+						className="cms-editor-button cms-editor-live cms-press cms-page-focus"
 					>
-						<span>Exclude this browser</span>
-						<ExternalArrowIcon className="size-3.5 text-muted-foreground" />
+						<span className="max-sm:sr-only">Exclude this browser</span>
+						<ExternalArrowIcon className="size-3.5" />
+						<span className="sr-only"> (opens in a new tab)</span>
 					</a>
 				}
 			/>
 
 			{/* Segmented range selector with sliding pill (never hue alone) */}
 			<div
-				className="cms-enter flex flex-wrap items-center justify-between gap-3"
+				className="cms-panel cms-enter flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
 				style={staggerStyle(0)}
 			>
 				<nav aria-label="Traffic range" className="cms-seg-track">

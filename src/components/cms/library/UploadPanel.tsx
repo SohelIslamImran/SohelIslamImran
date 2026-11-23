@@ -85,7 +85,7 @@ export function UploadPanel({
 		<section style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="grid gap-0.5">
-					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 						Add media
 					</h2>
 					<p className="m-0 text-[13px] text-muted-foreground">
@@ -133,10 +133,10 @@ export function UploadPanel({
 								<img
 									src={previewUrl}
 									alt={selectedFile.name}
-									className="size-12 shrink-0 rounded-[9px] border border-line object-cover"
+									className="size-12 shrink-0 rounded-[10px] border border-line object-cover"
 								/>
 							) : (
-								<span className="grid size-12 shrink-0 place-items-center rounded-[9px] border border-line bg-surface-solid text-muted-foreground">
+								<span className="grid size-12 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-solid text-muted-foreground">
 									<MediaLibraryIcon className="size-5" />
 								</span>
 							)}
@@ -153,7 +153,7 @@ export function UploadPanel({
 						<div className="flex min-w-0 flex-1 items-center gap-3">
 							<span
 								aria-hidden="true"
-								className="grid size-10 shrink-0 place-items-center rounded-[11px] border border-line-strong bg-surface-solid text-primary-text shadow-[0_1px_2px_var(--theme-shadow-soft)]"
+								className="grid size-10 shrink-0 place-items-center rounded-[12px] border border-line-strong bg-surface-solid text-primary-text shadow-[0_1px_2px_var(--theme-shadow-soft)]"
 							>
 								<UploadIcon className="size-4" />
 							</span>

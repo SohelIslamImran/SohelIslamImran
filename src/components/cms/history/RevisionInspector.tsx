@@ -74,7 +74,7 @@ export function RevisionInspector({
 					<h2
 						id="cms-revision-heading"
 						tabIndex={-1}
-						className="m-0 text-[17px] font-semibold tracking-[-0.018em] text-foreground outline-none"
+						className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
 					>
 						{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
 					</h2>
@@ -83,14 +83,14 @@ export function RevisionInspector({
 						<RelativeTime iso={detail.changedAt} className="w-auto" />
 						<span aria-hidden="true"> · </span>
 						{formatBytes(detail.bytes)}
-						{baselineBytes !== null && detail.bytes !== baselineBytes
+						{differs && baselineBytes !== null && detail.bytes !== baselineBytes
 							? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
 							: ""}
 					</p>
 				</div>
 
 				<Button
-					variant="default"
+					variant="outline"
 					size="sm"
 					disabled={!differs || restoring || stale}
 					onClick={onRestore}
@@ -159,10 +159,10 @@ export function RestoreDialog({
 			}}
 		>
 			<AlertDialog.Portal>
-				<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.35)] dark:bg-[rgb(0_0_0/0.6)]" />
+				<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
 				<AlertDialog.Popup
 					finalFocus={() => (finalFocus() ? false : true)}
-					className="cms-dialog-popup cms-glass fixed top-1/2 left-1/2 z-(--z-palette) grid w-[min(460px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6"
+					className="cms-modal cms-overlay fixed top-1/2 left-1/2 z-(--z-palette) grid max-h-[calc(100dvh-24px)] w-[min(460px,calc(100vw-24px))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6"
 				>
 					<div className="flex items-start gap-3">
 						<span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-primary-line bg-primary-soft text-primary-text">

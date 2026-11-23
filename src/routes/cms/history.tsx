@@ -267,7 +267,7 @@ function HistoryRoute() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Revision history"
-				description="Compare any saved revision with your current draft, and restore it if you need to."
+				description="Compare or restore any saved revision."
 				actions={
 					<SegmentedControl
 						layoutId="cms-history-filter-pill"

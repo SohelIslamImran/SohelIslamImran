@@ -250,7 +250,7 @@ export function TrafficChart({
 			)}
 		>
 			<div className="flex flex-wrap items-center justify-between gap-3">
-				<h2 id={id} className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+				<h2 id={id} className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 					{title}
 				</h2>
 

@@ -137,8 +137,8 @@ function DraftStatus() {
 				className="cms-panel cms-enter flex min-w-0 items-center gap-3 px-4 py-3 sm:px-5"
 			>
 				{icon}
-				<h2 className="m-0 min-w-0 flex-1 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
-					Live site is up to date
+				<h2 className="m-0 min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
+					Your live site is up to date
 				</h2>
 				<Link to="/cms/history" className={inlineLinkClass}>
 					<HistoryIcon className="size-3.5" />
@@ -156,7 +156,7 @@ function DraftStatus() {
 			<div className="flex min-w-0 flex-wrap items-center gap-3">
 				<div className="flex min-w-[200px] flex-1 items-center gap-3">
 					{icon}
-					<h2 className="m-0 min-w-0 flex-1 text-[17px] font-semibold tracking-[-0.018em] text-foreground">
+					<h2 className="m-0 min-w-0 flex-1 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 						{tone === "error"
 							? `Fix ${errors} ${errors === 1 ? "issue" : "issues"} before publishing`
 							: diff.totalChanges > 0
@@ -165,7 +165,7 @@ function DraftStatus() {
 					</h2>
 				</div>
 				<Button
-					variant="default"
+					variant="outline"
 					size="sm"
 					nativeButton={false}
 					render={<Link to="/cms/release" />}
@@ -282,7 +282,7 @@ function CmsOverview() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Overview"
-				description="What’s ready to publish, what changed recently, and how the site is doing."
+				description="Draft changes, recent activity, and site traffic."
 			/>
 
 			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
