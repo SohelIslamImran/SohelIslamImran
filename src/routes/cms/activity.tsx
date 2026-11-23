@@ -16,6 +16,7 @@ import {
 	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
 import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
+import { useDraftSelector } from "../../components/cms/draft/context";
 import { AuditEventSummary } from "../../components/cms/history/audit-events";
 import { ActivityIcon, AlertTriangleIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
@@ -120,9 +121,13 @@ function ActivityRoute() {
 		[fetchEvents],
 	);
 
+	// Saves, publishes, restores, and discards move a revision and add an event.
+	const draftRevision = useDraftSelector((state) => state.draftRevision);
+	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
+
 	useEffect(() => {
 		void loadInitial(filter);
-	}, [filter, loadInitial]);
+	}, [filter, loadInitial, draftRevision, publishedRevision]);
 
 	// A failed "Load older" keeps the list and offers a retry beside the button.
 	const loadMore = async () => {

@@ -223,12 +223,19 @@ function RecentActivityCard() {
 	const fetchEvents = useServerFn(listAuditEvents);
 	const [events, setEvents] = useState<AuditEventItem[] | null>(null);
 	const [failed, setFailed] = useState(false);
+	// Saves, publishes, restores, and discards all move a revision; refetch then,
+	// keeping the current rows on screen until the new ones arrive.
+	const draftRevision = useDraftSelector((state) => state.draftRevision);
+	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 
 	useEffect(() => {
 		let cancelled = false;
 		void fetchEvents({ data: { limit: 5 } })
 			.then((result) => {
-				if (!cancelled) setEvents(result.items);
+				if (!cancelled) {
+					setEvents(result.items);
+					setFailed(false);
+				}
 			})
 			.catch(() => {
 				if (!cancelled) setFailed(true);
@@ -236,7 +243,7 @@ function RecentActivityCard() {
 		return () => {
 			cancelled = true;
 		};
-	}, [fetchEvents]);
+	}, [fetchEvents, draftRevision, publishedRevision]);
 
 	return (
 		<Panel
