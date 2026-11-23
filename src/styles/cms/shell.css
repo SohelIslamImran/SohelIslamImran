@@ -5,9 +5,7 @@
 		--cms-dur-press: 100ms;
 		--cms-dur-fast: 160ms;
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-		--cms-ring:
-			0 0 0 2px var(--theme-accent),
-			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 62%, transparent);
 	}
 
 	.cms-command-secondary {
@@ -29,7 +27,7 @@
 
 	.cms-root :is(.cms-chrome-control, .cms-action):focus-visible,
 	.cms-overlay :is(a, button):focus-visible {
-		outline: 2px solid var(--theme-accent);
+		outline: 2px solid transparent;
 		outline-offset: 2px;
 		box-shadow: var(--cms-ring);
 	}
@@ -543,7 +541,7 @@
 		scale: 0.91;
 	}
 	.cms-command-search:has(input:focus-visible) {
-		box-shadow: inset 0 -2px color-mix(in srgb, var(--theme-focus) 90%, var(--theme-ink));
+		box-shadow: inset 0 -1px color-mix(in srgb, var(--theme-accent) 55%, transparent);
 	}
 	.cms-result-enter {
 		animation: cms-fade 140ms ease-out both;

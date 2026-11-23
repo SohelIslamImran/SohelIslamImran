@@ -192,7 +192,7 @@ function ActivityRoute() {
 							<select
 								value={filter}
 								onChange={(event) => setFilter(event.currentTarget.value as FilterKind)}
-								className="cms-page-focus min-h-11 w-full rounded-[10px] border border-line bg-surface-solid px-3 text-[14px]"
+								className="cms-control min-h-11 w-full px-3 text-[14px]"
 							>
 								{FILTERS.map(({ value, label }) => (
 									<option key={value} value={value}>

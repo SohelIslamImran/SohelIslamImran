@@ -48,12 +48,37 @@
 		gap: 1.25rem 1rem;
 	}
 
+	/*
+	 * Inputs read as soft filled wells, the way macOS and iOS draw text
+	 * fields: a faint ink tint, a hairline edge, and no inner shadow. Focus
+	 * lifts the field to the panel color, draws the edge in the accent, and
+	 * adds a 3px glow; the accent edge carries the 3:1 change on its own.
+	 */
+	.cms-root,
+	.cms-field-popup {
+		--cms-control-fill: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
+		--cms-control-fill-hover: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 9%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 15%, transparent);
+		--cms-control-glow: color-mix(in srgb, var(--theme-accent) 20%, transparent);
+	}
+
+	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
+		--cms-control-fill: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		--cms-control-fill-hover: color-mix(in srgb, var(--theme-ink) 8.5%, var(--theme-surface-solid));
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 10%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 17%, transparent);
+		--cms-control-glow: color-mix(in srgb, var(--theme-accent) 26%, transparent);
+	}
+
 	.cms-control {
-		border: 1px solid var(--theme-control-border, var(--theme-line));
+		border: 1px solid var(--cms-control-edge);
 		border-radius: var(--cms-radius-control, 10px);
-		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		background: var(--cms-control-fill);
+		background-clip: padding-box;
 		color: var(--theme-ink);
-		box-shadow: inset 0 1px 1px var(--theme-shadow-soft);
+		box-shadow: 0 0 0 0 transparent;
+		caret-color: var(--theme-accent);
 		/* Only button-like controls use scale for press feedback. */
 		transition:
 			background-color var(--cms-dur-fast) var(--cms-ease-out),
@@ -87,16 +112,24 @@
 	.cms-control:focus-visible,
 	.cms-control[data-popup-open],
 	.cms-control.cms-tags:focus-within {
-		outline: none;
-		border-color: var(--theme-focus);
+		/* Transparent, so forced-colors mode still draws a system outline. */
+		outline: 2px solid transparent;
+		outline-offset: 1px;
+		border-color: var(--theme-accent);
 		background: var(--theme-surface-solid);
-		box-shadow: var(--cms-ring);
+		box-shadow: 0 0 0 3px var(--cms-control-glow);
 	}
 
+	/* The error text under the field says what is wrong; the edge only tints. */
 	.cms-control[aria-invalid="true"],
 	.cms-field[data-invalid] > .cms-tags {
+		border-color: color-mix(in srgb, var(--theme-destructive) 70%, transparent);
+	}
+
+	.cms-control[aria-invalid="true"]:focus-visible,
+	.cms-field[data-invalid] > .cms-tags:focus-within {
 		border-color: var(--theme-destructive);
-		border-style: dashed;
+		box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-destructive) 18%, transparent);
 	}
 
 	.cms-textarea {
@@ -216,8 +249,18 @@
 
 	.cms-field :is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible,
 	.cms-editor :is(button, a, [role="tab"], [data-row-handle]):focus-visible {
-		outline: 1px solid var(--theme-focus);
+		outline: 2px solid transparent;
 		outline-offset: 1px;
+		box-shadow: var(--cms-ring);
+	}
+
+	/* Switches and checkboxes ring the visible track or box, not the hit area. */
+	.cms-field :is(.cms-switch, .cms-checkbox):focus-visible {
+		box-shadow: none;
+	}
+
+	.cms-switch:focus-visible .cms-switch-track,
+	.cms-checkbox:focus-visible .cms-checkbox-box {
 		box-shadow: var(--cms-ring);
 	}
 
@@ -230,7 +273,8 @@
 				[aria-invalid="true"],
 				.cms-tags:focus-within
 			) {
-			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
+			background-color: var(--cms-control-fill-hover);
+			border-color: var(--cms-control-edge-hover);
 		}
 
 		.cms-field-revert:hover {
@@ -248,9 +292,7 @@
 		--cms-dur-base: 240ms;
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-		--cms-ring:
-			0 0 0 2px var(--theme-accent),
-			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 62%, transparent);
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);
@@ -316,11 +358,31 @@
 
 	/*
 	 * The highlighted option is the keyboard focus in selects and suggestion
-	 * lists. The soft fill alone is too faint, so it carries the focus ring's
-	 * solid accent line inset, and the ring moves with the fill.
+	 * lists, so it is drawn like a macOS menu selection: a solid accent fill
+	 * with light text, which needs no outline to stand out.
 	 */
 	.cms-choice-option > .cms-choice-highlight {
-		box-shadow: inset 0 0 0 2px var(--theme-accent);
+		background: var(--theme-accent);
+	}
+
+	.cms-choice-option[data-highlighted] {
+		color: var(--theme-accent-foreground);
+	}
+
+	.cms-choice-hint {
+		color: var(--theme-muted);
+	}
+
+	.cms-choice-check {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-choice-option[data-highlighted] :is(.cms-choice-hint, .cms-choice-check) {
+		color: inherit;
+	}
+
+	.cms-choice-option[data-highlighted] .cms-choice-hint {
+		opacity: 0.85;
 	}
 
 	.cms-choice-trigger > span:last-child {
@@ -349,11 +411,13 @@
 		width: 46px;
 		height: 26px;
 		padding-inline: 2px;
-		/* The off edge keeps 3:1 against the panel in both themes. */
-		border: 1px solid var(--theme-control-border);
+		/* An off switch is a plain gray capsule, as on iOS. */
+		border: 1px solid transparent;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
-		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
+		background: color-mix(in srgb, var(--theme-ink) 16%, var(--theme-surface-solid));
+		transition:
+			background-color var(--cms-dur-fast) var(--cms-ease-out),
+			box-shadow var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
 	.cms-switch[data-checked] .cms-switch-track,
@@ -367,8 +431,10 @@
 		width: 20px;
 		height: 20px;
 		border-radius: 50%;
-		background: var(--theme-surface-solid);
-		box-shadow: 0 1px 3px var(--theme-shadow);
+		background: #ffffff;
+		box-shadow:
+			0 0 0 0.5px rgb(0 0 0 / 0.04),
+			0 2px 5px rgb(0 0 0 / 0.16);
 	}
 
 	.cms-checkbox-box {
@@ -376,9 +442,10 @@
 		place-items: center;
 		width: 20px;
 		height: 20px;
-		border: 1px solid var(--theme-control-border);
+		border: 1px solid color-mix(in srgb, var(--theme-ink) 24%, transparent);
 		border-radius: 6px;
 		background: var(--theme-surface-solid);
+		box-shadow: 0 1px 1px var(--theme-shadow-soft);
 		color: var(--color-primary-foreground);
 		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
@@ -401,7 +468,7 @@
 		min-width: 0;
 		max-width: 100%;
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		background: var(--cms-control-fill);
 		padding: 3px;
 	}
 
@@ -423,8 +490,9 @@
 	.cms-segment .cms-choice-highlight {
 		background: var(--theme-surface-solid);
 		box-shadow:
-			inset 0 0 0 1px var(--theme-control-border),
-			0 1px 3px var(--theme-shadow-soft);
+			0 0 0 0.5px var(--theme-line-strong),
+			0 1px 2px var(--theme-shadow-soft),
+			0 2px 6px -2px var(--theme-shadow);
 	}
 
 	.cms-segment:is([data-checked], [data-active]) {
@@ -436,9 +504,11 @@
 		.cms-segment:hover {
 			color: var(--theme-ink);
 		}
-		.cms-switch:hover .cms-switch-track,
-		.cms-checkbox:hover .cms-checkbox-box {
-			box-shadow: 0 0 0 3px var(--theme-accent-soft);
+		.cms-switch:hover:not([data-checked]) .cms-switch-track {
+			background: color-mix(in srgb, var(--theme-ink) 21%, var(--theme-surface-solid));
+		}
+		.cms-checkbox:hover:not([data-checked]) .cms-checkbox-box {
+			border-color: color-mix(in srgb, var(--theme-ink) 34%, transparent);
 		}
 	}
 
