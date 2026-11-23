@@ -297,6 +297,9 @@ export function PipelineBar({
 				</button>
 
 				<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
+					<span className="sr-only sm:hidden">
+						Draft revision {draftRevision}, live revision {publishedRevision}
+					</span>
 					<span
 						className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
 						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}

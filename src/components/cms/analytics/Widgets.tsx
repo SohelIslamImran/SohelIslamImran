@@ -216,7 +216,9 @@ export function PageHeader({
 }) {
 	return (
 		<header className="cms-enter grid min-w-0 items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
-			<h1 className="m-0 text-headline sm:col-start-1 sm:row-start-1">{title}</h1>
+			<h1 className="m-0 text-headline sm:col-start-1 sm:row-start-1 sm:flex sm:min-h-9 sm:items-center sm:pointer-coarse:min-h-11">
+				{title}
+			</h1>
 			{description ? (
 				<p className="m-0 text-[14px] leading-relaxed text-muted-foreground sm:col-span-2 sm:row-start-2">
 					{description}

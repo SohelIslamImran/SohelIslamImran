@@ -129,7 +129,7 @@ export function AuditEventSummary({
 						to="/cms/history"
 						search={{ revision: meta.revision }}
 						aria-label={`Revision ${meta.revision} in history`}
-						className="group/revision cms-press cms-page-focus inline-flex shrink-0 items-center justify-center rounded-full no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11"
+						className="group/revision cms-press cms-page-focus inline-flex shrink-0 items-center justify-center rounded-full no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-start"
 					>
 						<span className="inline-flex min-h-7 items-center rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] text-primary-text tabular-nums group-hover/revision:border-primary-line group-hover/revision:bg-primary-soft">
 							r{meta.revision}

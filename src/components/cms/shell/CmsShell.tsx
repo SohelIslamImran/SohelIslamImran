@@ -389,8 +389,11 @@ function LayerRailContent({
 			if (!nav.clientHeight) return;
 			const viewport = nav.getBoundingClientRect();
 			const item = link.getBoundingClientRect();
-			if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top;
-			else if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom;
+			const inset = Number.parseFloat(getComputedStyle(nav).scrollPaddingTop) || 0;
+			const top = viewport.top + inset;
+			const bottom = viewport.bottom - inset;
+			if (item.top < top) nav.scrollTop += item.top - top;
+			else if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
 		};
 		reveal();
 		// Also reveal when a previously hidden desktop rail gains a viewport.
@@ -532,7 +535,7 @@ function LayerRailContent({
 				<div className="cms-rail-footer-row mt-2.5 flex items-center gap-1.5 border-t border-line pt-2">
 					<RailTooltip label="Appearance" showExpanded disabled={layoutScope === "drawer"}>
 						<span className="grid w-fit">
-							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
+							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 rounded-[10px] pointer-coarse:size-11" />
 						</span>
 					</RailTooltip>
 					<RailTooltip label="Open Cloudflare dashboard" disabled={layoutScope === "drawer"}>
@@ -541,7 +544,7 @@ function LayerRailContent({
 							target="_blank"
 							rel="noreferrer"
 							aria-label="Open Cloudflare dashboard"
-							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] border border-line px-1.5 text-[12px] text-ink-soft no-underline"
+							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[12px] text-ink-soft no-underline"
 						>
 							<CloudIcon className="size-3.5 shrink-0" />
 							<span className="cms-rail-footer-label truncate">Cloudflare</span>
@@ -553,7 +556,7 @@ function LayerRailContent({
 							target="_blank"
 							rel="noreferrer"
 							aria-label="Open live site"
-							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] border border-line px-1.5 text-[12px] text-ink-soft no-underline"
+							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[12px] text-ink-soft no-underline"
 						>
 							<ExternalArrowIcon className="size-3.5 shrink-0" />
 							<span className="cms-rail-footer-label truncate">Live site</span>
@@ -578,14 +581,21 @@ function NavigationProgress() {
 		return () => window.clearTimeout(timer);
 	}, [loading]);
 
-	return loading && visible ? (
-		<span
-			role="status"
-			aria-label="Loading page"
-			data-slot="cms-navigation-progress"
-			className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 bg-primary/40"
-		/>
-	) : null;
+	const showProgress = loading && visible;
+	return (
+		<>
+			<span role="status" className="sr-only">
+				{showProgress ? "Loading page" : ""}
+			</span>
+			{showProgress ? (
+				<span
+					aria-hidden="true"
+					data-slot="cms-navigation-progress"
+					className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 overflow-hidden bg-primary/60 motion-safe:bg-primary/20"
+				/>
+			) : null}
+		</>
+	);
 }
 
 /** Save state in words, never color alone. */

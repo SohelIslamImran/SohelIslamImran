@@ -55,6 +55,7 @@
 	}
 
 	.cms-rail-scroll {
+		--cms-scroll-fade-size: 8px;
 		overflow-x: clip;
 		scrollbar-width: thin;
 		scrollbar-color: color-mix(in srgb, var(--theme-ink) 18%, transparent) transparent;
@@ -62,16 +63,17 @@
 	}
 
 	.cms-scroll-fade {
-		scroll-padding-block: 12px;
+		scroll-padding-block: var(--cms-scroll-fade-size, 12px);
 	}
 
-	.cms-scroll-fade[data-scroll-start],
-	.cms-scroll-fade[data-scroll-end] {
+	.cms-scroll-fade:is([data-scroll-start], [data-scroll-end]):not(
+			:has(.cms-rail-link:focus-visible)
+		) {
 		mask-image: linear-gradient(
 			to bottom,
 			var(--cms-fade-start, black 0),
-			black 12px,
-			black calc(100% - 12px),
+			black var(--cms-scroll-fade-size, 12px),
+			black calc(100% - var(--cms-scroll-fade-size, 12px)),
 			var(--cms-fade-end, black 100%)
 		);
 	}
@@ -179,33 +181,41 @@
 		display: none;
 	}
 
+	.cms-rail-desktop,
+	.cms-drawer-popup {
+		--rail-footer-control-size: 36px;
+	}
+
 	.cms-rail-footer-row {
-		--rail-footer-target: 36px;
+		flex-direction: var(--rail-footer-direction, row);
 	}
 
 	.cms-rail-footer-link {
-		min-height: var(--rail-footer-target);
+		position: relative;
+		inline-size: var(--rail-footer-size, auto);
+		min-height: var(--rail-footer-control-size);
+	}
+
+	.cms-rail-footer-label {
+		position: var(--rail-footer-label-position, static);
+		inset-inline-start: calc(var(--rail-footer-control-size) - 6px);
+		opacity: var(--rail-opacity, 1);
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
 	@media (pointer: coarse) {
-		.cms-rail-footer-row {
-			--rail-footer-target: 44px;
+		.cms-rail-desktop,
+		.cms-drawer-popup {
+			--rail-footer-control-size: 44px;
 		}
 	}
 
 	@container cms-rail (width < 224px) {
-		.cms-rail-footer-row {
-			flex-direction: column;
-		}
-
-		.cms-rail-footer-link {
-			flex: none;
-			inline-size: var(--rail-footer-target);
-			padding-inline: 0;
-		}
-
-		.cms-rail-footer-label {
-			display: none;
+		.cms-drawer-popup .cms-rail-footer-row {
+			--rail-opacity: 0;
+			--rail-footer-direction: column;
+			--rail-footer-size: var(--rail-footer-control-size);
+			--rail-footer-label-position: absolute;
 		}
 	}
 
@@ -321,6 +331,7 @@
 			overflow: clip;
 		}
 
+		/* Switch the footer at the start of resizing, alongside the rail labels. */
 		:is(
 				.cms-layout[data-rail="collapsed"],
 				html[data-cms-rail="collapsed"] .cms-layout:not([data-rail-ready])
@@ -329,6 +340,9 @@
 			--rail-opacity: 0;
 			--rail-offset: -4px;
 			--rail-badge-opacity: 1;
+			--rail-footer-direction: column;
+			--rail-footer-size: var(--rail-footer-control-size);
+			--rail-footer-label-position: absolute;
 		}
 
 		body:has(.cms-layout[data-rail="collapsed"]) .cms-rail-tooltip {
@@ -350,6 +364,9 @@
 			--rail-opacity: 0;
 			--rail-offset: -4px;
 			--rail-badge-opacity: 1;
+			--rail-footer-direction: column;
+			--rail-footer-size: var(--rail-footer-control-size);
+			--rail-footer-label-position: absolute;
 		}
 
 		body:has(.cms-layout[data-rail="auto"]) .cms-rail-tooltip {
@@ -536,6 +553,7 @@
 	}
 
 	.cms-drawer-popup {
+		container: cms-rail / inline-size;
 		touch-action: pan-y;
 		/* Base UI tracks the gesture. A dismissed swipe settles with Motion. */
 		transform: translateX(var(--drawer-swipe-movement-x, 0px));
@@ -726,6 +744,26 @@
 	}
 }
 
+@media (prefers-reduced-motion: no-preference) {
+	[data-slot="cms-navigation-progress"]::before {
+		display: block;
+		inline-size: 40%;
+		block-size: 100%;
+		background: var(--theme-accent);
+		animation: cms-navigation-sweep 1.5s ease-in-out infinite;
+		content: "";
+	}
+}
+
+@keyframes cms-navigation-sweep {
+	from {
+		translate: -100% 0;
+	}
+	to {
+		translate: 250% 0;
+	}
+}
+
 @keyframes cms-count-in {
 	from {
 		opacity: 0;
@@ -783,14 +821,19 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 	animation: none;
 	mix-blend-mode: normal;
 }
+/* Hand off at matching opacity so two sets of text never share a frame. */
 ::view-transition-old(cms-section-out) {
-	animation: cms-section-out 100ms ease-in 60ms both;
+	animation: cms-section-out 60ms ease-out backwards;
+	opacity: 0;
+	mix-blend-mode: normal;
 	pointer-events: none;
 }
 ::view-transition-new(cms-section) {
 	animation:
-		cms-section-rise 160ms ease-out both,
-		cms-fade 160ms var(--cms-ease-out) both;
+		cms-section-rise 160ms ease-out 60ms both,
+		cms-section-in 160ms var(--cms-ease-out) 60ms forwards;
+	opacity: 0;
+	mix-blend-mode: normal;
 	pointer-events: none;
 }
 /* Entered under a route view transition: the snapshot already rises. */
@@ -815,8 +858,19 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 	}
 }
 @keyframes cms-section-out {
+	from {
+		opacity: 1;
+	}
 	to {
-		opacity: 0;
+		opacity: 0.25;
+	}
+}
+@keyframes cms-section-in {
+	from {
+		opacity: 0.25;
+	}
+	to {
+		opacity: 1;
 	}
 }
 @keyframes cms-section-rise {

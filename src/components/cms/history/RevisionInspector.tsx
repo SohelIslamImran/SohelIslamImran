@@ -71,37 +71,36 @@ export function RevisionInspector({
 				stale && "opacity-55",
 			)}
 		>
-			<div className="cms-panel flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
-				<div className="grid min-w-0 gap-1">
-					<h2
-						id="cms-revision-heading"
-						tabIndex={-1}
-						className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
+			<div className="cms-panel grid gap-2 p-4 sm:p-5">
+				{onBack ? (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onBack}
+						className="-ms-2 justify-self-start px-2 lg:hidden pointer-coarse:min-h-11"
 					>
-						{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
-					</h2>
-					<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
-						{detail.kind === "published" ? "Published" : "Saved"}{" "}
-						<RelativeTime iso={detail.changedAt} className="w-auto" />
-						<span aria-hidden="true"> · </span>
-						{formatBytes(detail.bytes)}
-						{differs && baselineBytes !== null && detail.bytes !== baselineBytes
-							? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
-							: ""}
-					</p>
-				</div>
-
-				<div className="flex flex-wrap items-center gap-2">
-					{onBack ? (
-						<Button
-							variant="ghost"
-							size="sm"
-							onClick={onBack}
-							className="lg:hidden pointer-coarse:min-h-11"
+						<span aria-hidden="true">←</span> Back to revisions
+					</Button>
+				) : null}
+				<div className="flex flex-wrap items-center justify-between gap-4">
+					<div className="grid min-w-0 gap-1">
+						<h2
+							id="cms-revision-heading"
+							tabIndex={-1}
+							className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
 						>
-							<span aria-hidden="true">←</span> Back to revisions
-						</Button>
-					) : null}
+							{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
+						</h2>
+						<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
+							{detail.kind === "published" ? "Published" : "Saved"}{" "}
+							<RelativeTime iso={detail.changedAt} className="w-auto" />
+							<span aria-hidden="true"> · </span>
+							{formatBytes(detail.bytes)}
+							{differs && baselineBytes !== null && detail.bytes !== baselineBytes
+								? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
+								: ""}
+						</p>
+					</div>
 					<Button
 						variant="outline"
 						size="sm"
