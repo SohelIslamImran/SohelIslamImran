@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { CopyButton } from "../motion/CopyButton";
+import { usePointerFine, usePrefersReducedMotion } from "../motion/hooks";
 import { TraceLine } from "../motion/TraceLine";
 import { Kbd, MonoLabel, StatusDot } from "../ui/portfolio";
 import { buttonVariants } from "../ui/button";
@@ -19,7 +20,7 @@ const END_LAYERS = [
 	{ label: "API" },
 	{ label: "Data" },
 	{ label: "Access" },
-	{ label: "Cloud" },
+	{ label: "Infrastructure" },
 	{ label: "Release", note: "end of trace", tone: "accent" as const },
 ];
 
@@ -37,16 +38,78 @@ function isExternal(href: string) {
  */
 export function SiteFooter() {
 	const pathname = useRouterState({ select: (state) => state.location.pathname });
-	const compact = pathname === "/" || pathname === "/story";
+	const compact = pathname === "/" || pathname === "/story" || pathname === "/links";
 	const content = useRoutePublicContent();
 	const palette = useCommandPalette();
 	const [spread, setSpread] = useState(false);
+	const wordmarkRef = useRef<HTMLParagraphElement>(null);
+	const pointerFine = usePointerFine();
+	const reduceMotion = usePrefersReducedMotion();
+	const traceLightEnabled = pointerFine && !reduceMotion;
 	const name = content?.identity.name.trim() || "Sohel Islam Imran";
 	const email = (content?.identity.email || content?.contact.email || "").trim();
 	const availability = content?.identity.availability.trim() ?? "";
 	const elsewhere = (content?.contact.links ?? [])
 		.map((link) => ({ label: link.label.trim(), href: link.href.trim() }))
 		.filter((link) => link.label && link.href && !link.href.startsWith("#"));
+
+	useEffect(() => {
+		const element = wordmarkRef.current;
+		if (!element || !traceLightEnabled) return;
+
+		let frame = 0;
+		let clientX = 0;
+		let clientY = 0;
+
+		const writePosition = () => {
+			frame = 0;
+			const rect = element.getBoundingClientRect();
+			element.style.setProperty("--wm-x", `${clientX - rect.left}px`);
+			element.style.setProperty("--wm-y", `${clientY - rect.top}px`);
+		};
+
+		const schedulePosition = (x: number, y: number) => {
+			clientX = x;
+			clientY = y;
+			if (!frame) frame = window.requestAnimationFrame(writePosition);
+		};
+
+		const onPointerEnter = (event: PointerEvent) => {
+			if (event.pointerType === "touch") return;
+			const rect = element.getBoundingClientRect();
+			element.style.setProperty("--wm-x", `${event.clientX - rect.left}px`);
+			element.style.setProperty("--wm-y", `${event.clientY - rect.top}px`);
+			element.setAttribute("data-lit", "");
+		};
+
+		const onPointerMove = (event: PointerEvent) => {
+			if (event.pointerType === "touch") return;
+			if (!element.hasAttribute("data-lit")) {
+				element.setAttribute("data-lit", "");
+			}
+			schedulePosition(event.clientX, event.clientY);
+		};
+
+		const onPointerLeave = () => {
+			if (frame) {
+				window.cancelAnimationFrame(frame);
+				frame = 0;
+			}
+			element.removeAttribute("data-lit");
+		};
+
+		element.addEventListener("pointerenter", onPointerEnter);
+		element.addEventListener("pointermove", onPointerMove, { passive: true });
+		element.addEventListener("pointerleave", onPointerLeave);
+
+		return () => {
+			if (frame) window.cancelAnimationFrame(frame);
+			element.removeEventListener("pointerenter", onPointerEnter);
+			element.removeEventListener("pointermove", onPointerMove);
+			element.removeEventListener("pointerleave", onPointerLeave);
+			element.removeAttribute("data-lit");
+		};
+	}, [traceLightEnabled]);
 
 	return (
 		<footer
@@ -77,9 +140,7 @@ export function SiteFooter() {
 								Let’s talk about what comes next.
 							</h2>
 							<p className="mt-4 mb-0 max-w-[44ch] text-lead text-muted-foreground">
-								{pathname === "/links"
-									? "Send me an email, or pick any profile above."
-									: "Send me an email, or pick any profile on the links page."}
+								Send me an email, or pick any profile on the links page.
 							</p>
 							<div className="mt-8 flex min-w-0 flex-wrap items-center gap-3">
 								{email ? (
@@ -204,6 +265,7 @@ export function SiteFooter() {
 					</div>
 				</nav>
 				<p
+					ref={wordmarkRef}
 					aria-hidden="true"
 					data-slot="footer-wordmark"
 					className="pointer-events-none relative m-0 mt-[clamp(56px,9vw,120px)] [container-type:inline-size] select-none"
@@ -212,6 +274,12 @@ export function SiteFooter() {
 						{name}
 					</span>
 					<span className="footer-wordmark__front relative block bg-[linear-gradient(180deg,var(--theme-ink)_10%,var(--theme-paper)_92%)] bg-clip-text text-[clamp(2rem,12.8cqi,14rem)] leading-[0.9] font-[640] tracking-[-0.055em] whitespace-nowrap text-transparent">
+						{name}
+					</span>
+					<span
+						aria-hidden="true"
+						className="footer-wordmark__light pointer-events-none absolute inset-0 block text-[clamp(2rem,12.8cqi,14rem)] leading-[0.9] font-[640] tracking-[-0.055em] whitespace-nowrap"
+					>
 						{name}
 					</span>
 				</p>
