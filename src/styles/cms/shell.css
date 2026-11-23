@@ -795,6 +795,10 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 		cms-fade 140ms var(--cms-ease-out) 100ms both;
 	pointer-events: none;
 }
+/* Entered under a route view transition: the snapshot already rises. */
+[data-slot="cms-section"] .cms-enter[data-cms-vt-enter] {
+	animation: none;
+}
 [data-slot="cms-section"][data-cms-fade] {
 	animation: cms-fade 150ms linear both;
 }
