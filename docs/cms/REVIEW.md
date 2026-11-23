@@ -102,3 +102,32 @@ Integration branch: `typecheck`, `check`, `test` (221 passed), and `build` pass.
 Orchestrator browser QA (headless Chromium, the in-app preview produced no frames): edit → autosave → release diff → publish (public home served the new headline) → activity log rows → restore r3 as a new draft → discard to live → restore and republish the original; light and dark; 1440px and 390px with no horizontal scroll; phone drawer; command bar search; no console errors.
 
 Not verified: production Cloudflare Access on the `cms.` hostname, the Workers rate-limit binding, the cron trigger, and R2 uploads (R2 is not bound in this repo).
+
+## Design pass: build, cross-review, and fix rounds (2026-11-22 to 2026-11-23)
+
+Brief: `docs/cms/DESIGN.md`. Owner feedback: rail navigation felt like the full page jumped or re-rendered; the UI read as a basic skeleton. Each area was built by one agent, reviewed by a different agent, fixed, and reviewed again until the verdict carried no must-fix or should-fix items. Reviewers measured in a real browser: paused view-transition frames, scroll and position traces, contrast across both themes and all six accents, coarse-pointer target sizes, 390px overflow, axe, console and hydration.
+
+### Root cause of the "page jump"
+The shell never remounted. The jump came from an instant content swap, a one-frame scroll reset, a teleporting active highlight, scrollbar-width shifts, a route-dependent content width (28px toolbar shift), a shared view-transition name that drew the outgoing page at the incoming page's position after scrolling, a rail mode applied after first paint, and route snapshots painting above the phone drawer. Each was fixed and verified frame by frame.
+
+### Rounds
+| Area | Builder | Reviews (verdicts) | Fixers |
+| --- | --- | --- | --- |
+| Shell and navigation | Codex | r1 reject, r2 reject ×2, r3 reject, r4 reject, r5 reject, r6 approve with changes, final approve with changes | Codex, Codex Work, Claude, orchestrator |
+| Form controls and 15 editors | Codex Work | r1 reject, r2 reject, r3 reject, r4 reject, r5 reject, r6 approve with changes, r7 approve with changes, final reject | Codex Work, Claude, Codex |
+| Dashboard pages | Antigravity | r1 reject, r2 reject, r3 approve with changes, r4 approve with changes, final approve with changes | Claude, Grok, Codex, orchestrator |
+
+All final-cycle findings were fixed and merged. Highlights of what changed:
+- **Navigation:** scroll settles before the incoming paint; the outgoing snapshot keeps its scrolled position and fades while the new page rises 6px; one shared content width; rail mode applied before first paint; drawer, action bar, banners, and popovers stay above route snapshots; reduced motion uses a 150ms fade.
+- **Editors:** iOS Settings-style rows, grouped collection detail, single-line fields, delayed validation with settled counts across field, section, pipeline and rail, one keyed Undo per removed item across item switches, keyboard and touch reordering, phone slide-in detail, 44px targets, focus never obscured by sticky bars.
+- **Pages:** no repeated facts; one compact traffic row on Overview; one breakdown panel on Analytics; one in-page publish gate with a receipt; word-level diffs labelled like the editor; deduplicated History; server-side Activity filters; consistent headers, dialogs, and focus rings; refreshes on save and publish.
+- **Accessibility:** WCAG AA text and non-text contrast in both themes and six accents, forced-colors focus outlines, axe-clean command bar and pipeline bar, live reduced-motion handling.
+
+### Orchestrator QA on the final integration build
+- typecheck, check, test (262), and build pass on the upgraded dependencies.
+- All 21 CMS routes at 1440×900 and 390×844: no horizontal overflow, one `h1` each, no console errors or warnings.
+- Rail navigation from scrollY 700: toolbar x constant, scroll to 0 in one step behind the transition, Back restores 700.
+- Collapsed rail reload: width 56px on every frame, no layout shifts.
+- Publish from Overview: Recent activity updates in place; the public site serves the new text; original content restored and republished.
+
+Not verified locally: R2-backed media upload and thumbnails (no `MEDIA` binding), production Cloudflare Access sign-in.
