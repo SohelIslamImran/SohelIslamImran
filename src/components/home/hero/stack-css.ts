@@ -35,6 +35,10 @@ export const STACK_CSS = `
 .st-pull > svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
 .st-pull:active { scale: 0.96; }
 .st-send { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 38%, transparent); }
+.st-send-labels { display: grid; white-space: nowrap; }
+.st-send-labels > span { grid-area: 1 / 1; }
+.st-send-labels > [aria-hidden] { visibility: hidden; }
+@media (pointer: coarse) { .st-send { min-height: 44px; } }
 .st-send[data-busy] { background: var(--theme-accent-soft); }
 @media (hover: hover) and (pointer: fine) { .st-send:hover { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 62%, transparent); } }
 .st-pull[aria-pressed="true"] { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 45%, transparent); background: var(--theme-accent-soft); }
@@ -303,13 +307,15 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 
 @media (prefers-reduced-motion: no-preference) {
 	.st[data-moving] .st-dot { animation: st-hop var(--step, ${STEP_MS}ms) cubic-bezier(0.65, 0, 0.35, 1) both; }
+	.st[data-sending]:not([data-landing]) .st-dot { animation-timing-function: var(--ease); }
 	.st[data-moving][data-landing] .st-dot { animation: st-dwell var(--step, ${STEP_MS}ms) linear both; }
 	.st[data-touring] .st-rail-fill { animation: st-fill var(--step, ${STEP_MS}ms) linear forwards; }
-	.st-log-line[data-now] { animation: st-print 360ms var(--ease) both; }
+	.st[data-sending] .st-log-line[data-now] { animation: st-print 360ms var(--ease) both; }
 	.st[data-sending][data-landing] .st-land::before { animation: st-ring 1400ms var(--ease) 250ms both; }
 	.st[data-moving][data-first] .st-dot-core { animation: st-dot-in 360ms var(--ease) both; }
-	.st:is([data-paused], [data-hold]) :is(.st-dot, .st-dot-core, .st-rail-fill),
-	.st:is([data-paused], [data-hold]) .st-land::before { animation-play-state: paused; }
+	.st[data-touring]:is([data-paused], [data-hold]) :is(.st-dot, .st-dot-core, .st-rail-fill),
+	.st[data-sending][data-run-paused] :is(.st-dot, .st-dot-core, .st-log-line[data-now]),
+	.st[data-sending][data-run-paused] .st-land::before { animation-play-state: paused; }
 
 	.st-plane[data-active] .mi-cursor { animation: mi-cursor 2.8s var(--ease) infinite; }
 	.st-plane[data-active] .mi-press { animation: mi-press 2.8s var(--ease) infinite; }
@@ -325,10 +331,12 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	.st-plane[data-active] .mi-pass { animation: mi-pass 2.8s var(--ease) infinite; }
 	.st-plane[data-active] .mi-ver-old { animation: mi-ver-old 2.8s var(--ease) infinite; }
 	.st-plane[data-active] .mi-ver-new { animation: mi-ver-new 2.8s var(--ease) infinite; }
-	.st[data-paused] .st-plane [class^="mi-"] { animation-play-state: paused; }
+	.st:is([data-paused], [data-run-paused]) .st-plane [class^="mi-"] { animation-play-state: paused; }
 }
 @media (prefers-reduced-motion: reduce) {
+	.st-send, .st-send:active { transition: none; scale: none; }
 	.st-rig { transform: rotateX(calc(var(--rx) * 1deg)) rotateZ(-45deg); }
+	.st-rig, .st-plane, .st-shadow, .st-wire, .st-dot, .st-land, .st-tab, .st-tab-lead,
 	.st-odo-strip, .st-rail-thumb, .st-rail-seg, .st-log::before, .st-log-line, .st-panel { transition: none !important; }
 	.st-panel { translate: none; }
 }

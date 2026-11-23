@@ -1,6 +1,7 @@
 import {
 	useEffect,
 	useId,
+	useReducer,
 	useRef,
 	useState,
 	type CSSProperties,
@@ -11,6 +12,8 @@ import { useHydrated, useOffscreenPause, usePrefersReducedMotion } from "@/compo
 import { Tag } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { LayerMini } from "./hero/LayerMinis";
+import { initialRun, runReducer } from "./hero/request-run";
+import { useRunVisibility } from "./hero/use-run-visibility";
 import { STACK_CSS } from "./hero/stack-css";
 import { traceLineFor } from "./request-trace";
 import { STACK_LAYERS, type StackLayer } from "./stack-layers";
@@ -19,6 +22,13 @@ interface StackTraceProps {
 	layers?: readonly StackLayer[];
 	className?: string;
 }
+
+const RUN_LABELS = {
+	idle: "Send a request",
+	running: "Pause",
+	paused: "Resume",
+	done: "Replay request",
+} as const;
 
 const pad = (value: number) => String(value).padStart(2, "0");
 
@@ -57,16 +67,13 @@ const STILL_STEP_MS = 260;
 export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps) {
 	const baseId = useId();
 	const count = layers.length;
-	const [active, setActive] = useState(0);
+	const [selected, setSelected] = useState(0);
 	const [pinned, setPinned] = useState(false);
 	/** Mouse over the 3D scene: eases the stack apart. */
 	const [hovering, setHovering] = useState(false);
 	const [dragging, setDragging] = useState(false);
-	/** One "Send a request" run is travelling down the stack. */
-	const [sending, setSending] = useState(false);
-	const [runKey, setRunKey] = useState(0);
-	/** A run has finished at least once: the button offers a replay. */
-	const [ran, setRan] = useState(false);
+	const [run, dispatch] = useReducer(runReducer, initialRun);
+	const [announcement, setAnnouncement] = useState("");
 	/** Mouse over a label: highlights that layer without changing the selection. */
 	const [hovered, setHovered] = useState<number | null>(null);
 	/** The calm tour; off for good once the visitor picks a layer. */
@@ -81,9 +88,14 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
 	const drag = useRef<{ id: number; x: number; y: number; moved: boolean } | null>(null);
 	const suppressClick = useRef(false);
-	useOffscreenPause(rootRef);
+	useOffscreenPause(rootRef, count > 0);
+	const runVisible = useRunVisibility(rootRef, count > 0);
 
 	const last = count - 1;
+	const lastLayerName = layers[last]?.name ?? "the last layer";
+	const sending = run.status === "running" || run.status === "paused";
+	const active = Math.min(sending ? run.layer : selected, Math.max(0, last));
+	const runPaused = run.status === "paused" || (sending && !runVisible);
 	const tourOn = hydrated && touring && !sending && !reducedMotion && count > 1;
 	const stepMs = sending
 		? reducedMotion
@@ -95,16 +107,19 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 	const moving = (sending && !reducedMotion) || tourOn;
 
 	useEffect(() => {
-		if (!sending) return;
+		if (!sending || runPaused || count === 0) return;
 		const timer = window.setTimeout(() => {
-			if (active < last) setActive(active + 1);
-			else {
-				setSending(false);
-				setRan(true);
+			if (document.visibilityState === "hidden") return;
+			if (active < last) {
+				dispatch({ type: "step", last });
+			} else {
+				setSelected(last);
+				dispatch({ type: "finish" });
+				setAnnouncement(`The request reached ${lastLayerName}.`);
 			}
 		}, stepMs);
 		return () => window.clearTimeout(timer);
-	}, [sending, active, last, stepMs]);
+	}, [sending, runPaused, count, active, last, lastLayerName, run.key, stepMs]);
 
 	if (count === 0) return null;
 
@@ -112,19 +127,26 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 
 	const select = (index: number, { focus = false } = {}) => {
 		const next = Math.max(0, Math.min(count - 1, index));
-		setSending(false);
+		dispatch({ type: "cancel" });
 		setTouring(false);
-		setActive(next);
+		setSelected(next);
 		if (focus) tabRefs.current[next]?.focus();
 	};
 
-	const advanceTour = () => setActive((value) => (value + 1) % count);
+	const advanceTour = () => setSelected((value) => (value + 1) % count);
 
-	const sendRequest = () => {
+	const playRequest = () => {
+		if (sending) {
+			dispatch({ type: "toggle" });
+			const layer = layers[active]?.name;
+			setAnnouncement(
+				run.status === "paused" ? `Tracing again from ${layer}.` : `Paused at ${layer}.`,
+			);
+			return;
+		}
 		setTouring(false);
-		setActive(0);
-		setRunKey((value) => value + 1);
-		setSending(count > 1);
+		dispatch({ type: "send" });
+		setAnnouncement("Tracing a request through the stack.");
 	};
 
 	const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
@@ -220,6 +242,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 			data-touring={tourOn ? "" : undefined}
 			data-hold={tourOn && (pointerInside || focusWithin) ? "" : undefined}
 			data-sending={sending && !reducedMotion ? "" : undefined}
+			data-run-paused={runPaused ? "" : undefined}
 			data-landing={moving && active === last ? "" : undefined}
 			data-first={moving && active === 0 ? "" : undefined}
 			style={
@@ -265,14 +288,31 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 						type="button"
 						className="st-pull st-send"
 						data-busy={sending ? "" : undefined}
-						onClick={sendRequest}
+						onClick={playRequest}
+						onKeyDown={(event) => {
+							if (sending) onTabKeyDown(event, active);
+						}}
 					>
 						<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-							<path d="M8 2.2v9.2" />
-							<path d="m4.4 8 3.6 3.6L11.6 8" />
-							<path d="M3 14.2h10" opacity="0.6" />
+							{run.status === "running" ? (
+								<path d="M5.5 3.5v9m5-9v9" />
+							) : run.status === "paused" ? (
+								<path d="M5.5 3.5v9l6-4.5z" fill="currentColor" />
+							) : (
+								<>
+									<path d="M8 2.2v9.2" />
+									<path d="m4.4 8 3.6 3.6L11.6 8" />
+									<path d="M3 14.2h10" opacity="0.6" />
+								</>
+							)}
 						</svg>
-						<span>{sending ? "Tracing…" : ran ? "Replay request" : "Send a request"}</span>
+						<span className="st-send-labels">
+							{Object.entries(RUN_LABELS).map(([status, label]) => (
+								<span key={status} aria-hidden={run.status !== status || undefined}>
+									{label}
+								</span>
+							))}
+						</span>
 					</button>
 					<button
 						type="button"
@@ -336,7 +376,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 								</svg>
 							</div>
 						))}
-						<span key={`dot-${runKey}-${active}-${moving}`} className="st-dot">
+						<span key={`dot-${run.key}-${active}-${moving}`} className="st-dot">
 							<span className="st-dot-core" />
 						</span>
 						<span key={`land-${active}`} className="st-land" />
@@ -411,7 +451,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 						<span className="st-rail-thumb">
 							{tourOn ? (
 								<span
-									key={`${runKey}-${active}`}
+									key={`${run.key}-${active}`}
 									className="st-rail-fill"
 									onAnimationEnd={advanceTour}
 								/>
@@ -428,7 +468,8 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 									setTouring(false);
 									return;
 								}
-								setSending(false);
+								if (sending) setSelected(active);
+								dispatch({ type: "cancel" });
 								setPointerInside(false);
 								setFocusWithin(false);
 								setTouring(true);
@@ -504,11 +545,7 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 					})}
 				</ol>
 				<p className="sr-only" role="status">
-					{sending
-						? "Tracing a request through the stack."
-						: ran
-							? `The request reached ${layers[last]?.name ?? "the last layer"}.`
-							: ""}
+					{announcement}
 				</p>
 			</div>
 		</div>
