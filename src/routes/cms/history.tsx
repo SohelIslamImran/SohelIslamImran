@@ -3,9 +3,9 @@
  * A quiet revision timeline on the left and an inspector on the right that
  * diffs the selected revision against the current draft and restores it.
  * Revision details are cached by id, so switching rows never flashes a
- * skeleton; below `lg` selecting a row scrolls the inspector into view.
+ * skeleton. Below `lg`, selecting a row moves focus to the inspector.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -88,6 +88,8 @@ function HistoryRoute() {
 	const [detail, setDetail] = useState<RevisionDetail | null>(null);
 	const [detailError, setDetailError] = useState<string | null>(null);
 	const inspectorRef = useRef<HTMLElement>(null);
+	const timelineRef = useRef<HTMLElement>(null);
+	const inspectorFocusRequest = useRef<number | null>(null);
 
 	const [restoreOpen, setRestoreOpen] = useState(false);
 	const [restoreReview, setRestoreReview] = useState<typeof draft | null>(null);
@@ -223,18 +225,42 @@ function HistoryRoute() {
 		}
 	};
 
+	const focusInspector = useCallback(() => {
+		const inspector = inspectorRef.current;
+		if (!inspector || !window.matchMedia("(width < 1024px)").matches) return;
+		const target = inspector.querySelector<HTMLElement>("#cms-revision-heading") ?? inspector;
+		target.focus({ preventScroll: true });
+		inspector.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "start" });
+	}, [reduced]);
+
+	useLayoutEffect(() => {
+		if (selectedId === null || inspectorFocusRequest.current !== selectedId) return;
+		if (detail?.id !== selectedId && !detailError) return;
+		inspectorFocusRequest.current = null;
+		focusInspector();
+	}, [detail?.id, detailError, focusInspector, selectedId]);
+
 	const selectRevision = (id: number) => {
+		if (id !== selectedId) setDetailError(null);
 		setSelectedId(id);
-		// Below the two-column layout the inspector sits under the timeline.
-		if (window.matchMedia("(max-width: 1023.98px)").matches) {
-			requestAnimationFrame(() =>
-				inspectorRef.current?.scrollIntoView({
-					behavior: reduced ? "auto" : "smooth",
-					block: "start",
-				}),
-			);
+		if (!window.matchMedia("(width < 1024px)").matches) return;
+		if (id === selectedId && (detail?.id === id || detailError)) {
+			focusInspector();
+		} else {
+			inspectorFocusRequest.current = id;
 		}
 	};
+
+	const focusSelectedRow = () => {
+		const row = timelineRef.current?.querySelector<HTMLButtonElement>(
+			'button[aria-current="true"]',
+		);
+		if (!row) return;
+		row.focus({ preventScroll: true });
+		row.scrollIntoView({ behavior: reduced ? "instant" : "smooth", block: "nearest" });
+	};
+
+	const canReturnToRow = visibleItems.some((item) => item.id === selectedId);
 
 	const diff = useMemo(() => {
 		if (!detail) return null;
@@ -270,6 +296,7 @@ function HistoryRoute() {
 				description="Compare or restore any saved revision."
 				actions={
 					<SegmentedControl
+						className="max-sm:grid max-sm:w-full max-sm:grid-cols-3"
 						layoutId="cms-history-filter-pill"
 						ariaLabel="Filter revisions"
 						value={filter}
@@ -303,6 +330,7 @@ function HistoryRoute() {
 
 			<div className="grid min-w-0 items-start gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
 				<section
+					ref={timelineRef}
 					aria-label="Revisions"
 					style={staggerStyle(0)}
 					className="cms-panel cms-enter grid gap-2 p-3"
@@ -390,10 +418,23 @@ function HistoryRoute() {
 				<section
 					ref={inspectorRef}
 					aria-label="Selected revision"
-					className="grid min-w-0 scroll-mt-20 gap-4"
+					tabIndex={-1}
+					className="grid min-w-0 scroll-mt-3 gap-4"
 				>
 					{detailError ? (
-						<InspectorError message={detailError} />
+						<>
+							<InspectorError message={detailError} />
+							{canReturnToRow ? (
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={focusSelectedRow}
+									className="justify-self-start lg:hidden pointer-coarse:min-h-11"
+								>
+									<span aria-hidden="true">←</span> Back to revisions
+								</Button>
+							) : null}
+						</>
 					) : detail && diff ? (
 						<RevisionInspector
 							detail={detail}
@@ -401,6 +442,7 @@ function HistoryRoute() {
 							stale={stale}
 							baselineBytes={baselineBytes}
 							restoring={restoring}
+							onBack={canReturnToRow ? focusSelectedRow : undefined}
 							onRestore={() => {
 								restoredRef.current = false;
 								setRestoreReview(draft);
