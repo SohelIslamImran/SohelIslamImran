@@ -131,7 +131,7 @@ export function RawJsonTab() {
 			<section style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
 				<div className="flex flex-wrap items-start justify-between gap-3">
 					<div className="grid gap-1">
-						<h2 className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+						<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 							Export and import
 						</h2>
 						<p className="m-0 text-[13px] text-muted-foreground">
@@ -273,7 +273,7 @@ export function RawJsonTab() {
 			{/* Read-only JSON document */}
 			<section style={staggerStyle(1)} className="cms-panel cms-enter overflow-hidden">
 				<header className="flex items-center justify-between border-b border-line px-4 py-2.5">
-					<span className="mono-label text-[10.5px] text-muted-foreground">
+					<span className="font-mono text-[10.5px] text-muted-foreground">
 						Draft r{draftRevision} · read-only inspect
 					</span>
 					<span className="font-mono text-[11px] tabular-nums text-muted-foreground">

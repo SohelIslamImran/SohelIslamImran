@@ -11,7 +11,6 @@ import {
 	QuietNote,
 	RankedList,
 	SegmentedControl,
-	controlClass,
 	formatDuration,
 	inlineLinkClass,
 	pageClass,
@@ -145,10 +144,11 @@ function Analytics() {
 						href={new URL("/?analytics=off", publicOrigin).href}
 						target="_blank"
 						rel="noreferrer"
-						className={controlClass}
+						className="cms-editor-button cms-editor-live cms-press cms-page-focus"
 					>
-						<span>Exclude this browser</span>
-						<ExternalArrowIcon className="size-3.5 text-muted-foreground" />
+						<span className="max-sm:sr-only">Exclude this browser</span>
+						<ExternalArrowIcon className="size-3.5" />
+						<span className="sr-only"> (opens in a new tab)</span>
 					</a>
 				}
 			/>

@@ -8,6 +8,17 @@
 		box-shadow: var(--cms-ring);
 	}
 
+	/* Keep header filters centered without letting the track padding grow the title row. */
+	.cms-page-header-actions > .cms-seg-track {
+		margin-block: -2px;
+	}
+
+	@media (pointer: coarse) {
+		.cms-page-header-actions > .cms-seg-track {
+			margin-block: -4px;
+		}
+	}
+
 	/* Gentle <= 1 Hz live visitor pulse (0.42 Hz, scale + opacity only). */
 	@keyframes cms-live-pulse {
 		0% {
@@ -294,7 +305,7 @@
 	/* Media upload dropzone. */
 	.cms-dropzone {
 		border: 1.5px dashed var(--theme-line-strong);
-		border-radius: 14px;
+		border-radius: 12px;
 		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
 		transition:
 			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),

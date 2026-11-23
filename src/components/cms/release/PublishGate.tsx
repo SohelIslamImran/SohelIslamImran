@@ -90,7 +90,7 @@ export function PublishGate({
 		>
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
 				<div className="grid min-w-0 gap-0.5">
-					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.015em] text-foreground">
+					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 						{changesLabel}
 					</h2>
 					<p
@@ -181,7 +181,7 @@ export function PublishGate({
 					>
 						<p
 							id={confirmationId}
-							className="m-0 mt-3 rounded-[11px] border border-primary-line bg-primary-soft/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground"
+							className="m-0 mt-3 rounded-[12px] border border-primary-line bg-primary-soft/60 px-3.5 py-2.5 text-[13px] leading-relaxed text-foreground"
 						>
 							Publish to <span className="font-medium">{host}</span>? Visitors see the changes right
 							away.{dirty ? " Unsaved edits are saved first." : ""}
@@ -244,7 +244,7 @@ export function PublishedReceipt({
 				<div className="grid min-w-0 gap-0.5">
 					<h2
 						id="cms-publish-receipt-title"
-						className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground"
+						className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground"
 					>
 						Your changes are live
 					</h2>

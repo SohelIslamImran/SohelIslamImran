@@ -355,7 +355,7 @@ export function DiffView({
 	onRevertField,
 	showEditLinks = true,
 	showUnchanged = true,
-	emptyTitle = "Live is up to date",
+	emptyTitle = "Your live site is up to date",
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
 }: DiffViewProps) {
@@ -426,13 +426,13 @@ export function DiffView({
 			))}
 
 			{showUnchanged && diff.unchangedSections.length > 0 ? (
-				<div className="rounded-[14px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
+				<div className="rounded-[12px] border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2%,transparent)]">
 					<button
 						type="button"
 						aria-expanded={unchangedOpen}
 						aria-controls={unchangedId}
 						onClick={() => setUnchangedOpen((open) => !open)}
-						className="cms-press cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 rounded-[13px] px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
+						className="cms-press cms-page-focus flex min-h-11 w-full items-center justify-between gap-3 rounded-[12px] px-4 py-2.5 text-left text-[13px] font-medium text-muted-foreground hover:text-foreground"
 					>
 						<span className="flex items-center gap-2">
 							<CheckCircleIcon className="size-3.5 text-success" />
@@ -453,7 +453,7 @@ export function DiffView({
 										<Link
 											to="/cms/content/$section"
 											params={{ section: section.id }}
-											className="cms-press cms-page-focus flex min-h-9 items-center justify-between gap-2 rounded-[9px] px-2.5 text-[13px] text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
+											className="cms-press cms-page-focus flex min-h-9 items-center justify-between gap-2 rounded-[10px] px-2.5 text-[13px] text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
 										>
 											<span className="flex items-center gap-2 truncate">
 												<SectionIcon id={section.id} className="size-3.5 text-muted-foreground" />

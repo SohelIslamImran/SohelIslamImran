@@ -74,7 +74,7 @@ export function RevisionInspector({
 					<h2
 						id="cms-revision-heading"
 						tabIndex={-1}
-						className="m-0 text-[17px] font-semibold tracking-[-0.018em] text-foreground outline-none"
+						className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
 					>
 						{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
 					</h2>

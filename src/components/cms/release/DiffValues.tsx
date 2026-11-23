@@ -138,7 +138,7 @@ function WordDiffText({ before, after }: { before: string; after: string }) {
 
 export function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
 	return (
-		<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
+		<p className="m-0 rounded-[12px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
 			<WordDiffText
 				before={typeof before === "string" ? before : ""}
 				after={typeof after === "string" ? after : ""}
@@ -221,7 +221,7 @@ export function ShortDiff({
 }) {
 	if (wantsWordDiff(before, after)) {
 		return (
-			<p className="m-0 rounded-[11px] border border-line bg-surface-solid px-3.5 py-2.5 text-[13.5px] leading-[1.6] text-ink-soft [overflow-wrap:anywhere]">
+			<p className="m-0 rounded-[12px] border border-line bg-surface-solid px-3.5 py-2.5 text-[13.5px] leading-[1.6] text-ink-soft [overflow-wrap:anywhere]">
 				<WordDiffText before={before} after={after as string} />
 			</p>
 		);
@@ -231,7 +231,7 @@ export function ShortDiff({
 		<div className="grid gap-1.5 text-[13px] sm:flex sm:flex-wrap sm:items-center sm:gap-2">
 			<span
 				className={cn(
-					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[9px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
+					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[10px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
 					isEmptyScalar(before) && "italic",
 				)}
 			>
@@ -245,7 +245,7 @@ export function ShortDiff({
 			</span>
 			<span
 				className={cn(
-					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[9px] border border-primary-line bg-primary-soft px-2.5 py-1 font-medium text-foreground",
+					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[10px] border border-primary-line bg-primary-soft px-2.5 py-1 font-medium text-foreground",
 					isEmptyScalar(after) && "italic text-muted-foreground",
 				)}
 			>
@@ -295,7 +295,7 @@ export function ListDiff({
 					return (
 						<li
 							key={index}
-							className="flex items-start gap-2 rounded-[9px] border border-success/35 bg-success/8 px-2.5 py-1.5 text-[13px] text-foreground"
+							className="flex items-start gap-2 rounded-[10px] border border-success/35 bg-success/8 px-2.5 py-1.5 text-[13px] text-foreground"
 						>
 							<span className="mt-0.5 text-success">
 								<StatusGlyph status="added" />
@@ -311,7 +311,7 @@ export function ListDiff({
 					return (
 						<li
 							key={index}
-							className="flex items-start gap-2 rounded-[9px] border border-dashed border-destructive/35 bg-destructive/8 px-2.5 py-1.5 text-[13px] text-destructive line-through"
+							className="flex items-start gap-2 rounded-[10px] border border-dashed border-destructive/35 bg-destructive/8 px-2.5 py-1.5 text-[13px] text-destructive line-through"
 						>
 							<span className="mt-0.5">
 								<StatusGlyph status="removed" />

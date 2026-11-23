@@ -11,7 +11,7 @@ export function StorageDisconnectedCard({ hasAssets }: { hasAssets: boolean }) {
 		>
 			<span
 				aria-hidden="true"
-				className="grid size-11 shrink-0 place-items-center rounded-[13px] border border-line-strong bg-surface-raised text-foreground shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]"
+				className="grid size-11 shrink-0 place-items-center rounded-[12px] border border-line-strong bg-surface-raised text-foreground shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]"
 			>
 				<svg
 					viewBox="0 0 20 20"
@@ -23,7 +23,7 @@ export function StorageDisconnectedCard({ hasAssets }: { hasAssets: boolean }) {
 				</svg>
 			</span>
 			<div className="grid min-w-0 gap-1">
-				<h2 className="m-0 text-[16px] font-semibold tracking-[-0.015em] text-foreground">
+				<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 					Storage isn’t connected
 				</h2>
 				<p className="m-0 max-w-[64ch] text-[13.5px] leading-relaxed text-muted-foreground">

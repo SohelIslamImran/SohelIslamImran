@@ -202,7 +202,7 @@ export function SegmentedControl<T extends string>({
 }
 
 /** Every CMS page uses the same container width so rail navigation never shifts the header. */
-export const pageClass = "grid min-w-0 max-w-[1160px] grid-cols-1 gap-6";
+export const pageClass = "grid min-w-0 max-w-[69rem] grid-cols-1 gap-[clamp(1.25rem,3vw,2rem)]";
 
 /** Consistent calm editorial header across CMS pages. */
 export function PageHeader({
@@ -215,23 +215,23 @@ export function PageHeader({
 	actions?: ReactNode;
 }) {
 	return (
-		<header className="cms-enter flex min-w-0 flex-wrap items-end justify-between gap-4">
-			<div className="grid min-w-0 gap-1">
+		<header className="cms-enter grid min-w-0 gap-2">
+			<div className="grid min-h-9 min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 pointer-coarse:min-h-11">
 				<h1 className="m-0 text-headline">{title}</h1>
-				{description ? (
-					<p className="m-0 max-w-[64ch] text-[14px] leading-relaxed text-muted-foreground">
-						{description}
-					</p>
+				{actions ? (
+					<div className="cms-page-header-actions flex min-w-0 max-w-full items-center justify-self-end gap-1.5">
+						{actions}
+					</div>
 				) : null}
 			</div>
-			{actions ? (
-				<div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{actions}</div>
+			{description ? (
+				<p className="m-0 text-[14px] leading-relaxed text-muted-foreground">{description}</p>
 			) : null}
 		</header>
 	);
 }
 
-/** Designed empty state with concentric icon medallion (never bare text). */
+/** Shared empty state for dashboard panels. */
 export function EmptyState({
 	icon,
 	title,
@@ -252,16 +252,14 @@ export function EmptyState({
 			<span
 				aria-hidden="true"
 				className={cn(
-					"grid size-11 place-items-center rounded-full border shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]",
-					tone === "success"
-						? "border-success/35 bg-success/10 text-success"
-						: "border-line-strong bg-surface-raised text-muted-foreground",
+					"grid place-items-center",
+					tone === "success" ? "text-success" : "text-muted-foreground",
 				)}
 			>
 				{icon}
 			</span>
 			<div className="grid gap-1">
-				<p className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">{title}</p>
+				<p className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">{title}</p>
 				<p className="m-0 max-w-[44ch] text-[13.5px] leading-relaxed text-muted-foreground">
 					{description}
 				</p>
@@ -337,7 +335,7 @@ export function Panel({
 		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="flex min-w-0 items-center gap-2">
-					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.012em] text-foreground">
+					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 						{title}
 					</h2>
 					{badge}
@@ -382,7 +380,7 @@ export function RankedList({
 						data-linked={onHoverValue ? "true" : undefined}
 						onMouseEnter={onHoverValue ? () => onHoverValue(row.value) : undefined}
 						onMouseLeave={onHoverValue ? () => onHoverValue(null) : undefined}
-						className="cms-ranked-row grid min-w-0 gap-1.5 rounded-[9px] px-2.5 pt-2 pb-2.5"
+						className="cms-ranked-row grid min-w-0 gap-1.5 rounded-[10px] px-2.5 pt-2 pb-2.5"
 					>
 						<div className="flex min-w-0 items-baseline justify-between gap-3">
 							<span className="min-w-0 text-[13.5px] font-medium text-foreground [overflow-wrap:anywhere]">
@@ -423,7 +421,7 @@ export function QuietNote({
 	return (
 		<div
 			className={cn(
-				"cms-enter flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[14px] border border-line bg-surface-solid px-4 py-3 text-[13.5px] text-muted-foreground shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]",
+				"cms-enter flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[12px] border border-line bg-surface-solid px-4 py-3 text-[13.5px] text-muted-foreground shadow-[0_1px_2px_var(--theme-shadow-soft),inset_0_1px_var(--theme-highlight)]",
 				className,
 			)}
 		>
