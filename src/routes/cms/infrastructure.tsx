@@ -32,6 +32,7 @@ import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduce
 import {
 	CLOUDFLARE_DASHBOARD_URL,
 	CLOUDFLARE_PAGES,
+	countWorkerErrors,
 	formatDeploymentMessage,
 	shortVersionId,
 } from "../../lib/cloudflare-dashboard";
@@ -211,8 +212,8 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 				: `Deployed from ${item.source}`;
 
 	return (
-		<li className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2.5 overflow-hidden px-2 py-1.5">
-			<span className="flex shrink-0 items-center gap-1.5">
+		<li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-1 px-2 py-2 @[540px]:grid-cols-[auto_minmax(0,1fr)_auto]">
+			<span className="flex min-w-0 flex-wrap items-center gap-1.5">
 				<code
 					title={item.versionId}
 					className={cn(
@@ -234,7 +235,7 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 			<span
 				title={rawMessage ?? undefined}
 				className={cn(
-					"min-w-0 truncate text-[13px]",
+					"col-span-2 row-start-2 min-w-0 text-[13px] leading-snug [overflow-wrap:anywhere] @[540px]:col-span-1 @[540px]:col-start-2 @[540px]:row-start-1",
 					rawMessage ? "text-foreground" : "text-muted-foreground",
 				)}
 			>
@@ -242,7 +243,7 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 			</span>
 			<RelativeTime
 				iso={item.createdOn}
-				className="shrink-0 text-right text-[12px] text-muted-foreground"
+				className="col-start-2 row-start-1 shrink-0 text-right text-[12px] text-muted-foreground @[540px]:col-start-3"
 			/>
 		</li>
 	);
@@ -250,8 +251,8 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 
 function DeploymentsPanel({ deployments }: { deployments: DeploymentItem[] | null }) {
 	const [expanded, setExpanded] = useState(false);
-	const visible = deployments && !expanded ? deployments.slice(0, 3) : deployments;
-	const hiddenCount = deployments ? Math.max(0, deployments.length - 3) : 0;
+	const visible = deployments && !expanded ? deployments.slice(0, 1) : deployments;
+	const hiddenCount = deployments ? Math.max(0, deployments.length - 1) : 0;
 
 	return (
 		<Panel
@@ -264,8 +265,8 @@ function DeploymentsPanel({ deployments }: { deployments: DeploymentItem[] | nul
 			) : visible.length === 0 ? (
 				<p className="m-0 text-[13px] text-muted-foreground">No deployments yet.</p>
 			) : (
-				<div className="grid gap-1.5">
-					<ul className="m-0 grid list-none gap-0.5 p-0">
+				<div className="grid min-w-0 gap-1.5">
+					<ul className="@container m-0 grid list-none gap-0.5 p-0">
 						{visible.map((item, index) => (
 							<DeploymentRow key={item.id} item={item} live={index === 0} />
 						))}
@@ -389,12 +390,14 @@ function Infrastructure() {
 	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
 	const result = Route.useLoaderData();
-	// Scope pending dimming to this route's own range updates so leaving never dims the outgoing view.
+	// Scope pending dimming to this route's own range updates so leaving or invalidating never dims.
 	const isRangePending = useRouterState({
 		select: (state) =>
 			state.status === "pending" &&
 			state.resolvedLocation !== undefined &&
-			state.location.pathname === state.resolvedLocation.pathname,
+			state.location.pathname === state.resolvedLocation.pathname &&
+			insightsSearch.parse(state.location.search ?? {}).range !==
+				insightsSearch.parse(state.resolvedLocation.search ?? {}).range,
 	});
 	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
 	const showRangeControl = result.ok || result.reason === "unavailable";
@@ -496,10 +499,7 @@ function InsightsBody({
 		label: outcomeLabels[row.status] ?? row.status,
 		count: row.requests,
 	}));
-	const failures = worker.statuses
-		.filter((row) => !["success", "clientDisconnected"].includes(row.status))
-		.reduce((sum, row) => sum + row.requests, 0);
-	const errors = Math.max(worker.errors, failures);
+	const errors = countWorkerErrors(worker);
 
 	const stats: Stat[] = [
 		{
@@ -552,8 +552,13 @@ function InsightsBody({
 					hourly={insights.bucket !== "day"}
 					rangeLabel={`the last ${rangeLabel}`}
 					stagger={1}
+					areaTone="ink"
+					readout="inline"
 					secondaryTone="destructive"
-					zeroSecondarySummary="0 errors in this range"
+					zeroSecondarySummary={
+						errors === 0 ? "0 errors in this range" : "Errors lack a time breakdown"
+					}
+					zeroSecondaryTone={errors === 0 ? "ok" : "warn"}
 					series={{
 						primary: { name: "Requests", one: "request", many: "requests" },
 						secondary: { name: "Errors", one: "error", many: "errors" },

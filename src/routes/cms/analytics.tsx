@@ -13,11 +13,12 @@ import {
 	SegmentedControl,
 	controlClass,
 	formatDuration,
+	formatUtcWindow,
 	pageClass,
 	staggerStyle,
 	visitorDayDescription,
 } from "../../components/cms/analytics/Widgets";
-import type { AnalyticsCount, TrafficPoint } from "../../server/analytics.server";
+import type { AnalyticsCount } from "../../server/analytics.server";
 import { useDraftSelector, usePublicOrigin } from "../../components/cms/draft/context";
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { AnalyticsIcon, ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
@@ -44,40 +45,6 @@ const ranges = [
 	["90d", "90 days"],
 	["12m", "12 months"],
 ] as const;
-
-const utcMonthDay = new Intl.DateTimeFormat("en", {
-	month: "short",
-	day: "numeric",
-	timeZone: "UTC",
-});
-const utcMonthDayYear = new Intl.DateTimeFormat("en", {
-	month: "short",
-	day: "numeric",
-	year: "numeric",
-	timeZone: "UTC",
-});
-const utcHour = new Intl.DateTimeFormat("en", {
-	month: "short",
-	day: "numeric",
-	hour: "2-digit",
-	minute: "2-digit",
-	hourCycle: "h23",
-	timeZone: "UTC",
-});
-
-/** Human-readable UTC window spanned by the series ("Nov 16 – Nov 22, 2026 UTC"). */
-function formatUtcWindow(series: readonly TrafficPoint[], hourly: boolean): string | null {
-	if (series.length === 0) return null;
-	const first = Date.parse(series[0]!.at);
-	const last = Date.parse(series[series.length - 1]!.at);
-	if (Number.isNaN(first) || Number.isNaN(last)) return null;
-	if (hourly) {
-		return `${utcHour.format(first)} – ${utcHour.format(last)} UTC`;
-	}
-	if (first === last) return `${utcMonthDayYear.format(first)} UTC`;
-	const sameYear = new Date(first).getUTCFullYear() === new Date(last).getUTCFullYear();
-	return `${sameYear ? utcMonthDay.format(first) : utcMonthDayYear.format(first)} – ${utcMonthDayYear.format(last)} UTC`;
-}
 
 export const Route = createFileRoute("/cms/analytics")({
 	validateSearch: analyticsSearch,
@@ -133,12 +100,14 @@ function Analytics() {
 	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
 	const { summary, hasVisitsToday } = Route.useLoaderData();
-	// Scope pending dimming to this route's own range updates so leaving never dims the outgoing view.
+	// Scope pending dimming to this route's own range updates so leaving or invalidating never dims.
 	const isRangePending = useRouterState({
 		select: (state) =>
 			state.status === "pending" &&
 			state.resolvedLocation !== undefined &&
-			state.location.pathname === state.resolvedLocation.pathname,
+			state.location.pathname === state.resolvedLocation.pathname &&
+			analyticsSearch.parse(state.location.search ?? {}).range !==
+				analyticsSearch.parse(state.resolvedLocation.search ?? {}).range,
 	});
 	const publicOrigin = usePublicOrigin();
 	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);

@@ -369,6 +369,9 @@ function TrafficSummary() {
 							<dd className="m-0 text-[22px] leading-none font-semibold tracking-[-0.03em] text-foreground tabular-nums sm:text-[24px]">
 								<TickingNumber value={stat.value} />
 							</dd>
+							<dd className="m-0 text-[11.5px] leading-snug text-muted-foreground">
+								{stat.window}
+							</dd>
 						</div>
 					))}
 				</dl>

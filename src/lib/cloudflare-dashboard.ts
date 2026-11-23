@@ -127,3 +127,19 @@ export function formatDeploymentMessage(message: string): string {
 	if (match) return `PR #${match[1]} · ${match[2]}`;
 	return trimmed;
 }
+
+const NON_ERROR_WORKER_STATUSES = new Set(["success", "clientDisconnected"]);
+
+/**
+ * Total Worker errors across Cloudflare's `sum.errors` metric and failure
+ * invocation statuses, shared by Overview's Hosting card and Infrastructure.
+ */
+export function countWorkerErrors(worker: {
+	errors: number;
+	statuses: readonly { status: string; requests: number }[];
+}): number {
+	const failures = worker.statuses
+		.filter((row) => !NON_ERROR_WORKER_STATUSES.has(row.status))
+		.reduce((sum, row) => sum + row.requests, 0);
+	return Math.max(worker.errors, failures);
+}

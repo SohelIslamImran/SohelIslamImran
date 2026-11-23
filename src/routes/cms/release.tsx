@@ -6,6 +6,7 @@
  * the receipt replaces the page body.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
@@ -84,6 +85,16 @@ function ReleaseRoute() {
 	const gateBusy = busy || publishing;
 	const canPublish = hasChanges && issueCount === 0 && !conflict && !gateBusy;
 
+	// Let the shell's Publish / Review actions switch back from Raw JSON synchronously
+	// before locating and focusing the inline PublishGate.
+	useEffect(() => {
+		const selectReview = () => {
+			flushSync(() => setTab("changes"));
+		};
+		window.addEventListener("cms:release-select-review", selectReview);
+		return () => window.removeEventListener("cms:release-select-review", selectReview);
+	}, []);
+
 	// A new edit after publishing or discarding makes the receipt stale.
 	useEffect(() => {
 		if (hasChanges) {
@@ -112,6 +123,7 @@ function ReleaseRoute() {
 			setReviewedDraft(null);
 		}
 		if (ok) {
+			setTab("changes");
 			focusAfterRender.current = "receipt";
 			setPublishedReceipt({ revision: store.getState().publishedRevision });
 		} else {

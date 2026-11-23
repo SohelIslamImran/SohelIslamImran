@@ -6,7 +6,7 @@
  * form (keeping the upload form visible in the empty state). When R2 (`MEDIA`)
  * is unbound, shows one "storage isn't connected" card instead.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -48,6 +48,9 @@ function LibraryRoute() {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const [uploadOpen, setUploadOpen] = useState(false);
+	const [uploadMounted, setUploadMounted] = useState(false);
+	const [uploadBusy, setUploadBusy] = useState(false);
+	const addMediaRef = useRef<HTMLButtonElement>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -56,6 +59,10 @@ function LibraryRoute() {
 			const result = await fetchMedia();
 			setMediaEnabled(result.mediaEnabled);
 			setItems(result.items);
+			if (result.mediaEnabled && result.items.length === 0) {
+				setUploadOpen(true);
+				setUploadMounted(true);
+			}
 		} catch {
 			setError("Could not load media.");
 		} finally {
@@ -71,8 +78,18 @@ function LibraryRoute() {
 		setItems((prev) => prev.map((item) => (item.id === id ? { ...item, alt, updatedAt } : item)));
 	};
 
-	const isEmpty = !loading && !error && items.length === 0;
-	const showUploadPanel = mediaEnabled && (uploadOpen || isEmpty);
+	const openUpload = () => {
+		setUploadMounted(true);
+		setUploadOpen(true);
+	};
+
+	const closeUpload = useCallback(() => {
+		if (uploadBusy) return;
+		setUploadOpen(false);
+		requestAnimationFrame(() => addMediaRef.current?.focus());
+	}, [uploadBusy]);
+
+	const hasAssets = items.length > 0;
 
 	return (
 		<div className={pageClass}>
@@ -80,14 +97,20 @@ function LibraryRoute() {
 				title="Media library"
 				description="Images, PDFs, and default alt text for attachments."
 				actions={
-					mediaEnabled && !isEmpty ? (
+					mediaEnabled && hasAssets ? (
 						<Button
+							ref={addMediaRef}
 							type="button"
 							variant={uploadOpen ? "outline" : "default"}
 							size="sm"
+							disabled={uploadBusy}
 							aria-expanded={uploadOpen}
 							aria-controls={UPLOAD_PANEL_ID}
-							onClick={() => setUploadOpen((open) => !open)}
+							onClick={() => {
+								if (uploadBusy) return;
+								if (uploadOpen) closeUpload();
+								else openUpload();
+							}}
 							className="max-sm:min-h-11 pointer-coarse:min-h-11"
 						>
 							<UploadIcon className="size-3.5" />
@@ -98,15 +121,19 @@ function LibraryRoute() {
 			/>
 
 			{!mediaEnabled ? (
-				<StorageDisconnectedCard hasAssets={items.length > 0} />
-			) : showUploadPanel ? (
-				<UploadPanel
-					id={UPLOAD_PANEL_ID}
-					csrfToken={csrfToken}
-					onUploaded={load}
-					onClose={items.length > 0 ? () => setUploadOpen(false) : undefined}
-				/>
-			) : null}
+				<StorageDisconnectedCard hasAssets={hasAssets} />
+			) : (
+				<div id={UPLOAD_PANEL_ID} hidden={!uploadOpen}>
+					{uploadMounted ? (
+						<UploadPanel
+							csrfToken={csrfToken}
+							onUploaded={load}
+							onBusyChange={setUploadBusy}
+							onClose={hasAssets ? closeUpload : undefined}
+						/>
+					) : null}
+				</div>
+			)}
 
 			{error ? (
 				<section className="cms-panel">

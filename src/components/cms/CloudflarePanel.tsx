@@ -4,6 +4,7 @@
  */
 import {
 	cloudflareLinks,
+	countWorkerErrors,
 	shortVersionId,
 	type CloudflareLink,
 	type CloudflareLinkId,
@@ -199,16 +200,23 @@ export function CloudflarePanel({ stagger }: { stagger?: number }) {
 		health.kind === "ready"
 			? [
 					{ label: "Requests", value: health.worker.requests, format: requestLabel },
-					{ label: "Errors", value: health.worker.errors, format: countLabel },
+					{ label: "Errors", value: countWorkerErrors(health.worker), format: countLabel },
 					{ label: "Median response", value: health.worker.wallP50Ms, format: msLabel },
 				]
 			: null;
 
-	const ariaLabel = stats
-		? `Hosting, last 24 hours: ${stats
-				.map((stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`)
-				.join(", ")}. Open infrastructure`
-		: "Hosting, last 24 hours. Open infrastructure";
+	const ariaLabel =
+		stats !== null
+			? `Hosting, last 24 hours: ${stats
+					.map(
+						(stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`,
+					)
+					.join(", ")}. Open infrastructure`
+			: health.kind === "loading"
+				? "Hosting, last 24 hours: loading metrics. Open infrastructure"
+				: health.kind === "unavailable" && health.notConfigured
+					? "Hosting, last 24 hours: metrics unavailable, connect Cloudflare. Open infrastructure"
+					: "Hosting, last 24 hours: metrics unavailable. Open infrastructure";
 
 	return (
 		<Link

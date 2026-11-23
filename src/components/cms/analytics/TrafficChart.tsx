@@ -1,10 +1,10 @@
 import { motion } from "motion/react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "../../../lib/utils";
 import type { TrafficPoint } from "../../../server/analytics.server";
 import { REDUCED } from "../motion";
-import { CheckCircleIcon } from "../shell/cms-icons";
+import { AlertTriangleIcon, CheckCircleIcon } from "../shell/cms-icons";
 import { SegmentedControl, countLabel, staggerStyle } from "./Widgets";
 
 const width = 640;
@@ -12,6 +12,8 @@ const height = 188;
 const padX = 12;
 const padTop = 14;
 const padBottom = 14;
+/** Height of the floating readout band above the plot in Analytics tooltip mode. */
+const BAND_PX = 54;
 const HOUR_MS = 3_600_000;
 
 const plural = (count: number, one: string, many: string) =>
@@ -116,11 +118,14 @@ export interface ChartSeriesText {
 }
 
 export type ChartSecondaryTone = "accent" | "destructive";
+export type ChartAreaTone = "accent" | "ink";
+export type ChartReadoutMode = "tooltip" | "inline";
 
 /**
- * Plots two series: `pageviews` as the solid primary line with an ink area fill,
- * and `visitorDays` as the dashed secondary line. Other pages can reuse the chart
- * by mapping their data onto those two fields and naming them with `series`.
+ * Plots two series: `pageviews` as the solid primary line with an area fill,
+ * and `visitorDays` as the dashed secondary line. Defaults preserve Analytics
+ * (accent fill + floating callout in a fixed band); Infrastructure opts into
+ * the ink fill, destructive secondary tone, and zero-shift inline readout.
  */
 export function TrafficChart({
 	points,
@@ -129,8 +134,11 @@ export function TrafficChart({
 	rangeLabel = "this range",
 	stagger,
 	series,
+	areaTone = "accent",
+	readout = "tooltip",
 	secondaryTone = "accent",
 	zeroSecondarySummary,
+	zeroSecondaryTone = "ok",
 }: {
 	points: TrafficPoint[];
 	hourly?: boolean;
@@ -139,15 +147,23 @@ export function TrafficChart({
 	rangeLabel?: string;
 	stagger?: number;
 	series?: { primary: ChartSeriesText; secondary: ChartSeriesText };
+	/** Area fill under the primary line: accent (Analytics) or neutral ink (Infrastructure). */
+	areaTone?: ChartAreaTone;
+	/** Readout style: floating glass callout (Analytics) or inline legend/readout bar (Infrastructure). */
+	readout?: ChartReadoutMode;
 	/** Visual tone for the secondary series: default accent (Analytics) or destructive (Infrastructure errors). */
 	secondaryTone?: ChartSecondaryTone;
 	/** When set and every secondary value is zero, omit the dashed baseline line and show this explicit summary instead. */
 	zeroSecondarySummary?: string;
+	/** Tone of `zeroSecondarySummary`: `"ok"` when aggregate is also zero, `"warn"` when errors lack a time breakdown. */
+	zeroSecondaryTone?: "ok" | "warn";
 }) {
 	const reduced = useLiveReducedMotion();
 	const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 	const [keyboardIndex, setKeyboardIndex] = useState<number | null>(null);
 	const [mode, setMode] = useState<"chart" | "table">("chart");
+	const [canvasWidth, setCanvasWidth] = useState(640);
+	const wrapRef = useRef<HTMLDivElement>(null);
 	const id = useId();
 	const fillId = `${id}-pv-fill`;
 	const clipId = `${id}-draw-clip`;
@@ -171,6 +187,18 @@ export function TrafficChart({
 			? (["visitor-day this hour", "visitor-days this hour"] as const)
 			: (["visitor-day", "visitor-days"] as const);
 
+	useEffect(() => {
+		if (readout !== "tooltip") return;
+		const element = wrapRef.current;
+		if (!element) return;
+		setCanvasWidth(element.getBoundingClientRect().width);
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry) setCanvasWidth(entry.contentRect.width);
+		});
+		observer.observe(element);
+		return () => observer.disconnect();
+	}, [mode, readout]);
+
 	const last = Math.max(0, points.length - 1);
 	const { rawMax, secondaryMax } = useMemo(() => {
 		let maxVal = 0;
@@ -184,6 +212,7 @@ export function TrafficChart({
 	}, [points]);
 	const isAllZero = rawMax === 0;
 	const hideSecondarySeries = Boolean(zeroSecondarySummary) && secondaryMax === 0;
+	const secondaryUnbucketed = hideSecondarySeries && zeroSecondaryTone === "warn";
 	const max = niceAxisMax(rawMax);
 	const plotTop = padTop;
 	const plotBottom = height - padBottom;
@@ -198,11 +227,22 @@ export function TrafficChart({
 		return hourly ? hour.format(Math.floor(at / HOUR_MS) * HOUR_MS) : date.format(at);
 	};
 
+	const widestTimestamp = useMemo(() => {
+		let widest = "";
+		for (const point of points) {
+			const label = format(point);
+			if (label.length >= widest.length) widest = label;
+		}
+		return widest;
+	}, [points, hourly]);
+
 	const summary = useMemo(() => {
 		if (points.length === 0) return "";
 		const pageviews = points.reduce((sum, point) => sum + point.pageviews, 0);
 		const visitorDays = points.reduce((sum, point) => sum + point.visitorDays, 0);
-		const totals = `${title}, ${rangeLabel}: ${plural(pageviews, primary.one, primary.many)} and ${plural(visitorDays, secondary.one, secondary.many)}.`;
+		const totals = secondaryUnbucketed
+			? `${title}, ${rangeLabel}: ${plural(pageviews, primary.one, primary.many)}. ${zeroSecondarySummary}.`
+			: `${title}, ${rangeLabel}: ${plural(pageviews, primary.one, primary.many)} and ${plural(visitorDays, secondary.one, secondary.many)}.`;
 		if (pageviews === 0) return totals;
 		const peak = points.reduce((best, point) => (point.pageviews > best.pageviews ? point : best));
 		const half = Math.floor(points.length / 2);
@@ -217,7 +257,16 @@ export function TrafficChart({
 					? "rose"
 					: "fell";
 		return `${totals} Busiest ${hourly ? "hour" : "day"}: ${format(peak)} UTC with ${plural(peak.pageviews, primary.one, primary.many)}. ${primary.name} ${trend} from the first half of the range to the second.`;
-	}, [points, title, rangeLabel, hourly, primary, secondary]);
+	}, [
+		points,
+		title,
+		rangeLabel,
+		hourly,
+		primary,
+		secondary,
+		secondaryUnbucketed,
+		zeroSecondarySummary,
+	]);
 
 	const { pvCoords, vdCoords, pvLine, vdLine, pvArea } = useMemo(() => {
 		const pv = points.map((point, i) => ({ x: xOf(i), y: yOf(point.pageviews) }));
@@ -235,6 +284,14 @@ export function TrafficChart({
 	const activePoint = activeIndex !== null ? points[activeIndex] : undefined;
 	const activePv = activeIndex !== null ? pvCoords[activeIndex] : undefined;
 	const activeVd = activeIndex !== null ? vdCoords[activeIndex] : undefined;
+
+	// Floating callout geometry for Analytics tooltip mode.
+	const tooltipWidth = Math.min(264, Math.max(0, canvasWidth - 8));
+	const crossPx = activePv ? (activePv.x / width) * canvasWidth : 0;
+	const tooltipLeft = Math.max(
+		4,
+		Math.min(canvasWidth - tooltipWidth - 4, crossPx - tooltipWidth / 2),
+	);
 
 	const clearInspection = () => {
 		setHoverIndex(null);
@@ -271,6 +328,135 @@ export function TrafficChart({
 				? "text-destructive"
 				: "text-muted-foreground"
 			: "text-primary-text";
+
+	const areaStopColor = areaTone === "ink" ? "var(--theme-ink)" : "var(--theme-accent)";
+	const areaStopOpacity = areaTone === "ink" ? "0.11" : "0.16";
+	const isInlineReadout = readout === "inline";
+
+	const plotElement = (
+		<div className="relative">
+			<svg
+				aria-hidden="true"
+				viewBox={`0 0 ${width} ${height}`}
+				preserveAspectRatio="none"
+				className="block h-44 w-full sm:h-56"
+			>
+				<defs>
+					<linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" stopColor={areaStopColor} stopOpacity={areaStopOpacity} />
+						<stop offset="100%" stopColor={areaStopColor} stopOpacity="0" />
+					</linearGradient>
+					<clipPath id={clipId}>
+						{/* originX 0: Motion defaults SVG transforms to the box centre. */}
+						<motion.rect
+							x={0}
+							y={0}
+							width={width}
+							height={height}
+							style={{ originX: 0, originY: 0 }}
+							initial={{ scaleX: 0 }}
+							animate={{ scaleX: 1 }}
+							transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
+						/>
+					</clipPath>
+				</defs>
+
+				{gridLines.map((lineY, idx) => (
+					<line
+						key={lineY}
+						x1={padX}
+						x2={width - padX}
+						y1={lineY}
+						y2={lineY}
+						stroke="currentColor"
+						strokeDasharray={idx === 2 ? undefined : "3 4"}
+						className={idx === 2 ? "text-line-strong" : "text-line"}
+						vectorEffect="non-scaling-stroke"
+					/>
+				))}
+
+				{/* Series revealed left to right once; reduced motion fades instead. */}
+				<motion.g
+					className="cms-chart-series"
+					clipPath={reduced ? undefined : `url(#${clipId})`}
+					initial={reduced ? { opacity: 0 } : undefined}
+					animate={reduced ? { opacity: 1 } : undefined}
+					transition={reduced ? REDUCED : undefined}
+				>
+					{pvArea && !isAllZero ? <path d={pvArea} fill={`url(#${fillId})`} /> : null}
+					{pvLine ? (
+						<path
+							d={pvLine}
+							fill="none"
+							stroke="currentColor"
+							className={isAllZero ? "text-line-strong" : "text-foreground"}
+							strokeWidth={isAllZero ? "1.5" : "2"}
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							vectorEffect="non-scaling-stroke"
+						/>
+					) : null}
+					{vdLine && !hideSecondarySeries ? (
+						<path
+							d={vdLine}
+							fill="none"
+							stroke="currentColor"
+							className={
+								secondaryTone === "destructive"
+									? "text-destructive"
+									: isAllZero
+										? "text-primary-text/50"
+										: "text-primary-text"
+							}
+							strokeWidth="2"
+							strokeDasharray="5 4"
+							strokeLinecap="round"
+							strokeLinejoin="round"
+							vectorEffect="non-scaling-stroke"
+						/>
+					) : null}
+				</motion.g>
+			</svg>
+
+			{/* Crosshair and dots move together in one frame. */}
+			{activePoint && activePv && activeVd ? (
+				<>
+					<span
+						aria-hidden="true"
+						className="pointer-events-none absolute w-px -translate-x-1/2 bg-muted-foreground/60"
+						style={{
+							left: `${(activePv.x / width) * 100}%`,
+							top: `${(plotTop / height) * 100}%`,
+							bottom: `${(padBottom / height) * 100}%`,
+						}}
+					/>
+					{!hideSecondarySeries ? (
+						<span
+							aria-hidden="true"
+							className={cn(
+								"pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid",
+								secondaryTone === "destructive"
+									? "bg-destructive shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-destructive)_22%,transparent)]"
+									: "bg-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-accent)_22%,transparent)]",
+							)}
+							style={{
+								left: `${(activeVd.x / width) * 100}%`,
+								top: `${(activeVd.y / height) * 100}%`,
+							}}
+						/>
+					) : null}
+					<span
+						aria-hidden="true"
+						className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-foreground shadow-[0_1px_4px_var(--theme-shadow-strong)]"
+						style={{
+							left: `${(activePv.x / width) * 100}%`,
+							top: `${(activePv.y / height) * 100}%`,
+						}}
+					/>
+				</>
+			) : null}
+		</div>
+	);
 
 	return (
 		<section
@@ -332,10 +518,12 @@ export function TrafficChart({
 									<td
 										className={cn(
 											"px-3 py-2 text-right font-mono font-medium",
-											secondaryValueClass(point.visitorDays),
+											secondaryUnbucketed
+												? "text-muted-foreground"
+												: secondaryValueClass(point.visitorDays),
 										)}
 									>
-										{countLabel(point.visitorDays)}
+										{secondaryUnbucketed ? "—" : countLabel(point.visitorDays)}
 									</td>
 									<td className="px-3 py-2 text-right font-mono font-medium text-foreground">
 										{countLabel(point.pageviews)}
@@ -347,66 +535,98 @@ export function TrafficChart({
 				</div>
 			) : (
 				<div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] gap-x-2.5 gap-y-2">
-					{/* Readout / legend band in flow above the plot so series keys stay visible and wrap cleanly. */}
-					<span aria-hidden="true" />
-					<div
-						aria-hidden="true"
-						className={cn(
-							"flex min-h-9 min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-[10px] border px-2.5 py-1.5 text-[12px] transition-colors duration-150",
-							activePoint
-								? "border-line-strong bg-surface-raised text-foreground"
-								: "border-transparent bg-transparent px-0 text-muted-foreground",
-						)}
-					>
-						<span className="inline-flex items-center gap-1.5">
-							<SeriesSwatch kind="pageviews" tone={secondaryTone} />
-							<span className={activePoint ? "text-muted-foreground" : undefined}>
-								{primary.name}
-							</span>
-							{activePoint ? (
-								<span className="font-mono font-semibold text-foreground tabular-nums">
-									{countLabel(activePoint.pageviews)}
-								</span>
-							) : null}
-						</span>
-
-						{hideSecondarySeries ? (
-							<span className="inline-flex items-center gap-1.5 text-muted-foreground">
-								<CheckCircleIcon className="size-3.5 text-success" />
-								<span>{activePoint ? `${visitorLabel} 0` : zeroSecondarySummary}</span>
-							</span>
-						) : (
-							<span className="inline-flex items-center gap-1.5">
-								<SeriesSwatch kind="visitors" tone={secondaryTone} />
-								<span className={activePoint ? "text-muted-foreground" : undefined}>
-									{visitorLabel}
-								</span>
-								{activePoint ? (
-									<span
-										className={cn(
-											"font-mono font-semibold tabular-nums",
-											secondaryValueClass(activePoint.visitorDays),
-										)}
-									>
-										{countLabel(activePoint.visitorDays)}
+					{isInlineReadout ? (
+						<>
+							{/* Inline readout / legend band: both states share one grid cell so wrapped height is reserved at rest with 0px shift. */}
+							<span aria-hidden="true" />
+							<div
+								aria-hidden="true"
+								className="grid min-w-0 grid-cols-1 grid-rows-1 items-center text-[12px]"
+							>
+								<div
+									className={cn(
+										"col-start-1 row-start-1 flex min-h-9 min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-[10px] border border-transparent py-1.5 text-muted-foreground transition-opacity duration-150",
+										activePoint && "invisible pointer-events-none",
+									)}
+								>
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="pageviews" tone={secondaryTone} />
+										<span>{primary.name}</span>
 									</span>
-								) : null}
-							</span>
-						)}
+									{hideSecondarySeries ? (
+										<span className="inline-flex items-center gap-1.5 text-muted-foreground">
+											{zeroSecondaryTone === "warn" ? (
+												<AlertTriangleIcon className="size-3.5 shrink-0 text-destructive" />
+											) : (
+												<CheckCircleIcon className="size-3.5 shrink-0 text-success" />
+											)}
+											<span>{zeroSecondarySummary}</span>
+										</span>
+									) : (
+										<span className="inline-flex items-center gap-1.5">
+											<SeriesSwatch kind="visitors" tone={secondaryTone} />
+											<span>{visitorLabel}</span>
+										</span>
+									)}
+								</div>
 
-						{activePoint ? (
-							<span className="ml-auto font-mono text-[11.5px] text-muted-foreground tabular-nums">
-								{format(activePoint)} UTC
-							</span>
-						) : null}
-					</div>
+								<div
+									className={cn(
+										"col-start-1 row-start-1 flex min-h-9 min-w-0 flex-wrap items-center gap-x-4 gap-y-1.5 rounded-[10px] border border-line-strong bg-surface-raised px-2.5 py-1.5 text-foreground transition-opacity duration-150",
+										!activePoint && "invisible pointer-events-none",
+									)}
+								>
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="pageviews" tone={secondaryTone} />
+										<span className="text-muted-foreground">{primary.name}</span>
+										<span className="font-mono font-semibold text-foreground tabular-nums">
+											{countLabel(activePoint ? activePoint.pageviews : rawMax)}
+										</span>
+									</span>
+
+									{hideSecondarySeries ? (
+										<span className="inline-flex items-center gap-1.5 text-muted-foreground">
+											{zeroSecondaryTone === "warn" ? (
+												<AlertTriangleIcon className="size-3.5 shrink-0 text-destructive" />
+											) : (
+												<CheckCircleIcon className="size-3.5 shrink-0 text-success" />
+											)}
+											<span>
+												{zeroSecondaryTone === "warn" ? `${visitorLabel} —` : `${visitorLabel} 0`}
+											</span>
+										</span>
+									) : (
+										<span className="inline-flex items-center gap-1.5">
+											<SeriesSwatch kind="visitors" tone={secondaryTone} />
+											<span className="text-muted-foreground">{visitorLabel}</span>
+											<span
+												className={cn(
+													"font-mono font-semibold tabular-nums",
+													secondaryValueClass(activePoint ? activePoint.visitorDays : secondaryMax),
+												)}
+											>
+												{countLabel(activePoint ? activePoint.visitorDays : secondaryMax)}
+											</span>
+										</span>
+									)}
+
+									<span className="ml-auto font-mono text-[11.5px] text-muted-foreground tabular-nums">
+										{activePoint ? format(activePoint) : widestTimestamp} UTC
+									</span>
+								</div>
+							</div>
+						</>
+					) : null}
 
 					{/* Y-axis labels sit directly on their SVG gridlines. */}
 					<div
 						aria-hidden="true"
 						className="relative min-w-[2ch] font-mono text-[12px] tabular-nums text-muted-foreground"
 					>
-						<div className="absolute inset-0">
+						<div
+							className="absolute inset-x-0 bottom-0"
+							style={isInlineReadout ? { top: 0 } : { top: BAND_PX }}
+						>
 							{axisLabels.map((value, index) => (
 								<span
 									key={index}
@@ -421,6 +641,7 @@ export function TrafficChart({
 					</div>
 
 					<div
+						ref={wrapRef}
 						role="group"
 						tabIndex={0}
 						aria-label={`${title}. Use the left and right arrow keys to read each ${hourly ? "hour" : "day"}.`}
@@ -463,127 +684,76 @@ export function TrafficChart({
 							}
 						}}
 						className="cms-page-focus relative min-w-0 cursor-crosshair touch-pan-y select-none rounded-[12px]"
+						style={isInlineReadout ? undefined : { paddingTop: BAND_PX }}
 					>
-						<svg
-							aria-hidden="true"
-							viewBox={`0 0 ${width} ${height}`}
-							preserveAspectRatio="none"
-							className="block h-44 w-full sm:h-56"
-						>
-							<defs>
-								<linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-									<stop offset="0%" stopColor="var(--theme-ink)" stopOpacity="0.11" />
-									<stop offset="100%" stopColor="var(--theme-ink)" stopOpacity="0" />
-								</linearGradient>
-								<clipPath id={clipId}>
-									{/* originX 0: Motion defaults SVG transforms to the box centre. */}
-									<motion.rect
-										x={0}
-										y={0}
-										width={width}
-										height={height}
-										style={{ originX: 0, originY: 0 }}
-										initial={{ scaleX: 0 }}
-										animate={{ scaleX: 1 }}
-										transition={{ duration: 0.68, ease: [0.22, 1, 0.36, 1] }}
-									/>
-								</clipPath>
-							</defs>
-
-							{gridLines.map((lineY, idx) => (
-								<line
-									key={lineY}
-									x1={padX}
-									x2={width - padX}
-									y1={lineY}
-									y2={lineY}
-									stroke="currentColor"
-									strokeDasharray={idx === 2 ? undefined : "3 4"}
-									className={idx === 2 ? "text-line-strong" : "text-line"}
-									vectorEffect="non-scaling-stroke"
-								/>
-							))}
-
-							{/* Series revealed left to right once; reduced motion fades instead. */}
-							<motion.g
-								className="cms-chart-series"
-								clipPath={reduced ? undefined : `url(#${clipId})`}
-								initial={reduced ? { opacity: 0 } : undefined}
-								animate={reduced ? { opacity: 1 } : undefined}
-								transition={reduced ? REDUCED : undefined}
-							>
-								{pvArea && !isAllZero ? <path d={pvArea} fill={`url(#${fillId})`} /> : null}
-								{pvLine ? (
-									<path
-										d={pvLine}
-										fill="none"
-										stroke="currentColor"
-										className={isAllZero ? "text-line-strong" : "text-foreground"}
-										strokeWidth={isAllZero ? "1.5" : "2"}
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										vectorEffect="non-scaling-stroke"
-									/>
-								) : null}
-								{vdLine && !hideSecondarySeries ? (
-									<path
-										d={vdLine}
-										fill="none"
-										stroke="currentColor"
-										className={
-											secondaryTone === "destructive"
-												? "text-destructive"
-												: isAllZero
-													? "text-primary-text/50"
-													: "text-primary-text"
-										}
-										strokeWidth="2"
-										strokeDasharray="5 4"
-										strokeLinecap="round"
-										strokeLinejoin="round"
-										vectorEffect="non-scaling-stroke"
-									/>
-								) : null}
-							</motion.g>
-						</svg>
-
-						{/* Crosshair and dots move together in one frame. */}
-						{activePoint && activePv && activeVd ? (
+						{!isInlineReadout ? (
 							<>
-								<span
+								{/* Analytics readout band: legend at rest, floating glass callout while inspecting. */}
+								<div
 									aria-hidden="true"
-									className="pointer-events-none absolute w-px -translate-x-1/2 bg-muted-foreground/60"
-									style={{
-										left: `${(activePv.x / width) * 100}%`,
-										top: `${(plotTop / height) * 100}%`,
-										bottom: `${(padBottom / height) * 100}%`,
-									}}
-								/>
-								{!hideSecondarySeries ? (
-									<span
+									className={cn(
+										"absolute inset-x-0 top-0 flex items-center gap-x-4 text-[12px] text-muted-foreground transition-opacity duration-150",
+										activePoint ? "opacity-0" : "opacity-100",
+									)}
+									style={{ height: BAND_PX - 8 }}
+								>
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="pageviews" tone={secondaryTone} />
+										<span>{primary.name}</span>
+									</span>
+									<span className="inline-flex items-center gap-1.5">
+										<SeriesSwatch kind="visitors" tone={secondaryTone} />
+										<span>{visitorLabel}</span>
+									</span>
+								</div>
+								{activePoint ? (
+									<div
 										aria-hidden="true"
-										className={cn(
-											"pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid",
-											secondaryTone === "destructive"
-												? "bg-destructive shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-destructive)_22%,transparent)]"
-												: "bg-primary shadow-[0_0_0_3px_color-mix(in_srgb,var(--theme-accent)_22%,transparent)]",
-										)}
+										className="cms-chart-tooltip grid content-center gap-1 px-3"
 										style={{
-											left: `${(activeVd.x / width) * 100}%`,
-											top: `${(activeVd.y / height) * 100}%`,
+											width: `${tooltipWidth}px`,
+											left: `${tooltipLeft}px`,
+											height: BAND_PX - 8,
 										}}
-									/>
+									>
+										<p className="m-0 truncate text-[11px] leading-none font-medium text-muted-foreground">
+											{format(activePoint)} UTC
+										</p>
+										<div className="flex items-center gap-3 text-[12px] leading-none whitespace-nowrap tabular-nums">
+											<span className="inline-flex items-center gap-1.5">
+												<SeriesSwatch kind="pageviews" tone={secondaryTone} />
+												<span className="font-mono font-semibold text-foreground">
+													{countLabel(activePoint.pageviews)}
+												</span>
+												<span className="text-[11px] text-muted-foreground">
+													{activePoint.pageviews === 1
+														? (primary.short?.[0] ?? primary.one)
+														: (primary.short?.[1] ?? primary.many)}
+												</span>
+											</span>
+											<span className="inline-flex items-center gap-1.5">
+												<SeriesSwatch kind="visitors" tone={secondaryTone} />
+												<span
+													className={cn(
+														"font-mono font-semibold",
+														secondaryValueClass(activePoint.visitorDays),
+													)}
+												>
+													{countLabel(activePoint.visitorDays)}
+												</span>
+												<span className="text-[11px] text-muted-foreground">
+													{activePoint.visitorDays === 1
+														? (secondary.short?.[0] ?? secondary.one)
+														: (secondary.short?.[1] ?? secondary.many)}
+												</span>
+											</span>
+										</div>
+									</div>
 								) : null}
-								<span
-									aria-hidden="true"
-									className="pointer-events-none absolute size-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-surface-solid bg-foreground shadow-[0_1px_4px_var(--theme-shadow-strong)]"
-									style={{
-										left: `${(activePv.x / width) * 100}%`,
-										top: `${(activePv.y / height) * 100}%`,
-									}}
-								/>
 							</>
 						) : null}
+
+						{plotElement}
 					</div>
 
 					{/* X-axis labels share the plot's column, so they line up with it. */}
@@ -605,7 +775,9 @@ export function TrafficChart({
 					</p>
 					<p className="sr-only" aria-live="polite">
 						{keyboardPoint
-							? `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, primary.one, primary.many)}, ${plural(keyboardPoint.visitorDays, secondaryLive[0], secondaryLive[1])}`
+							? secondaryUnbucketed
+								? `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, primary.one, primary.many)}. ${zeroSecondarySummary}.`
+								: `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, primary.one, primary.many)}, ${plural(keyboardPoint.visitorDays, secondaryLive[0], secondaryLive[1])}`
 							: ""}
 					</p>
 				</div>

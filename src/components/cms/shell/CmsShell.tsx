@@ -1045,10 +1045,11 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
-	const releaseGate = () =>
-		pathname === "/cms/release" || pathname === "/release"
-			? document.getElementById(RELEASE_GATE_ID)
-			: null;
+	const releaseGate = () => {
+		if (pathname !== "/cms/release" && pathname !== "/release") return null;
+		window.dispatchEvent(new CustomEvent("cms:release-select-review"));
+		return document.getElementById(RELEASE_GATE_ID);
+	};
 
 	const focusReleaseGate = (gate: HTMLElement) => {
 		if (!gate.matches("a[href], button, input, select, textarea, [tabindex]")) gate.tabIndex = -1;
