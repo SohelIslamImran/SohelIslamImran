@@ -4842,8 +4842,7 @@ html[data-xray] body {
 	.hw-control,
 	.hw-control-icon,
 	.hw-restore {
-		transition-duration: 0s !important;
-		transition-delay: 0s !important;
+		transition: none !important;
 	}
 	.hw :is(.hw-pillar-index, .hw-impact),
 	.hw .hw-sweep::before,

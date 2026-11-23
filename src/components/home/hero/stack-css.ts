@@ -314,8 +314,8 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 	.st[data-sending][data-landing] .st-land::before { animation: st-ring 1400ms var(--ease) 250ms both; }
 	.st[data-moving][data-first] .st-dot-core { animation: st-dot-in 360ms var(--ease) both; }
 	.st[data-touring]:is([data-paused], [data-hold]) :is(.st-dot, .st-dot-core, .st-rail-fill),
-	.st[data-run-paused] :is(.st-dot, .st-dot-core, .st-log-line),
-	.st[data-run-paused] .st-land::before { animation-play-state: paused; }
+	.st[data-sending][data-run-paused] :is(.st-dot, .st-dot-core, .st-log-line[data-now]),
+	.st[data-sending][data-run-paused] .st-land::before { animation-play-state: paused; }
 
 	.st-plane[data-active] .mi-cursor { animation: mi-cursor 2.8s var(--ease) infinite; }
 	.st-plane[data-active] .mi-press { animation: mi-press 2.8s var(--ease) infinite; }
@@ -336,6 +336,7 @@ html:not([data-theme-resolved="dark"]) .st-shadow { opacity: 1; }
 @media (prefers-reduced-motion: reduce) {
 	.st-send, .st-send:active { transition: none; scale: none; }
 	.st-rig { transform: rotateX(calc(var(--rx) * 1deg)) rotateZ(-45deg); }
+	.st-rig, .st-plane, .st-shadow, .st-wire, .st-dot, .st-land, .st-tab, .st-tab-lead,
 	.st-odo-strip, .st-rail-thumb, .st-rail-seg, .st-log::before, .st-log-line, .st-panel { transition: none !important; }
 	.st-panel { translate: none; }
 }

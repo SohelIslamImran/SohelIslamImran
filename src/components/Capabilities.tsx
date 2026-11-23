@@ -311,14 +311,14 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					))}
 				</div>
 
-				<div className="mt-5 flex min-h-9 items-center justify-center">
+				<div className="mt-5 flex min-h-11 items-center justify-center">
 					<button
 						type="button"
 						onClick={restore}
 						tabIndex={gone >= 0 ? 0 : -1}
 						aria-hidden={gone < 0 || undefined}
 						className={cn(
-							"hw-restore inline-flex min-h-9 items-center gap-2 rounded-full border border-line-strong px-4 text-[13px] font-medium text-ink-soft pointer-fine:hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+							"hw-restore inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-4 text-[13px] font-medium text-ink-soft pointer-fine:hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
 							gone < 0 && "pointer-events-none",
 						)}
 						data-on={gone >= 0 ? "" : undefined}

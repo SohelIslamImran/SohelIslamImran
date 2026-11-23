@@ -53,9 +53,9 @@ const MAP_CSS = `
 @keyframes rmap-arrive { from { scale: 0; } to { scale: 1; } }
 @keyframes rmap-packet {
 	from { stroke-dashoffset: 1.08; opacity: 1; }
-	/* Hide just before the repeating dash would wrap back onto Home. */
-	99.9% { stroke-dashoffset: 0.08; opacity: 1; }
-	to { stroke-dashoffset: 0; opacity: 0; }
+	/* Keep the dash at the destination while it fades. */
+	96% { stroke-dashoffset: 0.08; opacity: 1; }
+	to { stroke-dashoffset: 0.08; opacity: 0; }
 }
 @keyframes rmap-ping {
 	from { opacity: 0.5; scale: 1; }
@@ -262,11 +262,12 @@ export function RemoteMap({ teams, className }: { teams: RemoteMapTeam[]; classN
 									}}
 									onPointerLeave={() => setHovered(null)}
 									onFocus={(event) => {
-										if (event.currentTarget.matches(":focus-visible")) setFocused(team.company);
+										setFocused(event.currentTarget.matches(":focus-visible") ? team.company : null);
 									}}
 									onBlur={() => setFocused(null)}
 									onClick={() => togglePin(team.company)}
 									onKeyDown={(event) => {
+										if (event.currentTarget.matches(":focus-visible")) setFocused(team.company);
 										if (event.key === "Escape") setPin(null);
 									}}
 								>
