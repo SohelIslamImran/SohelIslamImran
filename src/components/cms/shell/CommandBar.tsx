@@ -170,6 +170,8 @@ function CommandBarOpen({
 
 	const [query, setQuery] = useState("");
 	const [activeId, setActiveId] = useState<string | null>(null);
+	const [keyboardNav, setKeyboardNav] = useState(false);
+	const pointer = useRef<{ x: number; y: number } | null>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
 	const listRef = useRef<HTMLDivElement>(null);
 	const listboxId = useId();
@@ -536,6 +538,7 @@ function CommandBarOpen({
 
 	const move = (nextIndex: number) => {
 		if (!flat.length) return;
+		setKeyboardNav(true);
 		const wrapped = (nextIndex + flat.length) % flat.length;
 		setActiveId(flat[wrapped]?.id ?? null);
 	};
@@ -651,6 +654,7 @@ function CommandBarOpen({
 						// Options are driven from the combobox (aria-activedescendant); keep
 						// the scrollable list itself out of the Tab sequence too.
 						tabIndex={-1}
+						data-keyboard-nav={keyboardNav || undefined}
 						className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
 					>
 						{filtered.map((section, sectionIndex) => (
@@ -681,8 +685,19 @@ function CommandBarOpen({
 												aria-selected={isActive}
 												aria-disabled={item.disabled || undefined}
 												onPointerMove={(event) => {
-													if (event.pointerType === "mouse" && activeId !== item.id)
-														setActiveId(item.id);
+													if (event.pointerType !== "mouse") return;
+													// Scrolling the active option into view moves rows under a
+													// resting pointer; only a real move takes over from the keys.
+													const last = pointer.current;
+													pointer.current = { x: event.screenX, y: event.screenY };
+													if (
+														keyboardNav &&
+														(!last || (last.x === event.screenX && last.y === event.screenY))
+													) {
+														return;
+													}
+													setKeyboardNav(false);
+													if (activeId !== item.id) setActiveId(item.id);
 												}}
 												onMouseDown={(event) => event.preventDefault()}
 												onClick={(event) => execute(item, event.currentTarget)}

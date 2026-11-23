@@ -686,6 +686,20 @@
 		}
 	}
 
+	/* Denser glass than the shared menu surface: the page's bold h1 sits right
+	   under the issues list and read as a smudge through 72%. */
+	.cms-issues-popover [data-slot="menu-surface"] {
+		background-color: color-mix(in srgb, var(--theme-surface-solid) 90%, transparent);
+	}
+
+	/* One highlight at a time: while the arrow keys drive the active option, a
+	   resting pointer does not tint its row until it moves. */
+	@media (hover: hover) and (pointer: fine) {
+		[data-keyboard-nav] .cms-command-row.cms-chrome-control:hover {
+			background-color: transparent;
+		}
+	}
+
 	.cms-root:has(#main-content #release-gate) .cms-publish-action {
 		display: none;
 	}

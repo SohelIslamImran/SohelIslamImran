@@ -294,13 +294,15 @@ export function PipelineBar({
 				<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
 					<span
 						className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
-						aria-label={`Draft revision ${draftRevision}`}
 						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
 					>
-						<span className="hidden sm:inline">Draft </span>
-						<span key={draftRevision} className="cms-count-tick">
-							r{draftRevision}
+						<span aria-hidden="true">
+							<span className="hidden sm:inline">Draft </span>
+							<span key={draftRevision} className="cms-count-tick">
+								r{draftRevision}
+							</span>
 						</span>
+						<span className="sr-only">Draft revision {draftRevision}</span>
 					</span>
 					<span aria-hidden="true" className="cms-pipeline-connector" />
 					<PipelineStatus
@@ -481,6 +483,7 @@ export function MobileActionBar({
 }) {
 	const reduce = useLiveReducedMotion();
 	const bar = useRef<HTMLDivElement>(null);
+	const errors = useSettledIssues().all.length;
 
 	useLayoutEffect(() => {
 		if (!visible && bar.current?.contains(document.activeElement)) {
@@ -500,7 +503,27 @@ export function MobileActionBar({
 					exit={{ y: reduce ? 0 : 20, opacity: 0, pointerEvents: "none" }}
 					transition={reduce ? REDUCED : SPRING_MOVE}
 				>
-					<PipelineActions onRequestPublish={onRequestPublish} saveFeedback={saveFeedback} />
+					{errors > 0 ? (
+						// Save and Publish are both blocked: offer the one useful action.
+						<Button
+							variant="outline"
+							size="sm"
+							className="cms-action min-h-11 flex-1 border-destructive/35 text-destructive"
+							onClick={() => {
+								const pill = document.querySelector<HTMLElement>(".cms-status-pill");
+								if (pill?.getAttribute("aria-expanded") === "true") pill.focus();
+								else pill?.click();
+							}}
+						>
+							<AlertTriangleIcon />
+							<span className="tabular-nums">
+								{errors} {errors === 1 ? "error" : "errors"}
+							</span>
+							<span aria-hidden="true">→</span> Fix
+						</Button>
+					) : (
+						<PipelineActions onRequestPublish={onRequestPublish} saveFeedback={saveFeedback} />
+					)}
 				</motion.div>
 			) : null}
 		</AnimatePresence>
