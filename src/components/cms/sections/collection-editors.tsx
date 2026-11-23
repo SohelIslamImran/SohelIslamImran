@@ -225,15 +225,11 @@ export function ExperienceEditor(props: EditorProps) {
 
 function CapabilityFields({ path }: { path: string }) {
 	return (
-		<>
-			<EditorGroup heading="h3" title="Capability details">
-				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-				<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
-			</EditorGroup>
-			<EditorGroup heading="h3" title="Tools">
-				<TagsField path={`${path}.tools`} label="Tools" />
-			</EditorGroup>
-		</>
+		<EditorGroup heading="h3" title="Capability details">
+			<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
+			<TextAreaField path={`${path}.description`} label="Description" maxLength={1_200} />
+			<TagsField path={`${path}.tools`} label="Tools" />
+		</EditorGroup>
 	);
 }
 
@@ -376,8 +372,6 @@ function TravelFields({ path }: { path: string }) {
 				<TextField path={`${path}.region`} label="Region" maxLength={160} />
 				<TextField path={`${path}.season`} label="Season" maxLength={120} />
 				<CoordinateField path={path} />
-			</EditorGroup>
-			<EditorGroup heading="h3" title="Visibility">
 				<VisibilityField path={`${path}.visibility`} />
 			</EditorGroup>
 			<EditorGroup heading="h3" title="Story and photos">

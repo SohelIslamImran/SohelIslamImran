@@ -20,6 +20,7 @@ import {
 	PopoverTrigger,
 } from "../../ui/popover";
 import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useSettledIssues } from "../draft/use-settled-issues";
 import { focusField } from "../fields";
 import { sentenceCase } from "../fields/FieldFrame";
 import { REDUCED, SPRING_MOVE } from "../motion";
@@ -45,6 +46,7 @@ function usePipelineStage(
 	stage: PipelineStage;
 	label: string;
 } {
+	const count = useSettledIssues().all.length;
 	return useDraftSelector((state) => {
 		if (state.status === "conflict") {
 			return { stage: "invalid", label: "Conflict" };
@@ -52,8 +54,7 @@ function usePipelineStage(
 		if (state.status === "error") {
 			return { stage: "invalid", label: publishFailed ? "Publish failed" : "Save failed" };
 		}
-		if (state.issues.all.length > 0) {
-			const count = state.issues.all.length;
+		if (count > 0) {
 			return {
 				stage: "invalid",
 				label: `${count} ${count === 1 ? "error" : "errors"}`,
@@ -103,7 +104,7 @@ function PipelineStatus({
 	const jumping = useRef(false);
 	const navigate = useNavigate();
 	const store = useDraftStore();
-	const issues = useDraftSelector((state) => state.issues.all);
+	const issues = useSettledIssues().all;
 	const conflict = useDraftSelector((state) => state.conflict !== null);
 
 	const jumpToIssue = (path: string) => {

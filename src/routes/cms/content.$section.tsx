@@ -2,7 +2,8 @@ import { Popover } from "@base-ui/react/popover";
 import { useCallback, useRef, useState } from "react";
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { z } from "zod";
-import { useDraftStore, useIssuesUnder } from "../../components/cms/draft/context";
+import { useDraftStore } from "../../components/cms/draft/context";
+import { useSettledIssues } from "../../components/cms/draft/use-settled-issues";
 import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/paths";
 import { fieldId, focusField } from "../../components/cms/fields";
 import { UndoRemovalHost } from "../../components/cms/fields/UndoRemoval";
@@ -72,9 +73,10 @@ function SectionRoute() {
 function SectionIssues({ section }: { section: SectionMeta }) {
 	const store = useDraftStore();
 	const navigate = Route.useNavigate();
-	const primary = useIssuesUnder(section.paths[0]);
-	const secondary = useIssuesUnder(section.paths[1] ?? "$unused");
-	const media = useIssuesUnder(section.id === "travel" ? "media" : "$unused");
+	const settled = useSettledIssues();
+	const primary = settled.under(section.paths[0]);
+	const secondary = section.paths[1] ? settled.under(section.paths[1]) : [];
+	const media = section.id === "travel" ? settled.under("media") : [];
 	const draft = media.length ? store.getState().draft : undefined;
 	const itemForMediaIssue = (path: string) => {
 		const index = parsePath(path)[1];
@@ -94,8 +96,6 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 	const collectionPath = section.id === "travel" ? "travel.entries" : section.paths[0];
 	if (!issues.length) return null;
 	const draftNow = store.getState().draft;
-	// Counts reflect the live draft. Text inputs can delay their inline feedback,
-	// but these issues still block autosave and can be opened here immediately.
 	const count = `${issues.length} ${issues.length === 1 ? "error" : "errors"}`;
 	return (
 		<Popover.Root

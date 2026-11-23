@@ -209,6 +209,53 @@ export function CollectionEditor<T extends { id: string }>({
 		[],
 	);
 
+	// Reserve the space above the list, including any settings or tabs.
+	useLayoutEffect(() => {
+		const panel = listPanel.current;
+		const collection = panel?.parentElement;
+		if (narrow || !panel || !collection) return;
+		let offset: number | undefined;
+		const measure = () => {
+			const top = Math.max(0, Math.ceil(collection.getBoundingClientRect().top));
+			if (top === offset) return;
+			offset = top;
+			panel.style.setProperty("--cms-collection-offset", `${top}px`);
+		};
+		const observer = new ResizeObserver(measure);
+		for (
+			let node: HTMLElement | null = collection;
+			node && !node.matches(".cms-editor");
+			node = node.parentElement
+		) {
+			for (
+				let sibling = node.previousElementSibling;
+				sibling;
+				sibling = sibling.previousElementSibling
+			) {
+				observer.observe(sibling);
+			}
+		}
+		measure();
+		window.addEventListener("resize", measure);
+		window.addEventListener("scroll", measure, { passive: true });
+		return () => {
+			observer.disconnect();
+			window.removeEventListener("resize", measure);
+			window.removeEventListener("scroll", measure);
+		};
+	}, [narrow]);
+
+	useLayoutEffect(() => {
+		const scroller = list.current;
+		const row = rowButton(activeId)?.closest("li");
+		if (!scroller || !row || scroller.scrollHeight <= scroller.clientHeight) return;
+		// Match scrollIntoView({ block: "nearest" }) inside the list alone.
+		const bounds = scroller.getBoundingClientRect();
+		const target = row.getBoundingClientRect();
+		if (target.top < bounds.top) scroller.scrollTop += target.top - bounds.top;
+		else if (target.bottom > bounds.bottom) scroller.scrollTop += target.bottom - bounds.bottom;
+	}, [activeId, filter, narrow, rowButton]);
+
 	// Wait until the detail and any page settings have settled before restoring the list.
 	useLayoutEffect(() => {
 		const pending = pendingListFocus.current;
@@ -560,6 +607,7 @@ export function CollectionEditor<T extends { id: string }>({
 						{shownId !== undefined ? (
 							<>
 								<EditorGroup
+									className="[&_h2]:text-[21px]"
 									title={
 										<span
 											id={detailHeadingId(shownId)}
@@ -785,7 +833,12 @@ function CollectionRow<T extends { id: string }>({
 								</span>
 							) : null}
 							<span className="flex flex-wrap gap-1 empty:hidden">
-								{(isNew ? ["New", ...chips] : chips).map((chip) => (
+								{isNew ? (
+									<span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[11px] leading-tight font-medium text-primary-text">
+										New
+									</span>
+								) : null}
+								{chips.map((chip) => (
 									<span
 										key={chip}
 										className="rounded-full bg-muted px-1.5 py-0.5 text-[11px] leading-tight text-foreground"
@@ -929,18 +982,7 @@ const CollectionDetails = memo(function CollectionDetails({
 				<EditorGroup heading="h3" title="Public URL">
 					<ProfileSlugField path={`${path}.id`} id={id} onRename={onRename} />
 				</EditorGroup>
-			) : (
-				<dl className="m-0 grid gap-1 px-4 py-2">
-					<dt className="mono-label text-muted-foreground">Item ID</dt>
-					<dd
-						id={fieldId(`${path}.id`)}
-						tabIndex={-1}
-						className="m-0 wrap-anywhere rounded-sm font-mono text-xs text-ink-soft"
-					>
-						{id}
-					</dd>
-				</dl>
-			)}
+			) : null}
 		</>
 	);
 });
