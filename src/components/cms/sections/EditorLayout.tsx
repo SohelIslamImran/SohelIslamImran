@@ -69,7 +69,7 @@ export function EditorGroup({
 		<section
 			data-slot="cms-editor-group"
 			className={cn(
-				"cms-panel cms-editor-group grid min-w-0 gap-6 p-[clamp(16px,2.2vw,26px)]",
+				"cms-panel cms-editor-group grid min-w-0 p-[clamp(16px,2.2vw,26px)]",
 				className,
 			)}
 		>

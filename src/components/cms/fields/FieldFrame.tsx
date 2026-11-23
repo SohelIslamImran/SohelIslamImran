@@ -205,9 +205,26 @@ export function FieldFrame({
 					</div>
 					<FieldMessage id={errorId} message={message} />
 				</>
+			) : labelHidden ? (
+				<>
+					{/* Revert and the counter follow the control, so their arrival
+					    never moves the control being edited. */}
+					{labelNode}
+					{children}
+					<FieldMessage
+						id={errorId}
+						message={message}
+						description={description}
+						descriptionId={descriptionId}
+					/>
+					<div className="cms-field-tail">
+						{meta}
+						{revert}
+					</div>
+				</>
 			) : (
 				<>
-					<div className="cms-field-head" data-label-hidden={labelHidden || undefined}>
+					<div className="cms-field-head">
 						{labelNode}
 						<div className="flex shrink-0 items-center gap-2">
 							{meta}

@@ -12,6 +12,12 @@
 		--cms-group-heading: 12rem;
 		--cms-group-gap: clamp(1.5rem, 3vw, 2.5rem);
 		--cms-group-pad: clamp(16px, 2.2vw, 26px);
+		/* A stacked group is one measure wide; a two-column group adds the heading column. */
+		--cms-group-stacked: calc(var(--cms-field-measure) + 2 * var(--cms-group-pad));
+		--cms-group-wide: calc(
+			var(--cms-group-heading) + var(--cms-group-gap) + var(--cms-field-measure) + 2 *
+				var(--cms-group-pad)
+		);
 		display: grid;
 		gap: clamp(1.25rem, 3vw, 2rem);
 		min-width: 0;
@@ -20,15 +26,26 @@
 	}
 
 	.cms-editor-group {
+		gap: 1.5rem;
 		border-color: color-mix(in srgb, var(--theme-line) 72%, transparent);
-		max-width: calc(
-			var(--cms-group-heading) + var(--cms-group-gap) + var(--cms-field-measure) + 2 *
-				var(--cms-group-pad)
-		);
+		max-width: var(--cms-group-stacked);
+	}
+
+	/* Object editors end the title row where their groups end; list editors keep it full width. */
+	.cms-editor:not(:has(.cms-collection, [role="tablist"])) > header {
+		max-width: var(--cms-group-stacked);
 	}
 
 	.cms-editor-group > .cms-editor-group-heading + * {
 		max-width: var(--cms-field-measure);
+	}
+
+	/* Two short fields share a row when the field column fits both. */
+	.cms-field-pair {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+		align-items: start;
+		gap: 1.25rem 1rem;
 	}
 
 	.cms-control {
@@ -114,16 +131,20 @@
 		margin-bottom: 6px;
 	}
 
-	/* A label kept for assistive tech only takes no room unless Revert or a counter shows. */
-	.cms-field-head[data-label-hidden] {
+	/*
+	 * A field whose label is for assistive tech only sets Revert and the
+	 * counter after the control; the line takes no room until one shows.
+	 */
+	.cms-field-tail {
+		display: flex;
+		align-items: center;
 		justify-content: flex-end;
-		min-height: 0;
-		margin-bottom: 0;
+		gap: 8px;
 	}
 
-	.cms-field-head[data-label-hidden]:has(.cms-counter, .cms-field-revert) {
+	.cms-field-tail:has(.cms-counter, .cms-field-revert) {
 		min-height: 20px;
-		margin-bottom: 6px;
+		margin-top: 8px;
 	}
 
 	.cms-field-inline {
@@ -724,11 +745,13 @@
 	}
 
 	/*
-	 * Collection rows: handle | text | menu | open affordance. The button's
-	 * ::after covers the whole row, so the trailing chevron and the gaps
-	 * open the item too; the handle and the menu sit above it.
+	 * Collection rows: handle | text | menu | open affordance, in DOM and
+	 * Tab order. The button's ::after covers the whole row, so the trailing
+	 * chevron and the gaps open the item too; the handle and the menu sit
+	 * above it.
 	 */
 	.cms-collection-row {
+		--cms-row-handle: 28px;
 		display: flex;
 		align-items: center;
 		gap: 2px;
@@ -739,10 +762,6 @@
 	.cms-collection-row > :is(.cms-drag-handle, .cms-collection-row-actions) {
 		position: relative;
 		z-index: 1;
-	}
-
-	.cms-collection-row > .cms-drag-handle {
-		order: -1;
 	}
 
 	.cms-collection-row-button {
@@ -762,6 +781,11 @@
 		padding-inline-start: 0.75rem;
 	}
 
+	/* While a search hides the handles, the titles stay where they were. */
+	.cms-collection-rows[data-filtering] .cms-collection-row-button {
+		padding-inline-start: calc(var(--cms-row-handle) + 2px + 0.5rem);
+	}
+
 	.cms-collection-row-button::after {
 		content: "";
 		position: absolute;
@@ -770,14 +794,9 @@
 	}
 
 	/*
-	 * Any scale on the button (even 1) makes it the containing block of its
-	 * row-wide ::after, shrinking the hit area mid-press, so a press on the
-	 * row's edge would lose its click. The row tints instead.
+	 * The button never scales: a scale would make it the containing block of
+	 * its row-wide ::after and shrink the hit area mid-press. The row tints.
 	 */
-	.cms-collection-row .cms-collection-row-button.cms-press:active {
-		scale: none;
-	}
-
 	.cms-collection-row {
 		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
@@ -819,10 +838,14 @@
 		margin-inline-end: 2px;
 	}
 
-	/* Wide lists put title and metadata on one line where they fit. */
+	/*
+	 * Wide lists put title and metadata on one line where they fit. Titles
+	 * share one column so metadata lines up; rows without metadata keep the
+	 * whole width for the title.
+	 */
 	@container cms-collection-rows (min-width: 34rem) {
-		.cms-collection-row-text {
-			grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+		.cms-collection-row-text:has(> .cms-collection-meta:not(:empty)) {
+			grid-template-columns: minmax(0, clamp(15rem, 36%, 24rem)) minmax(0, 1fr);
 			align-items: baseline;
 			column-gap: 1.25rem;
 		}
@@ -923,9 +946,13 @@
 		container: cms-collection-rows / inline-size;
 	}
 
-	/* Page settings above a list share the list's width. */
-	.cms-collection-settings > .cms-editor-group {
-		max-width: none;
+	.cms-collection-create {
+		max-width: var(--cms-field-measure);
+	}
+
+	/* Desktop's Back, inside the detail's header card (phones use the sticky bar). */
+	.cms-collection-back-inline {
+		display: none;
 	}
 
 	/* Detail groups size to the pane, not the editor. */
@@ -1076,13 +1103,34 @@
 			scrollbar-width: thin;
 		}
 
+		/* The detail's header card carries Back, so the list and detail tops align. */
 		.cms-collection-back {
-			justify-self: start;
+			display: none;
+		}
+
+		.cms-collection-back-inline {
+			display: flex;
+			margin-block: -4px -2px;
+			margin-inline-start: -6px;
 		}
 
 		/* The selected row marks the open item; the chevron is for the full list. */
 		.cms-collection[data-split] .cms-collection-open {
 			display: none;
+		}
+
+		/*
+		 * The docked list is for moving between items, so its rows give the
+		 * text the handle's width. The row menu still moves rows (and Alt
+		 * with the arrow keys); the full list keeps the handle for dragging.
+		 */
+		.cms-collection[data-split] .cms-collection-row > .cms-drag-handle {
+			display: none;
+		}
+
+		.cms-collection[data-split] .cms-collection-row-button,
+		.cms-collection[data-split] .cms-collection-rows[data-filtering] .cms-collection-row-button {
+			padding-inline-start: 0.75rem;
 		}
 
 		/* Dock Undo over the detail column, clear of the sticky list's footer. */
@@ -1120,9 +1168,14 @@
 			background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
 		}
 
+		/* The handle stays faintly visible as the drag affordance; the menu waits for hover. */
 		.cms-collection-row > :is(.cms-collection-row-actions, .cms-drag-handle) {
 			opacity: 0;
 			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-collection-row > .cms-drag-handle {
+			opacity: 0.4;
 		}
 
 		.cms-collection-row:is(:hover, :focus-within, [data-dragging], :has([data-popup-open]))
@@ -1146,6 +1199,10 @@
 		.cms-row-tool {
 			width: 44px;
 			height: 44px;
+		}
+
+		.cms-collection-row {
+			--cms-row-handle: 44px;
 		}
 
 		.cms-repeater-handle {
@@ -1229,6 +1286,11 @@
 	 * full measure; below that the heading sits on top.
 	 */
 	@container cms-groups (min-width: 52rem) {
+		.cms-editor-group,
+		.cms-editor:not(:has(.cms-collection, [role="tablist"])) > header {
+			max-width: var(--cms-group-wide);
+		}
+
 		.cms-editor-group:has(> .cms-editor-group-heading + *) {
 			grid-template-columns:
 				minmax(9rem, var(--cms-group-heading))

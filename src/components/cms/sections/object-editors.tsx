@@ -37,14 +37,12 @@ export function SiteEditor() {
 					description="Use the full public address, starting with https://."
 				/>
 			</EditorGroup>
-			<EditorGroup
-				title="Document"
-				description="The locale sets the page language for search engines and link previews."
-			>
-				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
+			<EditorGroup title="Document">
+				<div className="cms-field-pair">
 					<TextField
 						path="site.locale"
 						label="Locale"
+						description="Sets the page language for search engines and link previews."
 						mono
 						maxLength={32}
 						placeholder="en"
@@ -70,7 +68,7 @@ export function IdentityEditor() {
 	return (
 		<>
 			<EditorGroup title="Profile">
-				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
+				<div className="cms-field-pair">
 					<TextField path="identity.name" label="Name" maxLength={160} required />
 					<TextField path="identity.handle" label="Handle" maxLength={160} mono required />
 				</div>
@@ -85,7 +83,7 @@ export function IdentityEditor() {
 			</EditorGroup>
 			<EditorGroup title="Contact details">
 				<TextField path="identity.email" label="Email" type="email" maxLength={320} required />
-				<div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
+				<div className="cms-field-pair">
 					<TextField path="identity.location" label="Résumé location" maxLength={160} />
 					<SuggestionField
 						path="identity.timezone"
@@ -153,7 +151,7 @@ export function ContactEditor() {
 				<TextField path="contact.responseTime" label="Response time" maxLength={160} optional />
 			</EditorGroup>
 			<EditorGroup title="Contact options">
-				<LinksField path="contact.links" label="Links" />
+				<LinksField path="contact.links" label="Links" labelHidden />
 			</EditorGroup>
 		</>
 	);

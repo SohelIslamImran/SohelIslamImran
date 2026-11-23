@@ -419,28 +419,31 @@ export function CollectionEditor<T extends { id: string }>({
 		[shownPath, focusAfterNavigation, select, store],
 	);
 
-	const addTrigger = (
+	const addTrigger = adding ? (
+		<button
+			type="button"
+			id={fieldId(path)}
+			aria-controls={`${nameId}-form`}
+			aria-expanded
+			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
+			className={editorButton}
+			onClick={closeAddForm}
+		>
+			Cancel
+		</button>
+	) : (
 		<AddButton
 			id={fieldId(path)}
-			aria-controls={adding ? `${nameId}-form` : undefined}
-			aria-expanded={adding}
+			aria-expanded={false}
 			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
-			primary={!adding}
-			disabled={full && !adding}
-			className={adding ? "cms-add-cancel" : undefined}
+			primary
+			disabled={full}
 			onClick={() => {
-				if (adding) closeAddForm();
-				else {
-					setAdding(true);
-					requestAnimationFrame(() => document.getElementById(nameId)?.focus());
-				}
+				setAdding(true);
+				requestAnimationFrame(() => document.getElementById(nameId)?.focus());
 			}}
 		>
-			{adding
-				? "Cancel"
-				: length
-					? `Add ${itemLabel.toLowerCase()}`
-					: `Add your first ${itemLabel.toLowerCase()}`}
+			{length ? `Add ${itemLabel.toLowerCase()}` : `Add your first ${itemLabel.toLowerCase()}`}
 		</AddButton>
 	);
 
@@ -493,7 +496,7 @@ export function CollectionEditor<T extends { id: string }>({
 			{adding ? (
 				<form
 					id={`${nameId}-form`}
-					className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
+					className="cms-enter cms-collection-create grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
 					onKeyDown={(event) => {
 						if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
 						event.preventDefault();
@@ -555,7 +558,8 @@ export function CollectionEditor<T extends { id: string }>({
 					layoutScroll
 					ref={list}
 					data-fade={fade || undefined}
-					className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
+					data-filtering={(filter && length > 1) || undefined}
+					className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1.5 empty:hidden"
 				>
 					<AnimatePresence initial={false}>
 						{visible.map((index) => (
@@ -652,16 +656,10 @@ export function CollectionEditor<T extends { id: string }>({
 					!detailOpen && "hidden",
 				)}
 			>
+				{/* Phones keep Back in a sticky bar; desktop sets it in the header card. */}
 				{detailOpen ? (
 					<div className="cms-collection-back sticky z-10 rounded-[10px] bg-background py-1">
-						<button
-							type="button"
-							className={editorButton}
-							onClick={() => back()}
-							disabled={pane === "leaving"}
-						>
-							<ChevronLeftIcon className="size-3.5" /> {label}
-						</button>
+						<BackButton label={label} onClick={() => back()} disabled={pane === "leaving"} />
 					</div>
 				) : null}
 				<AnimatePresence initial={false} mode="popLayout">
@@ -678,18 +676,31 @@ export function CollectionEditor<T extends { id: string }>({
 					>
 						{shownId !== undefined ? (
 							<>
-								<EditorGroup
-									className="[&_h2]:text-[21px]"
-									title={
-										<span
-											id={detailHeadingId(shownId)}
-											tabIndex={-1}
-											className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
-										>
-											<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
-										</span>
-									}
-									actions={
+								<section
+									data-slot="cms-editor-group"
+									className="cms-panel cms-editor-group grid min-w-0 gap-3 p-[clamp(16px,2.2vw,26px)]"
+								>
+									<div className="cms-collection-back-inline">
+										<BackButton
+											label={label}
+											onClick={() => back()}
+											disabled={pane === "leaving"}
+										/>
+									</div>
+									<header className="cms-editor-group-heading flex min-w-0 flex-wrap items-start justify-between gap-3">
+										<h2 className="m-0 min-w-0 text-[21px] font-semibold tracking-[-0.01em]">
+											<span
+												id={detailHeadingId(shownId)}
+												tabIndex={-1}
+												className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
+											>
+												<CollectionTitle
+													path={shownPath}
+													describe={describe}
+													itemLabel={itemLabel}
+												/>
+											</span>
+										</h2>
 										<div className="flex flex-wrap gap-2">
 											<button
 												type="button"
@@ -713,8 +724,8 @@ export function CollectionEditor<T extends { id: string }>({
 												Remove
 											</button>
 										</div>
-									}
-								/>
+									</header>
+								</section>
 								<CollectionDetails
 									key={shownId}
 									collection={path}
@@ -756,6 +767,22 @@ export function CollectionEditor<T extends { id: string }>({
 				/>
 			))}
 		</div>
+	);
+}
+
+function BackButton({
+	label,
+	onClick,
+	disabled,
+}: {
+	label: string;
+	onClick: () => void;
+	disabled: boolean;
+}) {
+	return (
+		<button type="button" className={editorButton} onClick={onClick} disabled={disabled}>
+			<ChevronLeftIcon className="size-3.5" /> {label}
+		</button>
 	);
 }
 
@@ -908,9 +935,8 @@ function CollectionRow<T extends { id: string }>({
 							transition={SPRING_MOVE}
 						/>
 					) : null}
-					{/* The row button stays first in the Tab order; CSS shows the handle
-					    leading and the open affordance trailing, and the button's hit
-					    area spans the row under the handle and the menu. */}
+					{handle}
+					{/* The button's hit area spans the row under the handle and the menu. */}
 					<button
 						type="button"
 						data-row={id}
@@ -918,7 +944,7 @@ function CollectionRow<T extends { id: string }>({
 						aria-current={selected ? "true" : undefined}
 						onClick={() => open(id)}
 						aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-						className="cms-collection-row-button cms-press"
+						className="cms-collection-row-button"
 					>
 						<span className="cms-collection-row-text">
 							<span className="cms-collection-title wrap-break-word text-[14px] font-medium">
@@ -951,7 +977,6 @@ function CollectionRow<T extends { id: string }>({
 							</span>
 						</span>
 					</button>
-					{handle}
 					{reorderable ? (
 						<RowMenu
 							className="cms-collection-row-actions"
