@@ -215,6 +215,14 @@
 		box-shadow: inset 0 0 0 2px var(--theme-accent);
 	}
 
+	@media (forced-colors: active) {
+		.cms-inset-focus:focus-visible,
+		.cms-seg-item:focus-visible {
+			/* Keep the site's system-color outline inside clipped controls. */
+			outline-offset: -2px !important;
+		}
+	}
+
 	/* Relative time labels fade in after hydration instead of swapping text. */
 	.cms-time-in {
 		animation: cms-fade var(--cms-dur-base, 240ms)
