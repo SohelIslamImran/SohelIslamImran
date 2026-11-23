@@ -39,6 +39,7 @@ import {
 	CloseIcon,
 	CloudIcon,
 	ExternalArrowIcon,
+	InfrastructureIcon,
 	HistoryIcon,
 	MediaLibraryIcon,
 	OverviewIcon,
@@ -139,6 +140,7 @@ export const CMS_NAV = {
 	signals: [
 		{ to: "/cms", label: "Overview" },
 		{ to: "/cms/analytics", label: "Analytics" },
+		{ to: "/cms/infrastructure", label: "Infrastructure" },
 	],
 	assets: [{ to: "/cms/library", label: "Media library" }],
 	release: [
@@ -166,6 +168,8 @@ function NavIconFor({ to }: { to: string }) {
 			return <OverviewIcon />;
 		case "/cms/analytics":
 			return <AnalyticsIcon />;
+		case "/cms/infrastructure":
+			return <InfrastructureIcon />;
 		case "/cms/library":
 			return <MediaLibraryIcon />;
 		case "/cms/release":

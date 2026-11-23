@@ -111,20 +111,22 @@ export function AssetCard({
 		}
 	};
 
+	// Unpublished images preview through the owner-only route on the CMS host.
+	const previewUrl = isPublished ? publicUrl : `/draft-media/${encodeURIComponent(asset.id)}`;
 	const thumbnail =
-		isImage && isPublished && failedUrl !== publicUrl ? (
+		isImage && failedUrl !== previewUrl ? (
 			<img
-				src={publicUrl}
+				src={previewUrl}
 				alt=""
 				loading="lazy"
-				onError={() => setFailedUrl(publicUrl)}
+				onError={() => setFailedUrl(previewUrl)}
 				className="cms-media-thumb h-full w-full object-cover"
 			/>
 		) : (
 			<span className="grid place-items-center gap-1.5 px-4 text-center">
 				<MediaLibraryIcon className="size-6 text-muted-foreground" />
 				<span className="text-[12px] text-muted-foreground">
-					{!isPublished ? "Not published yet" : isImage ? "Preview unavailable" : typeLabel}
+					{isImage ? "Preview unavailable" : !isPublished ? "Not published yet" : typeLabel}
 				</span>
 			</span>
 		);

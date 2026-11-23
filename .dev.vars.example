@@ -4,3 +4,6 @@ APP_ORIGIN="http://127.0.0.1:5190"
 CMS_ORIGIN="http://127.0.0.1:5190"
 OWNER_EMAIL="sohelislamimran@gmail.com"
 ENVIRONMENT="development"
+# Optional: read-only Cloudflare API token for the CMS Infrastructure page
+# (Account Analytics Read, Workers Scripts Read).
+# CF_API_TOKEN="your-read-only-token"

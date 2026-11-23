@@ -24,8 +24,10 @@ import { Route as CmsIndexRouteImport } from './routes/cms/index'
 import { Route as CmsActivityRouteImport } from './routes/cms/activity'
 import { Route as CmsAnalyticsRouteImport } from './routes/cms/analytics'
 import { Route as CmsHistoryRouteImport } from './routes/cms/history'
+import { Route as CmsInfrastructureRouteImport } from './routes/cms/infrastructure'
 import { Route as CmsLibraryRouteImport } from './routes/cms/library'
 import { Route as CmsReleaseRouteImport } from './routes/cms/release'
+import { Route as DraftMediaAssetIdRouteImport } from './routes/draft-media/$assetId'
 import { Route as LinksLinkIdRouteImport } from './routes/links/$linkId'
 import { Route as MediaAssetIdRouteImport } from './routes/media/$assetId'
 import { Route as ResumeEditRouteImport } from './routes/resume.edit'
@@ -107,6 +109,11 @@ const CmsHistoryRoute = CmsHistoryRouteImport.update({
   path: '/history',
   getParentRoute: () => CmsRoute,
 } as any)
+const CmsInfrastructureRoute = CmsInfrastructureRouteImport.update({
+  id: '/infrastructure',
+  path: '/infrastructure',
+  getParentRoute: () => CmsRoute,
+} as any)
 const CmsLibraryRoute = CmsLibraryRouteImport.update({
   id: '/library',
   path: '/library',
@@ -116,6 +123,11 @@ const CmsReleaseRoute = CmsReleaseRouteImport.update({
   id: '/release',
   path: '/release',
   getParentRoute: () => CmsRoute,
+} as any)
+const DraftMediaAssetIdRoute = DraftMediaAssetIdRouteImport.update({
+  id: '/draft-media/$assetId',
+  path: '/draft-media/$assetId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const LinksLinkIdRoute = LinksLinkIdRouteImport.update({
   id: '/$linkId',
@@ -158,8 +170,10 @@ export interface FileRoutesByFullPath {
   '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
   '/cms/history': typeof CmsHistoryRoute
+  '/cms/infrastructure': typeof CmsInfrastructureRoute
   '/cms/library': typeof CmsLibraryRoute
   '/cms/release': typeof CmsReleaseRoute
+  '/draft-media/$assetId': typeof DraftMediaAssetIdRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -181,8 +195,10 @@ export interface FileRoutesByTo {
   '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
   '/cms/history': typeof CmsHistoryRoute
+  '/cms/infrastructure': typeof CmsInfrastructureRoute
   '/cms/library': typeof CmsLibraryRoute
   '/cms/release': typeof CmsReleaseRoute
+  '/draft-media/$assetId': typeof DraftMediaAssetIdRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -206,8 +222,10 @@ export interface FileRoutesById {
   '/cms/activity': typeof CmsActivityRoute
   '/cms/analytics': typeof CmsAnalyticsRoute
   '/cms/history': typeof CmsHistoryRoute
+  '/cms/infrastructure': typeof CmsInfrastructureRoute
   '/cms/library': typeof CmsLibraryRoute
   '/cms/release': typeof CmsReleaseRoute
+  '/draft-media/$assetId': typeof DraftMediaAssetIdRoute
   '/links/$linkId': typeof LinksLinkIdRoute
   '/media/$assetId': typeof MediaAssetIdRoute
   '/resume/edit': typeof ResumeEditRoute
@@ -232,8 +250,10 @@ export interface FileRouteTypes {
     | '/cms/activity'
     | '/cms/analytics'
     | '/cms/history'
+    | '/cms/infrastructure'
     | '/cms/library'
     | '/cms/release'
+    | '/draft-media/$assetId'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -255,8 +275,10 @@ export interface FileRouteTypes {
     | '/cms/activity'
     | '/cms/analytics'
     | '/cms/history'
+    | '/cms/infrastructure'
     | '/cms/library'
     | '/cms/release'
+    | '/draft-media/$assetId'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -279,8 +301,10 @@ export interface FileRouteTypes {
     | '/cms/activity'
     | '/cms/analytics'
     | '/cms/history'
+    | '/cms/infrastructure'
     | '/cms/library'
     | '/cms/release'
+    | '/draft-media/$assetId'
     | '/links/$linkId'
     | '/media/$assetId'
     | '/resume/edit'
@@ -301,6 +325,7 @@ export interface RootRouteChildren {
   StoryRoute: typeof StoryRoute
   WorkRoute: typeof WorkRoute
   ApiCollectRoute: typeof ApiCollectRoute
+  DraftMediaAssetIdRoute: typeof DraftMediaAssetIdRoute
   MediaAssetIdRoute: typeof MediaAssetIdRoute
   WorkSlugRoute: typeof WorkSlugRoute
 }
@@ -412,6 +437,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CmsHistoryRouteImport
       parentRoute: typeof CmsRoute
     }
+    '/cms/infrastructure': {
+      id: '/cms/infrastructure'
+      path: '/infrastructure'
+      fullPath: '/cms/infrastructure'
+      preLoaderRoute: typeof CmsInfrastructureRouteImport
+      parentRoute: typeof CmsRoute
+    }
     '/cms/library': {
       id: '/cms/library'
       path: '/library'
@@ -425,6 +457,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/cms/release'
       preLoaderRoute: typeof CmsReleaseRouteImport
       parentRoute: typeof CmsRoute
+    }
+    '/draft-media/$assetId': {
+      id: '/draft-media/$assetId'
+      path: '/draft-media/$assetId'
+      fullPath: '/draft-media/$assetId'
+      preLoaderRoute: typeof DraftMediaAssetIdRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/links/$linkId': {
       id: '/links/$linkId'
@@ -468,6 +507,7 @@ interface CmsRouteChildren {
   CmsActivityRoute: typeof CmsActivityRoute
   CmsAnalyticsRoute: typeof CmsAnalyticsRoute
   CmsHistoryRoute: typeof CmsHistoryRoute
+  CmsInfrastructureRoute: typeof CmsInfrastructureRoute
   CmsLibraryRoute: typeof CmsLibraryRoute
   CmsReleaseRoute: typeof CmsReleaseRoute
   CmsIndexRoute: typeof CmsIndexRoute
@@ -478,6 +518,7 @@ const CmsRouteChildren: CmsRouteChildren = {
   CmsActivityRoute: CmsActivityRoute,
   CmsAnalyticsRoute: CmsAnalyticsRoute,
   CmsHistoryRoute: CmsHistoryRoute,
+  CmsInfrastructureRoute: CmsInfrastructureRoute,
   CmsLibraryRoute: CmsLibraryRoute,
   CmsReleaseRoute: CmsReleaseRoute,
   CmsIndexRoute: CmsIndexRoute,
@@ -519,6 +560,7 @@ const rootRouteChildren: RootRouteChildren = {
   StoryRoute: StoryRoute,
   WorkRoute: WorkRoute,
   ApiCollectRoute: ApiCollectRoute,
+  DraftMediaAssetIdRoute: DraftMediaAssetIdRoute,
   MediaAssetIdRoute: MediaAssetIdRoute,
   WorkSlugRoute: WorkSlugRoute,
 }

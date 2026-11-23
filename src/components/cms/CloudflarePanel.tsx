@@ -10,9 +10,14 @@ import {
 	type CloudflareLink,
 	type CloudflareLinkId,
 } from "../../lib/cloudflare-dashboard";
+import { Link } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
 import { cn } from "../../lib/utils";
+import type { WorkerInsights } from "../../server/cloudflare-insights.server";
+import { getCloudflareInsights } from "../../server/cloudflare.functions";
 import { RelativeTime } from "./analytics/RelativeTime";
-import { Panel } from "./analytics/Widgets";
+import { Panel, TickingNumber, countLabel } from "./analytics/Widgets";
 import { useCmsSession, usePublicOrigin } from "./draft/context";
 import { parseCmsTimestamp } from "./shell/time";
 import { ActivityIcon, ExternalArrowIcon, HistoryIcon, OverviewIcon } from "./shell/cms-icons";
@@ -117,7 +122,11 @@ function LiveVersion() {
 			>
 				{shortVersionId(build.id)}
 			</code>
-			{build.tag ? <span className="font-mono text-[12px]">{build.tag}</span> : null}
+			{build.tag ? (
+				<span title={build.tag} className="font-mono text-[12px]">
+					commit {build.tag.slice(0, 7)}
+				</span>
+			) : null}
 			{created ? (
 				<span className="inline-flex items-center gap-1">
 					<span aria-hidden="true">·</span>
@@ -129,10 +138,97 @@ function LiveVersion() {
 	);
 }
 
+const compact = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+const requestLabel = (value: number) =>
+	Math.abs(value) < 10_000 ? countLabel(value) : compact.format(value);
+const msLabel = (value: number) =>
+	value >= 1000
+		? `${(value / 1000).toFixed(1)} s`
+		: `${value < 10 ? value.toFixed(1) : Math.round(value)} ms`;
+
+/**
+ * Last-24-hours health that opens the Infrastructure page. Loads after the
+ * page so the Overview never waits on Cloudflare; hidden when metrics are not
+ * configured or unavailable.
+ */
+function HealthLine() {
+	const fetchInsights = useServerFn(getCloudflareInsights);
+	const [worker, setWorker] = useState<WorkerInsights | null | undefined>(undefined);
+
+	useEffect(() => {
+		let cancelled = false;
+		void fetchInsights({ data: { range: "24h" } })
+			.then((result) => {
+				if (!cancelled) setWorker(result.ok ? result.insights.worker : null);
+			})
+			.catch(() => {
+				if (!cancelled) setWorker(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [fetchInsights]);
+
+	if (worker === null) return null;
+	if (worker === undefined) {
+		return <div aria-hidden="true" className="cms-skeleton h-[60px] w-full rounded-[12px]" />;
+	}
+
+	const stats = [
+		{ label: "Requests", value: worker.requests, format: requestLabel },
+		{ label: "Errors", value: worker.errors, format: countLabel },
+		{ label: "Response time", value: worker.wallP50Ms, format: msLabel },
+	];
+	return (
+		<Link
+			to="/cms/infrastructure"
+			aria-label={`Last 24 hours: ${stats
+				.map((stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`)
+				.join(", ")}. Open infrastructure`}
+			className="cms-jump-card cms-page-focus group flex min-w-0 items-center gap-4 rounded-[12px] border border-line bg-surface-solid px-3.5 py-3 no-underline"
+		>
+			<span className="hidden shrink-0 text-[12px] font-medium text-muted-foreground sm:block">
+				Last 24 hours
+			</span>
+			<dl className="m-0 grid min-w-0 flex-1 grid-cols-3 gap-3">
+				{stats.map((stat) => (
+					<div key={stat.label} className="grid min-w-0 gap-0.5">
+						<dt className="truncate text-[11.5px] text-muted-foreground">{stat.label}</dt>
+						<dd
+							className={cn(
+								"m-0 text-[17px] leading-tight font-semibold tracking-[-0.02em]",
+								stat.label === "Errors" && (stat.value ?? 0) > 0
+									? "text-destructive"
+									: "text-foreground",
+							)}
+						>
+							{stat.value === null ? (
+								"—"
+							) : (
+								<TickingNumber value={stat.value} format={stat.format} />
+							)}
+						</dd>
+					</div>
+				))}
+			</dl>
+			<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
+				<span className="hidden sm:inline">Infrastructure</span>
+				<span
+					aria-hidden="true"
+					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
+				>
+					→
+				</span>
+			</span>
+		</Link>
+	);
+}
+
 export function CloudflarePanel({ stagger }: { stagger?: number }) {
 	const publicOrigin = usePublicOrigin();
 	return (
 		<Panel title="Cloudflare" stagger={stagger} action={<LiveVersion />}>
+			<HealthLine />
 			<ul
 				aria-label="Cloudflare dashboard"
 				className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2 xl:grid-cols-3"
