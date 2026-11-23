@@ -117,3 +117,29 @@ export interface CmsBuildInfo {
 export function shortVersionId(id: string): string {
 	return id.slice(0, 8);
 }
+
+const MERGE_PR_PATTERN = /^Merge pull request #(\d+) from [^/\s]+\/(.+)$/iu;
+
+/** Compact GitHub merge-commit subjects ("PR #16 · branch"); keep the raw message in `title`. */
+export function formatDeploymentMessage(message: string): string {
+	const trimmed = message.trim();
+	const match = MERGE_PR_PATTERN.exec(trimmed);
+	if (match) return `PR #${match[1]} · ${match[2]}`;
+	return trimmed;
+}
+
+const NON_ERROR_WORKER_STATUSES = new Set(["success", "clientDisconnected"]);
+
+/**
+ * Total Worker errors across Cloudflare's `sum.errors` metric and failure
+ * invocation statuses, shared by Overview's Hosting card and Infrastructure.
+ */
+export function countWorkerErrors(worker: {
+	errors: number;
+	statuses: readonly { status: string; requests: number }[];
+}): number {
+	const failures = worker.statuses
+		.filter((row) => !NON_ERROR_WORKER_STATUSES.has(row.status))
+		.reduce((sum, row) => sum + row.requests, 0);
+	return Math.max(worker.errors, failures);
+}

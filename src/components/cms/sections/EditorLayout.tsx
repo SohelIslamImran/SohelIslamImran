@@ -30,8 +30,11 @@ export function EditorLayout({
 								href={liveUrl}
 								target="_blank"
 								rel="noreferrer"
-								className="cms-editor-button cms-editor-live cms-press"
+								className="cms-header-action cms-press cms-page-focus"
 							>
+								<span aria-hidden="true" className="sm:hidden">
+									Live
+								</span>
 								<span className="max-sm:sr-only">View live</span>
 								<ExternalArrowIcon className="size-3.5" />
 								<span className="sr-only"> (opens in a new tab)</span>

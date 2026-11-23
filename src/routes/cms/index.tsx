@@ -1,8 +1,6 @@
 /**
- * Overview (`/cms`): one status line for the draft (with the sections that
- * changed or need fixing), recent activity, and a compact traffic row. The
- * rail already lists every section and the live visitor count, so this page
- * doesn't repeat them.
+ * Overview (`/cms`): answers three questions in order — does anything need
+ * publishing, is the site healthy, and what changed recently.
  */
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -14,7 +12,6 @@ import {
 	EmptyState,
 	PageHeader,
 	Panel,
-	QuietNote,
 	TickingNumber,
 	inlineLinkClass,
 	pageClass,
@@ -53,20 +50,19 @@ function OverviewSkeleton() {
 				<div aria-hidden="true" className="cms-skeleton h-8 w-44" />
 				<div className="cms-skeleton h-4 w-72 max-w-full" />
 			</div>
-			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-				<div className="grid gap-4">
-					<div className="cms-panel flex items-center gap-3 px-5 py-3">
-						<div className="cms-skeleton size-9 rounded-[10px]" />
-						<div className="cms-skeleton h-5 w-56 max-w-full" />
-					</div>
-					<div className="cms-skeleton h-[84px] w-full rounded-[18px]" />
-				</div>
-				<div className="cms-panel grid gap-2.5 p-5">
-					<div className="cms-skeleton h-4 w-28" />
-					{[0, 1, 2].map((slot) => (
-						<div key={slot} className="cms-skeleton h-10 w-full" />
-					))}
-				</div>
+			<div className="cms-panel flex items-center gap-3 px-5 py-3">
+				<div className="cms-skeleton size-9 rounded-[10px]" />
+				<div className="cms-skeleton h-5 w-56 max-w-full" />
+			</div>
+			<div className="grid gap-4 md:grid-cols-2">
+				<div className="cms-skeleton h-[148px] w-full rounded-[18px]" />
+				<div className="cms-skeleton h-[148px] w-full rounded-[18px]" />
+			</div>
+			<div className="cms-panel grid gap-2.5 p-5">
+				<div className="cms-skeleton h-4 w-28" />
+				{[0, 1, 2].map((slot) => (
+					<div key={slot} className="cms-skeleton h-10 w-full" />
+				))}
 			</div>
 		</div>
 	);
@@ -231,7 +227,7 @@ function RecentActivityCard() {
 
 	useEffect(() => {
 		let cancelled = false;
-		void fetchEvents({ data: { limit: 5 } })
+		void fetchEvents({ data: { limit: 4 } })
 			.then((result) => {
 				if (!cancelled) {
 					setEvents(result.items);
@@ -249,7 +245,7 @@ function RecentActivityCard() {
 	return (
 		<Panel
 			title="Recent activity"
-			stagger={1}
+			stagger={3}
 			action={
 				<Link to="/cms/activity" className={inlineLinkClass}>
 					<span>View all</span>
@@ -263,7 +259,7 @@ function RecentActivityCard() {
 				</p>
 			) : events === null ? (
 				<div className="grid gap-2">
-					{[0, 1, 2, 3].map((slot) => (
+					{[0, 1, 2].map((slot) => (
 						<div key={slot} className="cms-skeleton h-10 w-full" />
 					))}
 				</div>
@@ -290,46 +286,39 @@ function CmsOverview() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Overview"
-				description="Draft changes, recent activity, site traffic, and hosting."
+				description="Release readiness, site health, and recent changes."
 			/>
 
-			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-				<div className="grid min-w-0 content-start gap-4">
-					<DraftStatus />
-					<TrafficSummary />
-				</div>
-				<RecentActivityCard />
+			<DraftStatus />
+
+			<div className="grid min-w-0 items-stretch gap-4 md:grid-cols-2">
+				<TrafficSummary />
+				<CloudflarePanel stagger={2} />
 			</div>
-			<CloudflarePanel stagger={3} />
+
+			<RecentActivityCard />
 		</div>
 	);
 }
 
-/** One compact traffic row (Today, Past 7 days) that opens Analytics; Live now is in the rail. */
+/** Compact traffic summary (Today, Past 7 days in UTC) paired beside Hosting. */
 function TrafficSummary() {
 	const overview = Route.useLoaderData();
 
 	if (!overview) return <AnalyticsUnavailable />;
 
-	if (overview.allTime.totals.pageviews === 0 && overview.today.value === 0) {
-		return (
-			<QuietNote
-				action={
-					<Link to="/cms/analytics" className={inlineLinkClass}>
-						<span>Analytics</span>
-						<span aria-hidden="true">→</span>
-					</Link>
-				}
-			>
-				No visits yet. Traffic shows up here once people browse your site.
-			</QuietNote>
-		);
-	}
+	const noVisits = overview.allTime.totals.pageviews === 0 && overview.today.value === 0;
 
 	const stats = [
-		{ label: "Today", value: overview.today.value, title: "Visitors since midnight UTC" },
+		{
+			label: "Today",
+			window: "Since 00:00 UTC",
+			value: overview.today.value,
+			title: "Visitors since midnight UTC",
+		},
 		{
 			label: "Past 7 days",
+			window: "Completed UTC days",
 			value: overview.week.value,
 			title: `Visitor-days over the last 7 completed UTC days. ${visitorDayDescription}`,
 		},
@@ -338,34 +327,59 @@ function TrafficSummary() {
 	return (
 		<Link
 			to="/cms/analytics"
-			style={staggerStyle(2)}
-			aria-label={`Traffic: ${stats.map((stat) => `${stat.label} ${stat.value ?? "unknown"}`).join(", ")}. Open analytics`}
-			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex min-w-0 items-center gap-4 p-4 no-underline sm:px-5"
+			style={staggerStyle(1)}
+			aria-label={
+				noVisits
+					? "Traffic: no visits yet. Open analytics"
+					: `Traffic: ${stats.map((stat) => `${stat.label} ${stat.value ?? "unknown"}`).join(", ")}. Open analytics`
+			}
+			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
 		>
-			<dl className="m-0 grid min-w-0 flex-1 grid-cols-2 gap-3">
-				{stats.map((stat) => (
-					<div key={stat.label} title={stat.title} className="grid min-w-0 gap-1">
-						<dt className="truncate text-[12.5px] font-medium text-muted-foreground">
-							{stat.label}
-						</dt>
-						<dd className="m-0 text-[24px] leading-none font-semibold tracking-[-0.03em] text-foreground">
-							<TickingNumber value={stat.value} />
-						</dd>
-					</div>
-				))}
-			</dl>
-			<span className="hidden shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text sm:inline-flex">
-				Analytics
-				<span
-					aria-hidden="true"
-					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
-				>
-					→
+			<div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+						Traffic
+					</h2>
+					<span className="text-[12px] text-muted-foreground">Today · 7 days (UTC)</span>
+				</div>
+				<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
+					<span>Analytics</span>
+					<span
+						aria-hidden="true"
+						className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
+					>
+						→
+					</span>
 				</span>
-			</span>
-			<span aria-hidden="true" className="text-[15px] text-muted-foreground sm:hidden">
-				→
-			</span>
+			</div>
+
+			{noVisits ? (
+				<div className="flex min-h-[48px] items-center">
+					<p className="m-0 text-[13px] text-muted-foreground">
+						No visits yet. Traffic appears here once people browse your site.
+					</p>
+				</div>
+			) : (
+				<dl className="m-0 grid min-w-0 grid-cols-2 gap-x-4 gap-y-2">
+					{stats.map((stat) => (
+						<div key={stat.label} title={stat.title} className="grid min-w-0 content-start gap-1">
+							<dt className="text-[12px] leading-snug font-medium text-muted-foreground">
+								{stat.label}
+							</dt>
+							<dd className="m-0 text-[22px] leading-none font-semibold tracking-[-0.03em] text-foreground tabular-nums sm:text-[24px]">
+								<TickingNumber value={stat.value} />
+							</dd>
+							<dd className="m-0 text-[11.5px] leading-snug text-muted-foreground">
+								{stat.window}
+							</dd>
+						</div>
+					))}
+				</dl>
+			)}
+
+			<p className="m-0 border-t border-line pt-2.5 text-[12px] text-muted-foreground">
+				Cookieless visitor-days · live count in the sidebar
+			</p>
 		</Link>
 	);
 }

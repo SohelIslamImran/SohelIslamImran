@@ -1,11 +1,10 @@
 /**
- * Overview card for the hosting side of the site: which Worker version is
- * live, and one-click links into the Cloudflare dashboard. The dashboard
- * cannot be framed (`X-Frame-Options: SAMEORIGIN`), so each link opens it in
- * a new tab.
+ * Hosting summary card for Overview (`/cms`) and compact "Open in Cloudflare"
+ * link group for Infrastructure (`/cms/infrastructure`).
  */
 import {
 	cloudflareLinks,
+	countWorkerErrors,
 	shortVersionId,
 	type CloudflareLink,
 	type CloudflareLinkId,
@@ -17,7 +16,7 @@ import { cn } from "../../lib/utils";
 import type { WorkerInsights } from "../../server/cloudflare-insights.server";
 import { getCloudflareInsights } from "../../server/cloudflare.functions";
 import { RelativeTime } from "./analytics/RelativeTime";
-import { Panel, TickingNumber, countLabel } from "./analytics/Widgets";
+import { Panel, TickingNumber, countLabel, staggerStyle } from "./analytics/Widgets";
 import { useCmsSession, usePublicOrigin } from "./draft/context";
 import { parseCmsTimestamp } from "./shell/time";
 import { ActivityIcon, ExternalArrowIcon, HistoryIcon, OverviewIcon } from "./shell/cms-icons";
@@ -77,60 +76,74 @@ function LinkGlyph({ id }: { id: CloudflareLinkId }) {
 	}
 }
 
-function LinkTile({ link }: { link: CloudflareLink }) {
+function DashboardLinkChip({ link }: { link: CloudflareLink }) {
 	return (
 		<li className="min-w-0">
 			<a
 				href={link.href}
 				target="_blank"
 				rel="noreferrer"
-				className="cms-jump-card cms-page-focus group grid h-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-2.5 gap-y-0.5 rounded-[12px] border border-line bg-surface-solid px-3 py-2.5 no-underline pointer-coarse:min-h-11"
+				title={link.detail}
+				className="cms-jump-card cms-page-focus group flex min-h-10 min-w-0 items-center gap-2 rounded-[10px] border border-line bg-surface-solid px-3 py-2 text-[13px] font-medium text-foreground no-underline pointer-coarse:min-h-11"
 			>
 				<span
 					aria-hidden="true"
-					className="row-span-2 mt-px grid size-7 place-items-center rounded-[8px] border border-line bg-surface-raised text-ink-soft transition-colors duration-150 group-hover:text-primary-text"
+					className="text-ink-soft transition-colors duration-150 group-hover:text-primary-text"
 				>
 					<LinkGlyph id={link.id} />
 				</span>
-				<span className="truncate text-[13.5px] font-medium text-foreground">{link.label}</span>
-				<ExternalArrowIcon className="mt-0.5 size-3.5 text-muted-foreground transition-[translate,color] duration-150 group-hover:translate-x-px group-hover:-translate-y-px group-hover:text-primary-text motion-reduce:group-hover:translate-none" />
-				<span className="col-start-2 col-end-4 text-[12px] leading-snug text-muted-foreground">
-					{link.detail}
-				</span>
+				<span className="min-w-0 flex-1 truncate">{link.label}</span>
+				<ExternalArrowIcon className="size-3.5 shrink-0 text-muted-foreground transition-[translate,color] duration-150 group-hover:translate-x-px group-hover:-translate-y-px group-hover:text-primary-text motion-reduce:group-hover:translate-none" />
 				<span className="sr-only"> (opens the Cloudflare dashboard in a new tab)</span>
 			</a>
 		</li>
 	);
 }
 
-/** Running version line: id, tag, and how long ago it was created. */
+/** Compact "Open in Cloudflare" link group for the Infrastructure page. */
+export function CloudflareDashboardLinks({ stagger }: { stagger?: number }) {
+	const publicOrigin = usePublicOrigin();
+	return (
+		<Panel title="Open in Cloudflare" stagger={stagger}>
+			<ul
+				aria-label="Cloudflare dashboard"
+				className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2 lg:grid-cols-3"
+			>
+				{cloudflareLinks(publicOrigin).map((link) => (
+					<DashboardLinkChip key={link.id} link={link} />
+				))}
+			</ul>
+		</Panel>
+	);
+}
+
+/** Running version line: id, commit tag, and how long ago it was deployed. */
 function LiveVersion() {
 	const { build } = useCmsSession();
 	if (!build) {
-		return <p className="m-0 text-[12.5px] text-muted-foreground">Version unavailable</p>;
+		return <p className="m-0 text-[12px] text-muted-foreground">Live version unavailable</p>;
 	}
 	const created = build.timestamp ? parseCmsTimestamp(build.timestamp) : null;
 	return (
-		<p className="m-0 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-muted-foreground">
+		<p className="m-0 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
 			<span className="inline-flex items-center gap-1.5 font-medium text-foreground">
 				<span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-				Live version
+				Live
 			</span>
 			<code
 				title={build.id}
-				className="rounded-[6px] border border-line bg-surface-raised px-1.5 py-px font-mono text-[12px] text-foreground tabular-nums"
+				className="rounded-[6px] border border-line bg-surface-raised px-1.5 py-px font-mono text-[11.5px] text-foreground tabular-nums"
 			>
 				{shortVersionId(build.id)}
 			</code>
 			{build.tag ? (
-				<span title={build.tag} className="font-mono text-[12px]">
-					commit {build.tag.slice(0, 7)}
+				<span title={build.tag} className="font-mono text-[11.5px]">
+					{build.tag.slice(0, 7)}
 				</span>
 			) : null}
 			{created ? (
 				<span className="inline-flex items-center gap-1">
 					<span aria-hidden="true">·</span>
-					<span>deployed</span>
 					<RelativeTime iso={build.timestamp} />
 				</span>
 			) : null}
@@ -146,97 +159,138 @@ const msLabel = (value: number) =>
 		? `${(value / 1000).toFixed(1)} s`
 		: `${value < 10 ? value.toFixed(1) : Math.round(value)} ms`;
 
+type HealthState =
+	| { kind: "loading" }
+	| { kind: "ready"; worker: WorkerInsights }
+	| { kind: "unavailable"; notConfigured: boolean };
+
 /**
- * Last-24-hours health that opens the Infrastructure page. Loads after the
- * page so the Overview never waits on Cloudflare; hidden when metrics are not
- * configured or unavailable.
+ * Compact Hosting summary card for Overview: live version/commit + last-24h
+ * Worker health (requests, errors, median response), linking to Infrastructure.
+ * Reserves its footprint while loading and shows a quiet unavailable line on
+ * failure instead of vanishing.
  */
-function HealthLine() {
+export function CloudflarePanel({ stagger }: { stagger?: number }) {
 	const fetchInsights = useServerFn(getCloudflareInsights);
-	const [worker, setWorker] = useState<WorkerInsights | null | undefined>(undefined);
+	const [health, setHealth] = useState<HealthState>({ kind: "loading" });
 
 	useEffect(() => {
 		let cancelled = false;
 		void fetchInsights({ data: { range: "24h" } })
 			.then((result) => {
-				if (!cancelled) setWorker(result.ok ? result.insights.worker : null);
+				if (cancelled) return;
+				if (result.ok) {
+					setHealth({ kind: "ready", worker: result.insights.worker });
+				} else {
+					setHealth({
+						kind: "unavailable",
+						notConfigured: result.reason === "not-configured",
+					});
+				}
 			})
 			.catch(() => {
-				if (!cancelled) setWorker(null);
+				if (!cancelled) setHealth({ kind: "unavailable", notConfigured: false });
 			});
 		return () => {
 			cancelled = true;
 		};
 	}, [fetchInsights]);
 
-	if (worker === null) return null;
-	if (worker === undefined) {
-		return <div aria-hidden="true" className="cms-skeleton h-[60px] w-full rounded-[12px]" />;
-	}
+	const stats =
+		health.kind === "ready"
+			? [
+					{ label: "Requests", value: health.worker.requests, format: requestLabel },
+					{ label: "Errors", value: countWorkerErrors(health.worker), format: countLabel },
+					{ label: "Median response", value: health.worker.wallP50Ms, format: msLabel },
+				]
+			: null;
 
-	const stats = [
-		{ label: "Requests", value: worker.requests, format: requestLabel },
-		{ label: "Errors", value: worker.errors, format: countLabel },
-		{ label: "Response time", value: worker.wallP50Ms, format: msLabel },
-	];
+	const ariaLabel =
+		stats !== null
+			? `Hosting, last 24 hours: ${stats
+					.map(
+						(stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`,
+					)
+					.join(", ")}. Open infrastructure`
+			: health.kind === "loading"
+				? "Hosting, last 24 hours: loading metrics. Open infrastructure"
+				: health.kind === "unavailable" && health.notConfigured
+					? "Hosting, last 24 hours: metrics unavailable, connect Cloudflare. Open infrastructure"
+					: "Hosting, last 24 hours: metrics unavailable. Open infrastructure";
+
 	return (
 		<Link
 			to="/cms/infrastructure"
-			aria-label={`Last 24 hours: ${stats
-				.map((stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`)
-				.join(", ")}. Open infrastructure`}
-			className="cms-jump-card cms-page-focus group flex min-w-0 items-center gap-4 rounded-[12px] border border-line bg-surface-solid px-3.5 py-3 no-underline"
+			style={stagger !== undefined ? staggerStyle(stagger) : undefined}
+			aria-label={ariaLabel}
+			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
 		>
-			<span className="hidden shrink-0 text-[12px] font-medium text-muted-foreground sm:block">
-				Last 24 hours
-			</span>
-			<dl className="m-0 grid min-w-0 flex-1 grid-cols-3 gap-3">
-				{stats.map((stat) => (
-					<div key={stat.label} className="grid min-w-0 gap-0.5">
-						<dt className="truncate text-[11.5px] text-muted-foreground">{stat.label}</dt>
-						<dd
-							className={cn(
-								"m-0 text-[17px] leading-tight font-semibold tracking-[-0.02em]",
-								stat.label === "Errors" && (stat.value ?? 0) > 0
-									? "text-destructive"
-									: "text-foreground",
-							)}
-						>
-							{stat.value === null ? (
-								"—"
-							) : (
-								<TickingNumber value={stat.value} format={stat.format} />
-							)}
-						</dd>
-					</div>
-				))}
-			</dl>
-			<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
-				<span className="hidden sm:inline">Infrastructure</span>
-				<span
-					aria-hidden="true"
-					className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
-				>
-					→
+			<div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+						Hosting
+					</h2>
+					<span className="text-[12px] text-muted-foreground">Last 24 hours</span>
+				</div>
+				<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
+					<span>Infrastructure</span>
+					<span
+						aria-hidden="true"
+						className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
+					>
+						→
+					</span>
 				</span>
-			</span>
-		</Link>
-	);
-}
+			</div>
 
-export function CloudflarePanel({ stagger }: { stagger?: number }) {
-	const publicOrigin = usePublicOrigin();
-	return (
-		<Panel title="Cloudflare" stagger={stagger} action={<LiveVersion />}>
-			<HealthLine />
-			<ul
-				aria-label="Cloudflare dashboard"
-				className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2 xl:grid-cols-3"
-			>
-				{cloudflareLinks(publicOrigin).map((link) => (
-					<LinkTile key={link.id} link={link} />
-				))}
-			</ul>
-		</Panel>
+			<div aria-busy={health.kind === "loading"} className="min-h-[48px]">
+				{health.kind === "loading" ? (
+					<div aria-hidden="true" className="grid grid-cols-3 gap-3">
+						{[0, 1, 2].map((slot) => (
+							<div key={slot} className="grid gap-1.5">
+								<div className="cms-skeleton h-3.5 w-14" />
+								<div className="cms-skeleton h-6 w-12" />
+							</div>
+						))}
+					</div>
+				) : health.kind === "unavailable" ? (
+					<div className="flex min-h-[48px] items-center">
+						<p className="m-0 text-[13px] text-muted-foreground">
+							{health.notConfigured
+								? "Metrics unavailable · connect Cloudflare"
+								: "Metrics unavailable"}
+						</p>
+					</div>
+				) : (
+					<dl className="m-0 grid min-w-0 grid-cols-3 gap-x-3 gap-y-2">
+						{stats?.map((stat) => (
+							<div key={stat.label} className="flex min-w-0 flex-col justify-between gap-1">
+								<dt className="text-[12px] leading-snug font-medium text-muted-foreground">
+									{stat.label}
+								</dt>
+								<dd
+									className={cn(
+										"m-0 text-[20px] leading-none font-semibold tracking-[-0.025em] tabular-nums sm:text-[22px]",
+										stat.label === "Errors" && (stat.value ?? 0) > 0
+											? "text-destructive"
+											: "text-foreground",
+									)}
+								>
+									{stat.value === null ? (
+										"—"
+									) : (
+										<TickingNumber value={stat.value} format={stat.format} />
+									)}
+								</dd>
+							</div>
+						))}
+					</dl>
+				)}
+			</div>
+
+			<div className="border-t border-line pt-2.5">
+				<LiveVersion />
+			</div>
+		</Link>
 	);
 }

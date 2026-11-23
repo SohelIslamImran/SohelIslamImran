@@ -10,7 +10,7 @@ import {
 	type RefObject,
 } from "react";
 import { cn } from "../../../lib/utils";
-import type { AnalyticsCount } from "../../../server/analytics.server";
+import type { AnalyticsCount, TrafficPoint } from "../../../server/analytics.server";
 import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
 import { AlertTriangleIcon, CheckCircleIcon } from "../shell/cms-icons";
 
@@ -372,7 +372,7 @@ export function RankedList({
 	return (
 		<ul className="m-0 grid list-none gap-0.5 p-0">
 			{rows.map((row) => {
-				const ratio = Math.max(0.02, row.count / max);
+				const ratio = row.count <= 0 ? 0 : Math.max(0.02, row.count / max);
 				const share = total > 0 ? Math.round((row.count / total) * 100) : 0;
 				const active = highlightedValue === row.value;
 				return (
@@ -391,7 +391,7 @@ export function RankedList({
 							<span className="flex shrink-0 items-baseline gap-2 font-mono text-[12px] tabular-nums">
 								<span className="font-semibold text-foreground">{countLabel(row.count)}</span>
 								{rows.length > 1 ? (
-									<span className="hidden w-8 text-right text-[11px] text-muted-foreground sm:inline">
+									<span className="min-w-[3ch] text-right text-[11px] text-muted-foreground">
 										{share}%
 									</span>
 								) : null}
@@ -483,6 +483,42 @@ export function formatDuration(seconds: number): string {
 	const minutes = Math.floor(total / 60);
 	const rest = total % 60;
 	return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+const HOUR_MS = 3_600_000;
+const utcMonthDay = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	timeZone: "UTC",
+});
+const utcMonthDayYear = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+const utcHour = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+	hourCycle: "h23",
+	timeZone: "UTC",
+});
+
+/** Human-readable UTC window spanned by the series ("Nov 16 – Nov 22, 2026 UTC"). */
+export function formatUtcWindow(series: readonly TrafficPoint[], hourly: boolean): string | null {
+	if (series.length === 0) return null;
+	const first = Date.parse(series[0]!.at);
+	const last = Date.parse(series[series.length - 1]!.at);
+	if (Number.isNaN(first) || Number.isNaN(last)) return null;
+	if (hourly) {
+		// Each hourly point is the start of its 1-hour bucket; add one bucket for the window end.
+		return `${utcHour.format(first)} – ${utcHour.format(last + HOUR_MS)} UTC`;
+	}
+	if (first === last) return `${utcMonthDayYear.format(first)} UTC`;
+	const sameYear = new Date(first).getUTCFullYear() === new Date(last).getUTCFullYear();
+	return `${sameYear ? utcMonthDay.format(first) : utcMonthDayYear.format(first)} – ${utcMonthDayYear.format(last)} UTC`;
 }
 
 export interface KpiItem {

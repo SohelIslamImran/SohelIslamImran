@@ -6,13 +6,14 @@ import { CountryMap } from "../../components/cms/analytics/CountryMap";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
 	AnalyticsUnavailable,
+	EmptyState,
 	KpiStrip,
 	PageHeader,
-	QuietNote,
 	RankedList,
 	SegmentedControl,
+	controlClass,
 	formatDuration,
-	inlineLinkClass,
+	formatUtcWindow,
 	pageClass,
 	staggerStyle,
 	visitorDayDescription,
@@ -20,7 +21,7 @@ import {
 import type { AnalyticsCount } from "../../server/analytics.server";
 import { useDraftSelector, usePublicOrigin } from "../../components/cms/draft/context";
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
-import { ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
+import { AnalyticsIcon, ExternalArrowIcon } from "../../components/cms/shell/cms-icons";
 import { cn } from "../../lib/utils";
 import {
 	analyticsSearch,
@@ -99,13 +100,22 @@ function Analytics() {
 	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
 	const { summary, hasVisitsToday } = Route.useLoaderData();
-	const isPending = useRouterState({ select: (state) => state.status === "pending" });
+	// Scope pending dimming to this route's own range updates so leaving or invalidating never dims.
+	const isRangePending = useRouterState({
+		select: (state) =>
+			state.status === "pending" &&
+			state.resolvedLocation !== undefined &&
+			state.location.pathname === state.resolvedLocation.pathname &&
+			analyticsSearch.parse(state.location.search ?? {}).range !==
+				analyticsSearch.parse(state.resolvedLocation.search ?? {}).range,
+	});
 	const publicOrigin = usePublicOrigin();
 	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);
 	const links = new Map(profileLinks.map((link) => [link.id, link.label]));
 	const projects = new Map(summary?.topProjects.map((row) => [row.value, row.label]));
 	const pageLabel = (path: string) => pageLabels.get(path) ?? projects.get(path) ?? path;
 	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
+	const utcWindow = summary ? formatUtcWindow(summary.series, range === "24h") : null;
 
 	// Profile links by label, then any other outbound host, in one list.
 	const outbound: AnalyticsCount[] = summary
@@ -144,8 +154,11 @@ function Analytics() {
 						href={new URL("/?analytics=off", publicOrigin).href}
 						target="_blank"
 						rel="noreferrer"
-						className="cms-editor-button cms-editor-live cms-press cms-page-focus"
+						className="cms-header-action cms-press cms-page-focus"
 					>
+						<span aria-hidden="true" className="sm:hidden">
+							Exclude
+						</span>
 						<span className="max-sm:sr-only">Exclude this browser</span>
 						<ExternalArrowIcon className="size-3.5" />
 						<span className="sr-only"> (opens in a new tab)</span>
@@ -194,68 +207,87 @@ function Analytics() {
 
 			{summary ? (
 				<div
+					aria-busy={isRangePending}
 					className={cn(
 						"grid min-w-0 gap-5 transition-opacity duration-200",
-						isPending && "opacity-60",
+						isRangePending && "opacity-60",
 					)}
 				>
-					{noVisits ? (
-						<QuietNote
-							action={
-								hasVisitsToday ? (
-									<Link
-										to="/cms/analytics"
-										search={{ range: "24h" }}
-										resetScroll={false}
-										className={inlineLinkClass}
-									>
-										<span>Last 24 hours</span>
-										<span aria-hidden="true">→</span>
-									</Link>
-								) : undefined
-							}
-						>
-							{hasVisitsToday
-								? "Today’s visits appear here tomorrow."
-								: `No visits in the last ${rangeLabel.toLowerCase()}.`}
-						</QuietNote>
-					) : (
-						<>
-							<KpiStrip
-								stagger={1}
-								comparison="vs the previous period"
-								items={[
-									{
-										label: "Visitor-days",
-										title: visitorDayDescription,
-										value: summary.totals.visitorDays,
-										delta: summary.deltas.visitorDays,
-									},
-									{
-										label: "Pageviews",
-										value: summary.totals.pageviews,
-										delta: summary.deltas.pageviews,
-									},
-									{
-										label: "Median time",
-										title: "Median engaged time per page",
-										value: summary.totals.medianEngagedSeconds,
-										delta: summary.deltas.medianEngagedSeconds,
-										format: formatDuration,
-										emptyLabel: "Not enough data",
-									},
-								]}
-							/>
+					<KpiStrip
+						stagger={1}
+						comparison="vs the previous period"
+						items={[
+							{
+								label: "Visitor-days",
+								title: visitorDayDescription,
+								value: summary.totals.visitorDays,
+								delta: summary.deltas.visitorDays,
+							},
+							{
+								label: "Pageviews",
+								value: summary.totals.pageviews,
+								delta: summary.deltas.pageviews,
+							},
+							{
+								label: "Median time",
+								title: "Median engaged time per page",
+								value: summary.totals.medianEngagedSeconds,
+								delta: summary.deltas.medianEngagedSeconds,
+								format: formatDuration,
+								emptyLabel: "Not enough data",
+							},
+						]}
+					/>
 
-							<TrafficChart
-								key={range}
-								points={summary.series}
-								hourly={range === "24h"}
-								title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
-								rangeLabel={range === "24h" ? "the last 24 hours" : `the last ${rangeLabel}`}
-								stagger={2}
+					{noVisits ? (
+						<section style={staggerStyle(2)} className="cms-panel cms-enter">
+							<EmptyState
+								icon={<AnalyticsIcon className="size-5" />}
+								title={
+									hasVisitsToday
+										? "Today’s visits appear here tomorrow"
+										: `No visits in the last ${rangeLabel.toLowerCase()}`
+								}
+								description={
+									<>
+										{utcWindow ? (
+											<span className="mb-1.5 block font-mono text-[12px] text-foreground tabular-nums">
+												{rangeLabel} · {utcWindow}
+											</span>
+										) : null}
+										<span>
+											{hasVisitsToday
+												? "Completed-day ranges exclude today until midnight UTC. Switch to 24 hours to see today’s traffic."
+												: range === "24h"
+													? "Traffic shows up here once visitors browse your public site."
+													: "No completed-day visits were recorded in this UTC window."}
+										</span>
+									</>
+								}
+								action={
+									hasVisitsToday ? (
+										<Link
+											to="/cms/analytics"
+											search={{ range: "24h" }}
+											resetScroll={false}
+											className={controlClass}
+										>
+											<span>View last 24 hours</span>
+											<span aria-hidden="true">→</span>
+										</Link>
+									) : undefined
+								}
 							/>
-						</>
+						</section>
+					) : (
+						<TrafficChart
+							key={range}
+							points={summary.series}
+							hourly={range === "24h"}
+							title={range === "24h" ? "Last 24 hours" : "Traffic over time"}
+							rangeLabel={range === "24h" ? "the last 24 hours" : `the last ${rangeLabel}`}
+							stagger={2}
+						/>
 					)}
 
 					{filled.length > 0 ? <BreakdownPanel breakdowns={filled} /> : null}

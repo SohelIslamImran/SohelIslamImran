@@ -6,6 +6,7 @@
  * the receipt replaces the page body.
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Tabs } from "@base-ui/react/tabs";
@@ -14,7 +15,7 @@ import { motion } from "motion/react";
 import {
 	PageHeader,
 	PageNotice,
-	controlClass,
+	inlineLinkClass,
 	pageClass,
 } from "../../components/cms/analytics/Widgets";
 import {
@@ -28,7 +29,7 @@ import { DiffView } from "../../components/cms/release/DiffView";
 import { PublishGate, PublishedReceipt } from "../../components/cms/release/PublishGate";
 import { RawJsonTab } from "../../components/cms/release/RawJsonTab";
 import { RELEASE_GATE_ID } from "../../components/cms/shell/CmsShell";
-import { DiscardIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
+import { CheckCircleIcon, DiscardIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
 
 export const Route = createFileRoute("/cms/release")({
@@ -84,6 +85,16 @@ function ReleaseRoute() {
 	const gateBusy = busy || publishing;
 	const canPublish = hasChanges && issueCount === 0 && !conflict && !gateBusy;
 
+	// Let the shell's Publish / Review actions switch back from Raw JSON synchronously
+	// before locating and focusing the inline PublishGate.
+	useEffect(() => {
+		const selectReview = () => {
+			flushSync(() => setTab("changes"));
+		};
+		window.addEventListener("cms:release-select-review", selectReview);
+		return () => window.removeEventListener("cms:release-select-review", selectReview);
+	}, []);
+
 	// A new edit after publishing or discarding makes the receipt stale.
 	useEffect(() => {
 		if (hasChanges) {
@@ -112,6 +123,7 @@ function ReleaseRoute() {
 			setReviewedDraft(null);
 		}
 		if (ok) {
+			setTab("changes");
 			focusAfterRender.current = "receipt";
 			setPublishedReceipt({ revision: store.getState().publishedRevision });
 		} else {
@@ -193,60 +205,63 @@ function ReleaseRoute() {
 				/>
 			) : null}
 
-			{showGate ? (
-				<PublishGate
-					totalChanges={diff.totalChanges}
-					sectionCount={diff.changedSections.length}
-					issueCount={issueCount}
-					conflict={conflict}
-					dirty={dirty}
-					busy={gateBusy}
-					canPublish={canPublish}
-					confirming={confirmingPublish}
-					host={host}
-					onRequestPublish={() => setReviewedDraft(draft)}
-					onCancel={() => setReviewedDraft(null)}
-					onConfirm={() => void handleConfirmPublish()}
-					onDiscard={() => setDiscardReview({ draft, publishedRevision })}
-					discardDisabled={gateBusy || discarding}
-				/>
-			) : publishedReceipt ? (
-				<PublishedReceipt
-					ref={receiptRef}
-					revision={publishedReceipt.revision}
-					publicOrigin={publicOrigin}
-					onDismiss={() => {
-						setTab("changes");
-						focusAfterRender.current = "empty";
-						setPublishedReceipt(null);
-					}}
-				/>
-			) : null}
-
 			<Tabs.Panel value="changes" hidden={tab !== "changes"} className="min-w-0 empty:hidden">
-				{showGate ? (
-					diff.changedSections.length > 0 ? (
-						<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
-					) : null
-				) : publishedReceipt ? null : (
-					<div ref={emptyRef} tabIndex={-1} className="outline-none">
-						<DiffView
-							diff={diff}
-							emptyTitle={justDiscarded ? "Changes discarded" : "Your live site is up to date"}
-							emptyDescription={
-								justDiscarded
-									? "Your draft matches the live site again. Earlier drafts stay in revision history."
-									: "Edits you make show up here for review before you publish."
-							}
-							emptyAction={
-								<Link to="/cms/history" className={controlClass}>
-									<HistoryIcon className="size-3.5 text-muted-foreground" />
-									<span>Revision history</span>
-								</Link>
-							}
+				<div className="grid min-w-0 gap-5">
+					{showGate ? (
+						<PublishGate
+							totalChanges={diff.totalChanges}
+							sectionCount={diff.changedSections.length}
+							issueCount={issueCount}
+							conflict={conflict}
+							dirty={dirty}
+							busy={gateBusy}
+							canPublish={canPublish}
+							confirming={confirmingPublish}
+							host={host}
+							onRequestPublish={() => setReviewedDraft(draft)}
+							onCancel={() => setReviewedDraft(null)}
+							onConfirm={() => void handleConfirmPublish()}
+							onDiscard={() => setDiscardReview({ draft, publishedRevision })}
+							discardDisabled={gateBusy || discarding}
 						/>
-					</div>
-				)}
+					) : publishedReceipt ? (
+						<PublishedReceipt
+							ref={receiptRef}
+							revision={publishedReceipt.revision}
+							publicOrigin={publicOrigin}
+							onDismiss={() => {
+								setTab("changes");
+								focusAfterRender.current = "empty";
+								setPublishedReceipt(null);
+							}}
+						/>
+					) : null}
+
+					{showGate ? (
+						diff.changedSections.length > 0 ? (
+							<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
+						) : null
+					) : publishedReceipt ? null : (
+						<div
+							ref={emptyRef}
+							tabIndex={-1}
+							className="cms-panel cms-enter flex min-w-0 flex-wrap items-center justify-between gap-3 px-4 py-3.5 outline-none sm:px-5"
+						>
+							<div className="flex min-w-0 items-center gap-2.5">
+								<CheckCircleIcon className="size-4 shrink-0 text-success" />
+								<p className="m-0 text-[14px] text-foreground">
+									{justDiscarded
+										? "Changes discarded — draft matches live."
+										: "No unpublished changes. Draft matches live."}
+								</p>
+							</div>
+							<Link to="/cms/history" className={inlineLinkClass}>
+								<HistoryIcon className="size-3.5" />
+								<span>History</span>
+							</Link>
+						</div>
+					)}
+				</div>
 			</Tabs.Panel>
 			<Tabs.Panel value="json" className="min-w-0">
 				<RawJsonTab />
