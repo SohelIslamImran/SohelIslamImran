@@ -18,6 +18,7 @@ const PASSTHROUGH_PREFIXES = [
 	"/assets/",
 	"/images/",
 	"/media/",
+	"/draft-media/",
 	"/favicon",
 	"/robots.txt",
 ] as const;

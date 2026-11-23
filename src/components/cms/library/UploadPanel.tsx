@@ -59,13 +59,11 @@ export function UploadPanel({
 		setUploading(true);
 		setUploadNotice(null);
 		try {
-			await runUpload({
-				data: {
-					file: selectedFile,
-					alt: uploadAlt.trim(),
-					csrfToken,
-				},
-			});
+			const form = new FormData();
+			form.set("file", selectedFile);
+			form.set("alt", uploadAlt.trim());
+			form.set("csrfToken", csrfToken);
+			await runUpload({ data: form });
 			setSelectedFile(null);
 			setUploadAlt("");
 			if (fileInputRef.current) fileInputRef.current.value = "";

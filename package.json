@@ -10,6 +10,7 @@
 		"check": "oxlint src vite.config.ts vitest.config.ts && oxfmt --check src vite.config.ts vitest.config.ts '!src/routeTree.gen.ts'",
 		"test": "vitest run --config vitest.config.ts",
 		"deploy": "bun run build && wrangler deploy",
+		"deploy:ci": "bun scripts/deploy-ci.ts",
 		"preview": "vite preview",
 		"cf-typegen": "wrangler types",
 		"postinstall": "wrangler types"

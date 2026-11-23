@@ -123,8 +123,19 @@ const uploadInput = z.object({
 	csrfToken,
 });
 
+/**
+ * Files cannot travel inside a serialized object, so the client sends
+ * `FormData` with `file`, `alt`, and `csrfToken` fields.
+ */
 export const uploadMedia = createServerFn({ method: "POST" })
-	.validator(uploadInput)
+	.validator((data: FormData) => {
+		if (!(data instanceof FormData)) throw new Error("Upload expects form data.");
+		return uploadInput.parse({
+			file: data.get("file"),
+			alt: data.get("alt") ?? "",
+			csrfToken: data.get("csrfToken"),
+		});
+	})
 	.handler(({ data }) => uploadStored(getRequest(), data));
 
 export type CmsServerFunctions = {

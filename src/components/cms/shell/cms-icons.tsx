@@ -130,6 +130,17 @@ export function ExternalArrowIcon(props: IconProps) {
 	);
 }
 
+/** Infrastructure page: a small stack of servers. */
+export function InfrastructureIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<rect x="3.5" y="3.5" width="13" height="5.5" rx="1.75" />
+			<rect x="3.5" y="11" width="13" height="5.5" rx="1.75" />
+			<path d="M6.5 6.25h.01M6.5 13.75h.01M10 6.25h3.5M10 13.75h3.5" />
+		</Icon>
+	);
+}
+
 /** Hosting and infrastructure (the Cloudflare dashboard). */
 export function CloudIcon(props: IconProps) {
 	return (

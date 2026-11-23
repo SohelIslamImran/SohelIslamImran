@@ -71,14 +71,22 @@ The public read path serves the seed when the D1 binding is absent or the origin
 
 ## Media storage
 
-R2 is optional and is not enabled in this checkout. Static profile and placeholder images are served from the Worker assets. If editable uploads are needed:
-
-1. Create or select the R2 bucket in the intended Cloudflare account.
-2. Add the `MEDIA` binding to `wrangler.jsonc`.
-3. Run `bun run cf-typegen`.
-4. Re-run the canonical checks and deploy deliberately.
+Uploads go to the private R2 bucket `portfolio-media-production`, bound as `MEDIA`. The bucket has no public URL: the Worker serves published objects at `/media/:assetId`. Static profile and placeholder images are served from the Worker assets.
 
 The application keeps uploads owner-only and draft-only. `/media/:assetId` returns an object only when the media row is published. Public content references are filtered before SSR, and private object keys are cleared from the public content object.
+
+## Deploys
+
+Workers Builds deploys `main`. Its build command is `bun run build` and its deploy command is `bun run deploy:ci`, which runs `wrangler deploy` with the commit as the version tag and the commit subject as the version message. Builds do not apply D1 migrations: run `bunx wrangler d1 migrations apply DB --remote` before merging a change that adds one.
+
+## Infrastructure metrics
+
+The CMS Infrastructure page and the Overview health line read Cloudflare's GraphQL Analytics API (Worker, D1, R2, and cron metrics) and the Workers deployments API. They need:
+
+- `CF_ACCOUNT_ID` and `CF_D1_DATABASE_ID` vars in `wrangler.jsonc` (public identifiers).
+- The `CF_API_TOKEN` secret: an account API token with only **Account Analytics: Read** and **Workers Scripts: Read**. Set it with `bunx wrangler secret put CF_API_TOKEN`. For local development, add it to `.dev.vars`.
+
+Without the token the page explains how to connect it, and the rest of the CMS is unaffected. The token never reaches the browser; responses are cached per isolate for a minute.
 
 ## Release checks
 

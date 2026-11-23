@@ -38,6 +38,7 @@ import {
 	DiscardIcon,
 	ExternalArrowIcon,
 	HistoryIcon,
+	InfrastructureIcon,
 	MediaLibraryIcon,
 	OverviewIcon,
 	PublishIcon,
@@ -207,6 +208,15 @@ function CommandBarOpen({
 				icon: <AnalyticsIcon />,
 				// `/cms/analytics` is owned by the analytics workstream; keep wide string until merged.
 				run: () => navigate({ to: "/cms/analytics" as string }),
+			},
+			{
+				id: "page-infrastructure",
+				group: "Pages",
+				label: "Infrastructure",
+				detail: "Requests, errors, database, storage, deployments",
+				keywords: "cloudflare worker health errors cpu latency d1 r2 deployments cron uptime",
+				icon: <InfrastructureIcon />,
+				run: () => navigate({ to: "/cms/infrastructure" as string }),
 			},
 			{
 				id: "page-release",

@@ -9,6 +9,8 @@
 
 /** The Worker `name` in `wrangler.jsonc`. */
 export const CLOUDFLARE_WORKER_NAME = "portfolio";
+/** The `MEDIA` bucket in `wrangler.jsonc`. */
+export const CLOUDFLARE_MEDIA_BUCKET = "portfolio-media-production";
 
 const DASHBOARD = "https://dash.cloudflare.com/?to=/:account";
 const WORKER_PATH = `/workers/services/view/${CLOUDFLARE_WORKER_NAME}/production`;
@@ -23,9 +25,20 @@ export interface CloudflareLink {
 	href: string;
 }
 
-function dashboardUrl(path: string): string {
+/** A dashboard page for the signed-in account, from its account-relative path. */
+export function dashboardUrl(path: string): string {
 	return `${DASHBOARD}${path}`;
 }
+
+/** Deep links used by the Infrastructure page panels. */
+export const CLOUDFLARE_PAGES = {
+	deployments: dashboardUrl(`${WORKER_PATH}/deployments`),
+	logs: dashboardUrl(`${WORKER_PATH}/observability`),
+	metrics: dashboardUrl(`${WORKER_PATH}/metrics`),
+	triggers: dashboardUrl(`${WORKER_PATH}/settings`),
+	database: dashboardUrl("/workers/d1"),
+	bucket: dashboardUrl(`/r2/default/buckets/${CLOUDFLARE_MEDIA_BUCKET}`),
+} as const;
 
 /** The Worker overview: the dashboard entry point the CMS opens by default. */
 export const CLOUDFLARE_DASHBOARD_URL = dashboardUrl(WORKER_PATH);
@@ -87,6 +100,10 @@ export function cloudflareLinks(publicOrigin: string): CloudflareLink[] {
 		},
 	];
 }
+
+/** Ranges the Infrastructure page offers (GraphQL allows at most 32 days per query). */
+export const INSIGHTS_RANGES = ["24h", "7d", "30d"] as const;
+export type InsightsRange = (typeof INSIGHTS_RANGES)[number];
 
 /** The live Worker version, from the version metadata binding. */
 export interface CmsBuildInfo {

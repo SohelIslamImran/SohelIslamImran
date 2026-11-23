@@ -107,12 +107,27 @@ function monotonePath(coords: readonly Coord[]): string {
 	return d;
 }
 
+/** Names for one plotted series: legend label, and singular/plural nouns. */
+export interface ChartSeriesText {
+	name: string;
+	one: string;
+	many: string;
+	/** Shorter nouns for the tooltip ("view", "views"); defaults to one/many. */
+	short?: readonly [string, string];
+}
+
+/**
+ * Plots two series: `pageviews` as the solid primary line with an area, and
+ * `visitorDays` as the dashed accent line. Other pages can reuse the chart by
+ * mapping their data onto those two fields and naming them with `series`.
+ */
 export function TrafficChart({
 	points,
 	hourly = false,
 	title = "Traffic",
 	rangeLabel = "this range",
 	stagger,
+	series,
 }: {
 	points: TrafficPoint[];
 	hourly?: boolean;
@@ -120,6 +135,7 @@ export function TrafficChart({
 	/** "the last 30 days", for the screen-reader summary. */
 	rangeLabel?: string;
 	stagger?: number;
+	series?: { primary: ChartSeriesText; secondary: ChartSeriesText };
 }) {
 	const reduced = useLiveReducedMotion();
 	const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -130,7 +146,25 @@ export function TrafficChart({
 	const id = useId();
 	const fillId = `${id}-pv-fill`;
 	const clipId = `${id}-draw-clip`;
-	const visitorLabel = hourly ? "Visitor-days / hr" : "Visitor-days";
+	const primary: ChartSeriesText = series?.primary ?? {
+		name: "Pageviews",
+		one: "pageview",
+		many: "pageviews",
+		short: ["view", "views"],
+	};
+	const secondary: ChartSeriesText = series?.secondary ?? {
+		name: hourly ? "Visitor-days / hr" : "Visitor-days",
+		one: "visitor-day",
+		many: "visitor-days",
+		short: hourly ? ["visitor-day/hr", "visitor-days/hr"] : undefined,
+	};
+	const visitorLabel = secondary.name;
+	// Default pageview copy keeps "visitor-day this hour" for hourly ranges.
+	const secondaryLive = series
+		? ([secondary.one, secondary.many] as const)
+		: hourly
+			? (["visitor-day this hour", "visitor-days this hour"] as const)
+			: (["visitor-day", "visitor-days"] as const);
 
 	useEffect(() => {
 		const element = wrapRef.current;
@@ -167,7 +201,7 @@ export function TrafficChart({
 		if (points.length === 0) return "";
 		const pageviews = points.reduce((sum, point) => sum + point.pageviews, 0);
 		const visitorDays = points.reduce((sum, point) => sum + point.visitorDays, 0);
-		const totals = `${title}, ${rangeLabel}: ${plural(pageviews, "pageview", "pageviews")} and ${plural(visitorDays, "visitor-day", "visitor-days")}.`;
+		const totals = `${title}, ${rangeLabel}: ${plural(pageviews, primary.one, primary.many)} and ${plural(visitorDays, secondary.one, secondary.many)}.`;
 		if (pageviews === 0) return totals;
 		const peak = points.reduce((best, point) => (point.pageviews > best.pageviews ? point : best));
 		const half = Math.floor(points.length / 2);
@@ -181,8 +215,8 @@ export function TrafficChart({
 				: late > early
 					? "rose"
 					: "fell";
-		return `${totals} Busiest ${hourly ? "hour" : "day"}: ${format(peak)} UTC with ${plural(peak.pageviews, "pageview", "pageviews")}. Pageviews ${trend} from the first half of the range to the second.`;
-	}, [points, title, rangeLabel, hourly]);
+		return `${totals} Busiest ${hourly ? "hour" : "day"}: ${format(peak)} UTC with ${plural(peak.pageviews, primary.one, primary.many)}. ${primary.name} ${trend} from the first half of the range to the second.`;
+	}, [points, title, rangeLabel, hourly, primary, secondary]);
 
 	const { pvCoords, vdCoords, pvLine, vdLine, pvArea } = useMemo(() => {
 		const pv = points.map((point, i) => ({ x: xOf(i), y: yOf(point.pageviews) }));
@@ -271,7 +305,7 @@ export function TrafficChart({
 				<div
 					className="cms-page-focus max-h-96 overflow-auto rounded-[12px] border border-line"
 					role="region"
-					aria-label="Traffic data"
+					aria-label={`${title} data`}
 					tabIndex={0}
 				>
 					<table className="w-full border-collapse text-left text-[13px] tabular-nums">
@@ -284,7 +318,7 @@ export function TrafficChart({
 									{visitorLabel}
 								</th>
 								<th scope="col" className="px-3 py-2.5 text-right font-medium">
-									Pageviews
+									{primary.name}
 								</th>
 							</tr>
 						</thead>
@@ -386,7 +420,7 @@ export function TrafficChart({
 						>
 							<span className="inline-flex items-center gap-1.5">
 								<SeriesSwatch kind="pageviews" />
-								<span>Pageviews</span>
+								<span>{primary.name}</span>
 							</span>
 							<span className="inline-flex items-center gap-1.5">
 								<SeriesSwatch kind="visitors" />
@@ -413,7 +447,9 @@ export function TrafficChart({
 											{countLabel(activePoint.pageviews)}
 										</span>
 										<span className="text-[11px] text-muted-foreground">
-											{activePoint.pageviews === 1 ? "view" : "views"}
+											{activePoint.pageviews === 1
+												? (primary.short?.[0] ?? primary.one)
+												: (primary.short?.[1] ?? primary.many)}
 										</span>
 									</span>
 									<span className="inline-flex items-center gap-1.5">
@@ -422,7 +458,9 @@ export function TrafficChart({
 											{countLabel(activePoint.visitorDays)}
 										</span>
 										<span className="text-[11px] text-muted-foreground">
-											{`${activePoint.visitorDays === 1 ? "visitor-day" : "visitor-days"}${hourly ? "/hr" : ""}`}
+											{activePoint.visitorDays === 1
+												? (secondary.short?.[0] ?? secondary.one)
+												: (secondary.short?.[1] ?? secondary.many)}
 										</span>
 									</span>
 								</div>
@@ -559,7 +597,7 @@ export function TrafficChart({
 					</p>
 					<p className="sr-only" aria-live="polite">
 						{keyboardPoint
-							? `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, "pageview", "pageviews")}, ${plural(keyboardPoint.visitorDays, hourly ? "visitor-day this hour" : "visitor-day", hourly ? "visitor-days this hour" : "visitor-days")}`
+							? `${format(keyboardPoint)} UTC: ${plural(keyboardPoint.pageviews, primary.one, primary.many)}, ${plural(keyboardPoint.visitorDays, secondaryLive[0], secondaryLive[1])}`
 							: ""}
 					</p>
 				</div>
@@ -568,7 +606,7 @@ export function TrafficChart({
 	);
 }
 
-/** Legend and tooltip swatch: solid line for pageviews, dashed accent for visitor-days. */
+/** Legend and tooltip swatch: solid primary line, dashed accent secondary line. */
 function SeriesSwatch({ kind }: { kind: "pageviews" | "visitors" }) {
 	return (
 		<span

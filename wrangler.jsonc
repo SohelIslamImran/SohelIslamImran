@@ -20,6 +20,10 @@
 		// configuration, not secrets.
 		"ACCESS_TEAM_DOMAIN": "https://bitter-breeze-2001.cloudflareaccess.com",
 		"ACCESS_AUDIENCE": "da0d81b228b4cd44f533d30b2c005e33c014b72d315b78298be3530846afd963",
+		// Public identifiers the CMS Infrastructure page queries Cloudflare's
+		// analytics for. The read-only API token is the CF_API_TOKEN secret.
+		"CF_ACCOUNT_ID": "1c846d5212b786b11dfa0a0d6e7d1775",
+		"CF_D1_DATABASE_ID": "999eab4e-2274-49f5-9bdb-a9acc5075b40",
 	},
 	"observability": {
 		"enabled": true,
@@ -44,11 +48,8 @@
 			"migrations_dir": "migrations",
 		},
 	],
-	// Enable after the production bucket exists. Media uploads stay unavailable
-	// until this binding is present.
-	// "r2_buckets": [
-	//   { "binding": "MEDIA", "bucket_name": "portfolio-media-production" }
-	// ],
+	// Private bucket: media is served through the Worker, never from a public R2 URL.
+	"r2_buckets": [{ "binding": "MEDIA", "bucket_name": "portfolio-media-production" }],
 	"routes": [
 		{ "pattern": "sohelislamimran.com", "custom_domain": true },
 		{ "pattern": "www.sohelislamimran.com", "custom_domain": true },

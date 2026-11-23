@@ -21,6 +21,7 @@ describe("cms host rewrite", () => {
 			"/_serverFn/abc",
 			"/assets/index.js",
 			"/media/asset_1234",
+			"/draft-media/asset_1234",
 			"/images/me.webp",
 			"/favicon.svg",
 			"/robots.txt",

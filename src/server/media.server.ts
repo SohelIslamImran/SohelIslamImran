@@ -152,6 +152,23 @@ export async function getPublishedMedia(env: MediaEnvironment, assetId: string) 
 	};
 }
 
+/**
+ * Any image asset, published or not, for the owner-only library preview at
+ * `/draft-media/:id`. The caller must check the owner first.
+ */
+export async function getOwnerMediaPreview(env: MediaEnvironment, assetId: string) {
+	const { db, bucket } = requireBindings(env);
+	const [row] = await drizzle(db, { logger: false })
+		.select({ objectKey: mediaAssets.objectKey, mimeType: mediaAssets.mimeType })
+		.from(mediaAssets)
+		.where(eq(mediaAssets.id, assetId))
+		.limit(1);
+	if (!row?.mimeType?.startsWith("image/")) return null;
+	const object = await bucket.get(row.objectKey);
+	if (!object) return null;
+	return { object, mimeType: row.mimeType };
+}
+
 /** Find every reference to a media asset id in a portfolio draft. */
 export function findMediaReferences(content: PortfolioContent): Map<string, MediaReference[]> {
 	const refs = new Map<string, MediaReference[]>();
