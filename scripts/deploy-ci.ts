@@ -24,5 +24,10 @@ const args = ["wrangler", "deploy", ...process.argv.slice(2)];
 if (/^[0-9a-f]{7,40}$/iu.test(sha)) args.push("--tag", sha.slice(0, 12));
 if (subject) args.push("--message", subject.slice(0, 100));
 
-const child = Bun.spawn(["bunx", ...args], { stdout: "inherit", stderr: "inherit" });
+// Run the installed binary directly: going through `bunx` re-splits
+// arguments on spaces in Workers Builds, which broke multi-word messages.
+const child = Bun.spawn(["node_modules/.bin/wrangler", ...args.slice(1)], {
+	stdout: "inherit",
+	stderr: "inherit",
+});
 process.exit(await child.exited);
