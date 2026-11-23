@@ -18,11 +18,15 @@ import { formatBytes } from "../shell/time";
 import { Button } from "../../ui/button";
 
 export function UploadPanel({
+	id,
 	csrfToken,
 	onUploaded,
+	onClose,
 }: {
+	id?: string;
 	csrfToken: string;
 	onUploaded: () => Promise<void> | void;
+	onClose?: () => void;
 }) {
 	const runUpload = useServerFn(uploadMedia);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +84,7 @@ export function UploadPanel({
 	};
 
 	return (
-		<section style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
+		<section id={id} style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="grid gap-0.5">
 					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
@@ -90,6 +94,11 @@ export function UploadPanel({
 						JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB.
 					</p>
 				</div>
+				{onClose ? (
+					<button type="button" onClick={onClose} className={pillControlClass}>
+						Done
+					</button>
+				) : null}
 			</div>
 
 			<form onSubmit={(event) => void handleUpload(event)} className="grid gap-3.5">

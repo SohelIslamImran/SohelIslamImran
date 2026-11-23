@@ -117,3 +117,13 @@ export interface CmsBuildInfo {
 export function shortVersionId(id: string): string {
 	return id.slice(0, 8);
 }
+
+const MERGE_PR_PATTERN = /^Merge pull request #(\d+) from [^/\s]+\/(.+)$/iu;
+
+/** Compact GitHub merge-commit subjects ("PR #16 · branch"); keep the raw message in `title`. */
+export function formatDeploymentMessage(message: string): string {
+	const trimmed = message.trim();
+	const match = MERGE_PR_PATTERN.exec(trimmed);
+	if (match) return `PR #${match[1]} · ${match[2]}`;
+	return trimmed;
+}

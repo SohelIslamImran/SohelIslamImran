@@ -13,7 +13,7 @@ import {
 	useIssuesUnder,
 } from "../draft/context";
 import { childPath, setAt } from "../draft/paths";
-import { ExternalArrowIcon, MediaLibraryIcon } from "../shell/cms-icons";
+import { MediaLibraryIcon } from "../shell/cms-icons";
 import { ChevronRightIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
@@ -127,6 +127,16 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 	];
 	const issues = useIssuesUnder(path);
 	const pickerIssues = issues.filter((issue) => issue.path !== `${path}.alt`);
+	const libraryLink =
+		mediaEnabled && !loading ? (
+			<Link
+				to="/cms/library"
+				className="cms-press cms-page-focus -my-1 inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:-my-3 pointer-coarse:min-h-11"
+			>
+				<span>Media library</span>
+				<span aria-hidden="true">→</span>
+			</Link>
+		) : null;
 
 	return (
 		<FieldFrame
@@ -136,6 +146,7 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 			issues={pickerIssues}
 			changed={field.changed}
 			onRevert={field.revert}
+			meta={libraryLink}
 		>
 			<div className="cms-media-field grid min-w-0 gap-3" aria-busy={loading}>
 				<div className="flex min-w-0 items-center gap-2.5">
@@ -170,11 +181,6 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 							maxLength={240}
 						/>
 					</div>
-				) : null}
-				{mediaEnabled && !loading ? (
-					<Link to="/cms/library" className="cms-editor-button cms-press justify-self-start">
-						Media library <ExternalArrowIcon className="size-3.5" />
-					</Link>
 				) : null}
 			</div>
 		</FieldFrame>
@@ -221,7 +227,20 @@ export function MediaIdsField({ path }: { path: string }) {
 							field.revert();
 						}
 			}
-			meta={<Counter length={ids.length} max={MAX_TRAVEL_MEDIA} />}
+			meta={
+				<>
+					{mediaEnabled && !loading ? (
+						<Link
+							to="/cms/library"
+							className="cms-press cms-page-focus -my-1 inline-flex min-h-6 items-center gap-1 rounded-full px-2 text-xs font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:-my-3 pointer-coarse:min-h-11"
+						>
+							<span>Media library</span>
+							<span aria-hidden="true">→</span>
+						</Link>
+					) : null}
+					<Counter length={ids.length} max={MAX_TRAVEL_MEDIA} />
+				</>
+			}
 		>
 			<Reorder.Group
 				as="ol"
@@ -276,11 +295,6 @@ export function MediaIdsField({ path }: { path: string }) {
 					);
 				}}
 			/>
-			{mediaEnabled && !loading ? (
-				<Link to="/cms/library" className="cms-editor-button cms-press mt-2 justify-self-start">
-					Media library <ExternalArrowIcon className="size-3.5" />
-				</Link>
-			) : null}
 			{removals.removals.map((removal) => (
 				<UndoRemoval
 					key={removal.id}
