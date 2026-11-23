@@ -39,14 +39,15 @@ function ChevronIcon({ className }: { className?: string }) {
 	);
 }
 
+function layerNames(layers: CareerLayerId[]) {
+	return CAREER_LAYERS.filter((layer) => layers.includes(layer.id)).map((layer) => layer.label);
+}
+
 /**
  * A core sample: six cells, front (interface) to back (release), lit where the
  * role did work. The text alternative names the layers.
  */
 function CoreSample({ layers, className }: { layers: CareerLayerId[]; className?: string }) {
-	const names = CAREER_LAYERS.filter((layer) => layers.includes(layer.id)).map(
-		(layer) => layer.label,
-	);
 	return (
 		<span className={cn("inline-flex items-center gap-[3px]", className)}>
 			{CAREER_LAYERS.map((layer, index) => (
@@ -62,7 +63,7 @@ function CoreSample({ layers, className }: { layers: CareerLayerId[]; className?
 					style={{ opacity: layers.includes(layer.id) ? 1 - index * 0.09 : 1 }}
 				/>
 			))}
-			<span className="sr-only">Layers: {names.join(", ") || "none listed"}.</span>
+			<span className="sr-only">Layers: {layerNames(layers).join(", ") || "none listed"}.</span>
 		</span>
 	);
 }
@@ -241,6 +242,7 @@ export function CareerTimeline({
 										{group.roles.map((role) => {
 											const isCurrent = role.current === true;
 											const layers = layersTouched(role);
+											const names = layerNames(layers);
 											return (
 												<li
 													key={role.id}
@@ -308,6 +310,11 @@ export function CareerTimeline({
 														}
 													>
 														<div className="min-w-0 px-4 pb-6 sm:px-5">
+															{names.length > 0 ? (
+																<p className="mono-label m-0 mb-3 pt-2 text-muted-foreground [overflow-wrap:anywhere]">
+																	Layers · {names.join(" · ")}
+																</p>
+															) : null}
 															{role.summary.trim() ? (
 																<p className="m-0 max-w-[60ch] text-body text-ink-soft">
 																	{role.summary.trim()}

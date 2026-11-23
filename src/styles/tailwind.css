@@ -4581,15 +4581,6 @@ html[data-xray] body {
 		border-color 260ms var(--ease-trace),
 		background-color 260ms var(--ease-trace);
 }
-.hw-pillar[data-hover] .hw-pillar-body {
-	border-color: var(--theme-accent-line);
-	background: linear-gradient(
-		90deg,
-		color-mix(in srgb, var(--theme-accent) 12%, var(--theme-surface-solid)),
-		color-mix(in srgb, var(--theme-accent) 5%, var(--theme-surface-raised)) 42%,
-		color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid))
-	);
-}
 .hw-pillar-index {
 	font-family: var(--font-mono);
 	font-size: 10.5px;
@@ -4612,16 +4603,25 @@ html[data-xray] body {
 }
 /*
  * The intro build: pending supports wait below the floor (the pillar clips
- * them) and rise on a spring as they're placed; each one's number flashes as
+ * them) and rise as they're placed; each one's number flashes as
  * it lands, and its control lights up with it. The plate shows "Not ready
  * yet" until the last one is in.
  */
 .hw-pillar[data-pending] .hw-pillar-body {
 	translate: 0 104%;
 }
+.hw[data-armed] :is(.hw-plate, .hw-pillar-body),
+.hw[data-build-skipped] .hw-pillar:not([data-out]) .hw-pillar-body {
+	transition: none;
+}
+.hw[data-intro] .hw-plate {
+	transition:
+		rotate 700ms var(--ease-trace),
+		translate 700ms var(--ease-trace);
+}
 .hw[data-intro] .hw-pillar-body {
 	transition:
-		translate 720ms var(--ease-spring),
+		translate 700ms var(--ease-trace),
 		opacity 420ms var(--ease-trace),
 		border-color 260ms var(--ease-trace),
 		background-color 260ms var(--ease-trace);
@@ -4629,8 +4629,7 @@ html[data-xray] body {
 @keyframes hw-land {
 	0%,
 	30% {
-		color: var(--theme-accent-text);
-		text-shadow: 0 0 12px color-mix(in srgb, var(--theme-accent) 60%, transparent);
+		filter: drop-shadow(0 0 6px var(--theme-accent-line));
 	}
 }
 .hw[data-intro] .hw-pillar:not([data-pending]) .hw-pillar-index {
@@ -4665,45 +4664,60 @@ html[data-xray] body {
 }
 /* When the last support lands: a light sweeps across the levelled plate and
    the status dot pings as it turns green. */
-.hw-plate::after {
+.hw-sweep {
+	position: absolute;
+	inset: 0;
+	overflow: clip;
+	border-radius: inherit;
+	pointer-events: none;
+}
+.hw-sweep::before {
 	content: "";
 	position: absolute;
 	inset: 0;
-	border-radius: inherit;
 	background: linear-gradient(
-			100deg,
-			transparent 35%,
-			color-mix(in srgb, var(--theme-accent) 16%, transparent) 50%,
-			transparent 65%
-		)
-		no-repeat;
-	background-size: 260% 100%;
-	background-position: 130% 0;
+		100deg,
+		transparent 35%,
+		color-mix(in srgb, var(--theme-accent) 16%, transparent) 50%,
+		transparent 65%
+	);
 	opacity: 0;
-	pointer-events: none;
 }
 @keyframes hw-sweep {
 	from {
 		opacity: 1;
-		background-position: 130% 0;
+		translate: -75% 0;
 	}
 	to {
 		opacity: 1;
-		background-position: -30% 0;
+		translate: 75% 0;
 	}
 }
-.hw[data-intro]:not([data-building]) .hw-plate::after {
-	animation: hw-sweep 900ms var(--ease-trace) 240ms both;
+.hw[data-intro]:not([data-building]) .hw-sweep::before {
+	animation: hw-sweep 900ms var(--ease-trace) 240ms;
+}
+.hw-plate-dot {
+	position: relative;
+}
+.hw-plate-dot::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--theme-success);
+	border-radius: inherit;
+	opacity: 0;
 }
 @keyframes hw-ping {
 	from {
-		box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-success) 55%, transparent);
+		opacity: 0.55;
+		scale: 1;
 	}
 	to {
-		box-shadow: 0 0 0 12px color-mix(in srgb, var(--theme-success) 0%, transparent);
+		opacity: 0;
+		scale: 4.4;
 	}
 }
-.hw[data-intro]:not([data-building]) .hw-plate-dot {
+.hw[data-intro]:not([data-building]) .hw-plate-dot::after {
 	animation: hw-ping 900ms var(--ease-trace) 240ms;
 }
 .hw-plate-wait,
@@ -4717,6 +4731,17 @@ html[data-xray] body {
 .hw[data-building] .hw-plate-dot {
 	background: var(--theme-muted);
 	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-muted) 14%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+	.hw-pillar[data-hover] .hw-pillar-body {
+		border-color: var(--theme-accent-line);
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--theme-accent) 12%, var(--theme-surface-solid)),
+			color-mix(in srgb, var(--theme-accent) 5%, var(--theme-surface-raised)) 42%,
+			color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid))
+		);
+	}
 }
 .hw-control[data-pending] {
 	opacity: 0.4;
@@ -4810,11 +4835,20 @@ html[data-xray] body {
 	.hw-readout,
 	.hw-readout[data-on],
 	.hw-plate,
+	.hw-plate-dot,
+	.hw-crack,
 	.hw-pillar-body,
+	.hw-ghost,
+	.hw-control,
 	.hw-control-icon,
 	.hw-restore {
 		transition-duration: 0s !important;
 		transition-delay: 0s !important;
+	}
+	.hw :is(.hw-pillar-index, .hw-impact),
+	.hw .hw-sweep::before,
+	.hw .hw-plate-dot::after {
+		animation: none !important;
 	}
 	.hw-readout {
 		translate: none;
