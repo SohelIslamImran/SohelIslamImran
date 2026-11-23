@@ -30,6 +30,25 @@ const RUN_LABELS = {
 	done: "Replay request",
 } as const;
 
+/** The send button's icon for one run state; idle and done share the arrow. */
+function RunGlyph({ status }: { status: keyof typeof RUN_LABELS }) {
+	return (
+		<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+			{status === "running" ? (
+				<path d="M5.5 3.5v9m5-9v9" />
+			) : status === "paused" ? (
+				<path d="M5.5 3.5v9l6-4.5z" fill="currentColor" />
+			) : (
+				<>
+					<path d="M8 2.2v9.2" />
+					<path d="m4.4 8 3.6 3.6L11.6 8" />
+					<path d="M3 14.2h10" opacity="0.6" />
+				</>
+			)}
+		</svg>
+	);
+}
+
 const pad = (value: number) => String(value).padStart(2, "0");
 
 /** The calm tour: how long each layer stays before the pulse moves on. */
@@ -293,22 +312,10 @@ export function StackTrace({ layers = STACK_LAYERS, className }: StackTraceProps
 							if (sending) onTabKeyDown(event, active);
 						}}
 					>
-						<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-							{run.status === "running" ? (
-								<path d="M5.5 3.5v9m5-9v9" />
-							) : run.status === "paused" ? (
-								<path d="M5.5 3.5v9l6-4.5z" fill="currentColor" />
-							) : (
-								<>
-									<path d="M8 2.2v9.2" />
-									<path d="m4.4 8 3.6 3.6L11.6 8" />
-									<path d="M3 14.2h10" opacity="0.6" />
-								</>
-							)}
-						</svg>
 						<span className="st-send-labels">
 							{Object.entries(RUN_LABELS).map(([status, label]) => (
 								<span key={status} aria-hidden={run.status !== status || undefined}>
+									<RunGlyph status={status as keyof typeof RUN_LABELS} />
 									{label}
 								</span>
 							))}

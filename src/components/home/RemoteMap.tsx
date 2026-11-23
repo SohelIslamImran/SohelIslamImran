@@ -36,13 +36,20 @@ const MAP_CSS = `
 .rmap [data-armed][data-entered] .rmap-destination {
 	animation: rmap-arrive 240ms var(--theme-ease) calc(var(--route-delay) + 900ms) both;
 }
-.rmap-packet { animation: rmap-packet 900ms var(--theme-ease) both; }
+.rmap-packet {
+	/* The hero dot's travel curve, so the packet reads mid-arc. */
+	animation: rmap-packet 900ms cubic-bezier(0.65, 0, 0.35, 1) both;
+	filter: drop-shadow(0 0 3px color-mix(in srgb, var(--theme-accent) 70%, transparent));
+}
 .rmap-ping { opacity: 0; animation: rmap-ping 600ms var(--theme-ease) 900ms forwards; }
+.rmap-row-dot { transition: box-shadow 220ms var(--theme-ease); }
+.rmap-row[aria-pressed="true"] { background: color-mix(in srgb, var(--theme-ink) 4%, transparent); }
+.rmap-row[aria-pressed="true"] .rmap-row-dot { box-shadow: 0 0 0 3px var(--theme-accent-soft); }
 @media (hover: hover) and (pointer: fine) {
 	.rmap-row:hover { background: color-mix(in srgb, var(--theme-ink) 4%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) {
-	.rmap .rmap-arc { transition: none; }
+	.rmap .rmap-arc, .rmap-row-dot { transition: none; }
 	.rmap [data-armed][data-entered] .rmap-arc,
 	.rmap [data-armed] .rmap-arc { animation: none; stroke-dasharray: none; stroke-dashoffset: 0; }
 	.rmap [data-armed][data-entered] .rmap-destination,
@@ -169,7 +176,7 @@ export function RemoteMap({ teams, className }: { teams: RemoteMapTeam[]; classN
 											pathLength={1}
 											fill="none"
 											stroke="var(--theme-accent-line)"
-											strokeWidth={5}
+											strokeWidth={6}
 											strokeLinecap="round"
 											strokeDasharray="0.08 1"
 										/>
@@ -232,7 +239,7 @@ export function RemoteMap({ teams, className }: { teams: RemoteMapTeam[]; classN
 						<>
 							<span
 								aria-hidden="true"
-								className="mt-[0.45em] size-2 shrink-0 rounded-full bg-primary"
+								className="rmap-row-dot mt-[0.45em] size-2 shrink-0 rounded-full bg-primary"
 							/>
 							<span className="min-w-0">
 								<span className="font-medium">{team.company}</span>

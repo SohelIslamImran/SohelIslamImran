@@ -35,8 +35,9 @@ export const STACK_CSS = `
 .st-pull > svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
 .st-pull:active { scale: 0.96; }
 .st-send { color: var(--theme-accent-text); border-color: color-mix(in srgb, var(--theme-accent) 38%, transparent); }
-.st-send-labels { display: grid; white-space: nowrap; }
-.st-send-labels > span { grid-area: 1 / 1; }
+.st-send-labels { display: grid; justify-items: center; white-space: nowrap; }
+.st-send-labels > span { grid-area: 1 / 1; display: inline-flex; align-items: center; gap: 7px; }
+.st-send-labels svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
 .st-send-labels > [aria-hidden] { visibility: hidden; }
 @media (pointer: coarse) { .st-send { min-height: 44px; } }
 .st-send[data-busy] { background: var(--theme-accent-soft); }
