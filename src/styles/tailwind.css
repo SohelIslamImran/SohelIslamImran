@@ -1051,6 +1051,53 @@ html[data-theme-resolved="dark"][data-accent="mint"] {
 			scrollbar-width: none;
 		}
 	}
+
+	/* RollingNumber: per-digit odometer columns driven by inline `--d`. */
+	.rolling-number {
+		position: relative;
+		display: inline-flex;
+		align-items: baseline;
+		font-variant-numeric: tabular-nums;
+		line-height: 1.2;
+		vertical-align: baseline;
+	}
+	.rolling-number__digits {
+		display: inline-flex;
+		align-items: baseline;
+	}
+	.rolling-number__col {
+		position: relative;
+		display: inline-block;
+		width: 1ch;
+		height: 1.2em;
+		line-height: 1.2em;
+		overflow: clip;
+		text-align: center;
+	}
+	.rolling-number__col::before {
+		content: "0";
+		visibility: hidden;
+		pointer-events: none;
+	}
+	.rolling-number__strip {
+		position: absolute;
+		inset-block-start: 0;
+		inset-inline: 0;
+		display: flex;
+		flex-direction: column;
+		translate: 0 calc(var(--d, 0) * -1.2em);
+		transition: translate 420ms var(--theme-ease);
+	}
+	.rolling-number__digit {
+		display: block;
+		height: 1.2em;
+		line-height: 1.2em;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.rolling-number__strip {
+			transition: none;
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -4369,6 +4416,38 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	to {
 		translate: 0.06em 0.05em;
 		opacity: 1;
+	}
+}
+/* Trace light over the footer wordmark: pointer-fine with motion only. */
+.footer-wordmark__light {
+	--wm-r: clamp(5rem, 14cqi, 12rem);
+	color: transparent;
+	-webkit-text-stroke: 1.25px var(--theme-accent-line);
+	-webkit-mask-image: radial-gradient(
+		circle var(--wm-r) at var(--wm-x, 50%) var(--wm-y, 50%),
+		#000 35%,
+		transparent 100%
+	);
+	mask-image: radial-gradient(
+		circle var(--wm-r) at var(--wm-x, 50%) var(--wm-y, 50%),
+		#000 35%,
+		transparent 100%
+	);
+	opacity: 0;
+	transition: opacity 260ms var(--theme-ease);
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+	[data-slot="footer-wordmark"] {
+		pointer-events: auto;
+	}
+	[data-slot="footer-wordmark"][data-lit] .footer-wordmark__light {
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.footer-wordmark__light {
+		opacity: 0;
+		transition: none;
 	}
 }
 
