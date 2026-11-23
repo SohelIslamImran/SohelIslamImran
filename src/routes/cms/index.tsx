@@ -165,7 +165,7 @@ function DraftStatus() {
 					</h2>
 				</div>
 				<Button
-					variant="default"
+					variant="outline"
 					size="sm"
 					nativeButton={false}
 					render={<Link to="/cms/release" />}

@@ -563,7 +563,7 @@ export function PageNotice({
 			tabIndex={-1}
 			role="status"
 			className={cn(
-				"cms-enter cms-page-focus flex outline-none items-center justify-between gap-3 rounded-[12px] border py-1.5 pr-1.5 pl-4 text-[13px]",
+				"cms-enter flex items-center justify-between gap-3 rounded-[12px] border py-1.5 pr-1.5 pl-4 text-[13px] outline-none",
 				tone === "ok"
 					? "border-success/35 bg-success/10 text-success"
 					: "border-destructive/35 bg-destructive/10 text-destructive",

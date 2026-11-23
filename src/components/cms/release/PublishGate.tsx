@@ -79,7 +79,7 @@ export function PublishGate({
 			ref={gateRef}
 			tabIndex={-1}
 			aria-label="Publish"
-			className="cms-panel cms-enter cms-page-focus grid scroll-mt-20 p-4 sm:px-5"
+			className="cms-panel cms-enter grid scroll-mt-20 p-4 outline-none sm:px-5"
 			onKeyDown={(event) => {
 				if (event.key === "Escape" && confirming && !busy) {
 					event.stopPropagation();
@@ -237,7 +237,7 @@ export function PublishedReceipt({
 			initial={reduced ? { opacity: 0 } : { opacity: 0, y: -6, scale: 0.99 }}
 			animate={{ opacity: 1, y: 0, scale: 1 }}
 			transition={reduced ? REDUCED : SPRING_SNAPPY}
-			className="cms-panel cms-confirm-card cms-page-focus flex flex-wrap items-center justify-between gap-4 border-success/40 bg-surface-solid p-4 outline-none sm:px-5"
+			className="cms-panel cms-confirm-card flex flex-wrap items-center justify-between gap-4 border-success/40 bg-surface-solid p-4 outline-none sm:px-5"
 		>
 			<div className="flex min-w-0 items-center gap-3.5">
 				<AnimatedCheckBadge />

@@ -259,8 +259,8 @@ function ReleaseRoute() {
 				}}
 			>
 				<AlertDialog.Portal>
-					<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette) bg-[rgb(0_0_0/0.35)] dark:bg-[rgb(0_0_0/0.6)]" />
-					<AlertDialog.Popup className="cms-dialog-popup cms-glass fixed top-1/2 left-1/2 z-(--z-palette) grid w-[min(460px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6">
+					<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
+					<AlertDialog.Popup className="cms-modal cms-overlay fixed top-1/2 left-1/2 z-(--z-palette) grid max-h-[calc(100dvh-24px)] w-[min(460px,calc(100vw-24px))] overflow-y-auto -translate-x-1/2 -translate-y-1/2 gap-4 rounded-[18px] border p-5 text-foreground outline-hidden sm:p-6">
 						<div className="flex items-start gap-3">
 							<span className="grid size-9 shrink-0 place-items-center rounded-[10px] border border-destructive/35 bg-destructive/10 text-destructive">
 								<DiscardIcon className="size-4" />
