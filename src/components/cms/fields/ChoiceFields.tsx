@@ -146,7 +146,7 @@ export function ChoiceSelect({
 											</div>
 										)}
 									>
-										<Select.ItemIndicator className="col-start-1 text-primary-text">
+										<Select.ItemIndicator className="cms-choice-check col-start-1">
 											<CheckIcon className="size-3.5 stroke-2" />
 										</Select.ItemIndicator>
 										<span className="col-start-2 flex min-w-0 items-center gap-2.5">
@@ -154,7 +154,7 @@ export function ChoiceSelect({
 											<span className="grid min-w-0 wrap-anywhere">
 												<Select.ItemText>{item.label}</Select.ItemText>
 												{item.hint ? (
-													<span className="text-xs text-muted-foreground">{item.hint}</span>
+													<span className="cms-choice-hint text-xs">{item.hint}</span>
 												) : null}
 											</span>
 										</span>
@@ -307,7 +307,7 @@ export function SuggestionField({
 													{item}
 													{item === value ? (
 														<>
-															<CheckIcon className="size-3.5 shrink-0 text-primary-text" />
+															<CheckIcon className="cms-choice-check size-3.5 shrink-0" />
 															<span className="sr-only"> (current value)</span>
 														</>
 													) : null}

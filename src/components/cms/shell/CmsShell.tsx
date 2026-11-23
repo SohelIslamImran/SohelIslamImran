@@ -1,7 +1,7 @@
 /**
  * Control Plane CMS Shell:
  * - Skip link + exactly one `<main id="main-content" tabIndex={-1}>`
- * - Responsive Layer Rail (232px at >=1280px, 56px icon rail at 1024-1279px,
+ * - Responsive Layer Rail (248px at >=1280px, 56px icon rail at 1024-1279px,
  *   collapsible via ⌘\ / Ctrl+\, slide-over glass drawer on phones/tablets)
  * - Live-pulse slot at the top of the rail (`RailPulseSlot` or `pulseSlot` prop)
  * - Release group pinned to the bottom of the rail + AccentSwitcher + Live site ↗ + Cloudflare ↗
@@ -47,6 +47,7 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
+import { useScrollFade } from "./use-scroll-fade";
 import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
@@ -192,7 +193,6 @@ function RailLink({
 	compactBadge,
 	badgeLabel,
 	active,
-	pending,
 	layoutScope,
 	onNavigate,
 }: {
@@ -204,7 +204,6 @@ function RailLink({
 	compactBadge?: ReactNode;
 	badgeLabel?: string;
 	active: boolean;
-	pending?: boolean;
 	layoutScope: "desktop" | "drawer";
 	onNavigate?: () => void;
 }) {
@@ -221,8 +220,6 @@ function RailLink({
 				viewTransition={layoutScope === "drawer" ? false : undefined}
 				currentPage={active}
 				aria-label={badgeLabel ? `${label}, ${badgeLabel}` : label}
-				aria-busy={pending || undefined}
-				data-pending={pending || undefined}
 				onClick={(event) => {
 					if (!event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
 						onNavigate?.();
@@ -259,7 +256,6 @@ function SectionRailItem({
 	label,
 	paths,
 	active,
-	pending,
 	layoutScope,
 	onNavigate,
 }: {
@@ -267,7 +263,6 @@ function SectionRailItem({
 	label: string;
 	paths: readonly string[];
 	active: boolean;
-	pending: boolean;
 	layoutScope: "desktop" | "drawer";
 	onNavigate?: () => void;
 }) {
@@ -312,7 +307,6 @@ function SectionRailItem({
 			badge={badge}
 			compactBadge={compactBadge}
 			active={active}
-			pending={pending}
 			badgeLabel={
 				errors
 					? `${errors} validation ${errors === 1 ? "error" : "errors"}`
@@ -376,12 +370,9 @@ function LayerRailContent({
 	onNavigate?: () => void;
 }) {
 	const pathname = useCommittedPathname();
-	const pendingPath = useRouterState({
-		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
-	});
-	const normalized = pathname;
 	const publicOrigin = usePublicOrigin();
 	const railScroll = useRef<HTMLElement>(null);
+	useScrollFade(railScroll);
 	const changedCount = useDraftSelector((state, store) =>
 		SECTIONS.reduce(
 			(count, section) =>
@@ -398,8 +389,11 @@ function LayerRailContent({
 			if (!nav.clientHeight) return;
 			const viewport = nav.getBoundingClientRect();
 			const item = link.getBoundingClientRect();
-			if (item.top < viewport.top) nav.scrollTop += item.top - viewport.top;
-			else if (item.bottom > viewport.bottom) nav.scrollTop += item.bottom - viewport.bottom;
+			const inset = Number.parseFloat(getComputedStyle(nav).scrollPaddingTop) || 0;
+			const top = viewport.top + inset;
+			const bottom = viewport.bottom - inset;
+			if (item.top < top) nav.scrollTop += item.top - top;
+			else if (item.bottom > bottom) nav.scrollTop += item.bottom - bottom;
 		};
 		reveal();
 		// Also reveal when a previously hidden desktop rail gains a viewport.
@@ -409,13 +403,10 @@ function LayerRailContent({
 	}, [pathname]);
 
 	const isPathActive = (to: string) => {
-		if (to === "/cms") return normalized === "/cms" || normalized === "/";
+		if (to === "/cms") return pathname === "/cms" || pathname === "/";
 		const stripped = to.replace(/^\/cms/u, "");
-		return normalized === to || normalized === stripped;
+		return pathname === to || pathname === stripped;
 	};
-
-	const isPending = (to: string) =>
-		!isPathActive(to) && (pendingPath === to || pendingPath === to.replace(/^\/cms/u, ""));
 
 	return (
 		<div className="flex h-full min-h-0 flex-col">
@@ -459,7 +450,7 @@ function LayerRailContent({
 			<nav
 				ref={railScroll}
 				aria-label="CMS"
-				className="cms-rail-scroll min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+				className="cms-rail-scroll cms-scroll-fade min-h-0 flex-1 overflow-y-auto px-2 pb-3"
 			>
 				<div className="cms-rail-region relative">
 					<RailIndicator active={pathname} />
@@ -472,7 +463,21 @@ function LayerRailContent({
 								icon={<NavIconFor to={item.to} />}
 								label={item.label}
 								active={isPathActive(item.to)}
-								pending={isPending(item.to)}
+								layoutScope={layoutScope}
+								onNavigate={onNavigate}
+							/>
+						))}
+					</div>
+
+					<RailHeading>Assets</RailHeading>
+					<div className="grid grid-cols-1 gap-0.5">
+						{CMS_NAV.assets.map((item) => (
+							<RailLink
+								key={item.to}
+								to={item.to}
+								icon={<NavIconFor to={item.to} />}
+								label={item.label}
+								active={isPathActive(item.to)}
 								layoutScope={layoutScope}
 								onNavigate={onNavigate}
 							/>
@@ -489,29 +494,12 @@ function LayerRailContent({
 									label={section.label}
 									paths={section.paths}
 									active={isPathActive(`/cms/content/${section.id}`)}
-									pending={isPending(`/cms/content/${section.id}`)}
 									layoutScope={layoutScope}
 									onNavigate={onNavigate}
 								/>
 							))}
 						</div>
 					))}
-
-					<RailHeading>Assets</RailHeading>
-					<div className="grid grid-cols-1 gap-0.5">
-						{CMS_NAV.assets.map((item) => (
-							<RailLink
-								key={item.to}
-								to={item.to}
-								icon={<NavIconFor to={item.to} />}
-								label={item.label}
-								active={isPathActive(item.to)}
-								pending={isPending(item.to)}
-								layoutScope={layoutScope}
-								onNavigate={onNavigate}
-							/>
-						))}
-					</div>
 				</div>
 			</nav>
 
@@ -538,30 +526,17 @@ function LayerRailContent({
 							}
 							compactBadge={item.to === "/cms/release" ? <ChangesCompactBadge /> : undefined}
 							active={isPathActive(item.to)}
-							pending={isPending(item.to)}
 							layoutScope={layoutScope}
 							onNavigate={onNavigate}
 						/>
 					))}
 				</div>
 
-				<div className="cms-rail-footer-row mt-2.5 flex items-center justify-between gap-1.5 border-t border-line pt-2 lg:grid">
+				<div className="cms-rail-footer-row mt-2.5 flex items-center gap-1.5 border-t border-line pt-2">
 					<RailTooltip label="Appearance" showExpanded disabled={layoutScope === "drawer"}>
 						<span className="grid w-fit">
-							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 pointer-coarse:size-11" />
+							<AccentSwitcher className="cms-rail-appearance cms-chrome-control size-9 rounded-[10px] pointer-coarse:size-11" />
 						</span>
-					</RailTooltip>
-					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
-						<a
-							href={publicOrigin}
-							target="_blank"
-							rel="noreferrer"
-							aria-label="Open live site"
-							className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
-						>
-							<ExternalArrowIcon className="size-3.5 justify-self-center" />
-							<span className="cms-rail-footer-label whitespace-nowrap">Live site</span>
-						</a>
 					</RailTooltip>
 					<RailTooltip label="Open Cloudflare dashboard" disabled={layoutScope === "drawer"}>
 						<a
@@ -569,15 +544,57 @@ function LayerRailContent({
 							target="_blank"
 							rel="noreferrer"
 							aria-label="Open Cloudflare dashboard"
-							className="cms-rail-live cms-press cms-chrome-control grid min-h-9 items-center overflow-hidden rounded-[10px] text-[12px] text-ink-soft no-underline pointer-coarse:min-h-11"
+							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[12px] text-ink-soft no-underline"
 						>
-							<CloudIcon className="size-3.5 justify-self-center" />
-							<span className="cms-rail-footer-label whitespace-nowrap">Cloudflare</span>
+							<CloudIcon className="size-3.5 shrink-0" />
+							<span className="cms-rail-footer-label truncate">Cloudflare</span>
+						</a>
+					</RailTooltip>
+					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
+						<a
+							href={publicOrigin}
+							target="_blank"
+							rel="noreferrer"
+							aria-label="Open live site"
+							className="cms-rail-footer-link cms-press cms-chrome-control flex min-w-0 flex-1 items-center justify-center gap-1 rounded-[10px] px-1.5 text-[12px] text-ink-soft no-underline"
+						>
+							<ExternalArrowIcon className="size-3.5 shrink-0" />
+							<span className="cms-rail-footer-label truncate">Live site</span>
 						</a>
 					</RailTooltip>
 				</div>
 			</div>
 		</div>
+	);
+}
+
+function NavigationProgress() {
+	const loading = useRouterState({ select: (state) => state.isLoading });
+	const [visible, setVisible] = useState(false);
+
+	useEffect(() => {
+		if (!loading) {
+			setVisible(false);
+			return;
+		}
+		const timer = window.setTimeout(() => setVisible(true), 200);
+		return () => window.clearTimeout(timer);
+	}, [loading]);
+
+	const showProgress = loading && visible;
+	return (
+		<>
+			<span role="status" className="sr-only">
+				{showProgress ? "Loading page" : ""}
+			</span>
+			{showProgress ? (
+				<span
+					aria-hidden="true"
+					data-slot="cms-navigation-progress"
+					className="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 overflow-hidden bg-primary/60 motion-safe:bg-primary/20"
+				/>
+			) : null}
+		</>
 	);
 }
 
@@ -1045,10 +1062,11 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 	}, [store]);
 	const pathname = useCommittedPathname();
 	const reduceMotion = useLiveReducedMotion();
-	const releaseGate = () =>
-		pathname === "/cms/release" || pathname === "/release"
-			? document.getElementById(RELEASE_GATE_ID)
-			: null;
+	const releaseGate = () => {
+		if (pathname !== "/cms/release" && pathname !== "/release") return null;
+		window.dispatchEvent(new CustomEvent("cms:release-select-review"));
+		return document.getElementById(RELEASE_GATE_ID);
+	};
 
 	const focusReleaseGate = (gate: HTMLElement) => {
 		if (!gate.matches("a[href], button, input, select, textarea, [tabindex]")) gate.tabIndex = -1;
@@ -1188,6 +1206,7 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 						publishSweepKey={publishSweepKey}
 						saveFeedback={saveFeedback}
 					>
+						<NavigationProgress />
 						<SessionBanners
 							publishFailed={publishFailed}
 							publishDialogOpen={publishDialogOpen}

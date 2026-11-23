@@ -2,11 +2,11 @@
  * Media library page (`/cms/library`, served at `/library` on the CMS host;
  * `/media/:id` stays the public asset delivery route).
  *
- * Lists D1 `media_assets` records as cards (open, copy URL, default alt text,
- * draft usage), with drag-and-drop upload when R2 (`MEDIA`) is bound and one
- * "storage isn't connected" card when it is not.
+ * Leads with the asset list and an "Add media" toggle that reveals the upload
+ * form (keeping the upload form visible in the empty state). When R2 (`MEDIA`)
+ * is unbound, shows one "storage isn't connected" card instead.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -20,9 +20,16 @@ import { useCmsSession, usePublicOrigin } from "../../components/cms/draft/conte
 import { AssetCard } from "../../components/cms/library/AssetCard";
 import { StorageDisconnectedCard } from "../../components/cms/library/StorageCard";
 import { UploadPanel } from "../../components/cms/library/UploadPanel";
-import { AlertTriangleIcon, MediaLibraryIcon } from "../../components/cms/shell/cms-icons";
+import {
+	AlertTriangleIcon,
+	MediaLibraryIcon,
+	UploadIcon,
+} from "../../components/cms/shell/cms-icons";
+import { Button } from "../../components/ui/button";
 import { listMedia } from "../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../server/media.server";
+
+const UPLOAD_PANEL_ID = "cms-library-upload";
 
 export const Route = createFileRoute("/cms/library")({
 	head: () => ({
@@ -40,6 +47,10 @@ function LibraryRoute() {
 	const [items, setItems] = useState<MediaLibraryItem[]>([]);
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
+	const [uploadOpen, setUploadOpen] = useState(false);
+	const [uploadMounted, setUploadMounted] = useState(false);
+	const [uploadBusy, setUploadBusy] = useState(false);
+	const addMediaRef = useRef<HTMLButtonElement>(null);
 
 	const load = useCallback(async () => {
 		setLoading(true);
@@ -48,6 +59,10 @@ function LibraryRoute() {
 			const result = await fetchMedia();
 			setMediaEnabled(result.mediaEnabled);
 			setItems(result.items);
+			if (result.mediaEnabled && result.items.length === 0) {
+				setUploadOpen(true);
+				setUploadMounted(true);
+			}
 		} catch {
 			setError("Could not load media.");
 		} finally {
@@ -63,17 +78,61 @@ function LibraryRoute() {
 		setItems((prev) => prev.map((item) => (item.id === id ? { ...item, alt, updatedAt } : item)));
 	};
 
+	const openUpload = () => {
+		setUploadMounted(true);
+		setUploadOpen(true);
+	};
+
+	const closeUpload = useCallback(() => {
+		if (uploadBusy) return;
+		setUploadOpen(false);
+		requestAnimationFrame(() => addMediaRef.current?.focus());
+	}, [uploadBusy]);
+
+	const hasAssets = items.length > 0;
+
 	return (
 		<div className={pageClass}>
 			<PageHeader
 				title="Media library"
 				description="Images, PDFs, and default alt text for attachments."
+				actions={
+					mediaEnabled && hasAssets ? (
+						<Button
+							ref={addMediaRef}
+							type="button"
+							variant={uploadOpen ? "outline" : "default"}
+							size="sm"
+							disabled={uploadBusy}
+							aria-expanded={uploadOpen}
+							aria-controls={UPLOAD_PANEL_ID}
+							onClick={() => {
+								if (uploadBusy) return;
+								if (uploadOpen) closeUpload();
+								else openUpload();
+							}}
+							className="max-sm:min-h-11 pointer-coarse:min-h-11"
+						>
+							<UploadIcon className="size-3.5" />
+							<span>{uploadOpen ? "Close upload" : "Add media"}</span>
+						</Button>
+					) : undefined
+				}
 			/>
 
 			{!mediaEnabled ? (
-				<StorageDisconnectedCard hasAssets={items.length > 0} />
+				<StorageDisconnectedCard hasAssets={hasAssets} />
 			) : (
-				<UploadPanel csrfToken={csrfToken} onUploaded={load} />
+				<div id={UPLOAD_PANEL_ID} hidden={!uploadOpen}>
+					{uploadMounted ? (
+						<UploadPanel
+							csrfToken={csrfToken}
+							onUploaded={load}
+							onBusyChange={setUploadBusy}
+							onClose={hasAssets ? closeUpload : undefined}
+						/>
+					) : null}
+				</div>
 			)}
 
 			{error ? (

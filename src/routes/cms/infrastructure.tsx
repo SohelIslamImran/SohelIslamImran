@@ -1,11 +1,12 @@
 /**
  * Infrastructure (`/cms/infrastructure`): how the Worker, D1 database, R2
  * bucket, and daily job behind the site are doing, from Cloudflare's
- * analytics. Each panel links to the matching dashboard page for detail.
+ * analytics. Each section links to the matching dashboard page for detail.
  */
 import { Link, createFileRoute, useRouter, useRouterState } from "@tanstack/react-router";
 import { motion } from "motion/react";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { CloudflareDashboardLinks } from "../../components/cms/CloudflarePanel";
 import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
@@ -31,6 +32,8 @@ import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduce
 import {
 	CLOUDFLARE_DASHBOARD_URL,
 	CLOUDFLARE_PAGES,
+	countWorkerErrors,
+	formatDeploymentMessage,
 	shortVersionId,
 } from "../../lib/cloudflare-dashboard";
 import { cn } from "../../lib/utils";
@@ -146,13 +149,13 @@ function StatStrip({ stats, stagger }: { stats: readonly Stat[]; stagger?: numbe
 					title={stat.title}
 					className="grid min-w-0 content-start gap-1.5 p-3 sm:p-4"
 				>
-					<h2 className="m-0 flex min-w-0 items-center gap-1.5 truncate text-[12px] font-medium text-muted-foreground sm:text-[12.5px]">
+					<h2 className="m-0 flex min-w-0 items-center gap-1.5 text-[12px] leading-snug font-medium text-muted-foreground sm:text-[12.5px]">
 						{stat.tone === "ok" ? (
-							<CheckCircleIcon className="size-3.5 text-success" />
+							<CheckCircleIcon className="size-3.5 shrink-0 text-success" />
 						) : stat.tone === "warn" ? (
-							<AlertTriangleIcon className="size-3.5 text-destructive" />
+							<AlertTriangleIcon className="size-3.5 shrink-0 text-destructive" />
 						) : null}
-						<span className="truncate">{stat.label}</span>
+						<span>{stat.label}</span>
 					</h2>
 					<div className="text-[21px] leading-none font-semibold tracking-[-0.03em] text-foreground sm:text-[26px]">
 						{stat.value === null ? (
@@ -164,7 +167,7 @@ function StatStrip({ stats, stagger }: { stats: readonly Stat[]; stagger?: numbe
 						)}
 					</div>
 					{stat.note ? (
-						<p className="m-0 truncate text-[12px] text-muted-foreground tabular-nums">
+						<p className="m-0 text-[12px] leading-snug text-muted-foreground tabular-nums">
 							{stat.note}
 						</p>
 					) : null}
@@ -174,18 +177,20 @@ function StatStrip({ stats, stagger }: { stats: readonly Stat[]; stagger?: numbe
 	);
 }
 
-/** Label / value pairs inside a panel, two or three columns. */
+/** Label / value pairs inside a compact card; labels and values wrap instead of truncating. */
 function MetricGrid({
 	items,
 }: {
 	items: readonly { label: string; value: string; title?: string }[];
 }) {
 	return (
-		<dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3.5 sm:grid-cols-3">
+		<dl className="m-0 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
 			{items.map((item) => (
-				<div key={item.label} title={item.title} className="grid min-w-0 gap-1">
-					<dt className="truncate text-[12px] font-medium text-muted-foreground">{item.label}</dt>
-					<dd className="m-0 truncate font-mono text-[15px] font-semibold text-foreground tabular-nums">
+				<div key={item.label} title={item.title} className="grid min-w-0 content-start gap-0.5">
+					<dt className="text-[12px] leading-snug font-medium text-muted-foreground">
+						{item.label}
+					</dt>
+					<dd className="m-0 font-mono text-[14.5px] leading-snug font-semibold text-foreground tabular-nums [overflow-wrap:anywhere]">
 						{item.value}
 					</dd>
 				</div>
@@ -197,42 +202,90 @@ function MetricGrid({
 function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) {
 	// Builds tag each version with its commit; older versions show their id.
 	const label = item.tag ? item.tag.slice(0, 7) : shortVersionId(item.versionId);
+	const rawMessage = item.message?.trim() || null;
+	const displayMessage = rawMessage
+		? formatDeploymentMessage(rawMessage)
+		: item.rollback
+			? "Rollback"
+			: item.source === "wrangler"
+				? "Wrangler deploy"
+				: `Deployed from ${item.source}`;
+
 	return (
-		<li className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 px-2 py-2">
-			<code
-				title={item.versionId}
-				className={cn(
-					"rounded-[6px] border px-1.5 py-px font-mono text-[12px] tabular-nums",
-					live
-						? "border-success/35 bg-success/10 text-success"
-						: "border-line bg-surface-raised text-foreground",
-				)}
-			>
-				{label}
-			</code>
+		<li className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-2.5 gap-y-1 px-2 py-2 @[540px]:grid-cols-[auto_minmax(0,1fr)_auto]">
+			<span className="flex min-w-0 flex-wrap items-center gap-1.5">
+				<code
+					title={item.versionId}
+					className={cn(
+						"rounded-[6px] border px-1.5 py-px font-mono text-[12px] tabular-nums",
+						live
+							? "border-success/35 bg-success/10 text-success"
+							: "border-line bg-surface-raised text-foreground",
+					)}
+				>
+					{label}
+				</code>
+				{live ? (
+					<span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/10 px-1.5 py-px text-[11px] leading-tight font-medium text-success">
+						<span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
+						Live
+					</span>
+				) : null}
+			</span>
 			<span
+				title={rawMessage ?? undefined}
 				className={cn(
-					"min-w-0 truncate text-[13.5px]",
-					item.message ? "text-foreground" : "text-muted-foreground",
+					"col-span-2 row-start-2 min-w-0 text-[13px] leading-snug [overflow-wrap:anywhere] @[540px]:col-span-1 @[540px]:col-start-2 @[540px]:row-start-1",
+					rawMessage ? "text-foreground" : "text-muted-foreground",
 				)}
 			>
-				{item.message ??
-					(item.rollback
-						? "Rollback"
-						: item.source === "wrangler"
-							? "Wrangler deploy"
-							: `Deployed from ${item.source}`)}
-				{live ? <span className="sr-only"> (live)</span> : null}
+				{displayMessage}
 			</span>
 			<RelativeTime
 				iso={item.createdOn}
-				className="shrink-0 text-right text-[12px] text-muted-foreground"
+				className="col-start-2 row-start-1 shrink-0 text-right text-[12px] text-muted-foreground @[540px]:col-start-3"
 			/>
 		</li>
 	);
 }
 
-// ── States ───────────────────────────────────────────────────────────────────
+function DeploymentsPanel({ deployments }: { deployments: DeploymentItem[] | null }) {
+	const [expanded, setExpanded] = useState(false);
+	const visible = deployments && !expanded ? deployments.slice(0, 1) : deployments;
+	const hiddenCount = deployments ? Math.max(0, deployments.length - 1) : 0;
+
+	return (
+		<Panel
+			title="Deployments"
+			stagger={3}
+			action={<ExternalLink href={CLOUDFLARE_PAGES.deployments}>All</ExternalLink>}
+		>
+			{visible === null ? (
+				<p className="m-0 text-[13px] text-muted-foreground">Deployments could not be loaded.</p>
+			) : visible.length === 0 ? (
+				<p className="m-0 text-[13px] text-muted-foreground">No deployments yet.</p>
+			) : (
+				<div className="grid min-w-0 gap-1.5">
+					<ul className="@container m-0 grid list-none gap-0.5 p-0">
+						{visible.map((item, index) => (
+							<DeploymentRow key={item.id} item={item} live={index === 0} />
+						))}
+					</ul>
+					{hiddenCount > 0 ? (
+						<button
+							type="button"
+							aria-expanded={expanded}
+							onClick={() => setExpanded((open) => !open)}
+							className="cms-press cms-page-focus inline-flex min-h-8 w-fit items-center rounded-full px-2.5 text-[12.5px] font-medium text-muted-foreground hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground pointer-coarse:min-h-11"
+						>
+							{expanded ? "Show fewer" : `Show ${hiddenCount} more`}
+						</button>
+					) : null}
+				</div>
+			)}
+		</Panel>
+	);
+}
 
 function InfrastructureSkeleton() {
 	return (
@@ -242,7 +295,6 @@ function InfrastructureSkeleton() {
 				<div aria-hidden="true" className="cms-skeleton h-8 w-48" />
 				<div className="cms-skeleton h-4 w-80 max-w-full" />
 			</div>
-			<div className="cms-skeleton h-[58px] w-full rounded-[18px]" />
 			<div className="cms-panel grid grid-cols-2 sm:grid-cols-4">
 				{[0, 1, 2, 3].map((slot) => (
 					<div key={slot} className="grid gap-2 p-3 sm:p-4">
@@ -252,9 +304,21 @@ function InfrastructureSkeleton() {
 					</div>
 				))}
 			</div>
-			<div className="cms-panel grid gap-4 p-5">
-				<div className="cms-skeleton h-5 w-28" />
-				<div className="cms-skeleton h-56 w-full" />
+			<div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+				<div className="cms-panel grid gap-4 p-5">
+					<div className="cms-skeleton h-5 w-28" />
+					<div className="cms-skeleton h-56 w-full" />
+				</div>
+				<div className="grid gap-5">
+					<div className="cms-panel grid gap-3 p-5">
+						<div className="cms-skeleton h-5 w-32" />
+						<div className="cms-skeleton h-12 w-full" />
+					</div>
+					<div className="cms-panel grid gap-3 p-5">
+						<div className="cms-skeleton h-5 w-28" />
+						<div className="cms-skeleton h-16 w-full" />
+					</div>
+				</div>
 			</div>
 		</div>
 	);
@@ -326,74 +390,86 @@ function Infrastructure() {
 	const reduced = useLiveReducedMotion();
 	const { range } = Route.useSearch();
 	const result = Route.useLoaderData();
-	const isPending = useRouterState({ select: (state) => state.status === "pending" });
+	// Scope pending dimming to this route's own range updates so leaving or invalidating never dims.
+	const isRangePending = useRouterState({
+		select: (state) =>
+			state.status === "pending" &&
+			state.resolvedLocation !== undefined &&
+			state.location.pathname === state.resolvedLocation.pathname &&
+			insightsSearch.parse(state.location.search ?? {}).range !==
+				insightsSearch.parse(state.resolvedLocation.search ?? {}).range,
+	});
 	const rangeLabel = ranges.find(([value]) => value === range)?.[1] ?? "this range";
+	const showRangeControl = result.ok || result.reason === "unavailable";
 
 	return (
 		<div className={pageClass}>
 			<PageHeader
 				title="Infrastructure"
-				description="The Worker, database, and storage behind your site, from Cloudflare. Metrics run a few minutes behind."
+				description={
+					<>
+						<span>Worker, database, and storage from Cloudflare.</span>
+						{result.ok ? (
+							<>
+								{" "}
+								<span className="inline-flex items-center gap-1 whitespace-nowrap">
+									Rolling {rangeLabel} · updated <RelativeTime iso={result.insights.generatedAt} />
+								</span>
+							</>
+						) : null}
+					</>
+				}
 				actions={
-					<a
-						href={CLOUDFLARE_DASHBOARD_URL}
-						target="_blank"
-						rel="noreferrer"
-						className="cms-editor-button cms-editor-live cms-press cms-page-focus"
-					>
-						<span className="max-sm:sr-only">Cloudflare</span>
-						<ExternalArrowIcon className="size-3.5" />
-						<span className="sr-only"> (opens the dashboard in a new tab)</span>
-					</a>
+					<div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+						{showRangeControl ? (
+							<nav aria-label="Metrics range" className="cms-seg-track">
+								{ranges.map(([value, label]) => {
+									const isActive = range === value;
+									return (
+										<Link
+											key={value}
+											to="/cms/infrastructure"
+											search={{ range: value }}
+											resetScroll={false}
+											activeOptions={{ exact: true, includeSearch: true }}
+											data-active={isActive ? "true" : "false"}
+											className="cms-seg-item shrink-0"
+										>
+											{isActive ? (
+												<motion.span
+													layoutId="cms-infra-range-pill"
+													aria-hidden="true"
+													transition={reduced ? REDUCED : SPRING_MOVE}
+													className="cms-seg-pill"
+												/>
+											) : null}
+											<span className="sm:hidden">{value}</span>
+											<span className="hidden sm:inline">{label}</span>
+										</Link>
+									);
+								})}
+							</nav>
+						) : null}
+						<a
+							href={CLOUDFLARE_DASHBOARD_URL}
+							target="_blank"
+							rel="noreferrer"
+							className="cms-header-action cms-press cms-page-focus"
+						>
+							<span>Cloudflare</span>
+							<ExternalArrowIcon className="size-3.5" />
+							<span className="sr-only"> (opens the dashboard in a new tab)</span>
+						</a>
+					</div>
 				}
 			/>
 
-			{result.ok || result.reason === "unavailable" ? (
-				<div
-					className="cms-panel cms-enter flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
-					style={staggerStyle(0)}
-				>
-					<nav aria-label="Metrics range" className="cms-seg-track">
-						{ranges.map(([value, label]) => {
-							const isActive = range === value;
-							return (
-								<Link
-									key={value}
-									to="/cms/infrastructure"
-									search={{ range: value }}
-									resetScroll={false}
-									activeOptions={{ exact: true, includeSearch: true }}
-									data-active={isActive ? "true" : "false"}
-									className="cms-seg-item shrink-0"
-								>
-									{isActive ? (
-										<motion.span
-											layoutId="cms-infra-range-pill"
-											aria-hidden="true"
-											transition={reduced ? REDUCED : SPRING_MOVE}
-											className="cms-seg-pill"
-										/>
-									) : null}
-									<span className="sm:hidden">{value}</span>
-									<span className="hidden sm:inline">{label}</span>
-								</Link>
-							);
-						})}
-					</nav>
-					{result.ok ? (
-						<span className="inline-flex items-center gap-1 text-[12.5px] text-muted-foreground">
-							Rolling {rangeLabel} · updated
-							<RelativeTime iso={result.insights.generatedAt} />
-						</span>
-					) : null}
-				</div>
-			) : null}
-
 			{result.ok ? (
 				<div
+					aria-busy={isRangePending}
 					className={cn(
 						"grid min-w-0 gap-5 transition-opacity duration-200",
-						isPending && "opacity-60",
+						isRangePending && "opacity-60",
 					)}
 				>
 					<InsightsBody insights={result.insights} rangeLabel={rangeLabel} />
@@ -403,6 +479,8 @@ function Infrastructure() {
 			) : (
 				<Unavailable />
 			)}
+
+			<CloudflareDashboardLinks stagger={result.ok ? 7 : 1} />
 		</div>
 	);
 }
@@ -421,10 +499,7 @@ function InsightsBody({
 		label: outcomeLabels[row.status] ?? row.status,
 		count: row.requests,
 	}));
-	const failures = worker.statuses
-		.filter((row) => !["success", "clientDisconnected"].includes(row.status))
-		.reduce((sum, row) => sum + row.requests, 0);
-	const errors = Math.max(worker.errors, failures);
+	const errors = countWorkerErrors(worker);
 
 	const stats: Stat[] = [
 		{
@@ -447,14 +522,14 @@ function InsightsBody({
 			label: "CPU time",
 			value: worker.cpuP50Ms,
 			format: formatMs,
-			note: worker.cpuP99Ms !== null ? `${formatMs(worker.cpuP99Ms)} p99` : undefined,
+			note: worker.cpuP99Ms !== null ? `Median · p99 ${formatMs(worker.cpuP99Ms)}` : "Median",
 			title: "Median CPU time per request; p99 is the slowest 1%.",
 		},
 		{
 			label: "Response time",
 			value: worker.wallP50Ms,
 			format: formatMs,
-			note: worker.wallP99Ms !== null ? `${formatMs(worker.wallP99Ms)} p99` : undefined,
+			note: worker.wallP99Ms !== null ? `Median · p99 ${formatMs(worker.wallP99Ms)}` : "Median",
 			title: "Median wall time per request, including waiting on D1 and R2; p99 is the slowest 1%.",
 		},
 	];
@@ -463,63 +538,57 @@ function InsightsBody({
 
 	return (
 		<>
-			<StatStrip stats={stats} stagger={1} />
+			<StatStrip stats={stats} stagger={0} />
 
-			<TrafficChart
-				title="Requests"
-				points={worker.series.map((point) => ({
-					at: point.at,
-					pageviews: point.requests,
-					visitorDays: point.errors,
-				}))}
-				hourly={insights.bucket !== "day"}
-				rangeLabel={`the last ${rangeLabel}`}
-				stagger={2}
-				series={{
-					primary: { name: "Requests", one: "request", many: "requests" },
-					secondary: { name: "Errors", one: "error", many: "errors" },
-				}}
-			/>
+			{/* Primary band: Requests chart paired with Outcomes + Deployments on wide screens. */}
+			<div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)]">
+				<TrafficChart
+					title="Requests"
+					points={worker.series.map((point) => ({
+						at: point.at,
+						pageviews: point.requests,
+						visitorDays: point.errors,
+					}))}
+					hourly={insights.bucket !== "day"}
+					rangeLabel={`the last ${rangeLabel}`}
+					stagger={1}
+					areaTone="ink"
+					readout="inline"
+					secondaryTone="destructive"
+					zeroSecondarySummary={
+						errors === 0 ? "0 errors in this range" : "Errors lack a time breakdown"
+					}
+					zeroSecondaryTone={errors === 0 ? "ok" : "warn"}
+					series={{
+						primary: { name: "Requests", one: "request", many: "requests" },
+						secondary: { name: "Errors", one: "error", many: "errors" },
+					}}
+				/>
 
-			<div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
-				<Panel
-					title="Request outcomes"
-					description="How each request ended. Visitor left early means the browser closed the connection first; it's usually harmless."
-					stagger={3}
-					action={<ExternalLink href={CLOUDFLARE_PAGES.logs}>Logs</ExternalLink>}
-				>
-					<RankedList rows={outcomes} empty="No requests in this range." />
-				</Panel>
+				<div className="grid min-w-0 items-start gap-5 lg:grid-cols-2 xl:grid-cols-1">
+					<Panel
+						title="Request outcomes"
+						description="Visitor left early means the browser closed the connection first."
+						stagger={2}
+						action={<ExternalLink href={CLOUDFLARE_PAGES.logs}>Logs</ExternalLink>}
+					>
+						<RankedList rows={outcomes} empty="No requests in this range." />
+					</Panel>
 
-				<Panel
-					title="Deployments"
-					stagger={4}
-					action={<ExternalLink href={CLOUDFLARE_PAGES.deployments}>All</ExternalLink>}
-				>
-					{deployments === null ? (
-						<p className="m-0 text-[13px] text-muted-foreground">
-							Deployments could not be loaded.
-						</p>
-					) : deployments.length === 0 ? (
-						<p className="m-0 text-[13px] text-muted-foreground">No deployments yet.</p>
-					) : (
-						<ul className="m-0 grid list-none gap-0.5 p-0">
-							{deployments.map((item, index) => (
-								<DeploymentRow key={item.id} item={item} live={index === 0} />
-							))}
-						</ul>
-					)}
-				</Panel>
+					<DeploymentsPanel deployments={deployments} />
+				</div>
 			</div>
 
-			<div className="grid min-w-0 items-start gap-5 lg:grid-cols-2">
-				{database ? (
-					<Panel
-						title="Database"
-						description="D1, where drafts, history, and visitor analytics live."
-						stagger={5}
-						action={<ExternalLink href={CLOUDFLARE_PAGES.database}>D1</ExternalLink>}
-					>
+			{/* Compact platform services band: Database, Media storage, and Daily maintenance. */}
+			<div className="grid min-w-0 gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_minmax(0,1fr)]">
+				<Panel
+					title="Database"
+					description="D1 drafts, history, and analytics."
+					stagger={4}
+					className="gap-3 p-4"
+					action={<ExternalLink href={CLOUDFLARE_PAGES.database}>D1</ExternalLink>}
+				>
+					{database ? (
 						<MetricGrid
 							items={[
 								{ label: "Read queries", value: requestCount(database.readQueries) },
@@ -537,20 +606,21 @@ function InsightsBody({
 								},
 							]}
 						/>
-					</Panel>
-				) : null}
+					) : (
+						<p className="m-0 text-[13px] text-muted-foreground">Metrics unavailable</p>
+					)}
+				</Panel>
 
-				{storage ? (
-					<Panel
-						title="Media storage"
-						description={
-							mediaEnabled
-								? "R2, where uploaded images and files live."
-								: "R2 is not connected to the Worker yet, so uploads are off."
-						}
-						stagger={6}
-						action={<ExternalLink href={CLOUDFLARE_PAGES.bucket}>R2</ExternalLink>}
-					>
+				<Panel
+					title="Media storage"
+					description={
+						mediaEnabled ? "R2 images and attachments." : "R2 is not connected to the Worker yet."
+					}
+					stagger={5}
+					className="gap-3 p-4"
+					action={<ExternalLink href={CLOUDFLARE_PAGES.bucket}>R2</ExternalLink>}
+				>
+					{storage ? (
 						<MetricGrid
 							items={[
 								{ label: "Objects", value: countLabel(storage.objects) },
@@ -558,45 +628,48 @@ function InsightsBody({
 								{ label: "Operations", value: requestCount(totalOperations) },
 							]}
 						/>
-					</Panel>
-				) : null}
-			</div>
+					) : (
+						<p className="m-0 text-[13px] text-muted-foreground">Metrics unavailable</p>
+					)}
+				</Panel>
 
-			<Panel
-				title="Daily maintenance"
-				description="Runs at 00:20 UTC to roll up visitor analytics and prune old events."
-				stagger={7}
-				action={<ExternalLink href={CLOUDFLARE_PAGES.triggers}>Triggers</ExternalLink>}
-			>
-				{cron.length === 0 ? (
-					<p className="m-0 text-[13px] text-muted-foreground">No runs in the last 7 days yet.</p>
-				) : (
-					<ul className="m-0 grid list-none gap-0.5 p-0">
-						{cron.map((run) => {
-							const ok = run.status === "success";
-							return (
-								<li
-									key={run.at}
-									className="flex min-w-0 items-center justify-between gap-3 px-2 py-1.5"
-								>
-									<span className="inline-flex min-w-0 items-center gap-2 text-[13.5px] text-foreground">
-										{ok ? (
-											<CheckCircleIcon className="size-4 text-success" />
-										) : (
-											<AlertTriangleIcon className="size-4 text-destructive" />
-										)}
-										<span>{ok ? "Completed" : (outcomeLabels[run.status] ?? run.status)}</span>
-									</span>
-									<RelativeTime
-										iso={run.at}
-										className="shrink-0 text-[12px] text-muted-foreground"
-									/>
-								</li>
-							);
-						})}
-					</ul>
-				)}
-			</Panel>
+				<Panel
+					title="Daily maintenance"
+					description="00:20 UTC · analytics rollup & cleanup."
+					stagger={6}
+					className="gap-3 p-4 md:col-span-2 xl:col-span-1"
+					action={<ExternalLink href={CLOUDFLARE_PAGES.triggers}>Triggers</ExternalLink>}
+				>
+					{cron.length === 0 ? (
+						<p className="m-0 text-[13px] text-muted-foreground">No runs in the last 7 days yet.</p>
+					) : (
+						<ul className="m-0 grid list-none gap-0.5 p-0">
+							{cron.map((run) => {
+								const ok = run.status === "success";
+								return (
+									<li
+										key={run.at}
+										className="flex min-w-0 items-center justify-between gap-3 px-1.5 py-1"
+									>
+										<span className="inline-flex min-w-0 items-center gap-2 text-[13px] text-foreground">
+											{ok ? (
+												<CheckCircleIcon className="size-3.5 shrink-0 text-success" />
+											) : (
+												<AlertTriangleIcon className="size-3.5 shrink-0 text-destructive" />
+											)}
+											<span>{ok ? "Completed" : (outcomeLabels[run.status] ?? run.status)}</span>
+										</span>
+										<RelativeTime
+											iso={run.at}
+											className="shrink-0 text-[12px] text-muted-foreground"
+										/>
+									</li>
+								);
+							})}
+						</ul>
+					)}
+				</Panel>
+			</div>
 		</>
 	);
 }

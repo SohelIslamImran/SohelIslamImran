@@ -49,6 +49,7 @@ import {
 	SidebarToggleIcon,
 } from "./cms-icons";
 import { useCommittedPathname } from "./CmsShell";
+import { useScrollFade } from "./use-scroll-fade";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -537,11 +538,10 @@ function CommandBarOpen({
 	}, [entries, query]);
 
 	const flat = useMemo(() => filtered.flatMap((section) => section.items), [filtered]);
-	const activeIndex = Math.max(
-		0,
-		flat.findIndex((item) => item.id === activeId),
-	);
-	const activeItem = flat[activeIndex];
+	const enabled = flat.filter((item) => !item.disabled);
+	const activeIndex = enabled.findIndex((item) => item.id === activeId);
+	const activeItem = enabled[Math.max(0, activeIndex)];
+	useScrollFade(listRef, filtered);
 
 	useEffect(() => {
 		listRef.current?.scrollTo({ top: 0 });
@@ -568,10 +568,10 @@ function CommandBarOpen({
 	};
 
 	const move = (nextIndex: number) => {
-		if (!flat.length) return;
+		if (!enabled.length) return;
 		setKeyboardNav(true);
-		const wrapped = (nextIndex + flat.length) % flat.length;
-		setActiveId(flat[wrapped]?.id ?? null);
+		const wrapped = (nextIndex + enabled.length) % enabled.length;
+		setActiveId(enabled[wrapped].id);
 	};
 
 	const onKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -579,11 +579,11 @@ function CommandBarOpen({
 		switch (event.key) {
 			case "ArrowDown":
 				event.preventDefault();
-				move(activeIndex + 1);
+				move(Math.max(0, activeIndex) + 1);
 				break;
 			case "ArrowUp":
 				event.preventDefault();
-				move(activeIndex - 1);
+				move(Math.max(0, activeIndex) - 1);
 				break;
 			case "Enter":
 				if (activeItem && !activeItem.disabled) {
@@ -686,7 +686,7 @@ function CommandBarOpen({
 						// the scrollable list itself out of the Tab sequence too.
 						tabIndex={-1}
 						data-keyboard-nav={keyboardNav || undefined}
-						className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
+						className="cms-scroll-fade min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain p-2"
 					>
 						{filtered.map((section, sectionIndex) => (
 							<div
@@ -716,7 +716,7 @@ function CommandBarOpen({
 												aria-selected={isActive}
 												aria-disabled={item.disabled || undefined}
 												onPointerMove={(event) => {
-													if (event.pointerType !== "mouse") return;
+													if (event.pointerType !== "mouse" || item.disabled) return;
 													// Scrolling the active option into view moves rows under a
 													// resting pointer; only a real move takes over from the keys.
 													const last = pointer.current;
@@ -797,7 +797,7 @@ function CommandBarOpen({
 						<span>
 							<Kbd className="text-inherit">↵</Kbd> open
 						</span>
-						<span className="hidden sm:inline">
+						<span className={cn("hidden sm:inline", !canSave && "opacity-45")}>
 							<Kbd className="text-inherit">⌘S</Kbd> save
 						</span>
 					</span>

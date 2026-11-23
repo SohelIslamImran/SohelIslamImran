@@ -44,6 +44,7 @@ import {
 } from "../fields/field-icons";
 import { toSingleLine } from "../fields/field-logic";
 import { duplicateRow, newRowId, sameRow } from "../fields/row-list";
+import { countLabel } from "./collection-helpers";
 import { EditorGroup } from "./EditorLayout";
 
 export interface EditorProps {
@@ -130,6 +131,7 @@ export function CollectionEditor<T extends { id: string }>({
 		}),
 	);
 	const duplicates = duplicateIds(rowIds.map((id) => ({ id })));
+	const fade = useScrollFade(list);
 
 	// Phones show one pane at a time. Opening an item slides its pane in from
 	// the trailing edge over the list; Back slides it out again. `pane`
@@ -417,28 +419,31 @@ export function CollectionEditor<T extends { id: string }>({
 		[shownPath, focusAfterNavigation, select, store],
 	);
 
-	const addTrigger = (
+	const addTrigger = adding ? (
+		<button
+			type="button"
+			id={fieldId(path)}
+			aria-controls={`${nameId}-form`}
+			aria-expanded
+			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
+			className={editorButton}
+			onClick={closeAddForm}
+		>
+			Cancel
+		</button>
+	) : (
 		<AddButton
 			id={fieldId(path)}
-			aria-controls={adding ? `${nameId}-form` : undefined}
-			aria-expanded={adding}
+			aria-expanded={false}
 			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
-			primary={!adding}
-			disabled={full && !adding}
-			className={adding ? "cms-add-cancel" : undefined}
+			primary
+			disabled={full}
 			onClick={() => {
-				if (adding) closeAddForm();
-				else {
-					setAdding(true);
-					requestAnimationFrame(() => document.getElementById(nameId)?.focus());
-				}
+				setAdding(true);
+				requestAnimationFrame(() => document.getElementById(nameId)?.focus());
 			}}
 		>
-			{adding
-				? "Cancel"
-				: length
-					? `Add ${itemLabel.toLowerCase()}`
-					: `Add your first ${itemLabel.toLowerCase()}`}
+			{length ? `Add ${itemLabel.toLowerCase()}` : `Add your first ${itemLabel.toLowerCase()}`}
 		</AddButton>
 	);
 
@@ -453,22 +458,45 @@ export function CollectionEditor<T extends { id: string }>({
 			data-slot="cms-field"
 			tabIndex={-1}
 		>
-			<header className="flex min-w-0 flex-wrap items-center justify-between gap-2 pl-1">
-				<div className="grid min-w-0">
-					<h2 id={headingId} className="m-0 text-[15px] font-semibold tracking-[-0.01em]">
-						{label}
-					</h2>
-					<p className="m-0 text-xs tabular-nums text-muted-foreground">
-						{length} {length === 1 ? "item" : "items"}
-						{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
-					</p>
-				</div>
-				{length || adding ? addTrigger : null}
+			{/* The page heading already names the section; the toolbar leads with the count. */}
+			<header className="cms-collection-toolbar">
+				<h2 id={headingId} className="sr-only">
+					{label}
+				</h2>
+				{/* An empty list says so in its empty state instead. */}
+				{length || adding ? (
+					<>
+						<p className="cms-collection-count m-0 text-[13px] font-medium tabular-nums">
+							{countLabel(length, itemLabel)}
+							{full ? (
+								<span className="text-muted-foreground"> · limit {MAX_COLLECTION_ITEMS}</span>
+							) : null}
+						</p>
+						<div className="cms-collection-add">{addTrigger}</div>
+					</>
+				) : null}
+				{length ? (
+					<div className="cms-collection-search relative grid">
+						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+						<label htmlFor={queryId} className="sr-only">
+							Search {label.toLowerCase()}
+						</label>
+						<input
+							ref={search}
+							id={queryId}
+							type="search"
+							placeholder={`Search ${label.toLowerCase()}`}
+							value={query}
+							className={`${controlClass} min-h-10 pl-9`}
+							onChange={(event) => setQuery(event.currentTarget.value)}
+						/>
+					</div>
+				) : null}
 			</header>
 			{adding ? (
 				<form
 					id={`${nameId}-form`}
-					className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
+					className="cms-enter cms-collection-create grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
 					onKeyDown={(event) => {
 						if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
 						event.preventDefault();
@@ -508,23 +536,6 @@ export function CollectionEditor<T extends { id: string }>({
 					</button>
 				</form>
 			) : null}
-			{length ? (
-				<div className="relative grid gap-1.5">
-					<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-					<label htmlFor={queryId} className="sr-only">
-						Search {label.toLowerCase()}
-					</label>
-					<input
-						ref={search}
-						id={queryId}
-						type="search"
-						placeholder={`Search ${label.toLowerCase()}`}
-						value={query}
-						className={`${controlClass} min-h-10 pl-9`}
-						onChange={(event) => setQuery(event.currentTarget.value)}
-					/>
-				</div>
-			) : null}
 			{orderNote && length > 1 ? (
 				<p className="m-0 px-1 text-[12px] text-muted-foreground">{orderNote}</p>
 			) : null}
@@ -546,7 +557,9 @@ export function CollectionEditor<T extends { id: string }>({
 					}}
 					layoutScroll
 					ref={list}
-					className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
+					data-fade={fade || undefined}
+					data-filtering={(filter && length > 1) || undefined}
+					className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1.5 empty:hidden"
 				>
 					<AnimatePresence initial={false}>
 						{visible.map((index) => (
@@ -613,6 +626,7 @@ export function CollectionEditor<T extends { id: string }>({
 				!length && item === undefined && "cms-collection-empty",
 			)}
 			data-pane={pane === "idle" ? undefined : pane}
+			data-split={detailOpen || undefined}
 		>
 			<div
 				ref={listPane}
@@ -639,19 +653,13 @@ export function CollectionEditor<T extends { id: string }>({
 				}}
 				className={cn(
 					"cms-collection-detail relative grid min-w-0 content-start gap-3",
-					!detailOpen && "max-lg:hidden",
+					!detailOpen && "hidden",
 				)}
 			>
+				{/* Phones keep Back in a sticky bar; desktop sets it in the header card. */}
 				{detailOpen ? (
 					<div className="cms-collection-back sticky z-10 rounded-[10px] bg-background py-1">
-						<button
-							type="button"
-							className={editorButton}
-							onClick={() => back()}
-							disabled={pane === "leaving"}
-						>
-							<ChevronLeftIcon className="size-3.5" /> {label}
-						</button>
+						<BackButton label={label} onClick={() => back()} disabled={pane === "leaving"} />
 					</div>
 				) : null}
 				<AnimatePresence initial={false} mode="popLayout">
@@ -664,25 +672,35 @@ export function CollectionEditor<T extends { id: string }>({
 							transition: reduced || narrow ? { duration: 0 } : { duration: 0.12, ease: "easeOut" },
 						}}
 						transition={reduced ? REDUCED : SPRING_MOVE}
-						className={cn(
-							"grid min-w-0 gap-3",
-							shownId === undefined && item === undefined && length === 0 && "hidden",
-						)}
+						className="grid min-w-0 gap-3"
 					>
 						{shownId !== undefined ? (
 							<>
-								<EditorGroup
-									className="[&_h2]:text-[21px]"
-									title={
-										<span
-											id={detailHeadingId(shownId)}
-											tabIndex={-1}
-											className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
-										>
-											<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
-										</span>
-									}
-									actions={
+								<section
+									data-slot="cms-editor-group"
+									className="cms-panel cms-editor-group grid min-w-0 gap-3 p-[clamp(16px,2.2vw,26px)]"
+								>
+									<div className="cms-collection-back-inline">
+										<BackButton
+											label={label}
+											onClick={() => back()}
+											disabled={pane === "leaving"}
+										/>
+									</div>
+									<header className="cms-editor-group-heading flex min-w-0 flex-wrap items-start justify-between gap-3">
+										<h2 className="m-0 min-w-0 text-[21px] font-semibold tracking-[-0.01em]">
+											<span
+												id={detailHeadingId(shownId)}
+												tabIndex={-1}
+												className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
+											>
+												<CollectionTitle
+													path={shownPath}
+													describe={describe}
+													itemLabel={itemLabel}
+												/>
+											</span>
+										</h2>
 										<div className="flex flex-wrap gap-2">
 											<button
 												type="button"
@@ -706,8 +724,8 @@ export function CollectionEditor<T extends { id: string }>({
 												Remove
 											</button>
 										</div>
-									}
-								/>
+									</header>
+								</section>
 								<CollectionDetails
 									key={shownId}
 									collection={path}
@@ -731,15 +749,6 @@ export function CollectionEditor<T extends { id: string }>({
 									Return to list
 								</button>
 							</EditorGroup>
-						) : length ? (
-							<div className="cms-panel cms-collection-empty-state max-lg:hidden">
-								<span className="cms-collection-empty-icon" aria-hidden="true">
-									<StackIcon className="size-5" />
-								</span>
-								<h2 className="m-0 text-[15px] font-semibold text-foreground">
-									Choose a {itemLabel.toLowerCase()} to edit
-								</h2>
-							</div>
 						) : null}
 					</CollectionDetailPane>
 				</AnimatePresence>
@@ -761,6 +770,22 @@ export function CollectionEditor<T extends { id: string }>({
 	);
 }
 
+function BackButton({
+	label,
+	onClick,
+	disabled,
+}: {
+	label: string;
+	onClick: () => void;
+	disabled: boolean;
+}) {
+	return (
+		<button type="button" className={editorButton} onClick={onClick} disabled={disabled}>
+			<ChevronLeftIcon className="size-3.5" /> {label}
+		</button>
+	);
+}
+
 function CollectionDetailPane(props: ComponentPropsWithRef<typeof motion.div>) {
 	const present = useIsPresent();
 	useLayoutEffect(() => {
@@ -773,6 +798,45 @@ function CollectionDetailPane(props: ComponentPropsWithRef<typeof motion.div>) {
 }
 
 const NARROW_QUERY = "(max-width: 63.999rem)";
+
+/**
+ * Marks which edges of a scrolling list hide rows ("top", "bottom", or
+ * both), so CSS can fade those edges. Undefined while nothing overflows.
+ */
+function useScrollFade(ref: React.RefObject<HTMLElement | null>): string | undefined {
+	const [fade, setFade] = useState<string | undefined>(undefined);
+	useLayoutEffect(() => {
+		const element = ref.current;
+		if (!element) return;
+		const update = () => {
+			const { scrollTop, scrollHeight, clientHeight } = element;
+			const edges = [
+				scrollTop > 1 ? "top" : "",
+				scrollTop + clientHeight < scrollHeight - 1 ? "bottom" : "",
+			]
+				.filter(Boolean)
+				.join(" ");
+			setFade(edges || undefined);
+		};
+		const resize = new ResizeObserver(update);
+		const observeRows = () => {
+			resize.disconnect();
+			resize.observe(element);
+			for (const child of element.children) resize.observe(child);
+		};
+		const mutations = new MutationObserver(observeRows);
+		observeRows();
+		mutations.observe(element, { childList: true });
+		element.addEventListener("scroll", update, { passive: true });
+		update();
+		return () => {
+			resize.disconnect();
+			mutations.disconnect();
+			element.removeEventListener("scroll", update);
+		};
+	}, [ref]);
+	return fade;
+}
 
 function clearPaneStyles(...elements: HTMLElement[]) {
 	for (const element of elements) {
@@ -871,6 +935,8 @@ function CollectionRow<T extends { id: string }>({
 							transition={SPRING_MOVE}
 						/>
 					) : null}
+					{handle}
+					{/* The button's hit area spans the row under the handle and the menu. */}
 					<button
 						type="button"
 						data-row={id}
@@ -878,18 +944,18 @@ function CollectionRow<T extends { id: string }>({
 						aria-current={selected ? "true" : undefined}
 						onClick={() => open(id)}
 						aria-keyshortcuts={reorderable ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
-						className="cms-collection-row-button cms-press"
+						className="cms-collection-row-button"
 					>
-						<span className="grid min-w-0 flex-1 gap-[3px]">
-							<span className="wrap-break-word text-[14px] font-medium">
+						<span className="cms-collection-row-text">
+							<span className="cms-collection-title wrap-break-word text-[14px] font-medium">
 								{title || `Untitled ${itemLabel.toLowerCase()}`}
 							</span>
-							{subtitle ? (
-								<span className="cms-collection-subtitle wrap-break-word text-[12px]">
-									{subtitle}
-								</span>
-							) : null}
-							<span className="flex flex-wrap gap-1 empty:hidden">
+							<span className="cms-collection-meta empty:hidden">
+								{subtitle ? (
+									<span className="cms-collection-subtitle wrap-break-word text-[12px]">
+										{subtitle}
+									</span>
+								) : null}
 								{isNew ? (
 									<span className="rounded-full bg-primary-soft px-1.5 py-0.5 text-[11px] leading-tight font-medium text-primary-text">
 										New
@@ -910,9 +976,7 @@ function CollectionRow<T extends { id: string }>({
 								) : null}
 							</span>
 						</span>
-						<ChevronRightIcon className="cms-collection-chevron size-4 text-muted-foreground" />
 					</button>
-					{handle}
 					{reorderable ? (
 						<RowMenu
 							className="cms-collection-row-actions"
@@ -923,6 +987,10 @@ function CollectionRow<T extends { id: string }>({
 							onMoveDown={() => move(index, index + 1)}
 						/>
 					) : null}
+					<span aria-hidden="true" className="cms-collection-open">
+						<span className="cms-collection-open-label">Edit</span>
+						<ChevronRightIcon className="size-4" />
+					</span>
 				</>
 			)}
 		</SortableRow>

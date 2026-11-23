@@ -105,7 +105,7 @@ function ProjectFields({ path }: { path: string }) {
 				/>
 			</EditorGroup>
 			<EditorGroup heading="h3" title="Details">
-				<div className="grid gap-x-4 gap-y-5 xl:grid-cols-2">
+				<div className="cms-field-pair">
 					<TextField path={`${path}.year`} label="Year" maxLength={32} />
 					<TextField path={`${path}.status`} label="Status" maxLength={120} />
 				</div>
@@ -534,6 +534,7 @@ export function LinksEditor(props: EditorProps) {
 						targetPath={props.field}
 						summaryClassName="max-sm:truncate"
 						label="Social links"
+						labelHidden
 						itemLabel="Social link"
 						create={() => ({ label: "", platform: "", href: "" })}
 						summarize={(row) => [row.platform, row.label].filter(Boolean).join(" · ")}

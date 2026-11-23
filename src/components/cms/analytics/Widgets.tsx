@@ -10,7 +10,7 @@ import {
 	type RefObject,
 } from "react";
 import { cn } from "../../../lib/utils";
-import type { AnalyticsCount } from "../../../server/analytics.server";
+import type { AnalyticsCount, TrafficPoint } from "../../../server/analytics.server";
 import { REDUCED, SPRING_MOVE, SPRING_SNAPPY } from "../motion";
 import { AlertTriangleIcon, CheckCircleIcon } from "../shell/cms-icons";
 
@@ -215,17 +215,19 @@ export function PageHeader({
 	actions?: ReactNode;
 }) {
 	return (
-		<header className="cms-enter grid min-w-0 gap-2">
-			<div className="grid min-h-9 min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 pointer-coarse:min-h-11">
-				<h1 className="m-0 text-headline">{title}</h1>
-				{actions ? (
-					<div className="cms-page-header-actions flex min-w-0 max-w-full items-center justify-self-end gap-1.5">
-						{actions}
-					</div>
-				) : null}
-			</div>
+		<header className="cms-enter grid min-w-0 items-center gap-x-4 gap-y-2 sm:grid-cols-[auto_minmax(0,1fr)]">
+			<h1 className="m-0 text-headline sm:col-start-1 sm:row-start-1 sm:flex sm:min-h-9 sm:items-center sm:pointer-coarse:min-h-11">
+				{title}
+			</h1>
 			{description ? (
-				<p className="m-0 text-[14px] leading-relaxed text-muted-foreground">{description}</p>
+				<p className="m-0 text-[14px] leading-relaxed text-muted-foreground sm:col-span-2 sm:row-start-2">
+					{description}
+				</p>
+			) : null}
+			{actions ? (
+				<div className="cms-page-header-actions flex min-w-0 max-w-full flex-wrap items-center gap-1.5 sm:col-start-2 sm:row-start-1 sm:flex-nowrap sm:justify-self-end">
+					{actions}
+				</div>
 			) : null}
 		</header>
 	);
@@ -370,7 +372,7 @@ export function RankedList({
 	return (
 		<ul className="m-0 grid list-none gap-0.5 p-0">
 			{rows.map((row) => {
-				const ratio = Math.max(0.02, row.count / max);
+				const ratio = row.count <= 0 ? 0 : Math.max(0.02, row.count / max);
 				const share = total > 0 ? Math.round((row.count / total) * 100) : 0;
 				const active = highlightedValue === row.value;
 				return (
@@ -389,7 +391,7 @@ export function RankedList({
 							<span className="flex shrink-0 items-baseline gap-2 font-mono text-[12px] tabular-nums">
 								<span className="font-semibold text-foreground">{countLabel(row.count)}</span>
 								{rows.length > 1 ? (
-									<span className="hidden w-8 text-right text-[11px] text-muted-foreground sm:inline">
+									<span className="min-w-[3ch] text-right text-[11px] text-muted-foreground">
 										{share}%
 									</span>
 								) : null}
@@ -481,6 +483,42 @@ export function formatDuration(seconds: number): string {
 	const minutes = Math.floor(total / 60);
 	const rest = total % 60;
 	return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+const HOUR_MS = 3_600_000;
+const utcMonthDay = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	timeZone: "UTC",
+});
+const utcMonthDayYear = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	year: "numeric",
+	timeZone: "UTC",
+});
+const utcHour = new Intl.DateTimeFormat("en", {
+	month: "short",
+	day: "numeric",
+	hour: "2-digit",
+	minute: "2-digit",
+	hourCycle: "h23",
+	timeZone: "UTC",
+});
+
+/** Human-readable UTC window spanned by the series ("Nov 16 – Nov 22, 2026 UTC"). */
+export function formatUtcWindow(series: readonly TrafficPoint[], hourly: boolean): string | null {
+	if (series.length === 0) return null;
+	const first = Date.parse(series[0]!.at);
+	const last = Date.parse(series[series.length - 1]!.at);
+	if (Number.isNaN(first) || Number.isNaN(last)) return null;
+	if (hourly) {
+		// Each hourly point is the start of its 1-hour bucket; add one bucket for the window end.
+		return `${utcHour.format(first)} – ${utcHour.format(last + HOUR_MS)} UTC`;
+	}
+	if (first === last) return `${utcMonthDayYear.format(first)} UTC`;
+	const sameYear = new Date(first).getUTCFullYear() === new Date(last).getUTCFullYear();
+	return `${sameYear ? utcMonthDay.format(first) : utcMonthDayYear.format(first)} – ${utcMonthDayYear.format(last)} UTC`;
 }
 
 export interface KpiItem {

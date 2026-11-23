@@ -30,8 +30,11 @@ export function EditorLayout({
 								href={liveUrl}
 								target="_blank"
 								rel="noreferrer"
-								className="cms-editor-button cms-editor-live cms-press"
+								className="cms-header-action cms-press cms-page-focus"
 							>
+								<span aria-hidden="true" className="sm:hidden">
+									Live
+								</span>
 								<span className="max-sm:sr-only">View live</span>
 								<ExternalArrowIcon className="size-3.5" />
 								<span className="sr-only"> (opens in a new tab)</span>
@@ -69,7 +72,7 @@ export function EditorGroup({
 		<section
 			data-slot="cms-editor-group"
 			className={cn(
-				"cms-panel cms-editor-group grid min-w-0 gap-6 p-[clamp(16px,2.2vw,26px)]",
+				"cms-panel cms-editor-group grid min-w-0 p-[clamp(16px,2.2vw,26px)]",
 				className,
 			)}
 		>

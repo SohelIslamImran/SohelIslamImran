@@ -326,7 +326,7 @@ export function AccentSwitcher({ open, onOpenChange, className }: AccentSwitcher
 			>
 				<ThemeModeIcon mode={theme} className="size-[18px]" />
 				<span
-					className="absolute bottom-[9px] right-[9px] size-2 rounded-full ring-2 ring-paper"
+					className="absolute bottom-[9px] right-[9px] size-2 rounded-full ring-2 ring-paper pointer-fine:in-[.cms-rail-appearance]:right-1 pointer-fine:in-[.cms-rail-appearance]:bottom-1"
 					style={{ background: "var(--theme-accent)" } as CSSProperties}
 					aria-hidden="true"
 				/>

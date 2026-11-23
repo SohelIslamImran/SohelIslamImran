@@ -31,11 +31,11 @@ export function InspectorSkeleton() {
 	return (
 		<div className="cms-panel grid gap-4 p-5">
 			<div className="flex items-center justify-between gap-3">
-				<div className="grid gap-2">
-					<div className="cms-skeleton h-5 w-36" />
-					<div className="cms-skeleton h-3.5 w-48" />
+				<div className="grid min-w-0 gap-2">
+					<div className="cms-skeleton h-5 w-36 max-w-full" />
+					<div className="cms-skeleton h-3.5 w-48 max-w-full" />
 				</div>
-				<div className="cms-skeleton h-9 w-36 rounded-full" />
+				<div className="cms-skeleton h-9 w-36 max-w-[42%] rounded-full" />
 			</div>
 			<div className="cms-skeleton h-44 w-full rounded-[12px]" />
 		</div>
@@ -49,6 +49,7 @@ export function RevisionInspector({
 	baselineBytes,
 	restoring,
 	onRestore,
+	onBack,
 }: {
 	detail: RevisionDetail;
 	diff: DocumentDiff;
@@ -57,6 +58,7 @@ export function RevisionInspector({
 	baselineBytes: number | null;
 	restoring: boolean;
 	onRestore: () => void;
+	onBack?: () => void;
 }) {
 	const differs = diff.changedSections.length > 0;
 
@@ -69,38 +71,52 @@ export function RevisionInspector({
 				stale && "opacity-55",
 			)}
 		>
-			<div className="cms-panel flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
-				<div className="grid min-w-0 gap-1">
-					<h2
-						id="cms-revision-heading"
-						tabIndex={-1}
-						className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
+			<div className="cms-panel grid gap-2 p-4 sm:p-5">
+				{onBack ? (
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={onBack}
+						className="-ms-2 justify-self-start px-2 lg:hidden pointer-coarse:min-h-11"
 					>
-						{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
-					</h2>
-					<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
-						{detail.kind === "published" ? "Published" : "Saved"}{" "}
-						<RelativeTime iso={detail.changedAt} className="w-auto" />
-						<span aria-hidden="true"> · </span>
-						{formatBytes(detail.bytes)}
-						{differs && baselineBytes !== null && detail.bytes !== baselineBytes
-							? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
-							: ""}
-					</p>
+						<span aria-hidden="true">←</span> Back to revisions
+					</Button>
+				) : null}
+				<div className="flex flex-wrap items-center justify-between gap-4">
+					<div className="grid min-w-0 gap-1">
+						<h2
+							id="cms-revision-heading"
+							tabIndex={-1}
+							className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
+						>
+							{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
+						</h2>
+						<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
+							{detail.kind === "published" ? "Published" : "Saved"}{" "}
+							<RelativeTime iso={detail.changedAt} className="w-auto" />
+							<span aria-hidden="true"> · </span>
+							{formatBytes(detail.bytes)}
+							{differs && baselineBytes !== null && detail.bytes !== baselineBytes
+								? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
+								: ""}
+						</p>
+					</div>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={!differs || restoring || stale}
+						onClick={onRestore}
+						className="pointer-coarse:min-h-11"
+					>
+						<HistoryIcon className="size-3.5" />
+						<span>Restore as draft</span>
+					</Button>
 				</div>
-
-				<Button
-					variant="outline"
-					size="sm"
-					disabled={!differs || restoring || stale}
-					onClick={onRestore}
-					className="pointer-coarse:min-h-11"
-				>
-					<HistoryIcon className="size-3.5" />
-					<span>Restore as draft</span>
-				</Button>
 			</div>
 
+			<p className="m-0 text-[13px] font-medium text-muted-foreground lg:hidden">
+				Compared with current draft
+			</p>
 			<DiffView
 				diff={diff}
 				beforeLabel="Current draft"

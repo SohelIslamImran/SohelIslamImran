@@ -18,11 +18,17 @@ import { formatBytes } from "../shell/time";
 import { Button } from "../../ui/button";
 
 export function UploadPanel({
+	id,
 	csrfToken,
 	onUploaded,
+	onClose,
+	onBusyChange,
 }: {
+	id?: string;
 	csrfToken: string;
 	onUploaded: () => Promise<void> | void;
+	onClose?: () => void;
+	onBusyChange?: (busy: boolean) => void;
 }) {
 	const runUpload = useServerFn(uploadMedia);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -49,14 +55,16 @@ export function UploadPanel({
 	const altMissing = isImage && uploadAlt.trim() === "";
 
 	const acceptFile = (file: File | null) => {
+		if (uploading) return;
 		setSelectedFile(file);
 		setUploadNotice(null);
 	};
 
 	const handleUpload = async (event: FormEvent) => {
 		event.preventDefault();
-		if (!selectedFile || altMissing) return;
+		if (!selectedFile || altMissing || uploading) return;
 		setUploading(true);
+		onBusyChange?.(true);
 		setUploadNotice(null);
 		try {
 			const form = new FormData();
@@ -76,11 +84,12 @@ export function UploadPanel({
 			});
 		} finally {
 			setUploading(false);
+			onBusyChange?.(false);
 		}
 	};
 
 	return (
-		<section style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
+		<section id={id} style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="grid gap-0.5">
 					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
@@ -90,6 +99,18 @@ export function UploadPanel({
 						JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB.
 					</p>
 				</div>
+				{onClose ? (
+					<button
+						type="button"
+						disabled={uploading}
+						onClick={() => {
+							if (!uploading) onClose();
+						}}
+						className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
+					>
+						Done
+					</button>
+				) : null}
 			</div>
 
 			<form onSubmit={(event) => void handleUpload(event)} className="grid gap-3.5">
@@ -97,11 +118,11 @@ export function UploadPanel({
 					data-dragging={dragging ? "true" : "false"}
 					onDragEnter={(event) => {
 						event.preventDefault();
-						setDragging(true);
+						if (!uploading) setDragging(true);
 					}}
 					onDragOver={(event) => {
 						event.preventDefault();
-						setDragging(true);
+						if (!uploading) setDragging(true);
 					}}
 					onDragLeave={(event) => {
 						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -111,6 +132,7 @@ export function UploadPanel({
 					onDrop={(event) => {
 						event.preventDefault();
 						setDragging(false);
+						if (uploading) return;
 						const file = event.dataTransfer.files?.[0] ?? null;
 						if (file) acceptFile(file);
 					}}
@@ -120,6 +142,7 @@ export function UploadPanel({
 						id="cms-media-file"
 						ref={fileInputRef}
 						type="file"
+						disabled={uploading}
 						accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
 						onChange={(event) => acceptFile(event.target.files?.[0] ?? null)}
 						className="sr-only"
@@ -170,19 +193,21 @@ export function UploadPanel({
 						{selectedFile ? (
 							<button
 								type="button"
+								disabled={uploading}
 								onClick={() => {
 									acceptFile(null);
 									if (fileInputRef.current) fileInputRef.current.value = "";
 								}}
-								className={pillControlClass}
+								className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
 							>
 								Clear
 							</button>
 						) : null}
 						<button
 							type="button"
+							disabled={uploading}
 							onClick={() => fileInputRef.current?.click()}
-							className={pillControlClass}
+							className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
 						>
 							<span>{selectedFile ? "Replace file" : "Choose file"}</span>
 						</button>
@@ -211,6 +236,7 @@ export function UploadPanel({
 							maxLength={240}
 							value={uploadAlt}
 							required={isImage}
+							disabled={uploading}
 							onChange={(event) => setUploadAlt(event.target.value)}
 							placeholder="Describe the image for screen readers"
 							className={cn(controlClass, "min-h-10 py-2 text-[13px] pointer-coarse:min-h-11")}

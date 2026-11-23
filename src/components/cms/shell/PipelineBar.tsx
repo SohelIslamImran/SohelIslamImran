@@ -69,16 +69,13 @@ function usePipelineStage(
 		if (state.status === "saving" || saveFeedback === "saving") {
 			return { stage: "saving", label: "Saving…" };
 		}
-		if (saveFeedback === "saved" && !state.dirty) {
-			return { stage: "synced", label: "Saved" };
-		}
 		if (state.dirty) {
 			return { stage: "dirty", label: "Unsaved" };
 		}
 		if (state.ahead) {
 			return { stage: "ahead", label: "Draft ahead" };
 		}
-		return { stage: "synced", label: "Synced" };
+		return { stage: "synced", label: saveFeedback === "saved" ? "Saved" : "Synced" };
 	});
 }
 
@@ -96,9 +93,13 @@ function focusFieldAfterNavigation(path: string) {
 function PipelineStatus({
 	stage,
 	label,
+	draftRevision,
+	publishedRevision,
 	onResolveConflict,
 	onReviewRelease,
 }: ReturnType<typeof usePipelineStage> & {
+	draftRevision: number;
+	publishedRevision: number;
 	onResolveConflict: () => void;
 	onReviewRelease: () => boolean;
 }) {
@@ -180,6 +181,10 @@ function PipelineStatus({
 							<span className="text-[11px] text-muted-foreground">Jump to field</span>
 						) : null}
 					</PopoverHeader>
+					<p className="m-0 flex flex-wrap gap-x-3 px-1.5 font-mono text-[11px] text-muted-foreground sm:hidden">
+						<span>Draft r{draftRevision}</span>
+						<span>Live r{publishedRevision}</span>
+					</p>
 					{issues.length === 0 ? (
 						<Link
 							to="/cms/release"
@@ -292,12 +297,15 @@ export function PipelineBar({
 				</button>
 
 				<div className="cms-pipeline flex min-w-0 items-center justify-center gap-2 tabular-nums lg:justify-start lg:gap-2.5">
+					<span className="sr-only sm:hidden">
+						Draft revision {draftRevision}, live revision {publishedRevision}
+					</span>
 					<span
-						className="font-mono text-[11px] whitespace-nowrap text-muted-foreground"
+						className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
 						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
 					>
 						<span aria-hidden="true">
-							<span className="hidden sm:inline">Draft </span>
+							Draft{" "}
 							<span key={draftRevision} className="cms-count-tick">
 								r{draftRevision}
 							</span>
@@ -308,6 +316,8 @@ export function PipelineBar({
 					<PipelineStatus
 						stage={stage}
 						label={label}
+						draftRevision={draftRevision}
+						publishedRevision={publishedRevision}
 						onResolveConflict={onResolveConflict}
 						onReviewRelease={onReviewRelease}
 					/>
@@ -316,11 +326,12 @@ export function PipelineBar({
 						to="/cms/release"
 						preload="intent"
 						aria-label={`Live revision ${publishedRevision}`}
-						className="cms-chrome-control cms-press inline-flex min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 max-sm:justify-center"
+						className="cms-chrome-control cms-press hidden min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline sm:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
-						<span className="hidden sm:inline">Live </span>r{publishedRevision}
+						Live r{publishedRevision}
 					</Link>
 					<span role="status" className="sr-only">
+						{stage === "ahead" && saveFeedback === "saved" ? "Draft saved. " : ""}
 						{label}
 					</span>
 				</div>

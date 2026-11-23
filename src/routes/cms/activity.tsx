@@ -186,13 +186,30 @@ function ActivityRoute() {
 				title="Activity"
 				description="Draft and media changes, newest first."
 				actions={
-					<SegmentedControl
-						layoutId="cms-activity-filter-pill"
-						ariaLabel="Filter activity"
-						value={filter}
-						onChange={setFilter}
-						options={FILTERS.map(({ value, label }) => ({ value, label }))}
-					/>
+					<>
+						<label className="grid w-full gap-1.5 text-[13px] font-medium sm:hidden">
+							Event type
+							<select
+								value={filter}
+								onChange={(event) => setFilter(event.currentTarget.value as FilterKind)}
+								className="cms-control min-h-11 w-full px-3 text-[14px]"
+							>
+								{FILTERS.map(({ value, label }) => (
+									<option key={value} value={value}>
+										{label}
+									</option>
+								))}
+							</select>
+						</label>
+						<SegmentedControl
+							className="max-sm:hidden"
+							layoutId="cms-activity-filter-pill"
+							ariaLabel="Filter activity"
+							value={filter}
+							onChange={setFilter}
+							options={FILTERS.map(({ value, label }) => ({ value, label }))}
+						/>
+					</>
 				}
 			/>
 
