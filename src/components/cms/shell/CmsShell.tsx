@@ -26,7 +26,7 @@ import { animate, motion, spring, useMotionValue } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button } from "../../ui/button";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { SettledIssuesProvider, useSettledIssues } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_MOVE } from "../motion";
 
@@ -129,8 +129,6 @@ function RailIndicator({ active }: { active: string }) {
 }
 
 export { RailPulseSlot };
-
-export const PUBLIC_SITE_ORIGIN = "https://sohelislamimran.com";
 
 /** Element id of the Changes page's publish gate. See the file comment. */
 export const RELEASE_GATE_ID = "release-gate";
@@ -376,6 +374,7 @@ function LayerRailContent({
 		select: (state) => (state.isLoading ? state.location.pathname.replace(/\/+$/u, "") : null),
 	});
 	const normalized = pathname;
+	const publicOrigin = usePublicOrigin();
 	const railScroll = useRef<HTMLElement>(null);
 	const changedCount = useDraftSelector((state, store) =>
 		SECTIONS.reduce(
@@ -548,7 +547,7 @@ function LayerRailContent({
 					</RailTooltip>
 					<RailTooltip label="Open live site" disabled={layoutScope === "drawer"}>
 						<a
-							href={PUBLIC_SITE_ORIGIN}
+							href={publicOrigin}
 							target="_blank"
 							rel="noreferrer"
 							aria-label="Open live site"

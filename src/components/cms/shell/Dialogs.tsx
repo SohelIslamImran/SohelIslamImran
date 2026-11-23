@@ -6,7 +6,7 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "../../ui/button";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { diffPortfolioDocuments } from "../release/diff";
 import { AlertTriangleIcon, PublishIcon } from "./cms-icons";
 import { draftActionAvailability } from "./draft-actions";
@@ -167,6 +167,7 @@ function PublishConfirmDialogBody({
 	publishFailed: boolean;
 }) {
 	const store = useDraftStore();
+	const publicHost = new URL(usePublicOrigin()).host;
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const reloadRef = useRef<HTMLButtonElement>(null);
 	const publishedSuccessfully = useRef(false);
@@ -235,7 +236,7 @@ function PublishConfirmDialogBody({
 								? "The draft changed. Close this dialog and review the updated draft."
 								: dirty
 									? "Unsaved edits will be saved first, then promoted live immediately."
-									: "Visitors on sohelislamimran.com will see this revision immediately."}
+									: `Visitors on ${publicHost} will see this revision immediately.`}
 						</AlertDialog.Description>
 					</div>
 				</div>

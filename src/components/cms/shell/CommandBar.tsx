@@ -26,7 +26,7 @@ import {
 } from "../../AccentSwitcher";
 import { scoreItem } from "../../chrome/fuzzy";
 import { Kbd } from "../../ui/portfolio";
-import { useDraftSelector, useDraftStore } from "../draft/context";
+import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { REDUCED, SPRING_MOVE } from "../motion";
 import { SECTIONS } from "../sections/registry";
 import {
@@ -45,7 +45,7 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
-import { PUBLIC_SITE_ORIGIN, useCommittedPathname } from "./CmsShell";
+import { useCommittedPathname } from "./CmsShell";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -158,6 +158,7 @@ function CommandBarOpen({
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
 	const { canSave, canPublish } = useDraftSelector(draftActionAvailability);
 	const appearance = useAppearance();
+	const publicOrigin = usePublicOrigin();
 	const [desktop, setDesktop] = useState(false);
 	useLayoutEffect(() => {
 		const query = window.matchMedia("(min-width: 1024px)");
@@ -363,6 +364,7 @@ function CommandBarOpen({
 			});
 		}
 
+		const analyticsOptOut = new URL("/?analytics=off", publicOrigin).href;
 		const actions: CommandEntry[] = [
 			{
 				id: "action-save",
@@ -379,7 +381,7 @@ function CommandBarOpen({
 				id: "action-publish",
 				group: "Actions",
 				label: "Publish draft to live",
-				detail: "Promote the validated draft to sohelislamimran.com",
+				detail: `Promote the validated draft to ${new URL(publicOrigin).host}`,
 				keywords: "publish deploy release ship live",
 				icon: <PublishIcon />,
 				disabled: !canPublish,
@@ -402,22 +404,21 @@ function CommandBarOpen({
 				id: "action-live-site",
 				group: "Actions",
 				label: "Open live site",
-				detail: PUBLIC_SITE_ORIGIN,
+				detail: publicOrigin,
 				keywords: "public site preview visit",
 				icon: <ExternalArrowIcon />,
 				external: true,
-				run: () => void window.open(PUBLIC_SITE_ORIGIN, "_blank", "noopener,noreferrer"),
+				run: () => void window.open(publicOrigin, "_blank", "noopener,noreferrer"),
 			},
 			{
 				id: "action-exclude-analytics",
 				group: "Actions",
 				label: "Exclude this browser from analytics",
-				detail: `${PUBLIC_SITE_ORIGIN}/?analytics=off`,
+				detail: analyticsOptOut,
 				keywords: "analytics opt out ignore self browser privacy",
 				icon: <AnalyticsIcon />,
 				external: true,
-				run: () =>
-					void window.open(`${PUBLIC_SITE_ORIGIN}/?analytics=off`, "_blank", "noopener,noreferrer"),
+				run: () => void window.open(analyticsOptOut, "_blank", "noopener,noreferrer"),
 			},
 		];
 		if (desktop) {
@@ -468,6 +469,7 @@ function CommandBarOpen({
 		onToggleRail,
 		opener,
 		pathname,
+		publicOrigin,
 		store,
 	]);
 
