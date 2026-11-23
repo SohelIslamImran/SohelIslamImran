@@ -421,14 +421,26 @@ function readOptionalMedia(
 	return readMedia(value, path, issues);
 }
 
-function readSite(value: unknown, issues: ValidationIssue[]): SiteContent {
+function isAbsoluteHttpsUrl(value: string): boolean {
+	if (!/^https:\/\/[^/]/iu.test(value) || hasHrefControlCharacter(value) || value.includes("\\")) {
+		return false;
+	}
+	return URL.canParse(value);
+}
+
+function readSite(value: unknown, issues: ValidationIssue[], stored: boolean): SiteContent {
 	const object = asObject(value);
 	if (!object) {
 		issues.push({ path: "site", message: "must be an object" });
 		return { title: "", description: "", locale: "en", theme: "ink" };
 	}
 
-	const url = readHref(object, "url", "site.url", issues, false);
+	const url = stored
+		? readHref(object, "url", "site.url", issues, false)
+		: (readOptionalString(object, "url", "site.url", issues, { maxLength: 2_000 }) ?? "");
+	if (!stored && url && !isAbsoluteHttpsUrl(url)) {
+		issues.push({ path: "site.url", message: "must be an absolute HTTPS URL" });
+	}
 	return {
 		title: readRequiredString(object, "title", "site.title", issues, { maxLength: 160 }),
 		description: readRequiredString(object, "description", "site.description", issues, {
@@ -1577,7 +1589,7 @@ function readPortfolioContent(value: unknown, stored: boolean): PortfolioContent
 
 	const result: PortfolioContent = {
 		schemaVersion: CONTENT_SCHEMA_VERSION,
-		site: readSite(object.site, issues),
+		site: readSite(object.site, issues, stored),
 		identity: readIdentity(object.identity, issues),
 		hero: readHero(object.hero, issues),
 		about: readAbout(object.about, issues),

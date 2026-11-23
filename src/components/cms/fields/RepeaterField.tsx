@@ -4,6 +4,7 @@ import { memo, useCallback, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
+import { useSettledIssues } from "../draft/use-settled-issues";
 import { childPath, isPathWithin } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { SortableRow } from "./SortableRow";
@@ -213,7 +214,7 @@ function RepeaterRow<T extends object>({
 		return row ? summarize(row).trim() : "";
 	});
 	const name = summary || `${itemLabel} ${index + 1}`;
-	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
+	const issueCount = useSettledIssues().under(path).length;
 	const reorderable = index > 0 || canMoveDown;
 	return (
 		<SortableRow

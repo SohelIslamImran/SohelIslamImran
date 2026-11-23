@@ -15,6 +15,7 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../draft/context";
+import { useSettledIssues } from "../draft/use-settled-issues";
 import { childPath, duplicateIds } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
 import { FieldMessage, sentenceCase, useActionPointer } from "../fields/FieldFrame";
@@ -792,7 +793,7 @@ function CollectionRow<T extends { id: string }>({
 		const summary = describe(row);
 		return [summary.title, summary.subtitle, ...(summary.chips ?? [])];
 	});
-	const issueCount = useDraftSelector((state) => state.issues.under(path).length);
+	const issueCount = useSettledIssues().under(path).length;
 	const isNew = useDraftSelector((state, store) => store.liveValueAt(path, state) === undefined);
 	const reduced = useLiveReducedMotion();
 	return (

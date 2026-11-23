@@ -6,6 +6,7 @@ import {
 	isTimeZone,
 	MAX_COLLECTION_ITEMS,
 	parseStoredContent,
+	serializePortfolioContent,
 	upgradeStoredContent,
 	validatePortfolioContent,
 } from "./validation";
@@ -49,6 +50,33 @@ describe("portfolio content validation", () => {
 		expect(validatePortfolioContent(draft).ok).toBe(true);
 		draft.identity.timezone = "Asia/DhakaAsia/To";
 		expect(parseStoredContent(JSON.stringify(draft)).identity.timezone).toBe("Asia/DhakaAsia/To");
+	});
+
+	it("requires an absolute HTTPS canonical URL when provided on writes", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		for (const url of [
+			"/work",
+			"#work",
+			"//example.com",
+			"https:example.com",
+			"http://example.com",
+			"https://",
+		]) {
+			draft.site.url = url;
+			expect(validatePortfolioContent(draft), url).toMatchObject({
+				ok: false,
+				issues: [{ path: "site.url", message: "must be an absolute HTTPS URL" }],
+			});
+			expect(() => serializePortfolioContent(draft), url).toThrow();
+		}
+		draft.site.url = "/work";
+		expect(parseStoredContent(JSON.stringify(draft)).site.url).toBe("/work");
+		for (const url of ["", "https://example.com/work"]) {
+			draft.site.url = url;
+			expect(JSON.parse(serializePortfolioContent(draft)).site.url).toBe(url || undefined);
+		}
+		delete draft.site.url;
+		expect(validatePortfolioContent(draft).ok).toBe(true);
 	});
 
 	it("validates collection IDs and project slugs per collection on writes", () => {

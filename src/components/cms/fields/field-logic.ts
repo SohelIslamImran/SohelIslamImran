@@ -16,7 +16,9 @@ export function tagBackspace(
 	draft: string,
 	count: number,
 	armed: boolean,
+	repeat = false,
 ): { armed: boolean; remove: boolean } {
 	if (draft !== "" || count === 0) return { armed: false, remove: false };
+	if (repeat) return { armed, remove: false };
 	return armed ? { armed: false, remove: true } : { armed: true, remove: false };
 }
