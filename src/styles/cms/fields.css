@@ -49,23 +49,31 @@
 	}
 
 	/*
-	 * Inputs are clean white fields: the panel color, a crisp 1px edge, and
-	 * a hairline drop shadow. A gray fill is kept for disabled fields only.
-	 * Focus turns the edge into a solid 2px accent line with no glow.
+	 * Inputs are lifted white fields: a 1px edge and a soft two-layer shadow
+	 * set them just above the white panel, so they separate from it without
+	 * a gray fill (gray marks disabled fields only). Dark mode lifts the field
+	 * one step lighter than the panel instead. Focus turns the edge into a
+	 * solid 2px accent line with no glow.
 	 */
 	.cms-root,
 	.cms-field-popup {
 		--cms-control-bg: var(--theme-surface-solid);
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 14%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 24%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.05);
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
+		--cms-control-lift:
+			0 1px 2px rgb(0 0 0 / 0.06),
+			0 2px 6px -2px rgb(0 0 0 / 0.08);
+		--cms-control-lift-hover:
+			0 1px 2px rgb(0 0 0 / 0.07),
+			0 4px 10px -3px rgb(0 0 0 / 0.1);
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
-		--cms-control-bg: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 15%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 26%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.3);
+		--cms-control-bg: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 12%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 20%, transparent);
+		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.4);
+		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.45), 0 4px 10px -3px rgb(0 0 0 / 0.4);
 	}
 
 	.cms-control {
@@ -115,7 +123,9 @@
 		outline: 2px solid transparent;
 		outline-offset: 1px;
 		border-color: var(--theme-accent);
-		box-shadow: 0 0 0 1px var(--theme-accent);
+		box-shadow:
+			0 0 0 1px var(--theme-accent),
+			var(--cms-control-lift);
 	}
 
 	/* The error text under the field says what is wrong; the edge only tints. */
@@ -274,6 +284,7 @@
 				.cms-tags:focus-within
 			) {
 			border-color: var(--cms-control-edge-hover);
+			box-shadow: var(--cms-control-lift-hover);
 		}
 
 		.cms-field-revert:hover {
