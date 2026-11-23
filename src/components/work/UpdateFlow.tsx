@@ -102,10 +102,15 @@ const flowStyles = String.raw`
 		stroke-linecap: round;
 		stroke-dasharray: 12 112;
 		stroke-dashoffset: -106;
-		animation: uf-pulse 600ms var(--theme-ease) backwards;
+		opacity: 0;
+		animation: uf-pulse 600ms var(--theme-ease) both;
 	}
 }
-@keyframes uf-pulse { from { stroke-dashoffset: 12; } }
+@keyframes uf-pulse {
+	from { stroke-dashoffset: 12; opacity: 1; }
+	85% { opacity: 1; }
+	to { stroke-dashoffset: -106; opacity: 0; }
+}
 [data-update-flow] .uf-short { display: none; }
 @container (width < 400px) {
 	[data-update-flow] .uf-fork { display: none; }
@@ -119,6 +124,7 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 		branch: "both",
 		revision: 0,
 	});
+	const [finishedRevision, setFinishedRevision] = useState(0);
 	const [selected, setSelected] = useState<number | null>(null);
 	const [preview, setPreview] = useState<number | null>(null);
 	const pointerFine = usePointerFine();
@@ -145,7 +151,15 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 	const wire = (d: string, lit: boolean, pulse: boolean) => (
 		<>
 			<path d={d} className="uf-wire" data-lit={lit || undefined} />
-			{pulse ? <path key={revision} d={d} pathLength={100} className="uf-pulse" /> : null}
+			{pulse && revision !== finishedRevision ? (
+				<path
+					key={revision}
+					d={d}
+					pathLength={100}
+					className="uf-pulse"
+					onAnimationEnd={() => setFinishedRevision(revision)}
+				/>
+			) : null}
 		</>
 	);
 
@@ -189,12 +203,12 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 				</div>
 				<svg
 					aria-hidden="true"
-					viewBox="0 0 100 40"
+					viewBox="0 0 560 64"
 					preserveAspectRatio="none"
 					className="uf-fork block h-12 w-full max-w-[560px] sm:h-16"
 				>
-					{wire("M50 0 C50 22 25 18 25 40", matches("android"), branch === "android")}
-					{wire("M50 0 C50 22 75 18 75 40", matches("ios"), branch === "ios")}
+					{wire("M280 0 C280 35 134 29 134 64", matches("android"), branch === "android")}
+					{wire("M280 0 C280 35 426 29 426 64", matches("ios"), branch === "ios")}
 				</svg>
 				<svg aria-hidden="true" viewBox="0 0 4 24" className="uf-short h-6 w-1">
 					{wire("M2 0 V24", true, branch !== "both")}

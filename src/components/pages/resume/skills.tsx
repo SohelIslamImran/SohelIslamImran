@@ -349,23 +349,30 @@ export function YearScrubber() {
 					</span>
 				))}
 			</div>
-			{running.length > 0 ? (
-				<div className="mt-2 flex flex-wrap items-center gap-1.5">
-					<span className="mono-label mr-1 text-muted-foreground">Working then</span>
-					{running.slice(0, 2).map((target) => (
-						<a
-							key={target.id}
-							href={`#${target.id}`}
-							className="pressable inline-flex min-h-8 max-w-full items-center rounded-full border border-line bg-surface-solid px-2.5 text-caption font-medium text-ink-soft pointer-coarse:min-h-11 pointer-fine:hover:border-line-strong pointer-fine:hover:text-foreground"
-						>
-							{[target.title, target.subtitle].filter(Boolean).join(" · ")}
-						</a>
-					))}
-					{running.length > 2 ? (
-						<span className="text-caption text-muted-foreground">+{running.length - 2} more</span>
-					) : null}
-				</div>
-			) : null}
+			<div className="mt-2 grid min-h-[5.75rem] content-start justify-items-start gap-1.5 pointer-coarse:min-h-[7.25rem]">
+				{running.length > 0 ? (
+					<>
+						<span className="mono-label text-muted-foreground">Working then</span>
+						{running.slice(0, 2).map((target, index) => (
+							<span key={target.id} className="flex max-w-full min-w-0 items-center gap-2">
+								<a
+									href={`#${target.id}`}
+									className="pressable inline-flex min-h-8 max-w-full min-w-0 items-center rounded-full border border-line bg-surface-solid px-2.5 text-caption font-medium text-ink-soft pointer-coarse:min-h-11 pointer-fine:hover:border-line-strong pointer-fine:hover:text-foreground"
+								>
+									<span className="truncate">
+										{[target.title, target.subtitle].filter(Boolean).join(" · ")}
+									</span>
+								</a>
+								{index === 1 && running.length > 2 ? (
+									<span className="shrink-0 text-caption text-muted-foreground">
+										+{running.length - 2} more
+									</span>
+								) : null}
+							</span>
+						))}
+					</>
+				) : null}
+			</div>
 		</div>
 	);
 }
