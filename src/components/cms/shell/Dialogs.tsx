@@ -8,7 +8,7 @@ import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "../../ui/button";
 import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { diffPortfolioDocuments } from "../release/diff";
-import { AlertTriangleIcon, PublishIcon } from "./cms-icons";
+import { AlertTriangleIcon, ExternalArrowIcon, PublishIcon } from "./cms-icons";
 import { draftActionAvailability } from "./draft-actions";
 import { formatUtcTimestamp } from "./time";
 
@@ -188,7 +188,9 @@ function PublishConfirmDialogBody({
 	const store = useDraftStore();
 	const publicHost = new URL(usePublicOrigin()).host;
 	const cancelRef = useRef<HTMLButtonElement>(null);
-	const reloadRef = useRef<HTMLButtonElement>(null);
+	const signInRef = useRef<HTMLAnchorElement>(null);
+	const retryRef = useRef<HTMLButtonElement>(null);
+	const [signInOpened, setSignInOpened] = useState(false);
 	const publishedSuccessfully = useRef(false);
 	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
@@ -231,8 +233,9 @@ function PublishConfirmDialogBody({
 	const showError = !frozen && error !== null && (authExpired || publishFailed || attemptFailed);
 
 	useLayoutEffect(() => {
-		if (authExpired) reloadRef.current?.focus();
-	}, [authExpired]);
+		if (!authExpired) setSignInOpened(false);
+		else (signInOpened ? retryRef : signInRef).current?.focus();
+	}, [authExpired, signInOpened]);
 
 	const changedSections = useMemo(
 		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
@@ -253,7 +256,7 @@ function PublishConfirmDialogBody({
 			<AlertDialog.Backdrop className="cms-backdrop fixed inset-0 z-(--z-palette)" />
 			<AlertDialog.Popup
 				data-slot="cms-publish-dialog"
-				initialFocus={authExpired ? reloadRef : cancelRef}
+				initialFocus={authExpired ? signInRef : cancelRef}
 				finalFocus={() => {
 					if (store.getState().conflict) return false;
 					return publishedSuccessfully.current && window.matchMedia("(width < 1024px)").matches
@@ -337,15 +340,34 @@ function PublishConfirmDialogBody({
 						>
 							Cancel
 						</AlertDialog.Close>
-						{authExpired ? (
+						{authExpired && signInOpened ? (
 							<Button
-								ref={reloadRef}
+								ref={retryRef}
 								size="sm"
 								className="pointer-coarse:min-h-11"
-								onClick={() => window.location.reload()}
+								onClick={() => {
+									setSignInOpened(false);
+									void store.resumeAfterSignIn().then((ok) => {
+										if (ok) void confirmPublish();
+									});
+								}}
 							>
-								Reload console
+								Retry publish
 							</Button>
+						) : authExpired ? (
+							<a
+								ref={signInRef}
+								href={new URL("/", window.location.origin).href}
+								target="_blank"
+								rel="noopener"
+								onClick={() => setSignInOpened(true)}
+								className={buttonVariants({
+									size: "sm",
+									className: "cms-press no-underline pointer-coarse:min-h-11",
+								})}
+							>
+								Sign in again <ExternalArrowIcon className="size-3.5" />
+							</a>
 						) : (
 							<Button
 								variant="default"

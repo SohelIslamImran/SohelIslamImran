@@ -99,7 +99,7 @@ function messageFor(error: unknown): { message: string; authExpired: boolean } {
 			: undefined;
 	if (status === 401 || status === 403) {
 		return {
-			message: "Your session expired. Reload the CMS to sign in again; your edits stay here.",
+			message: "Your session expired. Sign in again, then retry; your edits stay in this tab.",
 			authExpired: true,
 		};
 	}
@@ -392,6 +392,19 @@ export class DraftStore {
 				return false;
 			}
 		});
+	}
+
+	/**
+	 * The owner signed in again in another tab. Clear the expired session and
+	 * save any unsaved edits; a new 401 or 403 marks the session expired again.
+	 */
+	resumeAfterSignIn(): Promise<boolean> {
+		if (!this.state.authExpired) return this.save();
+		this.set({
+			authExpired: false,
+			...(this.state.status === "error" ? { status: "idle" as const, error: null } : {}),
+		});
+		return this.save();
 	}
 
 	/** Conflict: drop local edits and load the server's document. */

@@ -48,6 +48,9 @@ function usePipelineStage(
 } {
 	const count = useSettledIssues().all.length;
 	return useDraftSelector((state) => {
+		if (state.authExpired) {
+			return { stage: "invalid", label: "Signed out" };
+		}
 		if (state.status === "conflict") {
 			return { stage: "invalid", label: "Conflict" };
 		}

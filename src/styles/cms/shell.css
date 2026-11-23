@@ -23,7 +23,8 @@
 
 	html:has(.cms-layout) {
 		overflow-anchor: none;
-		scroll-padding-top: calc(56px + env(safe-area-inset-top));
+		/* The session notice strip adds its height while it is open. */
+		scroll-padding-top: calc(56px + env(safe-area-inset-top) + var(--cms-topbar-extra, 0px));
 	}
 
 	.cms-root :is(.cms-chrome-control, .cms-action):focus-visible,
@@ -382,8 +383,6 @@
 	.cms-session-banner {
 		border: 1px solid color-mix(in srgb, var(--theme-destructive) 30%, var(--theme-line));
 		background: color-mix(in srgb, var(--theme-destructive) 8%, var(--theme-surface-solid));
-		box-shadow: var(--shadow-raised);
-		animation: cms-enter 160ms var(--cms-ease-out) both;
 	}
 
 	.cms-pipeline-connector {
@@ -585,11 +584,6 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.cms-session-banner {
-			animation-name: cms-fade;
-			animation-duration: 150ms !important;
-		}
-
 		.cms-rail-tooltip-popup:is([data-starting-style], [data-ending-style]) {
 			scale: none;
 		}
@@ -749,17 +743,15 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) [data-slot=
 	view-transition-name: cms-section;
 }
 
-html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) .cms-session-banner {
-	view-transition-name: cms-session-banner;
-}
-
 html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])
 	[data-slot="cms-mobile-action-bar"] {
 	view-transition-name: cms-mobile-actions;
 }
 
 html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-transition {
-	clip-path: inset(max(56px, calc(45px + env(safe-area-inset-top))) 0 0);
+	clip-path: inset(
+		calc(max(56px, calc(45px + env(safe-area-inset-top))) + var(--cms-topbar-extra, 0px)) 0 0
+	);
 	pointer-events: none;
 }
 
@@ -767,17 +759,14 @@ html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-trans
 ::view-transition-group(cms-section-out) {
 	animation: none;
 }
-::view-transition-group(cms-session-banner),
 ::view-transition-group(cms-mobile-actions) {
 	z-index: 1;
 	animation: none;
 }
-::view-transition-old(cms-session-banner),
 ::view-transition-old(cms-mobile-actions) {
 	animation: none;
 	opacity: 0;
 }
-::view-transition-new(cms-session-banner),
 ::view-transition-new(cms-mobile-actions) {
 	animation: none;
 	mix-blend-mode: normal;
