@@ -16,11 +16,11 @@
 		--cms-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
 		/*
-		 * Keyboard focus ring for buttons, links, and toggles, drawn like the
-		 * macOS ring: one 3px band of the accent at 62%, with no separate
-		 * outline. Text fields use their own accent edge and glow (fields.css).
+		 * Keyboard focus ring for buttons, links, and toggles: one crisp 2px
+		 * accent line (4.6:1 or more on every surface), no halo. Text fields
+		 * turn their own edge into the accent line instead (fields.css).
 		 */
-		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 62%, transparent);
+		--cms-ring: 0 0 0 2px var(--theme-accent);
 	}
 
 	/* Keep the page width stable when content grows tall enough to scroll. */

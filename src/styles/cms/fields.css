@@ -49,35 +49,32 @@
 	}
 
 	/*
-	 * Inputs read as soft filled wells, the way macOS and iOS draw text
-	 * fields: a faint ink tint, a hairline edge, and no inner shadow. Focus
-	 * lifts the field to the panel color, draws the edge in the accent, and
-	 * adds a 3px glow; the accent edge carries the 3:1 change on its own.
+	 * Inputs are clean white fields: the panel color, a crisp 1px edge, and
+	 * a hairline drop shadow. A gray fill is kept for disabled fields only.
+	 * Focus turns the edge into a solid 2px accent line with no glow.
 	 */
 	.cms-root,
 	.cms-field-popup {
-		--cms-control-fill: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
-		--cms-control-fill-hover: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 9%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 15%, transparent);
-		--cms-control-glow: color-mix(in srgb, var(--theme-accent) 20%, transparent);
+		--cms-control-bg: var(--theme-surface-solid);
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 14%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 24%, transparent);
+		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.05);
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
-		--cms-control-fill: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
-		--cms-control-fill-hover: color-mix(in srgb, var(--theme-ink) 8.5%, var(--theme-surface-solid));
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 10%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 17%, transparent);
-		--cms-control-glow: color-mix(in srgb, var(--theme-accent) 26%, transparent);
+		--cms-control-bg: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 15%, transparent);
+		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 26%, transparent);
+		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.3);
 	}
 
 	.cms-control {
 		border: 1px solid var(--cms-control-edge);
 		border-radius: var(--cms-radius-control, 10px);
-		background: var(--cms-control-fill);
+		background: var(--cms-control-bg);
 		background-clip: padding-box;
 		color: var(--theme-ink);
-		box-shadow: 0 0 0 0 transparent;
+		box-shadow: var(--cms-control-lift);
 		caret-color: var(--theme-accent);
 		/* Only button-like controls use scale for press feedback. */
 		transition:
@@ -105,7 +102,9 @@
 
 	.cms-control:disabled,
 	.cms-control[data-disabled] {
-		opacity: 0.56;
+		background: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
+		box-shadow: none;
+		opacity: 0.6;
 		cursor: default;
 	}
 
@@ -116,20 +115,19 @@
 		outline: 2px solid transparent;
 		outline-offset: 1px;
 		border-color: var(--theme-accent);
-		background: var(--theme-surface-solid);
-		box-shadow: 0 0 0 3px var(--cms-control-glow);
+		box-shadow: 0 0 0 1px var(--theme-accent);
 	}
 
 	/* The error text under the field says what is wrong; the edge only tints. */
 	.cms-control[aria-invalid="true"],
 	.cms-field[data-invalid] > .cms-tags {
-		border-color: color-mix(in srgb, var(--theme-destructive) 70%, transparent);
+		border-color: var(--theme-destructive);
 	}
 
 	.cms-control[aria-invalid="true"]:focus-visible,
 	.cms-field[data-invalid] > .cms-tags:focus-within {
 		border-color: var(--theme-destructive);
-		box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-destructive) 18%, transparent);
+		box-shadow: 0 0 0 1px var(--theme-destructive);
 	}
 
 	.cms-textarea {
@@ -261,7 +259,9 @@
 
 	.cms-switch:focus-visible .cms-switch-track,
 	.cms-checkbox:focus-visible .cms-checkbox-box {
-		box-shadow: var(--cms-ring);
+		box-shadow:
+			0 0 0 2px var(--theme-surface-solid),
+			0 0 0 4px var(--theme-accent);
 	}
 
 	@media (hover: hover) and (pointer: fine) {
@@ -273,7 +273,6 @@
 				[aria-invalid="true"],
 				.cms-tags:focus-within
 			) {
-			background-color: var(--cms-control-fill-hover);
 			border-color: var(--cms-control-edge-hover);
 		}
 
@@ -292,7 +291,7 @@
 		--cms-dur-base: 240ms;
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
-		--cms-ring: 0 0 0 3px color-mix(in srgb, var(--theme-accent) 62%, transparent);
+		--cms-ring: 0 0 0 2px var(--theme-accent);
 		min-width: min(var(--anchor-width), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);
@@ -468,7 +467,7 @@
 		min-width: 0;
 		max-width: 100%;
 		border-radius: 12px;
-		background: var(--cms-control-fill);
+		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
 		padding: 3px;
 	}
 
