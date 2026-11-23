@@ -997,7 +997,7 @@
 	/* Editor groups lay title beside fields on wide screens, wherever they sit
 	   on the page (tabs, wrappers), but not inside a collection's detail pane. */
 	@media (min-width: 76rem) {
-		.cms-editor .cms-editor-group:not(.cms-collection *) {
+		.cms-editor .cms-editor-group:not(.cms-collection-detail *) {
 			grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
 			align-items: start;
 			gap: clamp(1.5rem, 3vw, 2.5rem);
