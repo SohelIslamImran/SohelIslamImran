@@ -63,12 +63,28 @@ export function findProjectBySlug(
 	return linkableProjects(projects).find((project) => projectSlug(project) === wanted);
 }
 
-/** Previous and next projects in index order, wrapping at the ends. */
+/**
+ * The linkable projects a reader is stepping through: one group when they came
+ * from a filtered /work view and the project belongs to it, otherwise all work.
+ */
+export function projectsInGroup(
+	projects: readonly ProjectContent[],
+	slug: string,
+	group: WorkGroup = "all",
+): ProjectContent[] {
+	const list = linkableProjects(projects);
+	if (group === "all") return list;
+	const scoped = list.filter((project) => project.category === group);
+	return scoped.some((project) => projectSlug(project) === slug.trim()) ? scoped : list;
+}
+
+/** Previous and next projects in index order within the group, wrapping at the ends. */
 export function adjacentProjects(
 	projects: readonly ProjectContent[],
 	slug: string,
+	group: WorkGroup = "all",
 ): { previous?: ProjectContent; next?: ProjectContent } {
-	const list = linkableProjects(projects);
+	const list = projectsInGroup(projects, slug, group);
 	const index = list.findIndex((project) => projectSlug(project) === slug.trim());
 	if (index === -1 || list.length < 2) return {};
 	return {

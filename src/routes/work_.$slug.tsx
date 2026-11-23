@@ -20,11 +20,11 @@ import {
 	adjacentProjects,
 	categoryLabels,
 	findProjectBySlug,
-	linkableProjects,
 	nonEmpty,
 	projectLinks,
 	projectMetrics,
 	projectSlug,
+	projectsInGroup,
 	workGroupLabels,
 	type WorkGroup,
 } from "../components/work/project-utils";
@@ -81,8 +81,8 @@ function ProjectPage() {
 	return <ProjectDetail key={projectSlug(project)} project={project} projects={content.projects} />;
 }
 
-function position(projects: ProjectContent[], project: ProjectContent) {
-	const list = linkableProjects(projects);
+function position(projects: ProjectContent[], project: ProjectContent, group: WorkGroup) {
+	const list = projectsInGroup(projects, projectSlug(project), group);
 	const index = list.findIndex((item) => projectSlug(item) === projectSlug(project));
 	return index === -1
 		? null
@@ -149,8 +149,8 @@ function ProjectDetail({
 	const metrics = projectMetrics(project);
 	const tags = nonEmpty(project.tags);
 	const links = projectLinks(project);
-	const { previous, next } = adjacentProjects(projects, projectSlug(project));
-	const place = position(projects, project);
+	const { previous, next } = adjacentProjects(projects, projectSlug(project), origin);
+	const place = position(projects, project, origin);
 	const facts = [
 		{ label: "My role", value: project.role.trim() },
 		{ label: "Period", value: project.year.trim() },
@@ -344,7 +344,7 @@ function ProjectDetail({
 				className="mt-[clamp(40px,6vw,80px)] grid min-w-0 gap-4 border-t border-line pt-10 md:pt-14"
 			>
 				{next ? (
-					<NextProject project={next} place={position(projects, next)} origin={origin} />
+					<NextProject project={next} place={position(projects, next, origin)} origin={origin} />
 				) : null}
 				<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
 					{previous && previous !== next ? (

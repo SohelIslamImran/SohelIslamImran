@@ -24,7 +24,7 @@ export const STORY_LAYERS = [
 	{ id: "api", label: "API" },
 	{ id: "data", label: "Data" },
 	{ id: "access", label: "Access" },
-	{ id: "cloud", label: "Cloud" },
+	{ id: "cloud", label: "Infrastructure" },
 	{ id: "release", label: "Release" },
 ] as const;
 

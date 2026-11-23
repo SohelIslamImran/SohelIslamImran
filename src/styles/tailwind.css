@@ -2589,7 +2589,10 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 .sd-chapter:first-child {
 	padding-top: 0;
 }
+/* Chapters take focus only from a hash or a rail link (tabIndex -1), never
+   from Tab, so a hairline marks the place without boxing the whole chapter. */
 .sd-chapter:focus-visible {
+	outline: 1px solid var(--theme-accent-line);
 	outline-offset: 8px;
 	border-radius: 28px;
 }

@@ -54,7 +54,7 @@ const LAYERS: readonly {
 	},
 	{
 		id: "infrastructure",
-		label: "Cloud",
+		label: "Infrastructure",
 		meaning: "Where the code runs.",
 		pattern: /\b(?:aws|terraform|docker|cloudflare|workers)\b/i,
 	},

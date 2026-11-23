@@ -219,7 +219,7 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 						<div
 							key={branch.id}
 							className={cn(
-								"grid min-w-0 content-start gap-3 rounded-inner border bg-surface-solid p-3.5 transition-[translate] duration-220 ease-trace sm:p-4",
+								"grid min-w-0 content-start gap-3 rounded-inner border bg-surface-solid p-3.5 transition-[translate,border-color,box-shadow] duration-220 ease-trace sm:p-4",
 								matches(branch.id)
 									? "border-primary-line shadow-[0_0_0_4px_var(--theme-accent-soft)] motion-safe:-translate-y-0.5"
 									: "border-line",

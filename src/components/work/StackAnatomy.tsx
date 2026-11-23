@@ -325,7 +325,9 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 								href={`#${prefix}-highlight-${firstMatch}`}
 								className="inline-flex min-h-11 w-fit items-center text-small font-medium text-primary-text underline underline-offset-4"
 							>
-								See all {selectedLayer.notes.length} matching highlights
+								{selectedLayer.notes.length === 2
+									? "See both matching highlights"
+									: `See all ${selectedLayer.notes.length} matching highlights`}
 							</a>
 						) : null}
 					</div>
@@ -380,7 +382,7 @@ export function HighlightList({
 						id={prefix ? `${prefix}-highlight-${index}` : undefined}
 						tabIndex={prefix ? -1 : undefined}
 						className={cn(
-							"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[translate] duration-220 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
+							"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[background-color,border-color,translate] duration-220 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
 							lit && "border-primary-line motion-safe:translate-x-1",
 							dim && "border-transparent bg-transparent",
 						)}

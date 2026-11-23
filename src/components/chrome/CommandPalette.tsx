@@ -427,7 +427,14 @@ function CommandPalette({
 					id: `link-${link.id}`,
 					group: "Profiles" as const,
 					label: link.label.trim() || link.platform.trim() || href,
-					detail: link.handle?.trim() || hostOf(href),
+					// Name the platform when the label doesn't, so same-named profiles differ.
+					detail:
+						[
+							link.platform.trim() !== link.label.trim() ? link.platform.trim() : "",
+							link.handle?.trim() || hostOf(href),
+						]
+							.filter(Boolean)
+							.join(" · ") || undefined,
 					keywords: [link.platform, link.kind ?? "", link.description ?? ""].join(" "),
 					icon: mail ? <MailIcon /> : <ExternalIcon />,
 					external: !internal && !mail,

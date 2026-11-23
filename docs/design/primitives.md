@@ -226,7 +226,11 @@ never remounts existing digits, and rolls with `translate` over `420ms`
 so nothing animates on mount and no-JS reads correctly. Screen readers hear the
 number once (`sr-only`), and reduced motion snaps instantly. Negative,
 fractional, or non-finite values render as plain text. Exported from
-`@/components/motion` and `@/components/motion/RollingNumber`.
+`@/components/motion` and `@/components/motion/RollingNumber`. Each strip is
+absolutely positioned inside its column, with an invisible `0` strut holding
+the baseline: an `overflow: clip` inline-block otherwise takes its baseline
+from the strip's last line (the `9`), which drops the digits below the text
+around them.
 
 **TraceLine** — the signature line + glowing dot. Props: `orientation`
 (`vertical` default | `horizontal`), `progress` (number or `MotionValue` 0–1;
