@@ -31,7 +31,7 @@ function Story() {
 	const content = Route.useLoaderData();
 	const chapters = useMemo(() => chapterItems(content.story.chapters), [content.story.chapters]);
 	const chapterIds = useMemo(() => chapters.map((chapter) => chapter.domId), [chapters]);
-	const [activeId, setActiveId] = useStoryProgress(chapterIds);
+	const [activeId, setActiveId, progress] = useStoryProgress(chapterIds);
 	const writing = content.writing.find((item) => item.href === "/story");
 	const quote = content.story.quote.trim();
 
@@ -65,9 +65,19 @@ function Story() {
 
 				{chapters.length > 0 ? (
 					<div className="sd-layout">
-						<DepthBar chapters={chapters} activeId={activeId} onSelect={setActiveId} />
+						<DepthBar
+							chapters={chapters}
+							progress={progress}
+							activeId={activeId}
+							onSelect={setActiveId}
+						/>
 						<div className="sd-rail-col">
-							<DepthRail chapters={chapters} activeId={activeId} onSelect={setActiveId} />
+							<DepthRail
+								chapters={chapters}
+								progress={progress}
+								activeId={activeId}
+								onSelect={setActiveId}
+							/>
 						</div>
 						<div className="sd-chapters">
 							{chapters.map((chapter) => (

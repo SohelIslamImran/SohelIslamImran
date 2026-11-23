@@ -17,6 +17,7 @@ import {
 	projectSlug,
 	statusTone,
 	type ProjectLink,
+	type WorkGroup,
 } from "./work/project-utils";
 
 export type ProjectCardVariant = "feature" | "split" | "compact";
@@ -157,6 +158,7 @@ export function ProjectCard({
 	headingLevel = 3,
 	reverse = false,
 	layerCaption,
+	fromGroup,
 	className,
 }: {
 	project: ProjectContent;
@@ -166,6 +168,7 @@ export function ProjectCard({
 	reverse?: boolean;
 	/** What follows the layer ticks. Defaults to names, or a count on compact cards. */
 	layerCaption?: LayerStripCaption;
+	fromGroup?: WorkGroup;
 	className?: string;
 }) {
 	const Heading = `h${headingLevel}` as "h3";
@@ -271,6 +274,7 @@ export function ProjectCard({
 						<Link
 							to="/work/$slug"
 							params={{ slug }}
+							state={fromGroup === undefined ? undefined : { workGroup: fromGroup }}
 							data-card-link=""
 							viewTransition
 							onClick={primeWorkTransition}

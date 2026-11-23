@@ -2226,12 +2226,22 @@ html[data-theme-resolved="dark"] .sd-plate-front img {
 	}
 }
 .sd-rail-list {
+	position: relative;
+	margin-top: 20px;
+	padding: 16px 0 0 16px;
+	border-top: 1px solid var(--theme-line);
+}
+.sd-rail-list > [data-slot="trace-line"] {
+	position: absolute;
+	top: 16px;
+	height: auto;
+}
+.sd-rail-list > ol {
 	display: grid;
 	gap: 2px;
-	margin: 20px 0 0;
-	padding: 16px 0 0;
+	margin: 0;
+	padding: 0;
 	list-style: none;
-	border-top: 1px solid var(--theme-line);
 }
 /* The one layer stack: six isometric planes, a trace dot falling through them. */
 .sd-depth {
@@ -2496,7 +2506,6 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	height: 2px;
 	background: var(--theme-accent);
 	transform-origin: left center;
-	transition: transform 300ms var(--theme-ease);
 }
 .sd-bar-list {
 	max-height: 46vh;

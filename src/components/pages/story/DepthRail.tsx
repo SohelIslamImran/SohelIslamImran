@@ -1,8 +1,13 @@
+import { motion, useMotionValue, useTransform, type MotionValue } from "motion/react";
+import { RollingNumber } from "@/components/motion/RollingNumber";
+import { TraceLine } from "@/components/motion";
+import type { ReadingProgress } from "./reading-progress";
 import { useEffect, useRef, type CSSProperties } from "react";
 import { useStuckAttribute } from "../../motion/hooks";
 import { layerEntries, layerLabels, STORY_LAYERS, type StoryChapterItem } from "./chapters";
 
 interface RailProps {
+	progress: MotionValue<ReadingProgress>;
 	chapters: StoryChapterItem[];
 	activeId: string;
 	onSelect: (id: string) => void;
@@ -139,48 +144,68 @@ function LayerStack({
  * top carries the depth; the chapter list under it is plain anchor links
  * (they work without JavaScript).
  */
-export function DepthRail({ chapters, activeId, onSelect }: RailProps) {
+export function DepthRail({ chapters, activeId, onSelect, progress }: RailProps) {
 	const { index: activeIndex, chapter: active } = activeChapter(chapters, activeId);
-	const progress = chapters.length > 0 ? ((activeIndex + 1) / chapters.length) * 100 : 0;
+	const listRef = useRef<HTMLOListElement>(null);
+	const geometry = useMotionValue({ height: 0, rows: [] as { top: number; height: number }[] });
+	const trace = useTransform(() => {
+		const { index, fraction } = progress.get();
+		const { height, rows } = geometry.get();
+		const row = rows[index];
+		return height && row ? (row.top + fraction * row.height) / height : 0;
+	});
+
+	useEffect(() => {
+		const list = listRef.current;
+		if (!list) return;
+		const measure = () => {
+			const { top, height } = list.getBoundingClientRect();
+			const rows = Array.from(list.children, (row) => {
+				const box = row.getBoundingClientRect();
+				return { top: box.top - top, height: box.height };
+			});
+			geometry.set({ height, rows });
+		};
+		measure();
+		if (typeof ResizeObserver === "undefined") return;
+		const observer = new ResizeObserver(measure);
+		observer.observe(list);
+		for (const row of list.children) observer.observe(row);
+		return () => observer.disconnect();
+	}, [chapters, geometry]);
 
 	return (
 		<nav className="sd-rail" aria-label="Story chapters">
 			<div className="sd-rail-head">
 				<span className="mono-label text-muted-foreground">Depth</span>
 				<span className="sd-rail-count" data-numeric="">
-					<span className="text-foreground">{active?.numeral ?? "00"}</span>
+					<RollingNumber value={activeIndex} pad={2} className="text-foreground" />
 					<span className="text-muted-foreground"> / {chapters.at(-1)?.numeral ?? "00"}</span>
 				</span>
 			</div>
 			<LayerStack chapters={chapters} active={active} onSelect={onSelect} />
-			<ol className="sd-rail-list">
-				{chapters.map((chapter, index) => {
-					const isActive = chapter.domId === activeId;
-					return (
-						<li key={chapter.domId}>
-							<a
-								href={`#${chapter.domId}`}
-								onClick={() => onSelect(chapter.domId)}
-								aria-current={isActive ? "location" : undefined}
-								data-passed={index < activeIndex ? "" : undefined}
-								className="sd-rail-link"
-							>
-								<span className="sd-rail-num">{chapter.numeral}</span>
-								<span className="sd-rail-title min-w-0">{chapter.label}</span>
-							</a>
-						</li>
-					);
-				})}
-			</ol>
-			<div
-				role="progressbar"
-				aria-label="Story progress"
-				aria-valuemin={0}
-				aria-valuemax={100}
-				aria-valuenow={Math.round(progress)}
-				aria-valuetext={`Chapter ${activeIndex + 1} of ${chapters.length}`}
-				className="sr-only"
-			/>
+			<div className="sd-rail-list">
+				<TraceLine progress={trace} className="pointer-events-none absolute inset-y-0 left-0" />
+				<ol ref={listRef}>
+					{chapters.map((chapter, index) => {
+						const isActive = chapter.domId === activeId;
+						return (
+							<li key={chapter.domId}>
+								<a
+									href={`#${chapter.domId}`}
+									onClick={() => onSelect(chapter.domId)}
+									aria-current={isActive ? "location" : undefined}
+									data-passed={index < activeIndex ? "" : undefined}
+									className="sd-rail-link"
+								>
+									<span className="sd-rail-num">{chapter.numeral}</span>
+									<span className="sd-rail-title min-w-0">{chapter.label}</span>
+								</a>
+							</li>
+						);
+					})}
+				</ol>
+			</div>
 		</nav>
 	);
 }
@@ -209,11 +234,13 @@ function MiniStack({ chapter }: { chapter: StoryChapterItem | undefined }) {
  * reading progress; opening it lists every chapter and every layer. A native
  * <details>, so it works without JS.
  */
-export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
+export function DepthBar({ chapters, activeId, onSelect, progress }: RailProps) {
 	const navRef = useRef<HTMLElement>(null);
 	const detailsRef = useRef<HTMLDetailsElement>(null);
 	const { index: activeIndex, chapter: active } = activeChapter(chapters, activeId);
-	const fill = chapters.length > 0 ? (activeIndex + 1) / chapters.length : 0;
+	const fill = useTransform(progress, ({ index, fraction }) =>
+		chapters.length ? (index + fraction) / chapters.length : 0,
+	);
 	const entries = layerEntries(chapters);
 	const close = () => {
 		if (detailsRef.current) detailsRef.current.open = false;
@@ -242,7 +269,7 @@ export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
 			>
 				<summary className="sd-bar-summary">
 					<span className="sd-bar-num" data-numeric="">
-						{active?.numeral ?? "00"}
+						<RollingNumber value={activeIndex} pad={2} />
 					</span>
 					<span className="min-w-0 flex-1 truncate text-[15px] font-medium">
 						<span className="sr-only">
@@ -266,11 +293,7 @@ export function DepthBar({ chapters, activeId, onSelect }: RailProps) {
 							strokeLinejoin="round"
 						/>
 					</svg>
-					<span
-						aria-hidden="true"
-						className="sd-bar-fill"
-						style={{ transform: `scaleX(${fill})` }}
-					/>
+					<motion.span aria-hidden="true" className="sd-bar-fill" style={{ scaleX: fill }} />
 				</summary>
 				<ol className="sd-bar-list">
 					{chapters.map((chapter) => (

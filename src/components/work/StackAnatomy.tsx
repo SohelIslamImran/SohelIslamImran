@@ -2,7 +2,7 @@ import { useId, useRef, useState, type CSSProperties } from "react";
 import type { ProjectContent } from "../../types/content";
 import { cn } from "../../lib/utils";
 import { LayerMini } from "../home/hero/LayerMinis";
-import { useOffscreenPause } from "../motion";
+import { useOffscreenPause, usePointerFine } from "../motion";
 import { markTerms, projectAnatomy, type AnatomyLayer, type AnatomyLayerId } from "./anatomy";
 import { nonEmpty } from "./project-utils";
 
@@ -42,7 +42,11 @@ const anatomyStyles = String.raw`
 [data-anatomy-stack] .mi-write { fill: currentColor; opacity: 0.4; transform-box: fill-box; transform-origin: 0 50%; }
 [data-anatomy-stack] .mi-ver { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.02em; text-anchor: middle; fill: currentColor; }
 [data-anatomy-stack] .mi-cursor { transform: translate(64px, 84px); }
+@keyframes anatomy-excerpt-in {
+	from { opacity: 0; translate: 0 8px; }
+}
 @media (prefers-reduced-motion: no-preference) {
+	.anatomy-excerpt { animation: anatomy-excerpt-in 220ms var(--theme-ease); }
 	[data-anatomy-stack] .anatomy-pulse { animation: an-pulse 3.2s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
 	[data-anatomy-stack] [data-active] .mi-cursor { animation: an-mi-cursor 2.8s var(--an-ease) infinite; }
 	[data-anatomy-stack] [data-active] .mi-press { animation: an-mi-press 2.8s var(--an-ease) infinite; }
@@ -156,16 +160,18 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 	const highlights = nonEmpty(project.highlights);
 	const [selected, setSelected] = useState<AnatomyLayerId | null>(null);
 	const [preview, setPreview] = useState<AnatomyLayerId | null>(null);
+	const pointerFine = usePointerFine();
 	const active = preview ?? selected;
+	const selectedLayer = anatomy.layers.find((layer) => layer.id === selected);
+	const firstMatch = selectedLayer?.notes[0];
 	const activeLayer = anatomy.layers.find((layer) => layer.id === active) ?? null;
 	const stackRef = useRef<HTMLDivElement>(null);
 	useOffscreenPause(stackRef);
-	const captionId = `anatomy-caption-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+	const prefix = `anatomy-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+	const captionId = `${prefix}-caption`;
 	const touchedIndexes = anatomy.layers.flatMap((layer, index) => (layer.touched ? [index] : []));
 	const first = touchedIndexes[0] ?? 0;
 	const last = touchedIndexes[touchedIndexes.length - 1] ?? 0;
-	const nameOf = (id: AnatomyLayerId) =>
-		anatomy.layers.find((layer) => layer.id === id)?.name ?? id;
 
 	let caption: string;
 	const lead = activeLayer
@@ -253,11 +259,17 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 								<button
 									type="button"
 									aria-pressed={isSelected}
-									onClick={() => setSelected(isSelected ? null : layer.id)}
+									onClick={() => {
+										setSelected(isSelected ? null : layer.id);
+										setPreview(null);
+									}}
 									onPointerEnter={(event) => {
-										if (event.pointerType === "mouse") setPreview(layer.id);
+										if (pointerFine && event.pointerType === "mouse") setPreview(layer.id);
 									}}
 									onPointerLeave={() => setPreview(null)}
+									onFocus={(event) => {
+										if (event.currentTarget.matches(":focus-visible")) setPreview(layer.id);
+									}}
 									onBlur={() => setPreview(null)}
 									className={cn(
 										"pressable group/layer flex h-full w-full min-w-0 items-center gap-3 rounded-inner-sm px-2.5 text-left sm:px-3",
@@ -297,72 +309,111 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 				</ul>
 			</div>
 
-			<p
-				id={captionId}
-				aria-live="polite"
-				className="m-0 min-h-[3.1em] max-w-prose rounded-inner border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] px-4 py-3 text-small text-ink-soft"
-			>
-				{caption}
-			</p>
-
-			{highlights.length > 0 ? (
-				<ol aria-label="Highlights" className="m-0 grid min-w-0 list-none gap-3 p-0">
-					{highlights.map((highlight, index) => {
-						const layers = anatomy.highlightLayers[index] ?? [];
-						const lit = !!active && layers.includes(active);
-						const dim = !!active && !lit;
-						return (
-							<li
-								key={highlight}
-								className={cn(
-									"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[background-color,border-color,translate] duration-300 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
-									lit && "border-primary-line motion-safe:translate-x-1",
-									dim && "border-transparent bg-transparent",
-								)}
+			<div className="grid gap-3">
+				<p
+					id={captionId}
+					aria-live="polite"
+					className="m-0 min-h-[3.1em] max-w-prose rounded-inner border border-line bg-[color-mix(in_srgb,var(--theme-ink)_2.5%,transparent)] px-4 py-3 text-small text-ink-soft"
+				>
+					{caption}
+				</p>
+				{selectedLayer && firstMatch !== undefined ? (
+					<div
+						key={selectedLayer.id}
+						className="anatomy-excerpt grid gap-1 rounded-inner border border-primary-line bg-surface-solid p-4"
+					>
+						<HighlightText text={highlights[firstMatch]} layer={selectedLayer.id} />
+						{selectedLayer.notes.length > 1 ? (
+							<a
+								href={`#${prefix}-highlight-${firstMatch}`}
+								className="inline-flex min-h-11 w-fit items-center text-small font-medium text-primary-text underline underline-offset-4"
 							>
-								<span
-									aria-hidden="true"
-									className={cn(
-										"mono-label grid size-8 place-items-center rounded-full border border-line-strong text-foreground sm:size-10",
-										lit && "border-primary-line text-primary-text",
-									)}
-								>
-									{String(index + 1).padStart(2, "0")}
-								</span>
-								<div className="grid min-w-0 gap-2.5">
-									<p className="m-0 max-w-prose text-[16px] leading-[1.55] text-ink-soft sm:text-body">
-										{markTerms(highlight, lit ? active : null).map((part, partIndex) =>
-											part.marked ? (
-												<mark
-													key={partIndex}
-													className="rounded-[3px] bg-transparent text-foreground underline decoration-primary-line decoration-2 underline-offset-[3px]"
-												>
-													{part.text}
-												</mark>
-											) : (
-												<span key={partIndex}>{part.text}</span>
-											),
-										)}
-									</p>
-									{layers.length > 0 ? (
-										<p className="mono-label m-0 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-muted-foreground">
-											<span className="sr-only">Layers: </span>
-											{layers.map((id, layerIndex) => (
-												<span key={id} className={cn(active === id && "text-primary-text")}>
-													{nameOf(id)}
-													{layerIndex < layers.length - 1 ? (
-														<span aria-hidden="true"> ·</span>
-													) : null}
-												</span>
-											))}
-										</p>
-									) : null}
-								</div>
-							</li>
-						);
-					})}
-				</ol>
-			) : null}
+								See all {selectedLayer.notes.length} matching highlights
+							</a>
+						) : null}
+					</div>
+				) : null}
+			</div>
+
+			<HighlightList highlights={highlights} anatomy={anatomy} active={active} prefix={prefix} />
 		</div>
+	);
+}
+
+function HighlightText({ text, layer }: { text: string; layer: AnatomyLayerId | null }) {
+	return (
+		<p className="m-0 max-w-prose text-[16px] leading-[1.55] text-ink-soft sm:text-body">
+			{markTerms(text, layer).map((part, index) =>
+				part.marked ? (
+					<mark
+						key={index}
+						className="rounded-[3px] bg-transparent text-foreground underline decoration-primary-line decoration-2 underline-offset-[3px]"
+					>
+						{part.text}
+					</mark>
+				) : (
+					part.text
+				),
+			)}
+		</p>
+	);
+}
+
+export function HighlightList({
+	highlights,
+	anatomy,
+	active = null,
+	prefix,
+}: {
+	highlights: string[];
+	anatomy?: ReturnType<typeof projectAnatomy>;
+	active?: AnatomyLayerId | null;
+	prefix?: string;
+}) {
+	if (highlights.length === 0) return null;
+	return (
+		<ol aria-label="Highlights" className="m-0 grid min-w-0 list-none gap-3 p-0">
+			{highlights.map((highlight, index) => {
+				const layers = anatomy?.highlightLayers[index] ?? [];
+				const lit = !!active && layers.includes(active);
+				const dim = !!active && !lit;
+				return (
+					<li
+						key={index}
+						id={prefix ? `${prefix}-highlight-${index}` : undefined}
+						tabIndex={prefix ? -1 : undefined}
+						className={cn(
+							"relative grid min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-inner border border-line bg-surface-solid p-4 transition-[translate] duration-220 ease-trace sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
+							lit && "border-primary-line motion-safe:translate-x-1",
+							dim && "border-transparent bg-transparent",
+						)}
+					>
+						<span
+							aria-hidden="true"
+							className={cn(
+								"mono-label grid size-8 place-items-center rounded-full border border-line-strong text-foreground sm:size-10",
+								lit && "border-primary-line text-primary-text",
+							)}
+						>
+							{String(index + 1).padStart(2, "0")}
+						</span>
+						<div className="grid min-w-0 gap-2.5">
+							<HighlightText text={highlight} layer={lit ? active : null} />
+							{layers.length > 0 ? (
+								<p className="mono-label m-0 flex min-w-0 flex-wrap gap-x-2 gap-y-1 text-muted-foreground">
+									<span className="sr-only">Layers: </span>
+									{layers.map((id, layerIndex) => (
+										<span key={id} className={cn(active === id && "text-primary-text")}>
+											{anatomy?.layers.find((layer) => layer.id === id)?.name ?? id}
+											{layerIndex < layers.length - 1 ? <span aria-hidden="true"> ·</span> : null}
+										</span>
+									))}
+								</p>
+							) : null}
+						</div>
+					</li>
+				);
+			})}
+		</ol>
 	);
 }
