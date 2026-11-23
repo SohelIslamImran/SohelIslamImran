@@ -778,9 +778,25 @@
 			overflow-x: clip;
 		}
 
-		.cms-collection > .cms-collection-list,
+		.cms-collection > .cms-collection-list-pane,
 		.cms-collection > .cms-collection-detail {
 			grid-area: pane;
+		}
+
+		.cms-collection-list-pane {
+			position: relative;
+		}
+
+		.cms-collection-list-pane > .cms-collection-settings {
+			margin-bottom: 1rem;
+		}
+
+		.cms-collection-back {
+			top: calc(var(--cms-topbar-height) + env(safe-area-inset-top));
+		}
+
+		.cms-collection-detail > [data-detail-pane] :focus {
+			scroll-margin-top: 3.5rem;
 		}
 
 		.cms-collection[data-pane] {
@@ -795,7 +811,7 @@
 
 	@media (prefers-reduced-motion: reduce) {
 		/* Zero the slide on the first reduced-motion frame, even before Motion stops it. */
-		.cms-collection[data-pane] > :is(.cms-collection-detail, .cms-collection-list) {
+		.cms-collection[data-pane] > :is(.cms-collection-detail, .cms-collection-list-pane) {
 			transform: none !important;
 		}
 	}
@@ -807,6 +823,14 @@
 
 		.cms-collection-empty {
 			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.cms-collection-list-pane {
+			display: contents;
+		}
+
+		.cms-collection-settings {
+			grid-column: 1 / -1;
 		}
 
 		.cms-collection-list {

@@ -18,7 +18,13 @@ import { useChangedAt, useDraftStore, useDraftSelector, useIssuesAt } from "../d
 import { useSettledIssues } from "../draft/use-settled-issues";
 import { childPath, duplicateIds } from "../draft/paths";
 import { REDUCED, SPRING_MOVE } from "../motion";
-import { FieldMessage, sentenceCase, useActionPointer } from "../fields/FieldFrame";
+import {
+	editorFocusBottom,
+	editorFocusTop,
+	FieldMessage,
+	sentenceCase,
+	useActionPointer,
+} from "../fields/FieldFrame";
 import { SortableRow } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
 import { controlClass, fieldId, focusField } from "../fields";
@@ -94,6 +100,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const headingId = useId();
 	const list = useRef<HTMLOListElement>(null);
 	const listPanel = useRef<HTMLElement>(null);
+	const listPane = useRef<HTMLDivElement>(null);
 	const detailPanel = useRef<HTMLDivElement>(null);
 	const search = useRef<HTMLInputElement>(null);
 	const pointer = useActionPointer();
@@ -133,14 +140,16 @@ export function CollectionEditor<T extends { id: string }>({
 	const shownIndex = rowIds.indexOf(shownId ?? "");
 	const shownPath = childPath(path, shownIndex);
 	const detailOpen = item !== undefined || pane === "leaving";
+	const listHidden = item !== undefined && pane === "idle";
 
 	// Start sliding in once the router has committed the item, so the pane
 	// arrives with its content.
 	const paneReady = pane === "leaving" || (pane === "entering" && shownId !== undefined);
 	const paneMoving = useRef(false);
+	const settledScroll = useRef<number | undefined>(undefined);
 	useLayoutEffect(() => {
 		const detail = detailPanel.current;
-		const panel = listPanel.current;
+		const panel = listPane.current;
 		if (!paneReady || !detail || !panel) return;
 		const entering = pane === "entering";
 		// A reversal (Back during the entry, or opening during Back) carries on
@@ -148,9 +157,19 @@ export function CollectionEditor<T extends { id: string }>({
 		const resume = paneMoving.current;
 		paneMoving.current = true;
 		const from = <V,>(rest: V, to: V): V | [V, V] => (resume ? to : [rest, to]);
+		// Position the incoming pane at its destination scroll while the
+		// outgoing pane still uses the current scroll. Release the offset
+		// and restore the document scroll together when the slide settles.
 		if (entering && !resume) {
+			const back = detail.querySelector<HTMLElement>(".cms-collection-back button");
+			const top = detail.getBoundingClientRect().top;
+			detail.style.marginTop = `${Math.max(0, (back ? editorFocusTop(back) + 8 : 0) - top)}px`;
 			if (reduced) detail.style.opacity = "0";
 			else detail.style.transform = "translateX(100%)";
+		}
+		if (!entering && !panel.style.top) {
+			const previous = pendingListFocus.current?.previous?.scroll;
+			if (previous !== undefined) panel.style.top = `${window.scrollY - previous}px`;
 		}
 		if (reduced) {
 			detail.style.transform = "";
@@ -181,8 +200,8 @@ export function CollectionEditor<T extends { id: string }>({
 		void Promise.all(controls).then(() => {
 			if (stopped) return;
 			frame = requestAnimationFrame(() => {
-				paneMoving.current = false;
-				clearPaneStyles(detail, panel);
+				const offset = Number.parseFloat(entering ? detail.style.marginTop : panel.style.top);
+				settledScroll.current = window.scrollY - (Number.isFinite(offset) ? offset : 0);
 				setPane("idle");
 			});
 		});
@@ -196,10 +215,18 @@ export function CollectionEditor<T extends { id: string }>({
 	// A slide cut short without a reversal, such as removing the open item.
 	useLayoutEffect(() => {
 		const detail = detailPanel.current;
-		const panel = listPanel.current;
+		const panel = listPane.current;
 		if (pane !== "idle" || !paneMoving.current) return;
 		paneMoving.current = false;
-		if (detail && panel) clearPaneStyles(detail, panel);
+		if (detail && panel) {
+			clearPaneStyles(detail, panel);
+			detail.style.marginTop = "";
+			panel.style.top = "";
+		}
+		if (settledScroll.current !== undefined) {
+			window.scrollTo({ top: settledScroll.current, behavior: "instant" });
+			settledScroll.current = undefined;
+		}
 	}, [pane]);
 
 	const rowButton = useCallback(
@@ -213,16 +240,25 @@ export function CollectionEditor<T extends { id: string }>({
 	// Reserve the space above the list, including any settings or tabs.
 	useLayoutEffect(() => {
 		const panel = listPanel.current;
-		const collection = panel?.parentElement;
+		const collection = panel?.closest<HTMLElement>(".cms-collection");
 		if (narrow || !panel || !collection) return;
 		let offset: number | undefined;
+		const settings = panel.previousElementSibling;
 		const measure = () => {
-			const top = Math.max(0, Math.ceil(collection.getBoundingClientRect().top));
+			const top = Math.max(
+				0,
+				Math.ceil(
+					settings
+						? settings.getBoundingClientRect().bottom + 16
+						: collection.getBoundingClientRect().top,
+				),
+			);
 			if (top === offset) return;
 			offset = top;
 			panel.style.setProperty("--cms-collection-offset", `${top}px`);
 		};
 		const observer = new ResizeObserver(measure);
+		if (settings) observer.observe(settings);
 		for (
 			let node: HTMLElement | null = collection;
 			node && !node.matches(".cms-editor");
@@ -268,7 +304,12 @@ export function CollectionEditor<T extends { id: string }>({
 			: (row ?? search.current ?? document.getElementById(fieldId(path)));
 		target?.focus({ preventScroll: true });
 		if (pending.previous) window.scrollTo({ top: pending.previous.scroll, behavior: "instant" });
-		target?.scrollIntoView({ block: "nearest" });
+		if (target) {
+			const rect = target.getBoundingClientRect();
+			if (rect.top < editorFocusTop(target) || rect.bottom > editorFocusBottom()) {
+				target.scrollIntoView({ block: "nearest", behavior: "instant" });
+			}
+		}
 	}, [detailOpen, path, rowButton]);
 
 	const detailHeadingId = useCallback((id: string) => `${listId}-item-${id}`, [listId]);
@@ -290,18 +331,23 @@ export function CollectionEditor<T extends { id: string }>({
 
 	const open = useCallback(
 		(id: string) => {
+			const returning = pane === "leaving";
 			if (item === undefined || listPosition.current === null)
-				listPosition.current = { scroll: window.scrollY, id };
-			if (narrow && item === undefined) setPane("entering");
-			void select(id, undefined, item !== undefined).then(() =>
+				listPosition.current = {
+					scroll: pendingListFocus.current?.previous?.scroll ?? window.scrollY,
+					id,
+				};
+			pendingListFocus.current = null;
+			if (narrow && (item === undefined || returning)) setPane("entering");
+			void select(id, undefined, item !== undefined || returning).then(() =>
 				focusAfterNavigation(id, () => {
 					const heading = document.getElementById(detailHeadingId(id));
 					heading?.focus({ preventScroll: true });
-					heading?.scrollIntoView({ block: "nearest" });
+					if (!narrow) heading?.scrollIntoView({ block: "nearest" });
 				}),
 			);
 		},
-		[item, narrow, select, focusAfterNavigation, detailHeadingId],
+		[item, pane, narrow, select, focusAfterNavigation, detailHeadingId],
 	);
 
 	function back(focusId = activeId, slide = true, touch = false) {
@@ -398,7 +444,169 @@ export function CollectionEditor<T extends { id: string }>({
 
 	const detailKey = shownId ?? (item !== undefined ? "missing" : "placeholder");
 
-	const collection = (
+	const listContent = (
+		<section
+			ref={listPanel}
+			className="cms-panel cms-collection-list min-w-0 gap-3 p-3"
+			aria-labelledby={headingId}
+			aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
+			data-slot="cms-field"
+			tabIndex={-1}
+		>
+			<header className="flex min-w-0 flex-wrap items-center justify-between gap-2 pl-1">
+				<div className="grid min-w-0">
+					<h2 id={headingId} className="m-0 text-[15px] font-semibold tracking-[-0.01em]">
+						{label}
+					</h2>
+					<p className="m-0 text-xs tabular-nums text-muted-foreground">
+						{length} {length === 1 ? "item" : "items"}
+						{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
+					</p>
+				</div>
+				{length || adding ? addTrigger : null}
+			</header>
+			{adding ? (
+				<form
+					id={`${nameId}-form`}
+					className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
+					onKeyDown={(event) => {
+						if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+						event.preventDefault();
+						event.stopPropagation();
+						closeAddForm();
+					}}
+					onSubmit={(event) => {
+						event.preventDefault();
+						if (!name.trim() || full) return;
+						const rows = store.valueAt(path) as T[];
+						add(rows, create(name.trim(), newRowId(), rows), rows.length);
+					}}
+				>
+					<label htmlFor={nameId} className="text-[13px] font-semibold">
+						{nameLabel}
+					</label>
+					<textarea
+						id={nameId}
+						className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
+						rows={1}
+						required
+						value={name}
+						maxLength={nameLimit}
+						onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
+						onKeyDown={(event) => {
+							if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+							event.preventDefault();
+							event.currentTarget.form?.requestSubmit();
+						}}
+					/>
+					<button
+						type="submit"
+						disabled={!name.trim() || full}
+						className={`${editorButton} cms-editor-primary justify-self-start`}
+					>
+						Create
+					</button>
+				</form>
+			) : null}
+			{length ? (
+				<div className="relative grid gap-1.5">
+					<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+					<label htmlFor={queryId} className="sr-only">
+						Search {label.toLowerCase()}
+					</label>
+					<input
+						ref={search}
+						id={queryId}
+						type="search"
+						placeholder={`Search ${label.toLowerCase()}`}
+						value={query}
+						className={`${controlClass} min-h-10 pl-9`}
+						onChange={(event) => setQuery(event.currentTarget.value)}
+					/>
+				</div>
+			) : null}
+			{orderNote && length > 1 ? (
+				<p className="m-0 px-1 text-[12px] text-muted-foreground">{orderNote}</p>
+			) : null}
+			{filter ? (
+				<p className="m-0 px-1 text-[12px] text-muted-foreground">Clear search to reorder.</p>
+			) : null}
+			<FieldMessage
+				id={`${fieldId(path)}-error`}
+				message={issues.map((issue) => sentenceCase(issue.message)).join(" ")}
+			/>
+			<LayoutGroup id={listId}>
+				<Reorder.Group
+					as="ol"
+					axis="y"
+					values={visible.map((index) => rowKeys[index])}
+					onReorder={(next) => {
+						if (filter || duplicates.size) return;
+						removals.reorder(next);
+					}}
+					layoutScroll
+					ref={list}
+					className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
+				>
+					<AnimatePresence initial={false}>
+						{visible.map((index) => (
+							<MemoCollectionRow
+								key={rowKeys[index]}
+								rowKey={rowKeys[index]}
+								id={rowIds[index]}
+								index={index}
+								path={childPath(path, index)}
+								itemLabel={itemLabel}
+								describe={describe}
+								selected={index === current}
+								reorderable={!filter && length > 1}
+								draggable={!duplicates.size}
+								last={index === length - 1}
+								open={open}
+								move={move}
+							/>
+						))}
+					</AnimatePresence>
+				</Reorder.Group>
+			</LayoutGroup>
+			{!length && !adding ? (
+				<div className="cms-collection-empty-state cms-enter">
+					<span className="cms-collection-empty-icon" aria-hidden="true">
+						<StackIcon className="size-5" />
+					</span>
+					<p className="m-0 text-[14px] font-semibold text-foreground">
+						No {label.toLowerCase()} yet
+					</p>
+					{addTrigger}
+				</div>
+			) : length && visible.length === 0 ? (
+				<div className="cms-editor-empty">
+					<p className="m-0 font-medium text-foreground">No matches</p>
+					<p className="m-0 mt-1">Try another search.</p>
+				</div>
+			) : null}
+			{removals.restoresLive ? null : (
+				<RevertList
+					path={path}
+					label={label}
+					onReverted={(touch) => {
+						removals.clear();
+						const rows = store.valueAt(path) as T[];
+						if (item !== undefined && !rows.some((row) => row.id === item)) {
+							back(rows[0]?.id, false, touch);
+						} else {
+							requestAnimationFrame(() =>
+								(touch ? listPanel.current : (rowButton(item) ?? search.current))?.focus({
+									preventScroll: true,
+								}),
+							);
+						}
+					}}
+				/>
+			)}
+		</section>
+	);
+	return (
 		<div
 			className={cn(
 				"cms-collection grid min-w-0 items-start gap-4",
@@ -406,180 +614,36 @@ export function CollectionEditor<T extends { id: string }>({
 			)}
 			data-pane={pane === "idle" ? undefined : pane}
 		>
-			<section
-				ref={listPanel}
-				className={cn(
-					"cms-panel cms-collection-list min-w-0 gap-3 p-3",
-					item !== undefined && pane === "idle" && "max-lg:hidden",
-				)}
-				inert={narrow && detailOpen}
-				aria-labelledby={headingId}
-				aria-describedby={issues.length ? `${fieldId(path)}-error` : undefined}
-				data-slot="cms-field"
-				tabIndex={-1}
+			<div
+				ref={listPane}
+				className={cn("cms-collection-list-pane min-w-0", listHidden && "max-lg:hidden")}
+				inert={narrow && detailOpen && pane !== "leaving"}
 			>
-				<header className="flex min-w-0 flex-wrap items-center justify-between gap-2 pl-1">
-					<div className="grid min-w-0">
-						<h2 id={headingId} className="m-0 text-[15px] font-semibold tracking-[-0.01em]">
-							{label}
-						</h2>
-						<p className="m-0 text-xs tabular-nums text-muted-foreground">
-							{length} {length === 1 ? "item" : "items"}
-							{full ? ` · limit ${MAX_COLLECTION_ITEMS}` : ""}
-						</p>
-					</div>
-					{length || adding ? addTrigger : null}
-				</header>
-				{adding ? (
-					<form
-						id={`${nameId}-form`}
-						className="cms-enter grid min-w-0 gap-2 rounded-[12px] bg-muted p-2"
-						onKeyDown={(event) => {
-							if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
-							event.preventDefault();
-							event.stopPropagation();
-							closeAddForm();
-						}}
-						onSubmit={(event) => {
-							event.preventDefault();
-							if (!name.trim() || full) return;
-							const rows = store.valueAt(path) as T[];
-							add(rows, create(name.trim(), newRowId(), rows), rows.length);
-						}}
-					>
-						<label htmlFor={nameId} className="text-[13px] font-semibold">
-							{nameLabel}
-						</label>
-						<textarea
-							id={nameId}
-							className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
-							rows={1}
-							required
-							value={name}
-							maxLength={nameLimit}
-							onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
-							onKeyDown={(event) => {
-								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-								event.preventDefault();
-								event.currentTarget.form?.requestSubmit();
-							}}
-						/>
-						<button
-							type="submit"
-							disabled={!name.trim() || full}
-							className={`${editorButton} cms-editor-primary justify-self-start`}
-						>
-							Create
-						</button>
-					</form>
-				) : null}
-				{length ? (
-					<div className="relative grid gap-1.5">
-						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
-						<label htmlFor={queryId} className="sr-only">
-							Search {label.toLowerCase()}
-						</label>
-						<input
-							ref={search}
-							id={queryId}
-							type="search"
-							placeholder={`Search ${label.toLowerCase()}`}
-							value={query}
-							className={`${controlClass} min-h-10 pl-9`}
-							onChange={(event) => setQuery(event.currentTarget.value)}
-						/>
-					</div>
-				) : null}
-				{orderNote && length > 1 ? (
-					<p className="m-0 px-1 text-[12px] text-muted-foreground">{orderNote}</p>
-				) : null}
-				{filter ? (
-					<p className="m-0 px-1 text-[12px] text-muted-foreground">Clear search to reorder.</p>
-				) : null}
-				<FieldMessage
-					id={`${fieldId(path)}-error`}
-					message={issues.map((issue) => sentenceCase(issue.message)).join(" ")}
-				/>
-				<LayoutGroup id={listId}>
-					<Reorder.Group
-						as="ol"
-						axis="y"
-						values={visible.map((index) => rowKeys[index])}
-						onReorder={(next) => {
-							if (filter || duplicates.size) return;
-							removals.reorder(next);
-						}}
-						layoutScroll
-						ref={list}
-						className="cms-collection-rows m-0 grid min-w-0 content-start list-none gap-1 p-1 empty:hidden"
-					>
-						<AnimatePresence initial={false}>
-							{visible.map((index) => (
-								<MemoCollectionRow
-									key={rowKeys[index]}
-									rowKey={rowKeys[index]}
-									id={rowIds[index]}
-									index={index}
-									path={childPath(path, index)}
-									itemLabel={itemLabel}
-									describe={describe}
-									selected={index === current}
-									reorderable={!filter && length > 1}
-									draggable={!duplicates.size}
-									last={index === length - 1}
-									open={open}
-									move={move}
-								/>
-							))}
-						</AnimatePresence>
-					</Reorder.Group>
-				</LayoutGroup>
-				{!length && !adding ? (
-					<div className="cms-collection-empty-state cms-enter">
-						<span className="cms-collection-empty-icon" aria-hidden="true">
-							<StackIcon className="size-5" />
-						</span>
-						<p className="m-0 text-[14px] font-semibold text-foreground">
-							No {label.toLowerCase()} yet
-						</p>
-						{addTrigger}
-					</div>
-				) : length && visible.length === 0 ? (
-					<div className="cms-editor-empty">
-						<p className="m-0 font-medium text-foreground">No matches</p>
-						<p className="m-0 mt-1">Try another search.</p>
-					</div>
-				) : null}
-				{removals.restoresLive ? null : (
-					<RevertList
-						path={path}
-						label={label}
-						onReverted={(touch) => {
-							removals.clear();
-							const rows = store.valueAt(path) as T[];
-							if (item !== undefined && !rows.some((row) => row.id === item)) {
-								back(rows[0]?.id, false, touch);
-							} else {
-								requestAnimationFrame(() =>
-									(touch ? listPanel.current : (rowButton(item) ?? search.current))?.focus({
-										preventScroll: true,
-									}),
-								);
-							}
-						}}
-					/>
-				)}
-			</section>
+				{listSettings ? <div className="cms-collection-settings">{listSettings}</div> : null}
+				{listContent}
+			</div>
 			<div
 				ref={detailPanel}
 				inert={pane === "leaving"}
+				onFocusCapture={(event) => {
+					const target = event.target;
+					if (!narrow) return;
+					requestAnimationFrame(() => {
+						if (document.activeElement !== target || target.closest("[inert]")) return;
+						const rect = target.getBoundingClientRect();
+						const top = editorFocusTop(target) + 4;
+						const bottom = editorFocusBottom() - 4;
+						const scroll = rect.top < top ? rect.top - top : Math.max(0, rect.bottom - bottom);
+						if (scroll) window.scrollBy({ top: scroll, behavior: "instant" });
+					});
+				}}
 				className={cn(
 					"cms-collection-detail relative grid min-w-0 content-start gap-3",
 					!detailOpen && "max-lg:hidden",
 				)}
 			>
 				{detailOpen ? (
-					<div className="cms-collection-back sticky top-14 z-10 rounded-[10px] bg-background py-1">
+					<div className="cms-collection-back sticky z-10 rounded-[10px] bg-background py-1">
 						<button
 							type="button"
 							className={editorButton}
@@ -613,7 +677,7 @@ export function CollectionEditor<T extends { id: string }>({
 										<span
 											id={detailHeadingId(shownId)}
 											tabIndex={-1}
-											className="block scroll-mt-32 wrap-anywhere rounded-sm"
+											className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
 										>
 											<CollectionTitle path={shownPath} describe={describe} itemLabel={itemLabel} />
 										</span>
@@ -694,14 +758,6 @@ export function CollectionEditor<T extends { id: string }>({
 				/>
 			))}
 		</div>
-	);
-	return listSettings ? (
-		<>
-			<div className={detailOpen ? "max-lg:hidden" : undefined}>{listSettings}</div>
-			{collection}
-		</>
-	) : (
-		collection
 	);
 }
 
