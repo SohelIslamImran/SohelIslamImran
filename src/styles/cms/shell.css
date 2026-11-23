@@ -1,0 +1,828 @@
+/* CMS workspace chrome and transitions. See docs/cms/DESIGN.md. */
+
+@layer components {
+	.cms-overlay {
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ring:
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+	}
+
+	.cms-command-secondary {
+		color: color-mix(in srgb, var(--theme-muted) 64%, var(--theme-ink));
+	}
+
+	.cms-layout {
+		--cms-rail-width: 232px;
+		--cms-rail-collapsed: 56px;
+		--cms-content-max: 69rem;
+		min-height: 100dvh;
+	}
+
+	html:has(.cms-layout) {
+		overflow-anchor: none;
+		/* The session notice strip adds its height while it is open. */
+		scroll-padding-top: calc(56px + env(safe-area-inset-top) + var(--cms-topbar-extra, 0px));
+	}
+
+	.cms-root :is(.cms-chrome-control, .cms-action):focus-visible,
+	.cms-overlay :is(a, button):focus-visible {
+		outline: 2px solid var(--theme-accent);
+		outline-offset: 2px;
+		box-shadow: var(--cms-ring);
+	}
+
+	/* Programmatic focus targets after a command-bar jump (the destination
+	   heading) or a Publish hand-off (the release gate) are not controls. */
+	#main-content h1[tabindex="-1"]:focus,
+	#release-gate[tabindex="-1"]:focus {
+		outline: none;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-chrome-control:not(.cms-status-pill):hover {
+			background-color: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+			color: var(--theme-ink);
+		}
+	}
+
+	.cms-rail-desktop {
+		background: color-mix(in srgb, var(--theme-surface-solid) 58%, var(--theme-paper));
+		box-shadow: inset -1px 0 var(--theme-line);
+	}
+
+	.cms-rail-scroll {
+		overflow-x: clip;
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--theme-ink) 18%, transparent) transparent;
+		overscroll-behavior: contain;
+	}
+
+	.cms-rail-footer {
+		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
+	}
+
+	.cms-rail-heading {
+		height: 20px;
+		margin: 12px 0 0;
+	}
+
+	.cms-rail-footer > .cms-rail-heading {
+		margin-top: 5px;
+	}
+
+	.cms-rail-link {
+		min-width: 0;
+	}
+
+	.cms-rail-link:focus-visible,
+	.cms-rail-pulse:focus-visible {
+		outline-offset: -2px;
+	}
+
+	.cms-rail-link[aria-current="page"],
+	.cms-rail-link[data-pending] {
+		color: var(--theme-ink);
+		font-weight: 550;
+	}
+
+	.cms-rail-pill,
+	.cms-command-highlight,
+	.cms-rail-region:not([data-indicator]) .cms-rail-link[aria-current="page"] {
+		background: color-mix(in srgb, var(--theme-accent) 11%, var(--theme-surface-solid));
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 17%, var(--theme-line));
+	}
+
+	/* The pill sits under the link: keep hover from tinting over it. */
+	@media (hover: hover) and (pointer: fine) {
+		.cms-rail-region[data-indicator] .cms-rail-link[aria-current="page"]:hover {
+			background-color: transparent;
+		}
+	}
+
+	.cms-rail-link[data-pending]::before {
+		position: absolute;
+		inset: 0;
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--theme-accent) 8%, transparent);
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--theme-accent) 26%, transparent);
+		content: "";
+	}
+
+	.cms-rail-link[data-pending] .cms-rail-icon,
+	.cms-rail-link[aria-current="page"] .cms-rail-icon {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-rail-link[data-pending] .cms-rail-icon::after {
+		position: absolute;
+		inset: -4px;
+		border: 1px dashed currentColor;
+		border-radius: 7px;
+		content: "";
+	}
+
+	.cms-rail-icon {
+		color: var(--theme-ink-soft);
+	}
+
+	.cms-rail-pulse {
+		margin-inline: 1px;
+		padding-inline: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
+	}
+
+	.cms-rail-desktop .cms-rail-pulse[data-empty] {
+		background: color-mix(in srgb, var(--theme-ink) calc(4% * var(--rail-opacity)), transparent);
+	}
+
+	.cms-count-tick {
+		display: inline-block;
+		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	.cms-live-pulse {
+		animation: cms-live-breathe 2.4s ease-out infinite;
+	}
+
+	.cms-rail-tooltip {
+		display: none;
+	}
+
+	.cms-rail-tooltip-popup {
+		box-shadow: var(--shadow-raised);
+		transform-origin: var(--transform-origin);
+		transition:
+			opacity 120ms ease-out,
+			scale 120ms ease-out;
+	}
+
+	.cms-rail-tooltip-popup:is([data-starting-style], [data-ending-style]) {
+		opacity: 0;
+		scale: 0.96;
+	}
+
+	.cms-drawer-popup .cms-rail-badge-dot {
+		display: none;
+	}
+
+	/* The arrow keeps a target-sized column so it lines up with the icon rail. */
+	.cms-rail-live {
+		--rail-footer-target: 36px;
+		grid-template-columns: var(--rail-footer-target) minmax(0, 1fr);
+		padding-inline-end: 12px;
+	}
+
+	@media (pointer: coarse) {
+		.cms-rail-live {
+			--rail-footer-target: 44px;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.cms-rail-tooltip[data-show-expanded] {
+			display: block;
+		}
+
+		.cms-layout {
+			transition: none;
+		}
+
+		.cms-layout[data-rail-ready] {
+			transition: grid-template-columns var(--cms-dur-slow) var(--cms-ease-out);
+		}
+
+		html[data-cms-rail="expanded"] .cms-layout:not([data-rail-ready]) {
+			grid-template-columns: var(--cms-rail-width) minmax(0, 1fr);
+		}
+
+		html[data-cms-rail="collapsed"] .cms-layout:not([data-rail-ready]) {
+			grid-template-columns: var(--cms-rail-collapsed) minmax(0, 1fr);
+		}
+
+		.cms-rail-desktop {
+			--rail-opacity: 1;
+			--rail-offset: 0px;
+			--rail-badge-opacity: 0;
+			container: cms-rail / inline-size;
+			overflow: clip;
+		}
+
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full
+			) {
+			display: block;
+			opacity: var(--rail-opacity);
+			white-space: nowrap;
+			translate: var(--rail-offset) 0;
+			transition:
+				opacity var(--cms-dur-fast) var(--cms-ease-out),
+				translate var(--cms-dur-base) var(--cms-ease-out);
+		}
+
+		.cms-rail-desktop .cms-rail-brand {
+			display: flex;
+			pointer-events: none;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-heading {
+			display: block;
+		}
+
+		.cms-rail-heading > span,
+		.cms-rail-toggle-expanded {
+			opacity: var(--rail-opacity);
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-rail-heading::after {
+			position: absolute;
+			inset: 50% 50% auto auto;
+			width: 16px;
+			border-top: 1px solid var(--theme-line-strong);
+			opacity: var(--rail-badge-opacity);
+			translate: 50% 0;
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+			content: "";
+		}
+
+		.cms-rail-toggle-collapsed {
+			opacity: var(--rail-badge-opacity);
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-badge-dot {
+			display: block;
+			opacity: var(--rail-badge-opacity);
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-top-row {
+			display: flex;
+			flex-direction: row;
+			justify-content: flex-start;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-header {
+			padding-inline: 8px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-link {
+			justify-content: flex-start;
+			padding-inline: 12px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-pulse {
+			justify-content: flex-start;
+			padding-inline: 14px;
+		}
+
+		/* Keep the same two rows at both widths so the pinned links stay put. */
+		.cms-rail-desktop .cms-rail-footer-row {
+			--rail-footer-target: 36px;
+			grid-template-columns: minmax(0, 1fr);
+			gap: 6px;
+			padding-inline: 2px;
+		}
+
+		.cms-rail-desktop .cms-rail-live {
+			justify-self: start;
+			inline-size: var(--rail-footer-target);
+			padding-inline: 0;
+		}
+
+		.cms-rail-desktop .cms-rail-toggle {
+			right: clamp(4px, calc(50cqi - 24px), 6px);
+		}
+
+		.cms-rail-desktop .cms-rail-brand {
+			max-width: calc(100% - 48px);
+			overflow: clip;
+		}
+
+		:is(
+				.cms-layout[data-rail="collapsed"],
+				html[data-cms-rail="collapsed"] .cms-layout:not([data-rail-ready])
+			)
+			.cms-rail-desktop {
+			--rail-opacity: 0;
+			--rail-offset: -4px;
+			--rail-badge-opacity: 1;
+		}
+
+		body:has(.cms-layout[data-rail="collapsed"]) .cms-rail-tooltip {
+			display: block;
+		}
+	}
+	/* Reveal the live-site label when the full link fits. */
+	@container cms-rail (min-width: 128px) {
+		.cms-rail-desktop .cms-rail-live {
+			inline-size: max-content;
+			max-inline-size: 100%;
+			padding-inline-end: 10px;
+		}
+	}
+	@media (1024px <= width < 1280px) {
+		:is(
+				.cms-layout[data-rail="auto"][data-rail-ready],
+				html:not([data-cms-rail="expanded"]) .cms-layout[data-rail="auto"]
+			)
+			.cms-rail-desktop {
+			--rail-opacity: 0;
+			--rail-offset: -4px;
+			--rail-badge-opacity: 1;
+		}
+
+		body:has(.cms-layout[data-rail="auto"]) .cms-rail-tooltip {
+			display: block;
+		}
+	}
+	@media (min-width: 1024px) and (pointer: coarse) {
+		.cms-rail-desktop .cms-rail-footer-row {
+			--rail-footer-target: 44px;
+		}
+
+		.cms-layout[data-rail] .cms-rail-desktop .cms-rail-header {
+			padding-inline: 5px;
+		}
+
+		.cms-rail-desktop .cms-rail-toggle {
+			right: max(0px, calc(29px - 50cqi));
+		}
+	}
+
+	[data-slot="cms-section"] > * {
+		width: 100%;
+		margin-inline: auto;
+	}
+
+	.cms-content-frame,
+	.cms-topbar-inner {
+		max-width: var(--cms-content-max);
+	}
+
+	.cms-topbar {
+		background: var(--theme-paper);
+		backdrop-filter: none;
+		box-shadow: none;
+	}
+
+	.cms-topbar[data-scrolled="true"] {
+		background: color-mix(in srgb, var(--theme-surface-solid) 86%, transparent);
+		backdrop-filter: blur(20px) saturate(155%);
+	}
+
+	.cms-session-banner {
+		border: 1px solid color-mix(in srgb, var(--theme-destructive) 30%, var(--theme-line));
+		background: color-mix(in srgb, var(--theme-destructive) 8%, var(--theme-surface-solid));
+	}
+
+	.cms-pipeline-connector {
+		display: block;
+		width: clamp(10px, 1.65vw, 26px);
+		height: 1px;
+		background: var(--theme-line);
+	}
+
+	@media (max-width: 639px) {
+		.cms-pipeline-connector {
+			width: 10px;
+		}
+		.cms-pipeline {
+			gap: 4px;
+		}
+	}
+
+	.cms-status-pill {
+		--status-fill: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-paper));
+		--status-ink: var(--theme-ink);
+		--status-line: var(--theme-line);
+		flex: none;
+		/* Fixed per breakpoint and sized to the longest label ("Publishing…",
+		   "Draft ahead"), so label changes never move the revision labels. */
+		inline-size: 116px;
+		min-height: 30px;
+		padding-inline: 8px;
+		border: 1px solid var(--status-line);
+		border-radius: 24px;
+		background: var(--status-fill);
+		transition: border-color var(--cms-dur-fast);
+		color: var(--status-ink);
+		font-size: 12px;
+		font-weight: 570;
+		white-space: nowrap;
+	}
+
+	.cms-status-pill[data-stage="synced"] {
+		--status-fill: color-mix(in srgb, var(--theme-success) 9%, var(--theme-surface-solid));
+		--status-ink: color-mix(in srgb, var(--theme-success) 94%, var(--theme-ink));
+		--status-line: color-mix(in srgb, var(--theme-success) 24%, transparent);
+	}
+
+	.cms-status-pill:is([data-stage="ahead"], [data-stage="saving"]) {
+		--status-fill: var(--theme-accent-soft);
+		--status-ink: var(--theme-accent-text);
+		--status-line: var(--theme-accent-line);
+	}
+
+	.cms-status-pill[data-stage="invalid"] {
+		--status-fill: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		--status-ink: var(--theme-destructive);
+		--status-line: color-mix(in srgb, var(--theme-destructive) 30%, transparent);
+	}
+
+	.cms-status-copy {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: 5px;
+		white-space: nowrap;
+		animation: cms-fade 75ms ease-out both;
+	}
+
+	.cms-status-copy > :is(svg, .cms-status-mark) {
+		display: inline-grid;
+		width: 14px;
+		height: 14px;
+		place-items: center;
+		line-height: 1;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-status-pill:hover {
+			border-color: color-mix(in srgb, var(--status-ink) 50%, transparent);
+		}
+	}
+
+	.cms-status-pill[aria-expanded="true"] {
+		border-color: var(--status-ink);
+	}
+
+	@media (max-width: 639px) {
+		.cms-status-pill {
+			inline-size: 112px;
+		}
+	}
+
+	@media (pointer: coarse), (max-width: 1023px) {
+		.cms-status-pill {
+			min-height: 44px;
+		}
+	}
+
+	.cms-action[data-complete="true"] svg {
+		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	[data-slot="cms-mobile-action-bar"] .cms-action {
+		flex: 1;
+	}
+
+	.cms-backdrop {
+		background: rgb(0 0 0 / 0.32);
+	}
+	.dark .cms-backdrop {
+		background: rgb(0 0 0 / 0.56);
+	}
+
+	.cms-modal,
+	.cms-command-popup {
+		--cms-surface-curve: cubic-bezier(0.2, 0.82, 0.24, 1);
+		transition:
+			opacity 160ms ease-out,
+			scale 330ms var(--cms-surface-curve);
+	}
+	@supports (transition-timing-function: linear(0, 1)) {
+		.cms-modal,
+		.cms-command-popup {
+			--cms-surface-curve: linear(0, 0.25 8%, 0.63 20%, 0.87 37%, 0.98 59%, 1);
+		}
+	}
+	.cms-modal {
+		border-color: var(--theme-line);
+		background: var(--theme-surface-solid);
+		box-shadow: var(--shadow-glass);
+	}
+	.cms-modal[data-starting-style],
+	.cms-modal[data-ending-style] {
+		opacity: 0;
+		scale: 0.95;
+	}
+	.cms-command-popup[data-starting-style],
+	.cms-command-popup[data-ending-style] {
+		opacity: 0;
+		scale: 0.91;
+	}
+	.cms-command-search:has(input:focus-visible) {
+		box-shadow: inset 0 -2px color-mix(in srgb, var(--theme-focus) 90%, var(--theme-ink));
+	}
+	.cms-result-enter {
+		animation: cms-fade 140ms ease-out both;
+	}
+	.cms-command-row:focus-visible {
+		outline-offset: -2px;
+	}
+
+	.cms-drawer-popup {
+		touch-action: pan-y;
+		/* Base UI tracks the gesture. A dismissed swipe settles with Motion. */
+		transform: translateX(var(--drawer-swipe-movement-x, 0px));
+		transition:
+			transform 360ms cubic-bezier(0.19, 0.82, 0.26, 1),
+			opacity 150ms ease-out;
+	}
+
+	.cms-drawer-popup[data-swiping],
+	.cms-drawer-scrim[data-swiping] {
+		transition: none;
+	}
+
+	.cms-drawer-popup[data-starting-style],
+	.cms-drawer-popup[data-ending-style] {
+		translate: none;
+		transform: translateX(-100%);
+		opacity: 1;
+	}
+
+	.cms-drawer-scrim {
+		opacity: calc(1 - var(--drawer-swipe-progress, 0));
+	}
+	.cms-drawer-scrim[data-starting-style],
+	.cms-drawer-scrim[data-ending-style] {
+		opacity: 0;
+	}
+
+	.cms-access {
+		background:
+			radial-gradient(
+				ellipse at 50% 24%,
+				color-mix(in srgb, var(--theme-accent) 8%, transparent),
+				transparent 60%
+			),
+			var(--theme-paper);
+	}
+
+	.cms-access-panel {
+		box-shadow: var(--shadow-glass);
+	}
+
+	@media (prefers-reduced-transparency: reduce) {
+		.cms-overlay.cms-glass,
+		.cms-drawer-popup,
+		.cms-topbar[data-scrolled="true"] {
+			background: var(--theme-surface-solid);
+			backdrop-filter: none;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-rail-tooltip-popup:is([data-starting-style], [data-ending-style]) {
+			scale: none;
+		}
+
+		.cms-rail-tooltip-popup {
+			transition-property: opacity;
+			transition-duration: 120ms !important;
+		}
+
+		.cms-layout[data-rail-ready],
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full,
+				.cms-rail-badge-dot
+			) {
+			translate: none;
+			transition: opacity 150ms linear;
+		}
+		.cms-backdrop,
+		.cms-modal,
+		.cms-command-popup,
+		.cms-drawer-popup,
+		:is(.cms-drawer-popup, .cms-drawer-scrim)[data-swiping] {
+			transition: opacity 150ms linear;
+		}
+		.cms-modal[data-starting-style],
+		.cms-modal[data-ending-style],
+		.cms-command-popup[data-starting-style],
+		.cms-command-popup[data-ending-style] {
+			scale: 1;
+		}
+		.cms-drawer-popup,
+		.cms-drawer-popup[data-starting-style],
+		.cms-drawer-popup[data-ending-style] {
+			/* Base UI writes the drag position inline. */
+			transform: none !important;
+		}
+		.cms-drawer-popup,
+		.cms-drawer-scrim,
+		.cms-backdrop,
+		.cms-modal,
+		.cms-command-popup,
+		.cms-layout[data-rail]
+			.cms-rail-desktop
+			:is(
+				.cms-rail-label,
+				.cms-rail-brand,
+				.cms-rail-pulse-text,
+				.cms-rail-footer-label,
+				.cms-rail-badge-full,
+				.cms-rail-badge-dot
+			) {
+			/* Keep the opacity transition through the site's reduced-motion reset. */
+			transition-duration: 150ms !important;
+		}
+		.cms-drawer-scrim:not([data-starting-style], [data-ending-style]) {
+			opacity: 1;
+		}
+		.cms-drawer-popup[data-starting-style],
+		.cms-drawer-popup[data-ending-style] {
+			opacity: 0;
+		}
+		.cms-live-pulse {
+			animation: none;
+		}
+		.cms-count-tick,
+		.cms-action[data-complete="true"] svg {
+			animation-name: cms-fade;
+		}
+		.cms-root .cms-action:active,
+		.cms-overlay [data-slot="button"]:active {
+			scale: 1;
+		}
+	}
+}
+
+@layer utilities {
+	@media (pointer: coarse) {
+		@container cms-rail (max-width: 127px) {
+			.cms-rail-desktop :is(.cms-rail-scroll, .cms-rail-footer) {
+				padding-inline: 6px;
+			}
+
+			.cms-rail-desktop .cms-rail-footer-row {
+				padding-inline: 0;
+			}
+
+			.cms-rail-desktop .cms-rail-link {
+				padding-inline: 14px;
+			}
+
+			.cms-rail-desktop .cms-rail-pulse {
+				padding-inline: 17px;
+			}
+		}
+	}
+
+	/* Denser glass than the shared menu surface: the page's bold h1 sits right
+	   under the issues list and read as a smudge through 72%. */
+	.cms-issues-popover [data-slot="menu-surface"] {
+		background-color: color-mix(in srgb, var(--theme-surface-solid) 90%, transparent);
+	}
+
+	/* One highlight at a time: while the arrow keys drive the active option, a
+	   resting pointer does not tint its row until it moves. */
+	@media (hover: hover) and (pointer: fine) {
+		[data-keyboard-nav] .cms-command-row.cms-chrome-control:hover {
+			background-color: transparent;
+		}
+	}
+
+	.cms-root:has(#main-content #release-gate) .cms-publish-action {
+		display: none;
+	}
+
+	.cms-root:has(#main-content #release-gate) .cms-topbar .cms-publish-action {
+		display: inline-flex;
+		visibility: hidden;
+	}
+
+	.cms-action:is([aria-busy="true"], [data-complete="true"]):is(:disabled, [aria-disabled="true"]) {
+		opacity: 1;
+	}
+
+	.cms-action[data-complete="true"]:is(:disabled, [aria-disabled="true"]) {
+		border-color: color-mix(in srgb, var(--theme-success) 32%, transparent);
+		background: color-mix(in srgb, var(--theme-success) 10%, var(--theme-surface-solid));
+		color: var(--theme-success);
+		box-shadow: none;
+	}
+
+	.cms-publish-action:is(:disabled, [aria-disabled="true"]):not([data-complete], [aria-busy]) {
+		border-color: var(--theme-line-strong);
+		background: var(--theme-surface-raised);
+		color: var(--theme-ink-soft);
+		box-shadow: none;
+	}
+}
+
+@keyframes cms-count-in {
+	from {
+		opacity: 0;
+		translate: 0 3px;
+	}
+}
+
+@keyframes cms-live-breathe {
+	0% {
+		opacity: 0.85;
+		scale: 0.9;
+	}
+	65%,
+	100% {
+		opacity: 0;
+		scale: 1.85;
+	}
+}
+
+/* The router still drives navigation. Exclude the live shell from its route snapshot. */
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) {
+	--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+	view-transition-name: none;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning]) [data-slot="cms-section"] {
+	view-transition-name: cms-section;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])
+	[data-slot="cms-mobile-action-bar"] {
+	view-transition-name: cms-mobile-actions;
+}
+
+html[data-route-vt]:has(.cms-layout):not([data-theme-transitioning])::view-transition {
+	clip-path: inset(
+		calc(max(56px, calc(45px + env(safe-area-inset-top))) + var(--cms-topbar-extra, 0px)) 0 0
+	);
+	pointer-events: none;
+}
+
+::view-transition-group(cms-section),
+::view-transition-group(cms-section-out) {
+	animation: none;
+}
+::view-transition-group(cms-mobile-actions) {
+	z-index: 1;
+	animation: none;
+}
+::view-transition-old(cms-mobile-actions) {
+	animation: none;
+	opacity: 0;
+}
+::view-transition-new(cms-mobile-actions) {
+	animation: none;
+	mix-blend-mode: normal;
+}
+::view-transition-old(cms-section-out) {
+	animation: cms-section-out 100ms ease-out both;
+	pointer-events: none;
+}
+::view-transition-new(cms-section) {
+	animation:
+		cms-section-rise 140ms ease-out 100ms both,
+		cms-fade 140ms var(--cms-ease-out) 100ms both;
+	pointer-events: none;
+}
+/* Entered under a route view transition: the snapshot already rises. */
+[data-slot="cms-section"] .cms-enter[data-cms-vt-enter] {
+	animation: none;
+}
+[data-slot="cms-section"][data-cms-fade] {
+	animation: cms-fade 150ms linear both;
+}
+@supports not (view-transition-name: none) {
+	[data-slot="cms-section"] {
+		animation: cms-enter 240ms var(--cms-ease-out) both;
+	}
+}
+
+/* Reduced motion keeps the short opacity fade (no movement). The site-wide
+   reset shortens every animation to 0.01ms, so this one opts back in. */
+@media (prefers-reduced-motion: reduce) {
+	[data-slot="cms-section"] {
+		animation: cms-fade 150ms linear both;
+		animation-duration: 150ms !important;
+	}
+}
+@keyframes cms-section-out {
+	to {
+		opacity: 0;
+	}
+}
+@keyframes cms-section-rise {
+	from {
+		translate: 0 6px;
+	}
+}

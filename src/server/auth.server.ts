@@ -89,14 +89,16 @@ function accessJwks(teamDomain: string) {
 	return created;
 }
 
-function isLoopbackRequest(request: Request): boolean {
+/** Loopback hosts, including `cms.localhost`, used only by the development exception. */
+export function isLoopbackRequest(request: Request): boolean {
 	try {
 		const hostname = new URL(request.url).hostname.toLowerCase();
 		return (
 			hostname === "localhost" ||
 			hostname.endsWith(".localhost") ||
 			hostname === "127.0.0.1" ||
-			hostname === "::1"
+			hostname === "::1" ||
+			hostname === "[::1]"
 		);
 	} catch {
 		return false;

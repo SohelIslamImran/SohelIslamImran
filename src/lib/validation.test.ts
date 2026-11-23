@@ -3,8 +3,10 @@ import { INITIAL_PORTFOLIO_CONTENT } from "../content/initial";
 import { groupExperienceByCompany } from "./experience";
 import { CONTENT_SCHEMA_VERSION } from "../types/content";
 import {
+	isTimeZone,
 	MAX_COLLECTION_ITEMS,
 	parseStoredContent,
+	serializePortfolioContent,
 	upgradeStoredContent,
 	validatePortfolioContent,
 } from "./validation";
@@ -29,6 +31,105 @@ describe("portfolio content validation", () => {
 		expect(parseStoredContent(JSON.stringify(INITIAL_PORTFOLIO_CONTENT)).schemaVersion).toBe(
 			CONTENT_SCHEMA_VERSION,
 		);
+	});
+
+	it("accepts IANA time zones and rejects anything else on writes", () => {
+		for (const zone of ["Asia/Dhaka", "UTC", "America/Argentina/Buenos_Aires", "Etc/GMT+6"]) {
+			expect(isTimeZone(zone)).toBe(true);
+		}
+		for (const zone of ["Asia/DhakaAsia/To", "Mars/Olympus", "+06:00", "Asia/", " UTC", ""]) {
+			expect(isTimeZone(zone)).toBe(false);
+		}
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.identity.timezone = "Asia/DhakaAsia/To";
+		expect(validatePortfolioContent(draft)).toMatchObject({
+			ok: false,
+			issues: [{ path: "identity.timezone", message: expect.stringContaining("IANA") }],
+		});
+		draft.identity.timezone = "";
+		expect(validatePortfolioContent(draft).ok).toBe(true);
+		draft.identity.timezone = "Asia/DhakaAsia/To";
+		expect(parseStoredContent(JSON.stringify(draft)).identity.timezone).toBe("Asia/DhakaAsia/To");
+	});
+
+	it("requires an absolute HTTPS canonical URL when provided on writes", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		for (const url of [
+			"/work",
+			"#work",
+			"//example.com",
+			"https:example.com",
+			"http://example.com",
+			"https://",
+		]) {
+			draft.site.url = url;
+			expect(validatePortfolioContent(draft), url).toMatchObject({
+				ok: false,
+				issues: [{ path: "site.url", message: "must be an absolute HTTPS URL" }],
+			});
+			expect(() => serializePortfolioContent(draft), url).toThrow();
+		}
+		draft.site.url = "/work";
+		expect(parseStoredContent(JSON.stringify(draft)).site.url).toBe("/work");
+		for (const url of ["", "https://example.com/work"]) {
+			draft.site.url = url;
+			expect(JSON.parse(serializePortfolioContent(draft)).site.url).toBe(url || undefined);
+		}
+		delete draft.site.url;
+		expect(validatePortfolioContent(draft).ok).toBe(true);
+	});
+
+	it("validates collection IDs and project slugs per collection on writes", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.projects[1]!.id = draft.projects[0]!.id;
+		draft.projects[1]!.slug = draft.projects[0]!.slug.toUpperCase();
+		draft.story.chapters.push({ ...draft.story.chapters[0]! });
+		const result = validatePortfolioContent(draft);
+		expect(result).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				{ path: "projects[1].id", message: "must be unique" },
+				{ path: "projects[1].slug", message: "must be unique" },
+				{ path: "projects[1].slug", message: expect.stringContaining("lowercase") },
+				{
+					path: `story.chapters[${draft.story.chapters.length - 1}].id`,
+					message: "must be unique",
+				},
+			]),
+		});
+		expect(parseStoredContent(JSON.stringify(draft)).projects[1]?.slug).toBe(
+			draft.projects[1]?.slug,
+		);
+	});
+
+	it("rejects overlong chapter, paragraph, and media ID lists and reads legacy chapters safely", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		draft.story.chapters = Array.from({ length: 31 }, (_, i) => ({
+			...draft.story.chapters[0]!,
+			id: `chapter-${i}`,
+		}));
+		expect(parseStoredContent(JSON.stringify(draft)).story.chapters).toHaveLength(31);
+		draft.story.chapters[0]!.paragraphs = Array.from({ length: 21 }, () => "Paragraph");
+		draft.travel.entries = [
+			{
+				id: "trip",
+				place: "Example",
+				region: "",
+				season: "",
+				summary: "",
+				reflection: "",
+				visibility: "public",
+				mediaIds: Array.from({ length: 31 }, (_, i) => `asset-${i}`),
+			},
+		];
+		expect(validatePortfolioContent(draft)).toMatchObject({
+			ok: false,
+			issues: expect.arrayContaining([
+				{ path: "story.chapters", message: "must contain no more than 30 items" },
+				{ path: "story.chapters[0].paragraphs", message: "must contain no more than 20 items" },
+				{ path: "travel.entries[0].mediaIds", message: "must contain no more than 30 items" },
+			]),
+		});
 	});
 
 	it("upgrades only exact legacy schema versions 1 and 2", () => {

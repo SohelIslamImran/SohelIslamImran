@@ -1,0 +1,102 @@
+/**
+ * Deep links from the CMS into the Cloudflare dashboard.
+ *
+ * The dashboard refuses to render inside a frame (`X-Frame-Options:
+ * SAMEORIGIN`), so the CMS links out instead. Links use the dashboard's
+ * `?to=/:account/...` form, which resolves the signed-in account, so no
+ * account ID is stored in the app.
+ */
+
+/** The Worker `name` in `wrangler.jsonc`. */
+export const CLOUDFLARE_WORKER_NAME = "portfolio";
+
+const DASHBOARD = "https://dash.cloudflare.com/?to=/:account";
+const WORKER_PATH = `/workers/services/view/${CLOUDFLARE_WORKER_NAME}/production`;
+
+export type CloudflareLinkId = "worker" | "deployments" | "logs" | "database" | "access" | "domain";
+
+export interface CloudflareLink {
+	id: CloudflareLinkId;
+	label: string;
+	detail: string;
+	keywords: string;
+	href: string;
+}
+
+function dashboardUrl(path: string): string {
+	return `${DASHBOARD}${path}`;
+}
+
+/** The Worker overview: the dashboard entry point the CMS opens by default. */
+export const CLOUDFLARE_DASHBOARD_URL = dashboardUrl(WORKER_PATH);
+
+/**
+ * The zone that serves the public site, from its origin (`www.` dropped), or
+ * null for a local origin such as `127.0.0.1` or `localhost`.
+ */
+export function cloudflareZone(publicOrigin: string): string | null {
+	const host = new URL(publicOrigin).hostname.replace(/^www\./u, "");
+	const local = !host.includes(".") || /^[\d.]+$/u.test(host) || host.endsWith(".localhost");
+	return local ? null : host;
+}
+
+export function cloudflareLinks(publicOrigin: string): CloudflareLink[] {
+	const zone = cloudflareZone(publicOrigin);
+	return [
+		{
+			id: "worker",
+			label: "Worker overview",
+			detail: "Requests, errors, and CPU time",
+			keywords: "worker metrics requests errors cpu overview",
+			href: CLOUDFLARE_DASHBOARD_URL,
+		},
+		{
+			id: "deployments",
+			label: "Deployments",
+			detail: "Builds from main, versions, and rollbacks",
+			keywords: "deployments builds versions rollback ci",
+			href: dashboardUrl(`${WORKER_PATH}/deployments`),
+		},
+		{
+			id: "logs",
+			label: "Logs",
+			detail: "Worker logs and exceptions",
+			keywords: "logs observability errors exceptions events tail",
+			href: dashboardUrl(`${WORKER_PATH}/observability`),
+		},
+		{
+			id: "database",
+			label: "D1 database",
+			detail: "Console, tables, and Time Travel restores",
+			keywords: "d1 database sql console tables time travel backup restore",
+			href: dashboardUrl("/workers/d1"),
+		},
+		{
+			id: "access",
+			label: "Access",
+			detail: "Who can sign in to this CMS",
+			keywords: "access zero trust sign in login policy owner",
+			href: dashboardUrl("/one/access-controls/apps"),
+		},
+		{
+			id: "domain",
+			label: zone ?? "Domains",
+			detail: zone ? "DNS, caching, and security for the domain" : "Every domain on the account",
+			keywords: "domain zone dns cache security ssl waf",
+			href: dashboardUrl(zone ? `/${zone}` : "/domains/overview"),
+		},
+	];
+}
+
+/** The live Worker version, from the version metadata binding. */
+export interface CmsBuildInfo {
+	id: string;
+	tag: string;
+	/** ISO timestamp of when the version was created; empty when unknown. */
+	timestamp: string;
+}
+
+/** Versions are shown by the same 8-character prefix the dashboard uses. */
+export function shortVersionId(id: string): string {
+	return id.slice(0, 8);
+}

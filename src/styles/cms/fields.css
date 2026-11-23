@@ -1,0 +1,1042 @@
+/* Field controls and section editors. See docs/cms/DESIGN.md. */
+
+@layer components {
+	.cms-editor {
+		display: grid;
+		gap: clamp(1.25rem, 3vw, 2rem);
+		min-width: 0;
+		max-width: 69rem;
+	}
+
+	.cms-editor-group {
+		border-color: color-mix(in srgb, var(--theme-line) 72%, transparent);
+	}
+
+	.cms-control {
+		border: 1px solid var(--theme-control-border, var(--theme-line));
+		border-radius: var(--cms-radius-control, 10px);
+		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		color: var(--theme-ink);
+		box-shadow: inset 0 1px 1px var(--theme-shadow-soft);
+		/* Only button-like controls use scale for press feedback. */
+		transition:
+			background-color var(--cms-dur-fast) var(--cms-ease-out),
+			border-color var(--cms-dur-fast) var(--cms-ease-out),
+			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
+			color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-control.cms-press {
+		transition-property: background-color, border-color, box-shadow, color, scale;
+	}
+
+	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
+	.cms-control::placeholder,
+	.cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 99%, var(--theme-surface-solid));
+		opacity: 1;
+	}
+
+	html[data-theme-resolved="dark"] .cms-control::placeholder,
+	html[data-theme-resolved="dark"] .cms-control input::placeholder {
+		color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-surface-solid));
+	}
+
+	.cms-control:disabled,
+	.cms-control[data-disabled] {
+		opacity: 0.56;
+		cursor: default;
+	}
+
+	.cms-control:focus-visible,
+	.cms-control[data-popup-open],
+	.cms-control.cms-tags:focus-within {
+		outline: none;
+		border-color: var(--theme-focus);
+		background: var(--theme-surface-solid);
+		box-shadow: var(--cms-ring);
+	}
+
+	.cms-control[aria-invalid="true"],
+	.cms-field[data-invalid] > .cms-tags {
+		border-color: var(--theme-destructive);
+		border-style: dashed;
+	}
+
+	.cms-textarea {
+		field-sizing: content;
+		resize: vertical;
+	}
+
+	/* A wrapping single line: no grip, same height as a text input until it wraps. */
+	.cms-textarea-single {
+		resize: none;
+		min-block-size: 40px;
+	}
+
+	.cms-control[type="date"] {
+		inline-size: 100%;
+		max-inline-size: 100%;
+		text-align: start;
+	}
+
+	/*
+	 * Field rhythm: label to control 6px, control to helper 6px, field to
+	 * field 20 to 24px (set by the containing grid's gap).
+	 */
+	.cms-field-head {
+		display: flex;
+		min-width: 0;
+		min-height: 20px;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		column-gap: 8px;
+		margin-bottom: 6px;
+	}
+
+	.cms-field-inline {
+		display: flex;
+		min-width: 0;
+		min-height: 44px;
+		align-items: center;
+		justify-content: space-between;
+		gap: 16px;
+	}
+
+	.cms-field-description {
+		margin: 0;
+		color: var(--theme-muted);
+		font-size: 12.5px;
+		line-height: 1.5;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	/*
+	 * The line under a control. It takes no space while the field is valid
+	 * and has no description; an error opens it with a row transition (the one
+	 * layout transition fields use), and replaces the description in place.
+	 */
+	.cms-field-foot {
+		display: grid;
+		grid-template-rows: 0fr;
+		transition: grid-template-rows var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-foot[data-open] {
+		grid-template-rows: 1fr;
+	}
+
+	.cms-field-foot-clip {
+		min-height: 0;
+		overflow: hidden;
+	}
+
+	.cms-field-foot-stack {
+		display: grid;
+		padding-top: 6px;
+		font-size: 12.5px;
+		line-height: 1.5;
+	}
+
+	.cms-field-foot-stack > * {
+		grid-area: 1 / 1;
+		min-width: 0;
+	}
+
+	.cms-field-foot[data-error] .cms-field-description {
+		opacity: 0;
+		visibility: hidden;
+	}
+
+	.cms-field-message > p {
+		opacity: 0;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-field-message > p[data-open] {
+		opacity: 1;
+	}
+
+	.cms-field-revert {
+		background-color: var(--theme-accent-soft);
+	}
+
+	.cms-field :is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible,
+	.cms-editor :is(button, a, [role="tab"], [data-row-handle]):focus-visible {
+		outline: 1px solid var(--theme-focus);
+		outline-offset: 1px;
+		box-shadow: var(--cms-ring);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-control:hover:not(
+				:disabled,
+				[data-disabled],
+				[data-popup-open],
+				:focus-visible,
+				[aria-invalid="true"],
+				.cms-tags:focus-within
+			) {
+			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
+		}
+
+		.cms-field-revert:hover {
+			background: color-mix(in srgb, var(--theme-accent) 14%, transparent);
+		}
+	}
+
+	.cms-field-popup {
+		/*
+		 * Base UI portals popups to <body>, outside .cms-root where the motion
+		 * tokens live (motion.css), so the popup carries its own copy.
+		 */
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-dur-base: 240ms;
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+		--cms-ring:
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+		min-width: min(var(--anchor-width), var(--available-width));
+		max-width: min(24rem, var(--available-width));
+		transform-origin: var(--transform-origin);
+		border-radius: 14px;
+		border: 1px solid var(--theme-glass-border);
+		background: color-mix(in srgb, var(--theme-surface-solid) 94%, transparent);
+		backdrop-filter: blur(18px);
+		padding: 4px;
+		box-shadow: var(--shadow-float);
+		font-size: 14px;
+		/*
+		 * Base UI keeps popups mounted and sets these attributes on every open
+		 * and close, so the transition runs each time (a mount animation would
+		 * only run once).
+		 */
+		transition:
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+		opacity: 0;
+		scale: 0.96;
+	}
+
+	.cms-field-popup[data-ending-style] {
+		transition-duration: var(--cms-dur-fast);
+		transition-timing-function: var(--cms-ease-in);
+	}
+
+	.cms-popup-list {
+		max-height: min(19rem, var(--available-height));
+		overflow: auto;
+		overscroll-behavior: contain;
+	}
+
+	.cms-choice-option {
+		position: relative;
+		isolation: isolate;
+		display: grid;
+		align-items: center;
+		min-height: 38px;
+		padding: 0.4rem 0.7rem;
+		border-radius: 9px;
+		cursor: default;
+		outline: none;
+		overflow-wrap: anywhere;
+	}
+
+	.cms-select-option {
+		grid-template-columns: 1rem minmax(0, 1fr);
+		gap: 0.45rem;
+	}
+
+	.cms-choice-highlight {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		pointer-events: none;
+		border-radius: inherit;
+		background: var(--theme-accent-soft);
+	}
+
+	/*
+	 * The highlighted option is the keyboard focus in selects and suggestion
+	 * lists. The soft fill alone is too faint, so it carries the focus ring's
+	 * solid accent line inset, and the ring moves with the fill.
+	 */
+	.cms-choice-option > .cms-choice-highlight {
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	.cms-choice-trigger > span:last-child {
+		transition: rotate var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-choice-trigger[data-popup-open] > span:last-child {
+		rotate: 180deg;
+	}
+
+	.cms-switch,
+	.cms-checkbox {
+		display: inline-flex;
+		justify-self: start;
+		align-items: center;
+		justify-content: center;
+		min-height: 32px;
+		min-width: 44px;
+		border-radius: 9px;
+		cursor: pointer;
+	}
+
+	.cms-switch-track {
+		display: flex;
+		align-items: center;
+		width: 46px;
+		height: 26px;
+		padding-inline: 2px;
+		/* The off edge keeps 3:1 against the panel in both themes. */
+		border: 1px solid var(--theme-control-border);
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-switch[data-checked] .cms-switch-track,
+	.cms-checkbox[data-checked] .cms-checkbox-box {
+		background: var(--theme-accent);
+		border-color: transparent;
+	}
+
+	.cms-switch-thumb {
+		display: block;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		background: var(--theme-surface-solid);
+		box-shadow: 0 1px 3px var(--theme-shadow);
+	}
+
+	.cms-checkbox-box {
+		display: grid;
+		place-items: center;
+		width: 20px;
+		height: 20px;
+		border: 1px solid var(--theme-control-border);
+		border-radius: 6px;
+		background: var(--theme-surface-solid);
+		color: var(--color-primary-foreground);
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-checkbox-check {
+		opacity: 0;
+		scale: 0.7;
+		transition:
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-checkbox[data-checked] .cms-checkbox-check {
+		opacity: 1;
+		scale: 1;
+	}
+
+	.cms-segments {
+		gap: 2px;
+		min-width: 0;
+		max-width: 100%;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		padding: 3px;
+	}
+
+	.cms-segment {
+		position: relative;
+		isolation: isolate;
+		display: inline-grid;
+		place-items: center;
+		min-height: 36px;
+		min-width: 0;
+		padding-inline: clamp(0.4rem, 2vw, 0.75rem);
+		border-radius: 9px;
+		font-size: 13px;
+		font-weight: 500;
+		cursor: pointer;
+		color: var(--theme-ink-soft);
+	}
+
+	.cms-segment .cms-choice-highlight {
+		background: var(--theme-surface-solid);
+		box-shadow:
+			inset 0 0 0 1px var(--theme-control-border),
+			0 1px 3px var(--theme-shadow-soft);
+	}
+
+	.cms-segment:is([data-checked], [data-active]) {
+		color: var(--theme-ink);
+		font-weight: 600;
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-segment:hover {
+			color: var(--theme-ink);
+		}
+		.cms-switch:hover .cms-switch-track,
+		.cms-checkbox:hover .cms-checkbox-box {
+			box-shadow: 0 0 0 3px var(--theme-accent-soft);
+		}
+	}
+
+	@media (pointer: coarse) {
+		.cms-choice-option,
+		.cms-switch,
+		.cms-checkbox,
+		.cms-segment {
+			min-height: 44px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-choice-trigger > span:last-child,
+		.cms-checkbox-check {
+			transition-property: opacity;
+		}
+		.cms-field-popup,
+		.cms-field-popup:is([data-starting-style], [data-ending-style]) {
+			scale: 1;
+			transition-property: opacity;
+			/* Keep the fade through the global reduced-motion reset. */
+			transition-duration: 150ms !important;
+		}
+		.cms-field-foot {
+			transition: none;
+		}
+	}
+
+	@media (prefers-reduced-transparency: reduce) {
+		.cms-field-popup {
+			background: var(--theme-surface-solid);
+			backdrop-filter: none;
+		}
+	}
+	.cms-editor-button {
+		display: inline-flex;
+		min-height: 36px;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		border-radius: 9px;
+		padding-inline: 0.75rem;
+		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		color: var(--theme-ink);
+		font-size: 13px;
+		font-weight: 500;
+	}
+
+	.cms-editor-button:disabled {
+		opacity: 0.45;
+	}
+
+	.cms-editor-button.cms-editor-primary {
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
+	}
+
+	.cms-editor-empty {
+		margin: 0;
+		padding: 1rem;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		color: var(--theme-ink-soft);
+		font-size: 13px;
+		line-height: 1.5;
+	}
+
+	.cms-tag-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		min-height: 28px;
+		max-width: 100%;
+		border-radius: 8px;
+		background: var(--theme-accent-soft);
+		padding: 2px 3px 2px 9px;
+		font-size: 12.5px;
+	}
+
+	.cms-sortable-row {
+		position: relative;
+		min-width: 0;
+		isolation: isolate;
+	}
+
+	.cms-sortable-row[data-dragging] {
+		z-index: 2 !important;
+		box-shadow: var(--shadow-float);
+		background: var(--theme-surface-solid);
+	}
+
+	.cms-drag-handle {
+		display: grid;
+		place-items: center;
+		flex-shrink: 0;
+		width: 28px;
+		height: 32px;
+		border-radius: 7px;
+		color: var(--theme-ink-soft);
+		cursor: grab;
+		touch-action: none;
+	}
+
+	.cms-drag-handle:active {
+		cursor: grabbing;
+	}
+
+	.cms-drag-handle span {
+		width: 11px;
+		height: 15px;
+		background: radial-gradient(circle, currentColor 1px, transparent 1.25px) 0 0 / 5px 5px;
+	}
+
+	.cms-repeater-row {
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+	}
+
+	/* Disclosure rows: one line with a chevron that turns as the body opens. */
+	.cms-repeater-summary {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-height: 44px;
+		padding: 0.6rem 0.8rem;
+		border-radius: 12px;
+		font-size: 14px;
+		font-weight: 550;
+		cursor: pointer;
+		list-style: none;
+		overflow-wrap: break-word;
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-repeater-summary::-webkit-details-marker {
+		display: none;
+	}
+
+	.cms-repeater-row .cms-repeater-summary {
+		align-items: flex-start;
+		padding-block: max(0px, calc((44px - 1lh) / 2));
+		padding-inline-end: 48px;
+	}
+
+	.cms-repeater-row .cms-disclosure-chevron {
+		flex-shrink: 0;
+		margin-block-start: max(0px, calc(0.5lh - 7px));
+	}
+
+	.cms-repeater-row[data-handle] .cms-repeater-summary {
+		padding-inline-start: 40px;
+	}
+
+	.cms-repeater-summary:active {
+		background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+	}
+
+	.cms-disclosure-chevron {
+		transition: rotate var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-disclosure[open] > summary .cms-disclosure-chevron {
+		rotate: 90deg;
+	}
+
+	/* Open and close the body smoothly where the browser can size to auto. */
+	.cms-disclosure {
+		interpolate-size: allow-keywords;
+	}
+
+	.cms-disclosure::details-content {
+		block-size: 0;
+		opacity: 0;
+		overflow: clip;
+		transition:
+			block-size var(--cms-dur-base) var(--cms-ease-out),
+			opacity var(--cms-dur-fast) var(--cms-ease-out),
+			content-visibility var(--cms-dur-base) allow-discrete;
+	}
+
+	.cms-disclosure[open]::details-content {
+		block-size: auto;
+		opacity: 1;
+	}
+
+	/* The handle and menu sit over the summary row, outside the <summary>. */
+	.cms-repeater-tool {
+		position: absolute;
+		top: 0;
+		display: flex;
+		align-items: center;
+		height: 44px;
+	}
+
+	.cms-repeater-handle {
+		inset-inline-start: 6px;
+	}
+
+	.cms-repeater-menu {
+		inset-inline-end: 6px;
+	}
+
+	.cms-row-tool {
+		display: inline-grid;
+		place-items: center;
+		flex: none;
+		width: 32px;
+		height: 32px;
+		border-radius: 999px;
+		color: var(--theme-muted);
+	}
+
+	.cms-row-tool[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-ink) 8%, transparent);
+		color: var(--theme-ink);
+	}
+
+	.cms-menu-popup {
+		min-width: 11rem;
+		padding: 5px;
+	}
+
+	.cms-menu-item {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		min-height: 34px;
+		padding-inline: 10px;
+		border-radius: 8px;
+		color: var(--theme-ink);
+		font-size: 13.5px;
+		cursor: default;
+		outline: none;
+		transition: background-color var(--cms-dur-press) var(--cms-ease-out);
+	}
+
+	.cms-menu-item svg {
+		color: var(--theme-muted);
+	}
+
+	.cms-menu-item[data-highlighted] {
+		background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	.cms-menu-item[data-destructive],
+	.cms-menu-item[data-destructive] svg {
+		color: var(--theme-destructive);
+	}
+
+	.cms-menu-item[data-destructive][data-highlighted] {
+		background: color-mix(in srgb, var(--theme-destructive) 10%, transparent);
+		box-shadow: inset 0 0 0 2px var(--theme-destructive);
+	}
+
+	.cms-menu-item[data-disabled] {
+		opacity: 0.4;
+	}
+
+	.cms-menu-separator {
+		height: 1px;
+		margin: 4px 6px;
+		background: var(--theme-line);
+	}
+
+	/* String list rows: handle | control | menu. */
+	.cms-string-row {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: start;
+		border-radius: 11px;
+	}
+
+	.cms-string-handle {
+		display: flex;
+		align-items: center;
+		min-height: 40px;
+		margin-inline-end: 4px;
+	}
+
+	.cms-string-menu {
+		grid-column: 3;
+		margin-top: 4px;
+		margin-inline-start: 4px;
+	}
+
+	.cms-tag-chip[data-armed] {
+		background: var(--theme-accent);
+		color: var(--theme-accent-foreground);
+		box-shadow: 0 0 0 2px var(--theme-accent-soft);
+	}
+
+	.cms-tag-chip[data-armed] button {
+		color: inherit;
+	}
+
+	.cms-collection-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		border-radius: 10px;
+	}
+
+	.cms-collection-row-button {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		flex: 1;
+		min-width: 0;
+		min-height: 44px;
+		border-radius: inherit;
+		padding: 0.55rem 0.65rem;
+		font: inherit;
+		text-align: start;
+	}
+
+	.cms-collection-row[data-selected] .cms-collection-row-button {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-collection-subtitle {
+		color: var(--theme-muted);
+	}
+
+	.cms-collection-row[data-selected] .cms-collection-subtitle {
+		color: var(--theme-ink-soft);
+	}
+
+	.cms-collection-row .cms-choice-highlight {
+		box-shadow: inset 2px 0 var(--theme-accent);
+	}
+
+	/* Rows open a detail pane; touch screens show the disclosure chevron. */
+	.cms-collection-chevron {
+		display: none;
+	}
+
+	@media (pointer: coarse) {
+		.cms-collection-chevron {
+			display: block;
+		}
+	}
+
+	.cms-collection-list {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.cms-undo-stack {
+		inset-inline: 0;
+		max-width: 100%;
+	}
+
+	/* The list’s error line keeps its live region but adds no gap while closed. */
+	.cms-collection-list > .cms-field-foot:not([data-open]) {
+		margin-top: -12px;
+	}
+
+	.cms-collection-empty-state {
+		display: grid;
+		justify-items: center;
+		gap: 12px;
+		padding: 2rem 1rem 1.75rem;
+		text-align: center;
+	}
+
+	.cms-collection-empty-icon {
+		display: grid;
+		place-items: center;
+		width: 44px;
+		height: 44px;
+		border-radius: 14px;
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
+	}
+
+	.cms-editor-button.cms-editor-destructive {
+		color: var(--theme-destructive);
+	}
+
+	/*
+	 * Phones show one pane at a time in a single grid cell, so the detail
+	 * pane can slide over the list (and back) while both are painted.
+	 */
+	@media (max-width: 63.999rem) {
+		.cms-collection {
+			grid-template-areas: "pane";
+			overflow-x: clip;
+		}
+
+		.cms-collection > .cms-collection-list-pane,
+		.cms-collection > .cms-collection-detail {
+			grid-area: pane;
+		}
+
+		.cms-collection-list-pane {
+			position: relative;
+		}
+
+		.cms-collection-list-pane > .cms-collection-settings {
+			margin-bottom: 1rem;
+		}
+
+		.cms-collection-back {
+			top: calc(var(--cms-topbar-height) + env(safe-area-inset-top));
+		}
+
+		.cms-collection-detail > [data-detail-pane] :focus {
+			scroll-margin-top: 3.5rem;
+		}
+
+		.cms-collection[data-pane] {
+			overflow-anchor: none;
+		}
+
+		.cms-collection[data-pane] > .cms-collection-detail {
+			align-self: stretch;
+			background: var(--theme-paper);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		/* Zero the slide on the first reduced-motion frame, even before Motion stops it. */
+		.cms-collection[data-pane] > :is(.cms-collection-detail, .cms-collection-list-pane) {
+			transform: none !important;
+		}
+	}
+
+	@media (min-width: 64rem) {
+		.cms-collection {
+			grid-template-columns: minmax(244px, 278px) minmax(0, 1fr);
+		}
+
+		.cms-collection-empty {
+			grid-template-columns: minmax(0, 1fr);
+		}
+
+		.cms-collection-list-pane {
+			display: contents;
+		}
+
+		.cms-collection-settings {
+			grid-column: 1 / -1;
+		}
+
+		.cms-collection-list {
+			position: sticky;
+			top: calc(var(--cms-topbar-height) + 0.75rem);
+			max-height: max(
+				12rem,
+				calc(
+					100svh - max(var(--cms-collection-offset, 12rem), var(--cms-topbar-height) + 0.75rem) -
+						1.5rem
+				)
+			);
+		}
+
+		.cms-collection-rows {
+			flex: 1;
+			min-height: 0;
+			overflow: auto;
+			scrollbar-width: thin;
+		}
+
+		.cms-collection-back {
+			display: none;
+		}
+
+		/* Dock Undo over the detail column, clear of the sticky list's footer. */
+		.cms-root:has(.cms-collection) .cms-undo-stack {
+			inset-inline: auto 1rem;
+			max-width: 24rem;
+		}
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-editor-button:hover:not(:disabled),
+		.cms-drag-handle:hover,
+		.cms-repeater-summary:hover {
+			background: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		}
+
+		.cms-row-tool:hover {
+			background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+			color: var(--theme-ink);
+		}
+
+		.cms-editor-button.cms-editor-primary:hover:not(:disabled) {
+			background: color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid));
+		}
+
+		.cms-collection-row:not([data-selected]):hover {
+			background: color-mix(in srgb, var(--theme-ink) 5%, transparent);
+		}
+
+		.cms-editor-button.cms-editor-destructive:hover:not(:disabled) {
+			background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		}
+
+		.cms-issue-link:hover {
+			background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+		}
+
+		.cms-collection-row > :is(.cms-collection-row-actions, .cms-drag-handle) {
+			opacity: 0;
+			transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		}
+
+		.cms-collection-row:is(:hover, :focus-within, [data-dragging], :has([data-popup-open]))
+			> :is(.cms-collection-row-actions, .cms-drag-handle) {
+			opacity: 1;
+		}
+	}
+
+	@media (pointer: coarse) {
+		.cms-editor-button,
+		.cms-repeater-summary,
+		.cms-menu-item {
+			min-height: 44px;
+		}
+
+		.cms-editor-live {
+			min-width: 44px;
+		}
+
+		.cms-drag-handle,
+		.cms-row-tool {
+			width: 44px;
+			height: 44px;
+		}
+
+		.cms-repeater-handle {
+			inset-inline-start: 0;
+		}
+
+		.cms-repeater-menu {
+			inset-inline-end: 0;
+		}
+
+		.cms-repeater-row[data-handle] .cms-repeater-summary {
+			padding-inline-start: 48px;
+		}
+
+		.cms-string-menu {
+			margin-top: -2px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-disclosure::details-content {
+			transition-property: opacity, content-visibility;
+		}
+		.cms-disclosure-chevron {
+			transition: none;
+		}
+	}
+
+	/* Section errors: a pill in the title row that opens the list. */
+	.cms-issues-pill {
+		display: inline-flex;
+		align-items: center;
+		gap: 6px;
+		min-height: 32px;
+		padding-inline: 10px 12px;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-destructive) 10%, var(--theme-surface-solid));
+		color: var(--theme-destructive);
+		font-size: 13px;
+		font-weight: 600;
+		white-space: nowrap;
+	}
+
+	.cms-issues-pill[data-popup-open] {
+		background: color-mix(in srgb, var(--theme-destructive) 16%, var(--theme-surface-solid));
+	}
+
+	.cms-issues-popup {
+		width: min(24rem, var(--available-width));
+		padding: 5px;
+	}
+
+	.cms-issue-link {
+		display: block;
+		padding: 0.5rem 0.625rem;
+		border-radius: 9px;
+		color: var(--theme-ink);
+		font-size: 13px;
+		line-height: 1.45;
+		overflow-wrap: anywhere;
+		outline: none;
+	}
+
+	.cms-issue-link:focus-visible {
+		box-shadow: inset 0 0 0 2px var(--theme-focus);
+	}
+
+	@media (pointer: coarse) {
+		.cms-issues-pill {
+			min-height: 44px;
+		}
+		.cms-issue-link {
+			min-height: 44px;
+			padding-block: 0.75rem;
+		}
+	}
+
+	/* Editor groups lay title beside fields on wide screens, wherever they sit
+	   on the page (tabs, wrappers), but not inside a collection's detail pane. */
+	@media (min-width: 76rem) {
+		.cms-editor .cms-editor-group:not(.cms-collection-detail *) {
+			grid-template-columns: minmax(9rem, 12rem) minmax(0, 1fr);
+			align-items: start;
+			gap: clamp(1.5rem, 3vw, 2.5rem);
+		}
+	}
+	.cms-media-field {
+		padding: 0.75rem;
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+	}
+
+	.cms-media-thumbnail {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: 56px;
+		height: 44px;
+		overflow: hidden;
+		border-radius: 8px;
+		background: color-mix(in srgb, var(--theme-ink) 7%, var(--theme-surface-solid));
+		color: var(--theme-ink-soft);
+	}
+
+	.cms-media-thumbnail img {
+		width: 100%;
+		height: 100%;
+		object-fit: cover;
+		transition: scale 180ms ease-out;
+	}
+
+	@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+		.cms-media-thumbnail:hover img,
+		.cms-choice-option[data-highlighted] .cms-media-thumbnail img {
+			scale: 1.08;
+		}
+	}
+	.cms-editor-button.cms-editor-live {
+		color: var(--theme-ink-soft);
+		background: transparent;
+		white-space: nowrap;
+	}
+}

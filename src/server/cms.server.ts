@@ -16,16 +16,22 @@ import {
 } from "./cms-storage.server";
 import {
 	getCsrfToken,
+	isLoopbackRequest,
 	requireOwner,
 	verifyCsrfToken,
 	type AccessAuthEnvironment,
 } from "./auth.server";
 import { uploadMedia as uploadStoredMedia, type MediaEnvironment } from "./media.server";
+import type { CmsBuildInfo } from "../lib/cloudflare-dashboard";
 import type { PortfolioContent } from "../types/content";
 
-export type CmsRuntime = AccessAuthEnvironment & MediaEnvironment & { CMS_ORIGIN?: string };
+export type CmsRuntime = AccessAuthEnvironment &
+	MediaEnvironment & {
+		CMS_ORIGIN?: string;
+		CF_VERSION_METADATA?: WorkerVersionMetadata;
+	};
 
-function runtime(): CmsRuntime {
+export function runtime(): CmsRuntime {
 	return env;
 }
 
@@ -34,6 +40,18 @@ export function cmsOrigin(environment: CmsRuntime = runtime()): string {
 	const origin = environment.CMS_ORIGIN ?? environment.APP_ORIGIN;
 	if (!origin) throw new Response("The application origin is not configured.", { status: 503 });
 	return origin;
+}
+
+/** The public portfolio origin the CMS links to and publishes for. */
+export function publicOrigin(environment: CmsRuntime = runtime()): string {
+	return environment.APP_ORIGIN || "https://sohelislamimran.com";
+}
+
+/** The running Worker version, or null when the binding is absent. */
+export function buildInfo(environment: CmsRuntime = runtime()): CmsBuildInfo | null {
+	const metadata = environment.CF_VERSION_METADATA;
+	if (!metadata?.id) return null;
+	return { id: metadata.id, tag: metadata.tag ?? "", timestamp: metadata.timestamp ?? "" };
 }
 
 export async function readPublished(): Promise<PortfolioContent> {
@@ -46,6 +64,8 @@ export async function readAdminSnapshot(request: Request): Promise<{
 	setCookie: string | null;
 	owner: string;
 	mediaEnabled: boolean;
+	publicOrigin: string;
+	build: CmsBuildInfo | null;
 }> {
 	const identity = await requireOwner(request, runtime());
 	const csrf = getCsrfToken(request);
@@ -57,10 +77,16 @@ export async function readAdminSnapshot(request: Request): Promise<{
 		// response object to the storage layer.
 		owner: identity.email,
 		mediaEnabled: Boolean(runtime().MEDIA),
+		publicOrigin: publicOrigin(),
+		build: buildInfo(),
 	};
 }
 
-function assertMutation(
+/**
+ * Owner check plus CSRF and origin check for every CMS mutation. New owner
+ * mutations (history, media, analytics settings) must call this first.
+ */
+export function assertMutation(
 	request: Request,
 	csrfToken: string | null | undefined,
 ): Promise<Awaited<ReturnType<typeof requireOwner>>> {
@@ -68,10 +94,7 @@ function assertMutation(
 		const environment = runtime();
 		const requestUrl = new URL(request.url);
 		const expectedOrigin =
-			environment.ENVIRONMENT === "development" &&
-			(requestUrl.hostname === "localhost" ||
-				requestUrl.hostname === "127.0.0.1" ||
-				requestUrl.hostname === "[::1]")
+			environment.ENVIRONMENT === "development" && isLoopbackRequest(request)
 				? requestUrl.origin
 				: cmsOrigin(environment);
 		verifyCsrfToken(request, csrfToken, expectedOrigin);

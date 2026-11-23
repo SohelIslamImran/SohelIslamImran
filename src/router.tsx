@@ -1,4 +1,5 @@
 import { createRouter } from "@tanstack/react-router";
+import { cmsHostRewrite } from "./lib/cms-host";
 import { routeTree } from "./routeTree.gen";
 
 export function getRouter() {
@@ -7,6 +8,8 @@ export function getRouter() {
 		scrollRestoration: true,
 		scrollRestorationBehavior: "instant",
 		defaultViewTransition: false,
+		// The CMS hostname serves `/cms/*` routes at its root.
+		rewrite: cmsHostRewrite,
 	});
 }
 

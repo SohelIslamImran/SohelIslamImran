@@ -127,11 +127,7 @@ export function matchTerminalCommand(raw: string): string | null {
 }
 
 function fold(value: string): string {
-	return value
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/gu, "")
-		.toLowerCase()
-		.trim();
+	return value.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase().trim();
 }
 
 /** Finds a page by name, label, alias, or path ("/work", "resume", "Résumé"). */

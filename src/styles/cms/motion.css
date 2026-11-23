@@ -1,0 +1,98 @@
+/*
+ * CMS motion foundation, shared by every workstream. See docs/cms/DESIGN.md.
+ * Change it only with the orchestrator's agreement; add area styles to
+ * shell.css, fields.css, or pages.css instead.
+ */
+
+@layer components {
+	.cms-root {
+		/* Durations: press feedback, small state change, surface enter, layout move. */
+		--cms-dur-press: 100ms;
+		--cms-dur-fast: 160ms;
+		--cms-dur-base: 240ms;
+		--cms-dur-slow: 380ms;
+		/* Curves: ease-out for entering and state change, in-out for things already on screen. */
+		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+		--cms-ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
+		/*
+		 * Focus ring shared by every control: a solid 2px accent line (at least
+		 * 4.6:1 against every surface for all six accents in both themes, so it
+		 * meets WCAG 1.4.11) inside a soft halo.
+		 */
+		--cms-ring:
+			0 0 0 2px var(--theme-accent),
+			0 0 0 5px color-mix(in srgb, var(--theme-accent) 18%, transparent);
+	}
+
+	/* Keep the page width stable when content grows tall enough to scroll. */
+	html:has(.cms-root) {
+		scrollbar-gutter: stable;
+	}
+
+	/* Instant press feedback for any clickable surface (buttons, rows, chips). */
+	.cms-press {
+		transition:
+			transform var(--cms-dur-fast) var(--cms-ease-out),
+			scale var(--cms-dur-fast) var(--cms-ease-out),
+			background-color var(--cms-dur-fast) var(--cms-ease-out),
+			border-color var(--cms-dur-fast) var(--cms-ease-out),
+			color var(--cms-dur-fast) var(--cms-ease-out),
+			box-shadow var(--cms-dur-fast) var(--cms-ease-out);
+	}
+	.cms-press:active:not(:disabled, [aria-disabled="true"]) {
+		scale: 0.97;
+		transition-duration: var(--cms-dur-press);
+	}
+
+	/* Enter animation for content that appears (route content, list rows, cards). */
+	@keyframes cms-enter {
+		from {
+			opacity: 0;
+			translate: 0 6px;
+		}
+	}
+	.cms-enter {
+		animation: cms-enter var(--cms-dur-base) var(--cms-ease-out) both;
+		animation-delay: calc(var(--cms-stagger, 0) * 30ms);
+	}
+
+	/* Loading placeholder with a soft sweep. */
+	@keyframes cms-shimmer {
+		to {
+			background-position: -200% 0;
+		}
+	}
+	.cms-skeleton {
+		border-radius: var(--cms-radius-control, 10px);
+		background:
+			linear-gradient(
+					90deg,
+					transparent 0%,
+					color-mix(in srgb, var(--theme-ink) 6%, transparent) 50%,
+					transparent 100%
+				)
+				0 0 / 200% 100%,
+			color-mix(in srgb, var(--theme-ink) 5%, transparent);
+		animation: cms-shimmer 1.4s linear infinite;
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-enter {
+			animation-name: cms-fade;
+			animation-duration: 150ms !important;
+			animation-delay: 0ms;
+		}
+		.cms-press:active:not(:disabled, [aria-disabled="true"]) {
+			scale: 1;
+		}
+		.cms-skeleton {
+			animation: none;
+		}
+	}
+	@keyframes cms-fade {
+		from {
+			opacity: 0;
+		}
+	}
+}

@@ -9,6 +9,8 @@ import {
 	useRouterState,
 } from "@tanstack/react-router";
 import { MotionConfig, motion, useReducedMotion } from "motion/react";
+import { Beacon } from "../components/analytics/Beacon";
+import { railBootScript } from "../components/cms/shell/rail-preference";
 import { accentBootScript, themeColors } from "../components/AccentSwitcher";
 import { CommandPaletteProvider, useCommandPalette } from "../components/chrome/CommandPalette";
 import { NavDock } from "../components/chrome/NavDock";
@@ -61,14 +63,31 @@ function RootComponent() {
 	});
 	const focusOnClientNavigation = hasHydratedRootRoute;
 
+	// The CMS (`/cms/*`, served at the root of the CMS host) brings its own
+	// dashboard shell. It skips the public dock, footer, and command palette.
+	const isCmsRoute = useRouterState({
+		select: (state) => state.matches.some((match) => match.routeId.startsWith("/cms")),
+	});
+
 	useEffect(() => {
 		hasHydratedRootRoute = true;
 	}, []);
 	useRouteViewTransitions();
 
+	if (isCmsRoute) {
+		return (
+			<MotionConfig reducedMotion="user">
+				<RootDocument cms>
+					<Outlet />
+				</RootDocument>
+			</MotionConfig>
+		);
+	}
+
 	return (
 		<MotionConfig reducedMotion="user">
 			<RootDocument>
+				<Beacon />
 				<CommandPaletteProvider>
 					<a
 						data-slot="skip-link"
@@ -108,33 +127,187 @@ function useRouteViewTransitions() {
 		const supported = typeof document.startViewTransition === "function";
 		const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
 		let clearTimer: number | undefined;
+		let cmsTransition:
+			| { view: ViewTransition; skipped: boolean; outgoing: HTMLElement | null }
+			| undefined;
+		const startRouterTransition = router.startViewTransition;
+		const skipCmsTransition = () => {
+			if (!cmsTransition) return;
+			cmsTransition.skipped = true;
+			cmsTransition.view.skipTransition();
+		};
+		const sectionSelector = '[data-slot="cms-section"]';
+		const cmsOverlaySelector =
+			'[data-slot="cms-mobile-drawer"], [data-slot="cms-command-bar"], [data-slot="cms-publish-dialog"], [data-slot="cms-conflict-dialog"], .cms-issues-popover, .appearance-pop';
+		let navigateWithOverlay = false;
+		const isCmsPath = (path?: string) => path === "/cms" || path?.startsWith("/cms/");
 		const indexOf = (state: unknown) =>
 			typeof (state as { __TSR_index?: unknown } | undefined)?.__TSR_index === "number"
 				? (state as { __TSR_index: number }).__TSR_index
 				: null;
+		const direction = (fromState: unknown, toState: unknown) => {
+			const from = indexOf(fromState);
+			const to = indexOf(toState);
+			return from !== null && to !== null && to < from ? "back" : "forward";
+		};
+		const onMotionChange = () => {
+			if (reduced.matches) skipCmsTransition();
+		};
+		reduced.addEventListener("change", onMotionChange);
+
+		// Router internals (pinned: @tanstack/react-router 1.170.46 with
+		// @tanstack/router-core 1.171.39). This wraps the router instance's
+		// `startViewTransition(fn)` and reads and clears `shouldViewTransition`,
+		// which `navigate()` sets from the link's `viewTransition` option; it
+		// also reads `stores.resolvedLocation` and `latestLocation`. None of these
+		// are documented API. On a router upgrade, check that `load()` still calls
+		// `router.startViewTransition(fn)` with the commit as `fn`, and that
+		// `src/components/cms/shell/router-internals.test.ts` still passes.
+		//
+		// CMS navigations: the router's update callback commits the route and
+		// restores (or resets) scroll with `scrollRestorationBehavior: "instant"`,
+		// so the incoming snapshot is captured at its final scroll position and
+		// only the content fade moves. A newer navigation skips the running
+		// transition; that rejects `ready` (and can reject `finished`) with an
+		// AbortError, which is normal cancellation, not a failure.
+		router.startViewTransition = async (update) => {
+			const from = router.stores.resolvedLocation.get();
+			const to = router.latestLocation;
+			if (!isCmsPath(from?.pathname) || !isCmsPath(to.pathname)) {
+				return startRouterTransition(update);
+			}
+			const requested = router.shouldViewTransition ?? true;
+			router.shouldViewTransition = undefined;
+			// A search-only update (an editor selecting its first item) commits
+			// without a snapshot and leaves a running content fade alone.
+			if (reduced.matches || from?.pathname === to.pathname) {
+				return update();
+			}
+			const outgoing = document.querySelector<HTMLElement>(sectionSelector);
+			if (!requested || navigateWithOverlay || document.querySelector(cmsOverlaySelector)) {
+				// Leave the closing layer in the live paint tree, above the page.
+				await update();
+				if (router.stores.resolvedLocation.get()?.pathname === to.pathname) {
+					const incoming = document.querySelector<HTMLElement>(sectionSelector);
+					if (incoming && incoming !== outgoing) incoming.dataset.cmsFade = "";
+				}
+				return;
+			}
+			if (!supported) return update();
+			const types =
+				typeof requested === "object" &&
+				window.CSS?.supports?.("selector(:active-view-transition-type(a))")
+					? typeof requested.types === "function"
+						? requested.types({
+								fromLocation: from,
+								toLocation: to,
+								pathChanged: from?.pathname !== to.pathname,
+								hrefChanged: from?.href !== to.href,
+								hashChanged: from?.hash !== to.hash,
+							})
+						: requested.types
+					: undefined;
+			if (types === false) return update();
+
+			root.dataset.routeVt = direction(from?.state, to.state);
+			// Give the keyed sections separate groups so each keeps the viewport
+			// position captured on its side of scroll restoration.
+			if (outgoing) outgoing.style.viewTransitionName = "cms-section-out";
+			// The section snapshot owns the entry rise. Opt the page's own
+			// `.cms-enter` rises out, both those in the first paint (tagged
+			// before the new snapshot is captured) and rows that mount while
+			// the snapshot still rises, so the content rises once. The tag
+			// stays on those elements (removing it would replay the animation);
+			// rows that mount after the transition keep their own enter.
+			let entering: MutationObserver | undefined;
+			const commit = async () => {
+				await update();
+				const incoming = document.querySelector<HTMLElement>(sectionSelector);
+				if (!incoming || incoming === outgoing) return;
+				const tag = (scope: Element) => {
+					for (const element of scope.querySelectorAll<HTMLElement>(".cms-enter")) {
+						element.dataset.cmsVtEnter = "";
+					}
+					if (scope instanceof HTMLElement && scope.classList.contains("cms-enter")) {
+						scope.dataset.cmsVtEnter = "";
+					}
+				};
+				tag(incoming);
+				entering = new MutationObserver((records) => {
+					for (const record of records) {
+						for (const node of record.addedNodes) if (node instanceof Element) tag(node);
+					}
+				});
+				entering.observe(incoming, { childList: true, subtree: true });
+			};
+			const view = document.startViewTransition(types ? { update: commit, types } : commit);
+			const transition = { view, skipped: false, outgoing };
+			cmsTransition = transition;
+			const reportTransitionError = (error: unknown) => {
+				if (
+					error instanceof DOMException &&
+					(error.name === "AbortError" ||
+						(transition.skipped && error.name === "InvalidStateError"))
+				) {
+					return;
+				}
+				if (import.meta.env.DEV) console.error("CMS view transition failed", error);
+			};
+			void view.ready.catch(reportTransitionError);
+			const finish = () => {
+				entering?.disconnect();
+				if (cmsTransition === transition || cmsTransition?.outgoing !== outgoing) {
+					outgoing?.style.removeProperty("view-transition-name");
+				}
+				if (cmsTransition !== transition) return;
+				cmsTransition = undefined;
+				delete root.dataset.routeVt;
+			};
+			void view.finished.then(finish, (error: unknown) => {
+				finish();
+				reportTransitionError(error);
+			});
+			await view.updateCallbackDone;
+		};
 		const unsubscribeStart = router.subscribe("onBeforeNavigate", (event) => {
-			window.clearTimeout(clearTimer);
+			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
+				if (event.pathChanged) {
+					navigateWithOverlay = document.querySelector(cmsOverlaySelector) !== null;
+					skipCmsTransition();
+					window.clearTimeout(clearTimer);
+					if (!cmsTransition) delete root.dataset.routeVt;
+				}
+				return;
+			}
+			skipCmsTransition();
+			cmsTransition = undefined;
 			const animate = supported && !reduced.matches && event.pathChanged;
 			router.options.defaultViewTransition = animate;
+			window.clearTimeout(clearTimer);
 			routeViewTransitionPending = animate;
 			if (animate) {
-				const from = indexOf(event.fromLocation?.state);
-				const to = indexOf(event.toLocation.state);
-				root.dataset.routeVt = from !== null && to !== null && to < from ? "back" : "forward";
+				root.dataset.routeVt = direction(event.fromLocation?.state, event.toLocation.state);
 			} else {
 				delete root.dataset.routeVt;
 			}
 		});
-		const unsubscribeEnd = router.subscribe("onResolved", () => {
+		const unsubscribeEnd = router.subscribe("onResolved", (event) => {
 			routeViewTransitionPending = false;
+			if (isCmsPath(event.fromLocation?.pathname) && isCmsPath(event.toLocation.pathname)) {
+				return;
+			}
 			window.clearTimeout(clearTimer);
 			// The transition's animations run after the router resolves.
 			clearTimer = window.setTimeout(() => delete root.dataset.routeVt, 700);
 		});
 		return () => {
+			skipCmsTransition();
+			reduced.removeEventListener("change", onMotionChange);
+			router.startViewTransition = startRouterTransition;
 			unsubscribeStart();
 			unsubscribeEnd();
 			window.clearTimeout(clearTimer);
+			delete root.dataset.routeVt;
 			router.options.defaultViewTransition = false;
 		};
 	}, [router]);
@@ -174,12 +347,13 @@ function RouteOutlet({ focusOnClientNavigation }: { focusOnClientNavigation: boo
 	);
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({ children, cms }: Readonly<{ children: ReactNode; cms?: boolean }>) {
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 				<script dangerouslySetInnerHTML={{ __html: accentBootScript }} />
+				{cms ? <script dangerouslySetInnerHTML={{ __html: railBootScript }} /> : null}
 			</head>
 			<body className="bg-background font-sans text-foreground">
 				{children}

@@ -3,6 +3,11 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/geist-mono";
+@import "./cms.css";
+@import "./cms/motion.css";
+@import "./cms/shell.css";
+@import "./cms/fields.css";
+@import "./cms/pages.css";
 
 /*
  * Trace design system — tokens, base styles, and shared motion utilities.

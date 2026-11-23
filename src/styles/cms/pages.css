@@ -1,0 +1,429 @@
+/* CMS pages styles. Owned by the pages workstream; see docs/cms/DESIGN.md. */
+
+@layer components {
+	/* Unified focus ring for custom page controls. */
+	.cms-page-focus:focus-visible {
+		outline: 2px solid transparent;
+		outline-offset: 2px;
+		box-shadow: var(--cms-ring);
+	}
+
+	/* Keep header filters centered without letting the track padding grow the title row. */
+	.cms-page-header-actions > .cms-seg-track {
+		margin-block: -2px;
+	}
+
+	@media (pointer: coarse) {
+		.cms-page-header-actions > .cms-seg-track {
+			margin-block: -4px;
+		}
+	}
+
+	@media (max-width: 639px) {
+		.cms-page-header-actions .cms-seg-item {
+			min-width: 44px;
+			padding-inline: 5px;
+		}
+	}
+
+	/* Gentle <= 1 Hz live visitor pulse (0.42 Hz, scale + opacity only). */
+	@keyframes cms-live-pulse {
+		0% {
+			scale: 1;
+			opacity: 0.55;
+		}
+		65%,
+		100% {
+			scale: 2.35;
+			opacity: 0;
+		}
+	}
+
+	.cms-live-ring {
+		animation: cms-live-pulse 2.4s var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) infinite;
+	}
+
+	/* Segmented control track and sliding elevated pill (never hue alone). */
+	.cms-seg-track {
+		position: relative;
+		display: inline-flex;
+		max-width: 100%;
+		flex-wrap: nowrap;
+		overflow-x: auto;
+		scrollbar-width: none;
+		align-items: center;
+		gap: 2px;
+		padding: 3px;
+		border-radius: 999px;
+		border: 1px solid var(--theme-line);
+		background: color-mix(in srgb, var(--theme-ink) 4.5%, var(--theme-paper));
+		box-shadow: inset 0 1px 2px var(--theme-shadow-soft);
+	}
+
+	.cms-seg-track::-webkit-scrollbar {
+		display: none;
+	}
+
+	/* When the track scrolls, fade the clipped edge so the cut-off reads as "more". */
+	.cms-seg-track[data-fade="end"] {
+		mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+	}
+	.cms-seg-track[data-fade="start"] {
+		mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+	}
+	.cms-seg-track[data-fade="both"] {
+		mask-image: linear-gradient(
+			to right,
+			transparent,
+			#000 28px,
+			#000 calc(100% - 28px),
+			transparent
+		);
+	}
+
+	.cms-seg-item {
+		position: relative;
+		z-index: 0;
+		display: inline-flex;
+		min-height: 32px;
+		align-items: center;
+		justify-content: center;
+		gap: 6px;
+		border-radius: 999px;
+		padding: 0 12px;
+		font-size: 12.5px;
+		font-weight: 500;
+		letter-spacing: -0.005em;
+		color: color-mix(in srgb, var(--theme-muted) 78%, var(--theme-ink));
+		text-decoration: none;
+		white-space: nowrap;
+		cursor: pointer;
+		user-select: none;
+		transition:
+			color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-press, 100ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-seg-item[data-active="true"],
+	.cms-seg-item[aria-current="page"],
+	.cms-seg-item[aria-pressed="true"],
+	.cms-seg-item[aria-selected="true"] {
+		color: var(--theme-ink);
+		font-weight: 600;
+	}
+
+	.cms-seg-item:active:not(:disabled) {
+		scale: 0.97;
+	}
+
+	/* Compact variant (chart Chart/Table toggle). The coarse-pointer rule below still wins. */
+	.cms-seg-item[data-compact="true"] {
+		min-height: 28px;
+		padding-inline: 10px;
+		font-size: 12px;
+	}
+
+	.cms-seg-badge {
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		font-variant-numeric: tabular-nums;
+		color: color-mix(in srgb, var(--theme-muted) 78%, var(--theme-ink));
+	}
+
+	.cms-seg-badge[data-active="true"] {
+		color: var(--theme-accent-text, var(--theme-accent));
+	}
+
+	.cms-seg-item:focus-visible {
+		outline: 2px solid transparent;
+		box-shadow: var(--cms-ring);
+	}
+
+	.cms-seg-pill {
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		border-radius: 999px;
+		border: 1px solid var(--theme-line-strong);
+		background: var(--theme-surface-solid);
+		box-shadow:
+			0 1px 2px var(--theme-shadow-soft),
+			0 4px 12px -4px var(--theme-shadow),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	/* Pointer-fine hover polish for interactive cards and surfaces. */
+	.cms-jump-card {
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			box-shadow var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			translate var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-press, 100ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-jump-card:active {
+		scale: 0.985;
+	}
+
+	.cms-media-thumb {
+		transition: scale var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-row-hover {
+		transition:
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-seg-item:hover {
+			color: var(--theme-ink);
+		}
+		.cms-jump-card:hover {
+			border-color: var(--theme-line-strong);
+			background: var(--theme-surface-raised);
+			translate: 0 -1.5px;
+			box-shadow:
+				0 2px 6px var(--theme-shadow-soft),
+				0 10px 24px -12px var(--theme-shadow),
+				inset 0 1px var(--theme-highlight);
+		}
+		/* Only the published thumbnail is a link, so only it reacts to hover. */
+		a:hover > .cms-media-thumb {
+			scale: 1.03;
+		}
+		.cms-row-hover:hover,
+		.cms-ranked-row[data-linked="true"]:hover {
+			background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
+		}
+	}
+
+	@media (max-width: 639px) {
+		.cms-seg-item {
+			padding: 0 9.5px;
+		}
+	}
+
+	/* Coarse pointers: ensure 44px minimum touch targets. */
+	@media (pointer: coarse) {
+		.cms-seg-item,
+		.cms-seg-item[data-compact="true"] {
+			min-height: 44px;
+			padding-inline: 14px;
+		}
+	}
+
+	/* Inset focus ring for full-bleed controls inside clipped containers. */
+	.cms-inset-focus:focus-visible {
+		outline: 2px solid transparent;
+		outline-offset: -2px;
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	@media (forced-colors: active) {
+		.cms-inset-focus:focus-visible,
+		.cms-seg-item:focus-visible {
+			/* Keep the site's system-color outline inside clipped controls. */
+			outline-offset: -2px !important;
+		}
+	}
+
+	/* Relative time labels fade in after hydration instead of swapping text. */
+	.cms-time-in {
+		animation: cms-fade var(--cms-dur-base, 240ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+	}
+
+	/* Smooth collapsible reveal (transform + opacity only; content unmounts when closed so hidden controls stay out of Tab order). */
+	@keyframes cms-collapse-reveal {
+		from {
+			opacity: 0;
+			translate: 0 -4px;
+		}
+	}
+
+	.cms-collapse-panel {
+		animation: cms-collapse-reveal var(--cms-dur-fast, 160ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) both;
+	}
+
+	/* Chart callout: glass chrome in the readout band above the plot. */
+	.cms-chart-tooltip {
+		position: absolute;
+		top: 4px;
+		pointer-events: none;
+		z-index: 10;
+		border-radius: 12px;
+		border: 1px solid var(--theme-glass-border);
+		background: color-mix(in srgb, var(--theme-surface-solid) 88%, transparent);
+		backdrop-filter: blur(16px) saturate(160%);
+		-webkit-backdrop-filter: blur(16px) saturate(160%);
+		box-shadow:
+			0 2px 6px var(--theme-shadow-soft),
+			0 12px 30px -10px var(--theme-shadow-strong),
+			inset 0 1px var(--theme-highlight);
+	}
+
+	/* Ranked list: a thin 3px data bar under each row (transform-only). */
+	.cms-ranked-row {
+		transition: background-color var(--cms-dur-fast, 160ms)
+			var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-ranked-row[data-active="true"] {
+		background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
+	}
+
+	.cms-bar-track {
+		display: block;
+		height: 3px;
+		overflow: hidden;
+		border-radius: 999px;
+		background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+	}
+
+	.cms-bar-fill {
+		display: block;
+		height: 100%;
+		border-radius: inherit;
+		background: color-mix(in srgb, var(--theme-accent) 70%, transparent);
+		transform: scaleX(var(--cms-bar, 1));
+		transform-origin: left center;
+		transition:
+			transform var(--cms-dur-slow, 380ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	/* Bars grow in once from zero when a list first renders. */
+	@starting-style {
+		.cms-bar-fill {
+			transform: scaleX(0);
+		}
+	}
+
+	.cms-ranked-row[data-active="true"] .cms-bar-fill {
+		background: var(--theme-accent);
+	}
+
+	/* Country map dots scale from their own centre when highlighted. */
+	.cms-map-dot {
+		transform-box: fill-box;
+		transform-origin: center;
+		transition:
+			scale var(--cms-dur-base, 240ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			opacity var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	/* Media upload dropzone. */
+	.cms-dropzone {
+		border: 1.5px dashed var(--theme-line-strong);
+		border-radius: 12px;
+		background: color-mix(in srgb, var(--theme-ink) 2%, transparent);
+		transition:
+			border-color var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			background-color var(--cms-dur-fast, 160ms)
+				var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)),
+			scale var(--cms-dur-fast, 160ms) var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1));
+	}
+
+	.cms-dropzone[data-dragging="true"] {
+		border-color: var(--theme-accent-line);
+		background: color-mix(in srgb, var(--theme-accent) 10%, var(--theme-surface-solid));
+		scale: 1.005;
+	}
+
+	/* One-shot publish confirmation highlight sweep. */
+	@keyframes cms-confirm-sweep {
+		0% {
+			translate: -100% 0;
+			opacity: 0;
+		}
+		20% {
+			opacity: 1;
+		}
+		100% {
+			translate: 100% 0;
+			opacity: 0;
+		}
+	}
+
+	.cms-confirm-card {
+		position: relative;
+		overflow: hidden;
+	}
+
+	.cms-confirm-card::before {
+		content: "";
+		position: absolute;
+		inset-inline: 0;
+		top: 0;
+		height: 2px;
+		background: linear-gradient(
+			90deg,
+			transparent 0%,
+			var(--theme-success) 45%,
+			var(--theme-accent) 65%,
+			transparent 100%
+		);
+		animation: cms-confirm-sweep 1100ms var(--cms-ease-out, cubic-bezier(0.22, 1, 0.36, 1)) forwards;
+	}
+
+	/* Reduced transparency: solid surfaces for floating tooltips. */
+	@media (prefers-reduced-transparency: reduce) {
+		.cms-chart-tooltip {
+			background: var(--theme-surface-solid);
+			backdrop-filter: none;
+			-webkit-backdrop-filter: none;
+		}
+	}
+
+	/* Reduced motion: fades only, zero movement or looping pulses. */
+	@media (prefers-reduced-motion: reduce) {
+		.cms-live-ring {
+			animation: none;
+			opacity: 0;
+		}
+		.cms-confirm-card::before {
+			animation: none;
+			translate: 0 0;
+			opacity: 0.6;
+		}
+		.cms-collapse-panel {
+			animation: cms-fade 140ms linear both;
+			animation-duration: 140ms !important;
+		}
+		.cms-time-in {
+			animation: cms-fade 120ms linear both;
+			animation-duration: 120ms !important;
+		}
+		.cms-chart-series {
+			clip-path: none;
+		}
+		.cms-jump-card,
+		.cms-media-thumb,
+		.cms-map-dot,
+		.cms-seg-item,
+		.cms-dropzone,
+		.cms-bar-fill {
+			transition:
+				color 120ms linear,
+				background-color 120ms linear,
+				border-color 120ms linear,
+				opacity 120ms linear;
+			transition-duration: 120ms !important;
+		}
+		.cms-jump-card:hover {
+			translate: 0 0;
+		}
+		a:hover > .cms-media-thumb,
+		.cms-jump-card:active,
+		.cms-seg-item:active:not(:disabled),
+		.cms-dropzone[data-dragging="true"] {
+			scale: 1;
+		}
+	}
+}

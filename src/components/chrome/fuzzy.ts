@@ -39,12 +39,7 @@ export function fuzzyScore(query: string, text: string): number | null {
 }
 
 function normalize(value: string): string {
-	return value
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/gu, "")
-		.toLowerCase()
-		.trim()
-		.replace(/\s+/gu, " ");
+	return value.normalize("NFD").replace(/[̀-ͯ]/gu, "").toLowerCase().trim().replace(/\s+/gu, " ");
 }
 
 function isBoundary(character: string | undefined): boolean {

@@ -2,6 +2,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest, setResponseHeader } from "@tanstack/react-start/server";
 import { z } from "zod";
+import type { CmsBuildInfo } from "../lib/cloudflare-dashboard";
 import { MAX_CONTENT_BYTES } from "../lib/validation";
 import {
 	readAdminSnapshot,
@@ -36,6 +37,8 @@ export type CmsSnapshotResult =
 			csrfToken: string;
 			owner: string;
 			mediaEnabled: boolean;
+			publicOrigin: string;
+			build: CmsBuildInfo | null;
 	  }
 	| {
 			ok: false;
@@ -63,6 +66,8 @@ export const getCmsSnapshot = createServerFn({ method: "GET" }).handler(
 				csrfToken: result.csrfToken,
 				owner: result.owner,
 				mediaEnabled: result.mediaEnabled,
+				publicOrigin: result.publicOrigin,
+				build: result.build,
 			};
 		} catch (error) {
 			if (error instanceof Response) {
