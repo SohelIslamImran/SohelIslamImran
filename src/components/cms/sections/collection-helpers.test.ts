@@ -7,6 +7,7 @@ import {
 	restoreRemoval,
 } from "../fields/row-list";
 import {
+	countLabel,
 	duplicateProject,
 	issueLabel,
 	itemForIssue,
@@ -15,6 +16,14 @@ import {
 } from "./collection-helpers";
 
 describe("collection editor helpers", () => {
+	it("counts items with the collection's own noun", () => {
+		expect(countLabel(8, "Project")).toBe("8 projects");
+		expect(countLabel(1, "Entry")).toBe("1 entry");
+		expect(countLabel(3, "Entry")).toBe("3 entries");
+		expect(countLabel(0, "Capability")).toBe("0 capabilities");
+		expect(countLabel(2, "Role")).toBe("2 roles");
+	});
+
 	it("creates stable URL-safe IDs for new and duplicated rows", () => {
 		const first = newRowId();
 		const original = { id: first, label: "Item", tools: ["React"] };
