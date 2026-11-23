@@ -60,12 +60,8 @@
 		--cms-control-bg: var(--theme-surface-solid);
 		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
 		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
-		--cms-control-lift:
-			0 1px 2px rgb(0 0 0 / 0.06),
-			0 2px 6px -2px rgb(0 0 0 / 0.08);
-		--cms-control-lift-hover:
-			0 1px 2px rgb(0 0 0 / 0.07),
-			0 4px 10px -3px rgb(0 0 0 / 0.1);
+		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.08);
+		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.07), 0 4px 10px -3px rgb(0 0 0 / 0.1);
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
