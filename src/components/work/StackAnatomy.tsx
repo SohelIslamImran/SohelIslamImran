@@ -267,9 +267,6 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 										if (pointerFine && event.pointerType === "mouse") setPreview(layer.id);
 									}}
 									onPointerLeave={() => setPreview(null)}
-									onFocus={(event) => {
-										if (event.currentTarget.matches(":focus-visible")) setPreview(layer.id);
-									}}
 									onBlur={() => setPreview(null)}
 									className={cn(
 										"pressable group/layer flex h-full w-full min-w-0 items-center gap-3 rounded-inner-sm px-2.5 text-left sm:px-3",
@@ -320,7 +317,7 @@ export function StackAnatomy({ project }: { project: ProjectContent }) {
 				{selectedLayer && firstMatch !== undefined ? (
 					<div
 						key={selectedLayer.id}
-						className="anatomy-excerpt grid gap-1 rounded-inner border border-primary-line bg-surface-solid p-4"
+						className="anatomy-excerpt grid max-w-prose gap-1 rounded-inner border border-primary-line bg-surface-solid p-4 text-small"
 					>
 						<HighlightText text={highlights[firstMatch]} layer={selectedLayer.id} />
 						{selectedLayer.notes.length > 1 ? (
