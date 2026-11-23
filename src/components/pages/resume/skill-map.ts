@@ -367,3 +367,9 @@ export function skillYearCounts(firstYears: (number | null)[], year: number) {
 		undated: firstYears.length - dated.length,
 	};
 }
+
+/** An undated layer stays neutral; otherwise its first dated mention sets its reach. */
+export function skillLayerReached(firstYears: (number | null)[], year: number): boolean {
+	const { namedByYear, datedTotal } = skillYearCounts(firstYears, year);
+	return datedTotal === 0 || namedByYear > 0;
+}

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import {
 	eraAt,
 	markSkill,
+	skillLayerReached,
 	skillYearCounts,
 	tokenMatchesSkill,
 	type Skill,
@@ -402,7 +403,13 @@ export function SkillLayers({ titleId }: { titleId: string }) {
 			<div className="mt-4 grid gap-3 print:mt-0 print:gap-[1.6mm]">
 				{index.groups.map((group, position) => {
 					const groupId = `${titleId}-${group.id}`;
-					const reached = group.skills.some(usedBy);
+					const reached =
+						!scrubbed ||
+						!timeline ||
+						skillLayerReached(
+							group.skills.map((skill) => timeline.firstYear[skill.name] ?? null),
+							year,
+						);
 					return (
 						<div
 							key={group.id}
@@ -450,7 +457,6 @@ export function SkillLayers({ titleId }: { titleId: string }) {
 													type="button"
 													aria-pressed={pinned === skill.name}
 													aria-describedby={`${titleId}-hint`}
-													data-unused={count === 0 || undefined}
 													data-later={!usedBy(skill) || undefined}
 													onPointerEnter={(event) => {
 														if (event.pointerType === "mouse") preview(skill.name);

@@ -3405,7 +3405,6 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 			translate 200ms var(--theme-ease),
 			scale 160ms var(--theme-ease);
 	}
-	[data-slot="resume-skill"] > button[data-unused],
 	[data-slot="resume-skill"] > button[data-later] {
 		border-style: dashed;
 		color: var(--theme-muted);
@@ -3413,8 +3412,10 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	[data-slot="resume-skill-layer"] h3 {
 		transition: color 260ms var(--theme-ease);
 	}
-	[data-slot="resume-skill-layer"][data-later] h3 {
-		color: var(--theme-muted);
+	@media screen {
+		[data-slot="resume-skill-layer"][data-later] h3 {
+			color: var(--theme-muted);
+		}
 	}
 	[data-slot="resume-skill-layer"] path {
 		transition:

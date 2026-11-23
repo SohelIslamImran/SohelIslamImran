@@ -7,6 +7,7 @@ import {
 	findSkillRanges,
 	markSkill,
 	periodYears,
+	skillLayerReached,
 	skillVariants,
 	skillYearCounts,
 } from "./skill-map";
@@ -82,6 +83,17 @@ describe("skill map", () => {
 			datedTotal: 0,
 			undated: 1,
 		});
+	});
+
+	it("uses the first dated skill to reach a layer", () => {
+		const years = [null, 2024, 2026, null];
+		expect(skillLayerReached(years, 2021)).toBe(false);
+		expect(skillLayerReached(years, 2024)).toBe(true);
+		expect(skillLayerReached(years, 2026)).toBe(true);
+	});
+
+	it("keeps a layer with no dated evidence undimmed", () => {
+		expect(skillLayerReached([null, null], 2021)).toBe(true);
 	});
 
 	it("dates each skill by the earliest role or project that used it", () => {
