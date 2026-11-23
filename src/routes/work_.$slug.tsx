@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { Link, createFileRoute, notFound } from "@tanstack/react-router";
+import { Link, createFileRoute, notFound, useLocation } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
 import { jsonLd, pageHead } from "../lib/seo";
 import { mediaHref } from "../lib/media";
@@ -7,13 +7,14 @@ import { cn } from "../lib/utils";
 import { EMPTY_PORTFOLIO_CONTENT, type ProjectContent } from "../types/content";
 import { ProjectExternalLinks, ProjectStatus } from "../components/ProjectCard";
 import { ArrowRightIcon } from "../components/chrome/icons";
-import { CountUp, Reveal } from "../components/motion";
+import { CountUp, Reveal, useHydrated } from "../components/motion";
 import { PageShell, TagList } from "../components/ui/portfolio";
 import { LayerStrip } from "../components/work/LayerStrip";
 import { ProjectPoster } from "../components/work/ProjectPoster";
 import { GhostReplay } from "../components/work/GhostReplay";
-import { StackAnatomy } from "../components/work/StackAnatomy";
+import { HighlightList, StackAnatomy } from "../components/work/StackAnatomy";
 import { UpdateFlow, updateFlowModel } from "../components/work/UpdateFlow";
+import { readWorkOrigin } from "../components/work/work-origin";
 import { primeWorkTransition } from "../components/work/view-transition";
 import {
 	adjacentProjects,
@@ -24,6 +25,8 @@ import {
 	projectLinks,
 	projectMetrics,
 	projectSlug,
+	workGroupLabels,
+	type WorkGroup,
 } from "../components/work/project-utils";
 
 /*
@@ -101,7 +104,7 @@ function caseMoment(project: ProjectContent): {
 		return {
 			id: "how-it-works",
 			title: "One call, two platforms",
-			lead: "Your app talks to one TypeScript API. Underneath, Kotlin handles Android and Swift handles iOS.",
+			lead: flow.lead,
 			body: <UpdateFlow model={flow} />,
 		};
 	}
@@ -110,7 +113,12 @@ function caseMoment(project: ProjectContent): {
 			id: "try-it",
 			title: "Try it here",
 			lead: "A small replay in the browser. Type the command or press Replay.",
-			body: <GhostReplay />,
+			body: (
+				<div className="grid min-w-0 gap-8">
+					<GhostReplay />
+					<HighlightList highlights={nonEmpty(project.highlights)} />
+				</div>
+			),
 		};
 	}
 	return {
@@ -128,6 +136,10 @@ function ProjectDetail({
 	project: ProjectContent;
 	projects: ProjectContent[];
 }) {
+	const hydrated = useHydrated();
+	const state = useLocation({ select: (location) => location.state });
+	const origin = hydrated ? readWorkOrigin(state) : "all";
+	const originLabel = workGroupLabels[origin];
 	const title = project.title.trim();
 	const summary = project.summary.trim();
 	const description = project.description
@@ -144,6 +156,7 @@ function ProjectDetail({
 		{ label: "Period", value: project.year.trim() },
 	].filter((fact) => fact.value);
 	const status = project.status.trim();
+	const hasFacts = Boolean(facts.length || status || tags.length || links.length);
 
 	const blocks: { id: string; title: string; lead?: string; body: ReactNode }[] = [];
 	if (description.length > 0) {
@@ -189,14 +202,14 @@ function ProjectDetail({
 			<nav aria-label="Breadcrumb" className="mb-8 md:mb-10">
 				<Link
 					to="/work"
-					search={{ group: "all" }}
+					search={{ group: origin }}
 					className="pressable group/back -ml-3 inline-flex min-h-11 items-center gap-2 rounded-full px-3 text-small font-medium text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground"
 				>
 					<ArrowRightIcon
 						aria-hidden="true"
 						className="size-4 rotate-180 transition-transform duration-300 ease-trace group-hover/back:-translate-x-0.5"
 					/>
-					All work
+					{originLabel}
 				</Link>
 			</nav>
 
@@ -245,48 +258,55 @@ function ProjectDetail({
 				</figcaption>
 			</figure>
 
-			<div className="mt-[clamp(48px,7vw,96px)] grid min-w-0 gap-10 lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)] lg:gap-12">
-				<aside
-					aria-labelledby="project-facts-title"
-					className="min-w-0 lg:sticky lg:top-[calc(var(--dock-space-top)+24px)] lg:self-start"
-				>
-					<div className="surface-card grid min-w-0 gap-6 p-6">
-						<h2 id="project-facts-title" className="mono-label m-0 text-muted-foreground">
-							At a glance
-						</h2>
-						{facts.length > 0 || status ? (
-							<dl className="m-0 grid min-w-0 gap-4">
-								{facts.map((fact) => (
-									<div key={fact.label} className="grid min-w-0 gap-1">
-										<dt className="text-caption text-muted-foreground">{fact.label}</dt>
-										<dd className="m-0 text-[17px] leading-snug font-medium text-foreground">
-											{fact.value}
-										</dd>
-									</div>
-								))}
-								{status ? (
-									<div className="grid min-w-0 justify-items-start gap-1.5">
-										<dt className="text-caption text-muted-foreground">Status</dt>
-										<dd className="m-0">
-											<ProjectStatus status={status} />
-										</dd>
-									</div>
-								) : null}
-							</dl>
-						) : null}
-						{tags.length > 0 ? (
-							<div className="grid min-w-0 gap-2.5 border-t border-line pt-5">
-								<h3 className="m-0 text-caption font-normal text-muted-foreground">Built with</h3>
-								<TagList items={tags} />
-							</div>
-						) : null}
-						{links.length > 0 ? (
-							<div className="border-t border-line pt-5">
-								<ProjectExternalLinks project={project} links={links} size="page" />
-							</div>
-						) : null}
-					</div>
-				</aside>
+			<div
+				className={cn(
+					"mt-[clamp(48px,7vw,96px)] grid min-w-0 gap-10 lg:gap-12",
+					hasFacts && "lg:grid-cols-[minmax(0,4fr)_minmax(0,8fr)]",
+				)}
+			>
+				{hasFacts ? (
+					<aside
+						aria-labelledby="project-facts-title"
+						className="min-w-0 lg:sticky lg:top-[calc(var(--dock-space-top)+24px)] lg:self-start"
+					>
+						<div className="surface-card grid min-w-0 gap-6 p-6">
+							<h2 id="project-facts-title" className="mono-label m-0 text-muted-foreground">
+								At a glance
+							</h2>
+							{facts.length > 0 || status ? (
+								<dl className="m-0 grid min-w-0 gap-4">
+									{facts.map((fact) => (
+										<div key={fact.label} className="grid min-w-0 gap-1">
+											<dt className="text-caption text-muted-foreground">{fact.label}</dt>
+											<dd className="m-0 text-[17px] leading-snug font-medium text-foreground">
+												{fact.value}
+											</dd>
+										</div>
+									))}
+									{status ? (
+										<div className="grid min-w-0 justify-items-start gap-1.5">
+											<dt className="text-caption text-muted-foreground">Status</dt>
+											<dd className="m-0">
+												<ProjectStatus status={status} />
+											</dd>
+										</div>
+									) : null}
+								</dl>
+							) : null}
+							{tags.length > 0 ? (
+								<div className="grid min-w-0 gap-2.5 border-t border-line pt-5">
+									<h3 className="m-0 text-caption font-normal text-muted-foreground">Built with</h3>
+									<TagList items={tags} />
+								</div>
+							) : null}
+							{links.length > 0 ? (
+								<div className="border-t border-line pt-5">
+									<ProjectExternalLinks project={project} links={links} size="page" />
+								</div>
+							) : null}
+						</div>
+					</aside>
+				) : null}
 
 				<div className="grid min-w-0">
 					{blocks.map((block, index) => (
@@ -319,53 +339,63 @@ function ProjectDetail({
 				</div>
 			</div>
 
-			{next || previous ? (
-				<nav
-					aria-label="More projects"
-					className="mt-[clamp(40px,6vw,80px)] grid min-w-0 gap-4 border-t border-line pt-10 md:pt-14"
-				>
-					{next ? <NextProject project={next} place={position(projects, next)} /> : null}
-					<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-						{previous && previous !== next ? (
-							<Link
-								to="/work/$slug"
-								params={{ slug: projectSlug(previous) }}
-								viewTransition
-								className="pressable group/prev -ml-3 inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full px-3 text-small text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground"
-							>
-								<ArrowRightIcon
-									aria-hidden="true"
-									className="size-4 shrink-0 rotate-180 transition-transform duration-300 ease-trace group-hover/prev:-translate-x-0.5"
-								/>
-								<span className="text-muted-foreground">Previous</span>
-								<span className="min-w-0 truncate font-medium text-foreground">
-									{previous.title.trim()}
-								</span>
-							</Link>
-						) : (
-							<span />
-						)}
+			<nav
+				aria-label="Project navigation"
+				className="mt-[clamp(40px,6vw,80px)] grid min-w-0 gap-4 border-t border-line pt-10 md:pt-14"
+			>
+				{next ? (
+					<NextProject project={next} place={position(projects, next)} origin={origin} />
+				) : null}
+				<div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+					{previous && previous !== next ? (
 						<Link
-							to="/work"
-							search={{ group: "all" }}
-							className="pressable -mr-3 inline-flex min-h-11 items-center rounded-full px-3 text-small font-medium text-primary-text no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
+							to="/work/$slug"
+							params={{ slug: projectSlug(previous) }}
+							state={{ workGroup: origin }}
+							viewTransition
+							className="pressable group/prev -ml-3 inline-flex min-h-11 min-w-0 items-center gap-2 rounded-full px-3 text-small text-ink-soft no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)] hover:text-foreground"
 						>
-							All work
+							<ArrowRightIcon
+								aria-hidden="true"
+								className="size-4 shrink-0 rotate-180 transition-transform duration-300 ease-trace group-hover/prev:-translate-x-0.5"
+							/>
+							<span className="text-muted-foreground">Previous</span>
+							<span className="min-w-0 truncate font-medium text-foreground">
+								{previous.title.trim()}
+							</span>
 						</Link>
-					</div>
-				</nav>
-			) : null}
+					) : (
+						<span />
+					)}
+					<Link
+						to="/work"
+						search={{ group: origin }}
+						className="pressable -mr-3 inline-flex min-h-11 items-center rounded-full px-3 text-small font-medium text-primary-text no-underline hover:bg-[color-mix(in_srgb,var(--theme-ink)_5%,transparent)]"
+					>
+						{originLabel}
+					</Link>
+				</div>
+			</nav>
 		</PageShell>
 	);
 }
 
-function NextProject({ project, place }: { project: ProjectContent; place: string | null }) {
+function NextProject({
+	project,
+	place,
+	origin,
+}: {
+	project: ProjectContent;
+	place: string | null;
+	origin: WorkGroup;
+}) {
 	const title = project.title.trim();
 	const summary = project.summary.trim();
 	return (
 		<Link
 			to="/work/$slug"
 			params={{ slug: projectSlug(project) }}
+			state={{ workGroup: origin }}
 			data-poster-host=""
 			viewTransition
 			onClick={primeWorkTransition}

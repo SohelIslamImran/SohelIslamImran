@@ -1,12 +1,16 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import type { ProjectContent } from "../../types/content";
 import { cn } from "../../lib/utils";
+import { usePointerFine } from "../motion";
 import { nonEmpty } from "./project-utils";
 
-type Branch = "android" | "ios" | "shared";
+const platformLabels = { both: "Both", android: "Android", ios: "iOS" } as const;
+type Platform = keyof typeof platformLabels;
+type Branch = Exclude<Platform, "both"> | "shared";
 
 export interface UpdateFlowModel {
-	root: { title: string; detail: string };
+	root: { title: string; detail: string; language: string };
+	lead: string;
 	branches: {
 		id: "android" | "ios";
 		language: string;
@@ -57,7 +61,13 @@ export function updateFlowModel(project: ProjectContent): UpdateFlowModel | null
 	const ios = highlights.find((item) => item.branch === "ios");
 	if (!android || !ios) return null;
 	const has = (tag: string) => tags.some((item) => item.toLowerCase() === tag.toLowerCase());
-	const typescriptApi = /typescript api/i.test(`${project.description} ${project.summary}`);
+	const prose = `${project.description} ${project.summary}`;
+	const typescriptApi = /typescript api/i.test(prose);
+	const root = {
+		title: `One ${typescriptApi ? "TypeScript API" : "API"}`,
+		detail: has("Expo") ? "called from an Expo app" : "called from the app",
+		language: typescriptApi || has("TypeScript") ? "TypeScript" : "",
+	};
 	const build = (id: "android" | "ios", text: string) => ({
 		id,
 		language:
@@ -66,54 +76,85 @@ export function updateFlowModel(project: ProjectContent): UpdateFlowModel | null
 		...parseHighlight(text),
 	});
 	return {
-		root: {
-			title: typescriptApi ? "One TypeScript API" : "One API",
-			detail: has("Expo") ? "called from an Expo app" : "called from the app",
-		},
+		root,
+		lead: `Your app talks to ${typescriptApi ? "one TypeScript API" : "one API"}.${
+			has("Kotlin") && has("Swift")
+				? " Underneath, Kotlin handles Android and Swift handles iOS."
+				: ""
+		}`,
 		branches: [build("android", android.text), build("ios", ios.text)],
 		highlights,
 	};
 }
 
 const flowStyles = String.raw`
-[data-update-flow] .uf-wire { stroke: var(--theme-line-strong); stroke-width: 1.5; fill: none; vector-effect: non-scaling-stroke; transition: stroke 300ms ease, opacity 300ms ease; }
+[data-update-flow] .uf-figure { container-type: inline-size; }
+[data-update-flow] .uf-wire,
+[data-update-flow] .uf-pulse { fill: none; vector-effect: non-scaling-stroke; }
+[data-update-flow] .uf-wire { stroke: var(--theme-line-strong); stroke-width: 1.5; }
 [data-update-flow] .uf-wire[data-lit] { stroke: var(--theme-accent-line); stroke-width: 2; }
-[data-update-flow] .uf-flow { stroke: var(--theme-accent); stroke-width: 2.5; fill: none; vector-effect: non-scaling-stroke; stroke-dasharray: 4 10; opacity: 0; transition: opacity 300ms ease; }
-[data-update-flow] .uf-flow[data-lit] { opacity: 1; }
+[data-update-flow] .uf-pulse { display: none; }
 @media (prefers-reduced-motion: no-preference) {
-	[data-update-flow] .uf-flow[data-lit] { animation: uf-flow 900ms linear infinite; }
+	[data-update-flow] .uf-pulse {
+		display: block;
+		stroke: var(--theme-accent);
+		stroke-width: 4;
+		stroke-linecap: round;
+		stroke-dasharray: 12 112;
+		stroke-dashoffset: -106;
+		animation: uf-pulse 600ms var(--theme-ease) backwards;
+	}
 }
-@keyframes uf-flow { to { stroke-dashoffset: -14; } }
+@keyframes uf-pulse { from { stroke-dashoffset: 12; } }
+[data-update-flow] .uf-short { display: none; }
+@container (width < 400px) {
+	[data-update-flow] .uf-fork { display: none; }
+	[data-update-flow] .uf-short { display: block; }
+	[data-update-flow] .uf-branches { grid-template-columns: minmax(0, 1fr); }
+}
 `;
 
-/**
- * expo-in-app-updates as "what happens": one TypeScript call fans out into a
- * Kotlin branch and a Swift branch. Hovering, focusing, or tapping a highlight
- * lights the branch it describes (and the shared module for the rest), so the
- * notes and the drawing explain each other. Text-first: everything in the
- * diagram is real text; only the wires are decorative.
- */
 export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
+	const [{ branch, revision }, setPlatform] = useState<{ branch: Platform; revision: number }>({
+		branch: "both",
+		revision: 0,
+	});
 	const [selected, setSelected] = useState<number | null>(null);
 	const [preview, setPreview] = useState<number | null>(null);
+	const pointerFine = usePointerFine();
 	const activeIndex = preview ?? selected;
-	const active: Branch | null =
-		activeIndex === null ? null : (model.highlights[activeIndex]?.branch ?? null);
-	const statusId = `update-flow-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
-	const lit = (branch: "android" | "ios") => active === branch || active === "shared";
-	const status =
-		active === null
-			? "Pick a highlight to follow it through the module."
-			: active === "shared"
-				? "This one is about the shared module, so it covers both sides."
-				: `This one happens on the ${active === "android" ? "Android" : "iOS"} side.`;
+	const active = activeIndex === null ? null : model.highlights[activeIndex]?.branch;
+	const matches = (side: Branch) => branch === "both" || side === "shared" || branch === side;
+	const commit = (next: Platform) => {
+		setPlatform((current) => ({ branch: next, revision: current.revision + 1 }));
+		setPreview(null);
+	};
+	const selectPlatform = (next: Platform) => {
+		commit(next);
+		if (selected !== null) {
+			const side = model.highlights[selected].branch;
+			if (next !== "both" && side !== "shared" && side !== next) setSelected(null);
+		}
+	};
+	const caption =
+		active === "shared"
+			? "This highlight covers the shared module on both platforms."
+			: active
+				? `This highlight covers the ${platformLabels[active]} side.`
+				: "Pick a highlight to follow it through the module.";
+	const wire = (d: string, lit: boolean, pulse: boolean) => (
+		<>
+			<path d={d} className="uf-wire" data-lit={lit || undefined} />
+			{pulse ? <path key={revision} d={d} pathLength={100} className="uf-pulse" /> : null}
+		</>
+	);
 
 	return (
 		<div data-slot="update-flow" data-update-flow="" className="grid min-w-0 gap-8 md:gap-10">
 			<style href="trace-work-update-flow" precedence="default">
 				{flowStyles}
 			</style>
-			<figure className="m-0 grid min-w-0 justify-items-center rounded-tile border border-line bg-[radial-gradient(circle_at_1px_1px,var(--theme-line)_1px,transparent_1.3px)] [background-size:18px_18px] px-3 py-6 sm:px-6 sm:py-8">
+			<figure className="uf-figure m-0 grid min-w-0 justify-items-center rounded-tile border border-line bg-[radial-gradient(circle_at_1px_1px,var(--theme-line)_1px,transparent_1.3px)] [background-size:18px_18px] px-3 py-6 sm:px-6 sm:py-8">
 				<div
 					className={cn(
 						"relative z-[1] grid min-w-0 justify-items-center gap-1 rounded-inner border bg-surface-solid px-5 py-3.5 text-center shadow-[0_10px_30px_-18px_var(--theme-shadow-strong)] transition-[border-color,box-shadow] duration-300 ease-trace",
@@ -121,39 +162,52 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 						active === "shared" && "shadow-[0_0_0_4px_var(--theme-accent-soft)]",
 					)}
 				>
-					<span className="mono-label text-primary-text">TypeScript</span>
+					{model.root.language ? (
+						<span className="mono-label text-primary-text">{model.root.language}</span>
+					) : null}
 					<span className="text-[17px] leading-tight font-semibold tracking-[-0.01em] text-foreground">
 						{model.root.title}
 					</span>
 					<span className="text-caption text-muted-foreground">{model.root.detail}</span>
 				</div>
+				<div
+					role="group"
+					aria-label="Show platform"
+					className="relative z-[1] mt-3 flex max-w-full flex-wrap items-center justify-center gap-1 rounded-full border border-line bg-surface-solid p-1"
+				>
+					{(["both", "android", "ios"] as const).map((platform) => (
+						<button
+							key={platform}
+							type="button"
+							aria-pressed={branch === platform}
+							onClick={() => selectPlatform(platform)}
+							className="pressable min-h-11 rounded-full px-3 text-sm font-medium text-ink-soft transition-[scale] duration-220 ease-trace pointer-fine:hover:bg-muted aria-pressed:bg-primary-soft aria-pressed:text-primary-text"
+						>
+							{platformLabels[platform]}
+						</button>
+					))}
+				</div>
 				<svg
 					aria-hidden="true"
 					viewBox="0 0 100 40"
 					preserveAspectRatio="none"
-					className="block h-12 w-full max-w-[560px] sm:h-16"
+					className="uf-fork block h-12 w-full max-w-[560px] sm:h-16"
 				>
-					{(["android", "ios"] as const).map((branch) => {
-						const d =
-							branch === "android" ? "M50 0 C50 22 25 18 25 40" : "M50 0 C50 22 75 18 75 40";
-						return (
-							<g key={branch}>
-								<path d={d} className="uf-wire" data-lit={lit(branch) || undefined} />
-								<path d={d} className="uf-flow" data-lit={lit(branch) || undefined} />
-							</g>
-						);
-					})}
+					{wire("M50 0 C50 22 25 18 25 40", matches("android"), branch === "android")}
+					{wire("M50 0 C50 22 75 18 75 40", matches("ios"), branch === "ios")}
 				</svg>
-				<div className="grid w-full max-w-[560px] min-w-0 grid-cols-2 gap-3 sm:gap-6">
+				<svg aria-hidden="true" viewBox="0 0 4 24" className="uf-short h-6 w-1">
+					{wire("M2 0 V24", true, branch !== "both")}
+				</svg>
+				<div className="uf-branches grid w-full max-w-[560px] min-w-0 grid-cols-2 gap-3 sm:gap-6">
 					{model.branches.map((branch) => (
 						<div
 							key={branch.id}
 							className={cn(
-								"grid min-w-0 content-start gap-3 rounded-inner border bg-surface-solid p-3.5 transition-[border-color,box-shadow,opacity,translate] duration-300 ease-trace sm:p-4",
-								lit(branch.id)
+								"grid min-w-0 content-start gap-3 rounded-inner border bg-surface-solid p-3.5 transition-[translate] duration-220 ease-trace sm:p-4",
+								matches(branch.id)
 									? "border-primary-line shadow-[0_0_0_4px_var(--theme-accent-soft)] motion-safe:-translate-y-0.5"
 									: "border-line",
-								active && !lit(branch.id) && "opacity-50",
 							)}
 						>
 							<div className="grid min-w-0 gap-0.5">
@@ -175,8 +229,8 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 											<span
 												aria-hidden="true"
 												className={cn(
-													"size-1.5 shrink-0 translate-y-[-1px] rounded-full transition-colors duration-300",
-													lit(branch.id) ? "bg-primary" : "bg-line-strong",
+													"size-1.5 shrink-0 translate-y-[-1px] rounded-full",
+													matches(branch.id) ? "bg-primary" : "bg-line-strong",
 												)}
 											/>
 											<span className="min-w-0 break-words">
@@ -190,14 +244,19 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 						</div>
 					))}
 				</div>
-				<figcaption
-					id={statusId}
-					aria-live="polite"
-					className="mt-5 text-center text-caption text-muted-foreground"
-				>
-					{status}
+				<figcaption className="mt-5 text-center text-caption text-muted-foreground">
+					{caption}
 				</figcaption>
 			</figure>
+			<p role="status" className="sr-only">
+				{revision > 0 ? (
+					<span key={revision}>
+						{branch === "both"
+							? "Showing both sides."
+							: `Showing the ${platformLabels[branch]} side.`}
+					</span>
+				) : null}
+			</p>
 
 			<ol aria-label="Highlights" className="m-0 grid min-w-0 list-none gap-3 p-0">
 				{model.highlights.map((highlight, index) => {
@@ -214,24 +273,29 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 							<button
 								type="button"
 								aria-pressed={isSelected}
-								aria-describedby={statusId}
-								onClick={() => setSelected(isSelected ? null : index)}
+								onClick={() => {
+									setSelected(isSelected ? null : index);
+									commit(highlight.branch === "shared" ? "both" : highlight.branch);
+								}}
 								onPointerEnter={(event) => {
-									if (event.pointerType === "mouse") setPreview(index);
+									if (pointerFine && event.pointerType === "mouse") setPreview(index);
 								}}
 								onPointerLeave={() => setPreview(null)}
-								onFocus={() => setPreview(index)}
+								onFocus={(event) => {
+									if (event.currentTarget.matches(":focus-visible")) setPreview(index);
+								}}
 								onBlur={() => setPreview(null)}
 								className={cn(
 									"pressable grid w-full min-w-0 grid-cols-[32px_minmax(0,1fr)] gap-x-3 gap-y-1.5 rounded-inner border bg-surface-solid p-4 text-left sm:grid-cols-[40px_minmax(0,1fr)] sm:p-5",
-									"transition-[border-color,background-color,opacity,scale] duration-300 ease-trace",
+									"transition-[scale] duration-220 ease-trace",
 									"pointer-fine:hover:border-line-strong",
 									isLit || isSelected
 										? "border-primary-line pointer-fine:hover:border-primary-line"
-										: "border-line",
+										: matches(highlight.branch)
+											? "border-line"
+											: "border-transparent",
 									isSelected &&
 										"bg-[color-mix(in_srgb,var(--theme-accent)_6%,var(--theme-surface-solid))]",
-									activeIndex !== null && !isLit && "opacity-55",
 								)}
 							>
 								<span

@@ -1,10 +1,11 @@
 import { forwardRef, useLayoutEffect, useRef, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion, useReducedMotion } from "motion/react";
+import { AnimatePresence, LayoutGroup, motion, useIsPresent, useReducedMotion } from "motion/react";
 import type { ProjectCategory, ProjectContent } from "../types/content";
 import { cn } from "../lib/utils";
 import { FilterStrip } from "./FilterStrip";
 import { ProjectCard } from "./ProjectCard";
 import { Stagger } from "./motion";
+import { RollingNumber } from "@/components/motion/RollingNumber";
 import { Button } from "./ui/button";
 import { EmptyState } from "./ui/portfolio";
 import {
@@ -36,15 +37,19 @@ const WorkSection = forwardRef<
 		index: string;
 		layout: "feature" | "lab";
 		items: ProjectContent[];
+		group: WorkGroup;
 		reduceMotion: boolean;
 	}
->(function WorkSection({ category, index, layout, items, reduceMotion }, ref) {
+>(function WorkSection({ category, index, layout, items, group, reduceMotion }, ref) {
+	const isPresent = useIsPresent();
 	const titleId = `work-${category}`;
 	return (
 		<motion.section
 			ref={ref}
 			layout="position"
 			aria-labelledby={titleId}
+			inert={!isPresent}
+			aria-hidden={!isPresent || undefined}
 			className="min-w-0"
 			initial={{ opacity: 0, y: reduceMotion ? 0 : 18 }}
 			animate={{ opacity: 1, y: 0 }}
@@ -77,7 +82,7 @@ const WorkSection = forwardRef<
 				<Stagger as="ul" className="m-0 grid min-w-0 list-none gap-4 p-0 sm:grid-cols-2 sm:gap-5">
 					{items.map((project) => (
 						<li key={project.id} className="min-w-0">
-							<ProjectCard project={project} variant="compact" />
+							<ProjectCard fromGroup={group} project={project} variant="compact" />
 						</li>
 					))}
 				</Stagger>
@@ -88,7 +93,11 @@ const WorkSection = forwardRef<
 						const wide = items.length % 2 === 1 && position === 0;
 						return (
 							<li key={project.id} className={cn("min-w-0", wide && "md:col-span-2")}>
-								<ProjectCard project={project} variant={wide ? "split" : "feature"} />
+								<ProjectCard
+									fromGroup={group}
+									project={project}
+									variant={wide ? "split" : "feature"}
+								/>
 							</li>
 						);
 					})}
@@ -97,6 +106,35 @@ const WorkSection = forwardRef<
 		</motion.section>
 	);
 });
+
+const EmptyWork = forwardRef<HTMLDivElement, { reduceMotion: boolean; showAll?: () => void }>(
+	function EmptyWork({ reduceMotion, showAll }, ref) {
+		const isPresent = useIsPresent();
+		return (
+			<motion.div
+				ref={ref}
+				layout="position"
+				inert={!isPresent}
+				aria-hidden={!isPresent || undefined}
+				transition={reduceMotion ? { duration: 0 } : undefined}
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				exit={{ opacity: 0 }}
+			>
+				<EmptyState
+					title="No projects in this view yet."
+					description="Try another group to see more of my work."
+				>
+					{showAll ? (
+						<Button type="button" size="lg" onClick={showAll}>
+							Show all work
+						</Button>
+					) : null}
+				</EmptyState>
+			</motion.div>
+		);
+	},
+);
 
 /**
  * The /work index: a URL-backed group filter over products, open source, and
@@ -163,7 +201,7 @@ export function WorkIndex({
 				<div className="grid min-w-0 gap-2 px-1 xl:justify-items-end xl:pb-3 xl:text-right">
 					<p className="m-0 text-small text-muted-foreground">
 						<span className="mono-label mr-2 text-foreground">
-							{String(countFor(group)).padStart(2, "0")}
+							<RollingNumber value={countFor(group)} pad={2} />
 						</span>
 						{workGroupDescriptions[group]}
 					</p>
@@ -208,29 +246,16 @@ export function WorkIndex({
 										index={section.index}
 										layout={section.layout}
 										items={section.items}
+										group={group}
 										reduceMotion={reduceMotion}
 									/>
 								))
 							) : (
-								<motion.div
+								<EmptyWork
 									key="empty"
-									layout="position"
-									transition={reduceMotion ? { duration: 0 } : undefined}
-									initial={{ opacity: 0 }}
-									animate={{ opacity: 1 }}
-									exit={{ opacity: 0 }}
-								>
-									<EmptyState
-										title="No projects in this view yet."
-										description="Try another group to see more of my work."
-									>
-										{group !== "all" ? (
-											<Button type="button" size="lg" onClick={() => onGroupChange("all")}>
-												Show all work
-											</Button>
-										) : null}
-									</EmptyState>
-								</motion.div>
+									reduceMotion={reduceMotion}
+									showAll={group === "all" ? undefined : () => onGroupChange("all")}
+								/>
 							)}
 						</AnimatePresence>
 					</LayoutGroup>

@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import {
 	eraAt,
 	markSkill,
+	skillYearCounts,
 	tokenMatchesSkill,
 	type Skill,
 	type SkillIndex,
@@ -281,9 +282,8 @@ function Readout() {
 }
 
 /**
- * 2021 → 2026, from role dates only. Skills not yet used by the chosen year
- * turn dashed, roles running that year are highlighted, and the layer glyphs
- * fill as each layer is reached. A real range input; hidden in print.
+ * A range based on role dates. Skills first named after the chosen year turn
+ * dashed, and the readout links to the roles running that year.
  */
 export function YearScrubber() {
 	const state = useSkills();
@@ -291,25 +291,31 @@ export function YearScrubber() {
 	if (!state?.timeline || state.timeline.max <= state.timeline.min) return null;
 	const { timeline, year, setYear, index } = state;
 	const years = Array.from({ length: timeline.max - timeline.min + 1 }, (_, k) => timeline.min + k);
-	const skills = index.groups.flatMap((group) => group.skills);
-	const inUse = skills.filter((skill) => {
-		const first = timeline.firstYear[skill.name];
-		return first !== null && first !== undefined && first <= year;
-	}).length;
+	const { namedByYear, datedTotal, undated } = skillYearCounts(
+		Object.values(timeline.firstYear),
+		year,
+	);
 	const running = index.targets.filter(
 		(target) => target.kind === "role" && eraAt(timeline.spans[target.id], year) === "now",
 	);
 	const fill = (year - timeline.min) / (timeline.max - timeline.min);
-	const summary = `${inUse} of ${skills.length} skills in use`;
+	const summary = `${namedByYear} of ${datedTotal} skills show up by`;
+	const undatedText = undated > 0 ? `${undated} undated` : "";
 	return (
 		<div data-slot="resume-years" className="mb-3 min-w-0 print:hidden">
 			<div className="flex items-baseline justify-between gap-3">
 				<label htmlFor={id} className="mono-label text-muted-foreground">
 					By year
 				</label>
-				<output htmlFor={id} className="text-caption text-ink-soft" aria-live="polite">
-					<span className="font-mono font-semibold text-foreground">{year}</span> · {summary}
-				</output>
+				<p className="m-0 text-right text-caption text-ink-soft">
+					{summary}{" "}
+					<span className="inline-block w-[4ch] font-mono font-semibold text-foreground tabular-nums">
+						{year}
+					</span>
+					{undatedText ? (
+						<span className="whitespace-nowrap text-muted-foreground"> · {undatedText}</span>
+					) : null}
+				</p>
 			</div>
 			<input
 				id={id}
@@ -319,7 +325,15 @@ export function YearScrubber() {
 				step={1}
 				value={year}
 				onChange={(event) => setYear(Number(event.currentTarget.value))}
-				aria-valuetext={`${year}: ${summary}${running.length ? `. ${running.map((role) => `${role.title} at ${role.subtitle}`).join("; ")}` : ""}`}
+				aria-valuetext={[
+					`${summary} ${year}`,
+					undatedText,
+					running.length
+						? `Working then: ${running.map((role) => [role.title, role.subtitle].filter(Boolean).join(" at ")).join(", ")}`
+						: "",
+				]
+					.filter(Boolean)
+					.join(". ")}
 				style={{ "--fill": fill } as CSSProperties}
 			/>
 			<div aria-hidden="true" data-slot="resume-years-ticks">
@@ -335,6 +349,23 @@ export function YearScrubber() {
 					</span>
 				))}
 			</div>
+			{running.length > 0 ? (
+				<div className="mt-2 flex flex-wrap items-center gap-1.5">
+					<span className="mono-label mr-1 text-muted-foreground">Working then</span>
+					{running.slice(0, 2).map((target) => (
+						<a
+							key={target.id}
+							href={`#${target.id}`}
+							className="pressable inline-flex min-h-8 max-w-full items-center rounded-full border border-line bg-surface-solid px-2.5 text-caption font-medium text-ink-soft pointer-coarse:min-h-11 pointer-fine:hover:border-line-strong pointer-fine:hover:text-foreground"
+						>
+							{[target.title, target.subtitle].filter(Boolean).join(" · ")}
+						</a>
+					))}
+					{running.length > 2 ? (
+						<span className="text-caption text-muted-foreground">+{running.length - 2} more</span>
+					) : null}
+				</div>
+			) : null}
 		</div>
 	);
 }
@@ -343,12 +374,11 @@ export function SkillLayers({ titleId }: { titleId: string }) {
 	const state = useSkills();
 	if (!state) return null;
 	const { index, pinned, preview, toggle, clear, timeline, year, scrubbed } = state;
-	// A skill no dated role or project names has no year to place it in, so it
-	// only counts as "in use" at the latest year.
+	// With no dated mention, there is no evidence that a skill came later.
 	const usedBy = (skill: Skill) => {
 		if (!scrubbed || !timeline) return true;
 		const first = timeline.firstYear[skill.name];
-		return first !== null && first !== undefined && first <= year;
+		return first == null || first <= year;
 	};
 	const layerCount = index.groups.filter((group) => group.id !== "across").length || 1;
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -429,7 +459,7 @@ export function SkillLayers({ titleId }: { titleId: string }) {
 												>
 													{skill.name}
 													{!usedBy(skill) ? (
-														<span className="sr-only">, not yet used by {year}</span>
+														<span className="sr-only">, first named after {year}</span>
 													) : null}
 													{count ? (
 														<>
