@@ -1069,7 +1069,7 @@ function PaletteSection({
 				aria-checked={item.checked === undefined ? undefined : item.checked}
 				data-active={active || undefined}
 				className={cn(
-					"group/option relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px]",
+					"group/option @container relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px]",
 				)}
 				onPointerMove={(event) => {
 					if (event.pointerType === "mouse" && !active) onHover(item.id);
@@ -1112,7 +1112,7 @@ function PaletteSection({
 					<span
 						aria-hidden="true"
 						data-slot="palette-kind"
-						className="mono-label shrink-0 text-muted-foreground max-[299px]:hidden"
+						className="mono-label shrink-0 text-muted-foreground @max-[19.5rem]:hidden"
 					>
 						{kindTag}
 					</span>

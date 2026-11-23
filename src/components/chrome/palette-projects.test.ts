@@ -92,4 +92,19 @@ describe("paletteProjects", () => {
 		const result = paletteProjects([makeProject({ id: "x", slug: "x", summary: "   " })]);
 		expect(result[0]?.detail).toBeUndefined();
 	});
+
+	it("keeps the published order instead of the /work category order", () => {
+		const result = paletteProjects([
+			makeProject({ id: "a", title: "Lab", slug: "lab", category: "experiment" }),
+			makeProject({ id: "b", title: "Kuno", slug: "kuno", category: "product" }),
+			makeProject({ id: "c", title: "Lab again", slug: "lab", category: "product" }),
+		]);
+		// The category-ordered helper still picks the duplicate's winner ("Lab again").
+		expect(result.map((item) => item.label)).toEqual(["Kuno", "Lab again"]);
+		const ordered = paletteProjects([
+			makeProject({ id: "x", title: "Experiment", slug: "x", category: "experiment" }),
+			makeProject({ id: "y", title: "Product", slug: "y", category: "product" }),
+		]);
+		expect(ordered.map((item) => item.label)).toEqual(["Experiment", "Product"]);
+	});
 });

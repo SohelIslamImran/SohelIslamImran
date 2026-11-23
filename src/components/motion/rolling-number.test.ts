@@ -35,4 +35,10 @@ describe("rollingDigits", () => {
 		expect(rollingDigits(Number.POSITIVE_INFINITY)).toBeNull();
 		expect(rollingDigits(Number.NEGATIVE_INFINITY)).toBeNull();
 	});
+
+	it("returns null for integers that print in exponent notation", () => {
+		expect(rollingDigits(1e21)).toBeNull();
+		expect(rollingDigits(Number.MAX_VALUE)).toBeNull();
+		expect(rollingDigits(1e20)).toHaveLength(21);
+	});
 });

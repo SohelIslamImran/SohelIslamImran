@@ -18,15 +18,21 @@ export function paletteProjects(
 	projects: readonly ProjectContent[] | null | undefined,
 ): PaletteProjectItem[] {
 	if (!projects?.length) return [];
-	return linkableProjects(projects).map((project) => {
-		const slug = projectSlug(project);
-		return {
-			id: `project-${project.id}`,
-			slug,
-			target: `/work/${encodeURIComponent(slug)}`,
-			label: project.title.trim(),
-			detail: project.summary.trim() || undefined,
-			keywords: [project.category, project.year, project.role, ...project.tags].join(" "),
-		};
-	});
+	// `linkableProjects` decides which records are reachable (and which wins a
+	// duplicate slug) but sorts by work category. The palette keeps the CMS
+	// order so its keyboard order and search tie-breaks stay as they were.
+	const linkable = new Set(linkableProjects(projects));
+	return projects
+		.filter((project) => linkable.has(project))
+		.map((project) => {
+			const slug = projectSlug(project);
+			return {
+				id: `project-${project.id}`,
+				slug,
+				target: `/work/${encodeURIComponent(slug)}`,
+				label: project.title.trim(),
+				detail: project.summary.trim() || undefined,
+				keywords: [project.category, project.year, project.role, ...project.tags].join(" "),
+			};
+		});
 }
