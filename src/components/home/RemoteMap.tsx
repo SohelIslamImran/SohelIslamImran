@@ -60,9 +60,9 @@ const MAP_CSS = `
 @keyframes rmap-arrive { from { scale: 0; } to { scale: 1; } }
 @keyframes rmap-packet {
 	from { stroke-dashoffset: 1.08; opacity: 1; }
-	/* Keep the dash at the destination while it fades. */
-	96% { stroke-dashoffset: 0.08; opacity: 1; }
-	to { stroke-dashoffset: 0.08; opacity: 0; }
+	/* The last dash spans 0.92–1 while it fades, with the preceding dash off the path. */
+	96% { stroke-dashoffset: 0.16; opacity: 1; }
+	to { stroke-dashoffset: 0.16; opacity: 0; }
 }
 @keyframes rmap-ping {
 	from { opacity: 0.5; scale: 1; }
