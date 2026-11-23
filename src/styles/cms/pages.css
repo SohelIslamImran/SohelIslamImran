@@ -19,6 +19,13 @@
 		}
 	}
 
+	@media (max-width: 639px) {
+		.cms-page-header-actions .cms-seg-item {
+			min-width: 44px;
+			padding-inline: 8px;
+		}
+	}
+
 	/* Gentle <= 1 Hz live visitor pulse (0.42 Hz, scale + opacity only). */
 	@keyframes cms-live-pulse {
 		0% {
@@ -38,6 +45,7 @@
 
 	/* Segmented control track and sliding elevated pill (never hue alone). */
 	.cms-seg-track {
+		position: relative;
 		display: inline-flex;
 		max-width: 100%;
 		flex-wrap: nowrap;
