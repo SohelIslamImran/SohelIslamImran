@@ -155,7 +155,7 @@ function Analytics() {
 
 			{/* Segmented range selector with sliding pill (never hue alone) */}
 			<div
-				className="cms-enter flex flex-wrap items-center justify-between gap-3"
+				className="cms-panel cms-enter flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
 				style={staggerStyle(0)}
 			>
 				<nav aria-label="Traffic range" className="cms-seg-track">

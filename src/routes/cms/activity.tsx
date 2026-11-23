@@ -179,7 +179,7 @@ function ActivityRoute() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Activity"
-				description="Every save, publish, restore, discard, and media change, newest first."
+				description="Draft and media changes, newest first."
 				actions={
 					<SegmentedControl
 						layoutId="cms-activity-filter-pill"
@@ -246,8 +246,8 @@ function ActivityRoute() {
 					className={cn("grid gap-5 transition-opacity duration-200", loading && "opacity-55")}
 				>
 					{groupedByDay.map((group, groupIndex) => (
-						<section key={group.dayKey} className="grid gap-2">
-							<h2 className="m-0 px-1 text-[13px] font-semibold text-muted-foreground">
+						<section key={group.dayKey} className="cms-panel overflow-hidden">
+							<h2 className="m-0 border-b border-line px-4 py-2.5 text-[16px] font-semibold tracking-[-0.01em] sm:px-5">
 								{/* After hydration the date may become "Today"; fade the swap. */}
 								<DayLabel
 									label={formatDayHeading(
@@ -257,17 +257,15 @@ function ActivityRoute() {
 									)}
 								/>
 							</h2>
-							<div className="cms-panel overflow-hidden">
-								<ul className="m-0 list-none divide-y divide-line p-0">
-									{group.items.map((event, index) => (
-										<EventRow
-											key={event.id}
-											event={event}
-											stagger={Math.min((groupOffsets[groupIndex] ?? 0) + index, 10)}
-										/>
-									))}
-								</ul>
-							</div>
+							<ul className="m-0 list-none divide-y divide-line p-0">
+								{group.items.map((event, index) => (
+									<EventRow
+										key={event.id}
+										event={event}
+										stagger={Math.min((groupOffsets[groupIndex] ?? 0) + index, 10)}
+									/>
+								))}
+							</ul>
 						</section>
 					))}
 				</div>

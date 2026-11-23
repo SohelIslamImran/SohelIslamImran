@@ -124,11 +124,7 @@ export function AssetCard({
 			<span className="grid place-items-center gap-1.5 px-4 text-center">
 				<MediaLibraryIcon className="size-6 text-muted-foreground" />
 				<span className="text-[12px] text-muted-foreground">
-					{!isPublished
-						? "Not published yet"
-						: isImage
-							? "Preview unavailable"
-							: typeLabel}
+					{!isPublished ? "Not published yet" : isImage ? "Preview unavailable" : typeLabel}
 				</span>
 			</span>
 		);

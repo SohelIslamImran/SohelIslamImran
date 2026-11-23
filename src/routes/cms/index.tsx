@@ -282,7 +282,7 @@ function CmsOverview() {
 		<div className={pageClass}>
 			<PageHeader
 				title="Overview"
-				description="What’s ready to publish, what changed recently, and how the site is doing."
+				description="Draft changes, recent activity, and site traffic."
 			/>
 
 			<div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
