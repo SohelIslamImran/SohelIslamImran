@@ -25,6 +25,20 @@ export function fieldId(path: string): string {
 	return `cms-field-${path.replace(/[^A-Za-z0-9_-]+/gu, "-").replace(/-+$/u, "")}`;
 }
 
+export function editorFocusTop(target: HTMLElement): number {
+	const toolbar = document.querySelector(".cms-topbar")?.getBoundingClientRect().bottom ?? 0;
+	const back = target.closest(".cms-collection-detail")?.querySelector(".cms-collection-back");
+	const backBottom = back?.contains(target) ? 0 : (back?.getBoundingClientRect().bottom ?? 0);
+	return Math.max(0, toolbar, backBottom);
+}
+
+export function editorFocusBottom(): number {
+	return (
+		document.querySelector('[data-slot="cms-mobile-action-bar"]')?.getBoundingClientRect().top ??
+		window.innerHeight
+	);
+}
+
 /** Scroll to and focus the control for a path. Returns whether focus reached it. */
 export function focusField(path: string, touch = false): boolean {
 	if (typeof document === "undefined") return false;
@@ -52,13 +66,10 @@ export function focusField(path: string, touch = false): boolean {
 				? frame
 				: (visible ?? control));
 	if (!target) return false;
-	// Keep the page still when the target is already on screen, even in
-	// part (after removing a row, its neighbour is usually right there);
-	// otherwise bring it to the middle, clear of the sticky top bar.
+	// Keep nearby controls in place when they already clear the sticky bars.
 	const rect = target.getBoundingClientRect();
-	const topBar = document.querySelector<HTMLElement>(".cms-topbar")?.getBoundingClientRect().bottom;
-	const inView = rect.bottom > Math.max(0, topBar ?? 0) + 24 && rect.top < window.innerHeight - 24;
-	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest" });
+	const inView = rect.top >= editorFocusTop(target) && rect.bottom <= editorFocusBottom();
+	if (!inView) target.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
 	target.focus({ preventScroll: true });
 	return document.activeElement === target;
 }

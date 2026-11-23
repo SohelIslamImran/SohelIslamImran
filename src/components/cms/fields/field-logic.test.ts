@@ -31,6 +31,12 @@ describe("tag backspace", () => {
 		expect(tagBackspace("", 3, first.armed)).toEqual({ armed: false, remove: true });
 	});
 
+	it("requires a fresh press to arm or remove a tag", () => {
+		expect(tagBackspace("", 3, false, true)).toEqual({ armed: false, remove: false });
+		expect(tagBackspace("", 3, true, true)).toEqual({ armed: true, remove: false });
+		expect(tagBackspace("re", 3, true, true)).toEqual({ armed: false, remove: false });
+	});
+
 	it("does nothing while the input has text or there are no tags", () => {
 		expect(tagBackspace("re", 3, true)).toEqual({ armed: false, remove: false });
 		expect(tagBackspace("", 0, false)).toEqual({ armed: false, remove: false });

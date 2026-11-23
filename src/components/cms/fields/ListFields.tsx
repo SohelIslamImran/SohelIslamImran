@@ -181,7 +181,7 @@ export function TagsField({
 							setArmed(false);
 							add(draft);
 						} else if (event.key === "Backspace") {
-							const next = tagBackspace(draft, tags.length, armed);
+							const next = tagBackspace(draft, tags.length, armed, event.repeat);
 							if (next.remove) {
 								event.preventDefault();
 								remove(tags.length - 1);

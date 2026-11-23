@@ -14,7 +14,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { useDraftSelector, useDraftStore } from "../draft/context";
-import { getAt, insertItem, jsonEqual, moveItem, removeItem } from "../draft/paths";
+import { childPath, getAt, insertItem, jsonEqual, moveItem, removeItem } from "../draft/paths";
 import type { DraftState } from "../draft/store";
 import { REDUCED, SPRING_SURFACE } from "../motion";
 import {
@@ -32,6 +32,7 @@ export const editorButton = "cms-editor-button cms-press";
 
 interface RemovalToast {
 	id: string;
+	scoped?: boolean;
 	label: string;
 	canUndo: boolean;
 	onUndo: () => void;
@@ -45,14 +46,37 @@ interface RowIdentity {
 	next: number;
 }
 
-type RemovalLists = Map<string, readonly PendingRemoval<KeyedRow<unknown>>[]>;
+interface ScopedRemoval {
+	key: string;
+	max: number;
+	pathAt: (state: DraftState) => string | undefined;
+	restore: () => number | undefined;
+	dismiss: () => void;
+}
+
+type ListRemoval<T> = PendingRemoval<KeyedRow<T>> & { scoped?: ScopedRemoval };
+type RemovalLists = Map<string, readonly ListRemoval<unknown>[]>;
 const EMPTY_REMOVALS: readonly never[] = [];
 const RemovalListsContext = createContext<{
 	lists: RemovalLists;
 	setLists: Dispatch<SetStateAction<RemovalLists>>;
 	identities: Map<string, RowIdentity>;
 } | null>(null);
-const RemovalScope = createContext<{ key: string; path: string } | null>(null);
+const RemovalScope = createContext<{ collection: string; id: string; path: string } | null>(null);
+
+function updateRemovals<T>(
+	lists: RemovalLists,
+	field: string,
+	update: (current: readonly ListRemoval<T>[]) => readonly ListRemoval<T>[],
+): RemovalLists {
+	const current = (lists.get(field) as readonly ListRemoval<T>[] | undefined) ?? EMPTY_REMOVALS;
+	const next = update(current);
+	if (next === current) return lists;
+	const result = new Map(lists);
+	if (next.length) result.set(field, next);
+	else result.delete(field);
+	return result;
+}
 
 /** Collection detail fields keep their state with the item when its index moves. */
 export function UndoRemovalScope({
@@ -66,10 +90,7 @@ export function UndoRemovalScope({
 	path: string;
 	children: ReactNode;
 }) {
-	const value = useMemo(
-		() => ({ key: `${collection}\0${JSON.stringify(id)}\0`, path }),
-		[collection, id, path],
-	);
+	const value = useMemo(() => ({ collection, id, path }), [collection, id, path]);
 	return <RemovalScope.Provider value={value}>{children}</RemovalScope.Provider>;
 }
 
@@ -91,6 +112,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 		});
 	}, [store]);
 	useEffect(() => setHost(document.querySelector<HTMLElement>(".cms-root") ?? document.body), []);
+	const pending = Array.from(lists.values()).flat().reverse();
 	return (
 		<UndoHost.Provider value={setToasts}>
 			<RemovalListsContext.Provider value={removals}>{children}</RemovalListsContext.Provider>
@@ -98,9 +120,21 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 				? createPortal(
 						<div className="cms-undo-stack pointer-events-none fixed bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit flex-col gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
 							<AnimatePresence initial={false}>
-								{toasts.map((toast) => (
-									<UndoToast key={toast.id} {...toast} />
-								))}
+								{toasts
+									.filter((toast) => !toast.scoped)
+									.map((toast) => (
+										<UndoToast key={toast.id} {...toast} />
+									))}
+								{pending.map(({ label, scoped }) =>
+									scoped ? (
+										<ScopedUndoToast
+											key={scoped.key}
+											removal={scoped}
+											label={label}
+											mounted={toasts.find((toast) => toast.id === scoped.key)}
+										/>
+									) : null,
+								)}
 							</AnimatePresence>
 						</div>,
 						host,
@@ -115,12 +149,14 @@ export function UndoRemoval({
 	onUndo,
 	onDismiss,
 }: {
-	removal: { label: string; canUndo: boolean } | null;
+	removal: { label: string; canUndo: boolean; scopeKey?: string } | null;
 	onUndo: () => void;
 	onDismiss: () => void;
 }) {
 	const setToasts = useContext(UndoHost);
-	const id = useId();
+	const instanceId = useId();
+	const id = removal?.scopeKey ?? instanceId;
+	const scoped = removal?.scopeKey !== undefined;
 	const label = removal?.label;
 	const canUndo = removal?.canUndo ?? false;
 	const actions = useRef({ onUndo, onDismiss });
@@ -132,14 +168,15 @@ export function UndoRemoval({
 		if (!setToasts || label === undefined) return;
 		const toast = {
 			id,
+			scoped,
 			label,
 			canUndo,
 			onUndo: () => actions.current.onUndo(),
 			onDismiss: () => actions.current.onDismiss(),
 		};
-		setToasts((current) => [toast, ...current]);
-		return () => setToasts((current) => current.filter((toast) => toast.id !== id));
-	}, [setToasts, id, label, canUndo]);
+		setToasts((current) => [toast, ...current.filter((entry) => entry.id !== id)]);
+		return () => setToasts((current) => current.filter((entry) => entry !== toast));
+	}, [setToasts, id, label, canUndo, scoped]);
 
 	return null;
 }
@@ -153,7 +190,9 @@ export function usePendingRemovals<T>(
 	const store = useDraftStore();
 	const host = useContext(RemovalListsContext);
 	const scope = useContext(RemovalScope);
-	const field = scope ? scope.key + path.slice(scope.path.length) : path;
+	const field = scope
+		? `${scope.collection}\0${JSON.stringify(scope.id)}\0${path.slice(scope.path.length)}`
+		: path;
 	const setLists = host?.setLists;
 	const identities = host?.identities;
 	const localIdentity = useRef<RowIdentity>({ keys: [], next: 0 });
@@ -161,26 +200,10 @@ export function usePendingRemovals<T>(
 	useLayoutEffect(() => {
 		identities?.set(field, identity);
 	}, [field, identities, identity]);
-	const all =
-		(host?.lists.get(field) as readonly PendingRemoval<KeyedRow<T>>[] | undefined) ??
-		EMPTY_REMOVALS;
+	const all = (host?.lists.get(field) as readonly ListRemoval<T>[] | undefined) ?? EMPTY_REMOVALS;
 	const setAll = useCallback(
-		(
-			update: (
-				current: readonly PendingRemoval<KeyedRow<T>>[],
-			) => readonly PendingRemoval<KeyedRow<T>>[],
-		) => {
-			setLists?.((lists) => {
-				const current =
-					(lists.get(field) as readonly PendingRemoval<KeyedRow<T>>[] | undefined) ??
-					EMPTY_REMOVALS;
-				const next = update(current);
-				if (next === current) return lists;
-				const updated = new Map(lists);
-				if (next.length) updated.set(field, next);
-				else updated.delete(field);
-				return updated;
-			});
+		(update: (current: readonly ListRemoval<T>[]) => readonly ListRemoval<T>[]) => {
+			setLists?.((lists) => updateRemovals(lists, field, update));
 		},
 		[field, setLists],
 	);
@@ -189,13 +212,21 @@ export function usePendingRemovals<T>(
 	const keys = Array.from({ length: count }, (_, index) => identity.keys[index] ?? identity.next++);
 	identity.keys = keys;
 
-	const same = (a: KeyedRow<T>, b: KeyedRow<T>) =>
-		sameRowKey(a, b) || (!b.allowDuplicate && sameValue?.(a.value, b.value) === true);
-	const rules = { max, same, match: sameRowKey };
+	const rules = useMemo(
+		() => ({
+			max,
+			same: (a: KeyedRow<T>, b: KeyedRow<T>) =>
+				sameRowKey(a, b) || (!b.allowDuplicate && sameValue?.(a.value, b.value) === true),
+			match: sameRowKey,
+		}),
+		[max, sameValue],
+	);
 	const back = useDraftSelector((state) => {
 		if (!all.length) return "";
 		const rows = keyRows(rowsAt(state), identity.keys);
-		return all.map((removal) => (rows.some((row) => same(row, removal.row)) ? "1" : "0")).join("");
+		return all
+			.map((removal) => (rows.some((row) => rules.same(row, removal.row)) ? "1" : "0"))
+			.join("");
 	});
 	const restoresLive = useDraftSelector((state, store) => {
 		if (!all.length) return false;
@@ -222,6 +253,24 @@ export function usePendingRemovals<T>(
 		},
 		[identity, path, store],
 	);
+	const restoreAt = useCallback(
+		(target: string, removal: ListRemoval<T>) => {
+			const rows = (store.valueAt(target) as T[] | undefined) ?? [];
+			const restored = restoreRemoval(keyRows(rows, identity.keys), removal, rules);
+			if (!restored) return undefined;
+			identity.keys = restored.rows.map((row) => row.key);
+			store.update(
+				target,
+				restored.rows.map((row) => row.value),
+			);
+			return restored.index;
+		},
+		[identity, rules, store],
+	);
+	const dismiss = useCallback(
+		(id: number) => setAll((current) => current.filter((removal) => removal.id !== id)),
+		[setAll],
+	);
 	const remove = useCallback(
 		(index: number, label: string) => {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
@@ -231,12 +280,37 @@ export function usePendingRemovals<T>(
 			const row = before[index]!;
 			row.allowDuplicate = rows.some((value, at) => at !== index && sameValue?.(value, row.value));
 			update(removeItem(rows, index), removeItem(keys, index));
-			setAll((current) => [
-				...current,
-				createRemoval(before, index, label, current, sameRowKey, row.key),
-			]);
+			setAll((current) => {
+				const removal: ListRemoval<T> = createRemoval(
+					before,
+					index,
+					label,
+					current,
+					sameRowKey,
+					row.key,
+				);
+				if (scope) {
+					const suffix = path.slice(scope.path.length);
+					const pathAt = (state: DraftState) => {
+						const items = getAt(state.draft, scope.collection) as { id: string }[];
+						const position = items.findIndex((item) => item.id === scope.id);
+						return position < 0 ? undefined : childPath(scope.collection, position) + suffix;
+					};
+					removal.scoped = {
+						key: `${field}\0${removal.id}`,
+						max,
+						pathAt,
+						restore: () => {
+							const target = pathAt(store.getState());
+							return target === undefined ? undefined : restoreAt(target, removal);
+						},
+						dismiss: () => dismiss(removal.id),
+					};
+				}
+				return [...current, removal];
+			});
 		},
-		[identity, path, sameValue, setAll, store, update],
+		[dismiss, field, identity, max, path, restoreAt, sameValue, scope, setAll, store, update],
 	);
 	const move = useCallback(
 		(from: number, to: number) => {
@@ -253,9 +327,6 @@ export function usePendingRemovals<T>(
 		},
 		[identity, max, path, store, update],
 	);
-	const dismiss = (id: number) =>
-		setAll((current) => current.filter((removal) => removal.id !== id));
-
 	return {
 		keys,
 		remove,
@@ -266,6 +337,7 @@ export function usePendingRemovals<T>(
 			label: removal.label,
 			row: removal.row.value,
 			canUndo: count < max,
+			scopeKey: removal.scoped?.key,
 		})),
 		reorder(next: number[]) {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
@@ -283,20 +355,57 @@ export function usePendingRemovals<T>(
 			);
 		},
 		undo(id: number) {
-			const rows = (store.valueAt(path) as T[] | undefined) ?? [];
 			const removal = removals.find((entry) => entry.id === id);
-			const restored = removal && restoreRemoval(keyRows(rows, identity.keys), removal, rules);
-			if (!restored) return undefined;
-			dismiss(id);
-			update(
-				restored.rows.map((row) => row.value),
-				restored.rows.map((row) => row.key),
-			);
-			return restored.index;
+			if (!removal) return undefined;
+			const index = removal.scoped ? removal.scoped.restore() : restoreAt(path, removal);
+			if (index !== undefined) dismiss(id);
+			return index;
 		},
 		/** Undo would return the field to its live value, so Revert adds nothing. */
 		restoresLive,
 	};
+}
+
+function ScopedUndoToast({
+	removal,
+	label,
+	mounted,
+}: {
+	removal: ScopedRemoval;
+	label: string;
+	mounted?: RemovalToast;
+}) {
+	const count = useDraftSelector((state) => {
+		const path = removal.pathAt(state);
+		return path === undefined
+			? null
+			: ((getAt(state.draft, path) as unknown[] | undefined)?.length ?? 0);
+	});
+	if (count === null) return null;
+
+	// An inactive field has no focus target. Restore it in place by item ID.
+	const close = () => {
+		removal.dismiss();
+		const back = document.querySelector<HTMLElement>(".cms-collection-back button:not(:disabled)");
+		const target = back?.getClientRects().length
+			? back
+			: document.getElementById("cms-section-heading");
+		target?.focus({ preventScroll: true });
+	};
+	return (
+		<UndoToast
+			id={removal.key}
+			label={label}
+			canUndo={mounted?.canUndo ?? count < removal.max}
+			onUndo={
+				mounted?.onUndo ??
+				(() => {
+					if (removal.restore() !== undefined) close();
+				})
+			}
+			onDismiss={mounted?.onDismiss ?? close}
+		/>
+	);
 }
 
 function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {
