@@ -132,6 +132,7 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 	const active = activeIndex === null ? null : model.highlights[activeIndex]?.branch;
 	const matches = (side: Branch) => branch === "both" || side === "shared" || branch === side;
 	const commit = (next: Platform) => {
+		if (next === branch) return;
 		setPlatform((current) => ({ branch: next, revision: current.revision + 1 }));
 		setPreview(null);
 	};
@@ -289,7 +290,10 @@ export function UpdateFlow({ model }: { model: UpdateFlowModel }) {
 								aria-pressed={isSelected}
 								onClick={() => {
 									setSelected(isSelected ? null : index);
-									commit(highlight.branch === "shared" ? "both" : highlight.branch);
+									setPreview(null);
+									if (!isSelected) {
+										commit(highlight.branch === "shared" ? "both" : highlight.branch);
+									}
 								}}
 								onPointerEnter={(event) => {
 									if (pointerFine && event.pointerType === "mouse") setPreview(index);
