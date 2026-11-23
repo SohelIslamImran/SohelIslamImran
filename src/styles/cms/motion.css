@@ -80,6 +80,7 @@
 	@media (prefers-reduced-motion: reduce) {
 		.cms-enter {
 			animation-name: cms-fade;
+			animation-duration: 150ms !important;
 			animation-delay: 0ms;
 		}
 		.cms-press:active:not(:disabled, [aria-disabled="true"]) {
