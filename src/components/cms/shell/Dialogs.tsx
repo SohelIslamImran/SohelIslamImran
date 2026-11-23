@@ -228,7 +228,7 @@ function PublishConfirmDialogBody({
 	const publishedRevision = frozen?.publishedRevision ?? livePublishedRevision;
 	const dirty = !frozen && liveDirty;
 	const reviewExpired = !frozen && reviewedDraft !== draft;
-	const canPublish = frozen !== null || liveCanPublish;
+	const canPublish = !frozen && liveCanPublish;
 	const busy = frozen !== null || status === "saving" || status === "publishing";
 	const showError = !frozen && error !== null && (authExpired || publishFailed || attemptFailed);
 
