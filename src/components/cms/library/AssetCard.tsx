@@ -20,6 +20,14 @@ import {
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
 import { Button } from "../../ui/button";
 
+const mediaTypeLabels: Record<string, string> = {
+	"application/pdf": "PDF document",
+	"image/avif": "AVIF image",
+	"image/jpeg": "JPEG image",
+	"image/png": "PNG image",
+	"image/webp": "WebP image",
+};
+
 function useCopied(durationMs = 1800) {
 	const [copied, setCopied] = useState(false);
 	const timer = useRef<number | undefined>(undefined);
@@ -49,6 +57,7 @@ export function AssetCard({
 	const [alt, setAlt] = useState(asset.alt);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+	const [copyFailed, setCopyFailed] = useState(false);
 	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 	const [copied, flashCopied] = useCopied();
 
@@ -61,6 +70,10 @@ export function AssetCard({
 	const dirty = alt.trim() !== asset.alt.trim();
 	const name = asset.alt || "this asset";
 	const publicUrl = new URL(asset.url, publicOrigin).href;
+	const typeLabel = mediaTypeLabels[asset.mimeType ?? ""] ?? (isImage ? "Image" : "File");
+	const altId = `media-alt-${asset.id}`;
+	const feedbackId = `${altId}-feedback`;
+	const altInvalid = feedback?.tone === "error";
 
 	const handleSaveAlt = async (event: FormEvent) => {
 		event.preventDefault();
@@ -90,13 +103,11 @@ export function AssetCard({
 	const copyUrl = async () => {
 		try {
 			await navigator.clipboard.writeText(publicUrl);
+			setCopyFailed(false);
 			flashCopied();
 		} catch {
 			// Clipboard access can be blocked; say so and leave a way to get the link.
-			setFeedback({
-				tone: "error",
-				text: "Couldn’t copy the link. Open the file and copy the address from your browser.",
-			});
+			setCopyFailed(true);
 		}
 	};
 
@@ -117,7 +128,7 @@ export function AssetCard({
 						? "Not published yet"
 						: isImage
 							? "Preview unavailable"
-							: (asset.mimeType ?? "File")}
+							: typeLabel}
 				</span>
 			</span>
 		);
@@ -152,7 +163,7 @@ export function AssetCard({
 			<div className="flex flex-1 flex-col gap-3.5 p-4">
 				<form onSubmit={(event) => void handleSaveAlt(event)} className="grid gap-1.5">
 					<label
-						htmlFor={`media-alt-${asset.id}`}
+						htmlFor={altId}
 						className="flex items-center justify-between text-[12.5px] font-medium text-foreground"
 					>
 						<span>Default alt text</span>
@@ -162,10 +173,12 @@ export function AssetCard({
 					</label>
 					<div className="flex items-center gap-2">
 						<input
-							id={`media-alt-${asset.id}`}
+							id={altId}
 							type="text"
 							maxLength={240}
 							value={alt}
+							aria-invalid={altInvalid || undefined}
+							aria-describedby={altInvalid ? feedbackId : undefined}
 							onChange={(event) => {
 								setAlt(event.target.value);
 								if (feedback) setFeedback(null);
@@ -185,6 +198,7 @@ export function AssetCard({
 					</div>
 					{feedback ? (
 						<p
+							id={feedbackId}
 							role="status"
 							className={cn(
 								"m-0 flex items-center gap-1.5 text-[12.5px]",
@@ -201,7 +215,7 @@ export function AssetCard({
 					) : null}
 				</form>
 
-				<div className="flex flex-wrap items-center justify-between gap-2">
+				<div className="flex min-h-8 flex-wrap items-center justify-between gap-2 pointer-coarse:min-h-11">
 					<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
 						{asset.width && asset.height ? `${asset.width}×${asset.height} · ` : ""}
 						{formatBytes(asset.bytes)}
@@ -217,6 +231,12 @@ export function AssetCard({
 						</button>
 					) : null}
 				</div>
+
+				{copyFailed ? (
+					<p role="status" className="m-0 text-[12.5px] text-destructive">
+						Couldn’t copy the link. Open the file and copy the address from your browser.
+					</p>
+				) : null}
 
 				<div className="mt-auto grid gap-1.5 border-t border-line pt-3">
 					<p className="m-0 text-[12.5px] font-medium text-muted-foreground">
