@@ -30,21 +30,40 @@ export function ConflictDialog({
 
 function ConflictDialogBody() {
 	const store = useDraftStore();
-	const conflict = useDraftSelector((state) => state.conflict);
+	const liveConflict = useDraftSelector((state) => state.conflict);
 	const draft = useDraftSelector((state) => state.draft);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
-	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
+	const liveDraftRevision = useDraftSelector((state) => state.draftRevision);
+	const liveDraftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
 	const [busy, setBusy] = useState(false);
 	const popupRef = useRef<HTMLDivElement>(null);
 
-	const diffSections = useMemo(() => {
-		if (!conflict) return [];
-		return diffPortfolioDocuments(conflict.draft, draft).changedSections.map(
+	const liveDiffSections = useMemo(() => {
+		if (!liveConflict) return [];
+		return diffPortfolioDocuments(liveConflict.draft, draft).changedSections.map(
 			(entry) => entry.section.label,
 		);
-	}, [conflict, draft]);
+	}, [liveConflict, draft]);
 
-	if (!conflict) return null;
+	// Resolving the conflict clears it (and replaces the local draft) while the
+	// popup is still fading out. Keep showing what the owner decided on.
+	const lastView = useRef<{
+		conflict: NonNullable<typeof liveConflict>;
+		draftRevision: number;
+		draftUpdatedAt: typeof liveDraftUpdatedAt;
+		diffSections: string[];
+	} | null>(null);
+	if (liveConflict) {
+		lastView.current = {
+			conflict: liveConflict,
+			draftRevision: liveDraftRevision,
+			draftUpdatedAt: liveDraftUpdatedAt,
+			diffSections: liveDiffSections,
+		};
+	}
+	const view = lastView.current;
+	if (!view) return null;
+	// The store ignores both resolutions once the conflict is gone.
+	const { conflict, draftRevision, draftUpdatedAt, diffSections } = view;
 
 	const handleOverwrite = async () => {
 		setBusy(true);
@@ -174,18 +193,42 @@ function PublishConfirmDialogBody({
 	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
 	const [reviewedDraft] = useState(() => store.getState().draft);
-	const reviewExpired = reviewedDraft !== draft;
-	const { canPublish } = useDraftSelector(draftActionAvailability);
-	const published = useDraftSelector((state) => state.published);
-	const draftRevision = useDraftSelector((state) => state.draftRevision);
-	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
-	const dirty = useDraftSelector((state) => state.dirty);
-	const busy = useDraftSelector(
-		(state) => state.status === "saving" || state.status === "publishing",
-	);
+	const liveCanPublish = useDraftSelector(draftActionAvailability).canPublish;
+	const livePublished = useDraftSelector((state) => state.published);
+	const liveDraftRevision = useDraftSelector((state) => state.draftRevision);
+	const livePublishedRevision = useDraftSelector((state) => state.publishedRevision);
+	const liveDirty = useDraftSelector((state) => state.dirty);
+	const status = useDraftSelector((state) => state.status);
 	const error = useDraftSelector((state) => (state.status === "error" ? state.error : null));
 	const authExpired = useDraftSelector((state) => state.authExpired);
-	const showError = error !== null && (authExpired || publishFailed || attemptFailed);
+
+	// A successful publish updates the store while the popup is still fading
+	// out. Keep rendering the last "Publishing…" frame until it is gone, so the
+	// diff, revisions, and button never change under the exit animation.
+	const publishing = useRef<{
+		published: typeof livePublished;
+		draftRevision: number;
+		publishedRevision: number;
+	} | null>(null);
+	if (status === "publishing") {
+		publishing.current = {
+			published: livePublished,
+			draftRevision: liveDraftRevision,
+			publishedRevision: livePublishedRevision,
+		};
+	}
+	const frozen =
+		publishing.current && publishing.current.publishedRevision !== livePublishedRevision
+			? publishing.current
+			: null;
+	const published = frozen?.published ?? livePublished;
+	const draftRevision = frozen?.draftRevision ?? liveDraftRevision;
+	const publishedRevision = frozen?.publishedRevision ?? livePublishedRevision;
+	const dirty = !frozen && liveDirty;
+	const reviewExpired = !frozen && reviewedDraft !== draft;
+	const canPublish = frozen !== null || liveCanPublish;
+	const busy = frozen !== null || status === "saving" || status === "publishing";
+	const showError = !frozen && error !== null && (authExpired || publishFailed || attemptFailed);
 
 	useLayoutEffect(() => {
 		if (authExpired) reloadRef.current?.focus();
@@ -225,8 +268,8 @@ function PublishConfirmDialogBody({
 					</span>
 					<div className="grid gap-1">
 						<p className="mono-label m-0 text-[10.5px] text-primary-text">
-							Release · <span className="normal-case">r{draftRevision}</span> → Live{" "}
-							<span className="normal-case">r{publishedRevision}</span>
+							Release · {dirty ? "Draft" : <span className="normal-case">r{draftRevision}</span>}{" "}
+							replaces live <span className="normal-case">r{publishedRevision}</span>
 						</p>
 						<AlertDialog.Title className="m-0 text-[17px] font-semibold tracking-[-0.015em]">
 							Publish draft to live site?
