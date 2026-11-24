@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/d1";
+import { MEDIA_ALLOWED_TYPES, MEDIA_MAX_BYTES } from "../lib/media-policy";
 import { auditEvents, PORTFOLIO_DOCUMENT_ID, type CmsActor } from "./cms-storage.server";
 import { mediaAssets } from "./schema.server";
 import type { MediaAsset, PortfolioContent } from "../types/content";
@@ -41,15 +42,6 @@ export type UpdateMediaAltResult =
 	| { ok: true; id: string; alt: string; updatedAt: string }
 	| { ok: false; kind: "not-found" };
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
-const ALLOWED_TYPES = new Map([
-	["image/jpeg", "jpg"],
-	["image/png", "png"],
-	["image/webp", "webp"],
-	["image/avif", "avif"],
-	["application/pdf", "pdf"],
-]);
-
 export class MediaStorageUnavailableError extends Error {}
 export class MediaUploadError extends Error {
 	constructor(message: string, options?: { cause: unknown }) {
@@ -71,9 +63,9 @@ export async function uploadMedia(
 	actorEmail: string,
 ) {
 	const { db, bucket } = requireBindings(env);
-	const extension = ALLOWED_TYPES.get(file.type);
+	const extension = MEDIA_ALLOWED_TYPES.get(file.type);
 	if (!extension) throw new MediaUploadError("Use JPEG, PNG, WebP, AVIF, or PDF files.");
-	if (file.size <= 0 || file.size > MAX_UPLOAD_BYTES)
+	if (file.size <= 0 || file.size > MEDIA_MAX_BYTES)
 		throw new MediaUploadError("Files must be between 1 byte and 20 MB.");
 	const cleanAlt = alt.trim().slice(0, 240);
 	if (file.type.startsWith("image/") && cleanAlt.length === 0)

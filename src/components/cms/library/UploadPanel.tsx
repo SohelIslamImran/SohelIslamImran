@@ -2,11 +2,13 @@
  * Media upload panel: a drag-and-drop zone, default alt text, and Upload.
  * Shown only when the `MEDIA` R2 bucket is bound.
  */
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { checkUploadFile, mediaTypeShortLabel } from "../../../lib/media-policy";
 import { cn } from "../../../lib/utils";
 import { uploadMedia } from "../../../server/cms.functions";
-import { controlClass as pillControlClass, staggerStyle } from "../analytics/Widgets";
+import { controlClass as pillControlClass } from "../analytics/Widgets";
+import { useCmsSession, useRefreshCmsSession } from "../draft/context";
 import { controlClass } from "../fields";
 import {
 	AlertTriangleIcon,
@@ -17,26 +19,103 @@ import {
 import { formatBytes } from "../shell/time";
 import { Button } from "../../ui/button";
 
+export function isForbiddenError(error: unknown): boolean {
+	return (
+		Boolean(error) &&
+		typeof error === "object" &&
+		"status" in error &&
+		(error as { status?: unknown }).status === 403
+	);
+}
+
+/**
+ * Keeps the latest reactive CSRF token and lets library mutations refresh the
+ * owner session once on a 403 before retrying.
+ */
+export function useCsrfRetry(fallbackToken: string) {
+	const { csrfToken } = useCmsSession();
+	const refreshSession = useRefreshCmsSession();
+	const activeToken = csrfToken || fallbackToken;
+	const tokenRef = useRef(activeToken);
+	const waitersRef = useRef<Array<(token: string) => void>>([]);
+
+	useEffect(() => {
+		tokenRef.current = activeToken;
+		if (waitersRef.current.length > 0) {
+			const waiters = waitersRef.current.splice(0);
+			for (const resolve of waiters) resolve(activeToken);
+		}
+	}, [activeToken]);
+
+	const refreshToken = useCallback(async (): Promise<string | null> => {
+		const previous = tokenRef.current;
+		const ok = await refreshSession();
+		if (!ok) return null;
+		if (tokenRef.current !== previous) return tokenRef.current;
+		return new Promise<string>((resolve) => {
+			let settled = false;
+			const finish = (next: string) => {
+				if (settled) return;
+				settled = true;
+				clearTimeout(timer);
+				resolve(next);
+			};
+			const timer = setTimeout(() => {
+				waitersRef.current = waitersRef.current.filter((entry) => entry !== finish);
+				finish(tokenRef.current);
+			}, 100);
+			waitersRef.current.push(finish);
+		});
+	}, [refreshSession]);
+
+	return { tokenRef, refreshToken };
+}
+
+function DropzoneUploadIcon({ className }: { className?: string }) {
+	return (
+		<svg
+			viewBox="0 0 20 20"
+			aria-hidden="true"
+			className={cn(
+				"size-4 shrink-0 fill-none stroke-current stroke-[1.6] [stroke-linecap:round] [stroke-linejoin:round]",
+				className,
+			)}
+		>
+			<g className="cms-dropzone-arrow">
+				<path d="M10 12.75V4.5M6.75 7.75 10 4.5l3.25 3.25" />
+			</g>
+			<path d="M4 13.5v1.25A1.25 1.25 0 0 0 5.25 16h9.5A1.25 1.25 0 0 0 16 14.75V13.5" />
+		</svg>
+	);
+}
+
 export function UploadPanel({
 	id,
 	csrfToken,
+	empty = false,
 	onUploaded,
 	onClose,
 	onBusyChange,
 }: {
 	id?: string;
 	csrfToken: string;
+	empty?: boolean;
 	onUploaded: () => Promise<void> | void;
 	onClose?: () => void;
 	onBusyChange?: (busy: boolean) => void;
 }) {
 	const runUpload = useServerFn(uploadMedia);
+	const { tokenRef, refreshToken } = useCsrfRetry(csrfToken);
 	const fileInputRef = useRef<HTMLInputElement>(null);
+	const chooseButtonRef = useRef<HTMLButtonElement>(null);
+	const fileErrorId = useId();
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
+	const [stagedKey, setStagedKey] = useState(0);
 	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 	const [dragging, setDragging] = useState(false);
 	const [uploadAlt, setUploadAlt] = useState("");
 	const [uploading, setUploading] = useState(false);
+	const [fileError, setFileError] = useState<string | null>(null);
 	const [uploadNotice, setUploadNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(
 		null,
 	);
@@ -54,10 +133,35 @@ export function UploadPanel({
 	const isImage = selectedFile?.type.startsWith("image/") ?? false;
 	const altMissing = isImage && uploadAlt.trim() === "";
 
-	const acceptFile = (file: File | null) => {
-		if (uploading) return;
-		setSelectedFile(file);
+	const clearFile = () => {
+		setSelectedFile(null);
+		setFileError(null);
 		setUploadNotice(null);
+		if (fileInputRef.current) fileInputRef.current.value = "";
+	};
+
+	const acceptFile = (file: File) => {
+		if (uploading) return;
+		const check = checkUploadFile(file);
+		if (!check.ok) {
+			setSelectedFile(null);
+			setFileError(check.message);
+			setUploadNotice(null);
+			if (fileInputRef.current) fileInputRef.current.value = "";
+			return;
+		}
+		setFileError(null);
+		setUploadNotice(null);
+		setSelectedFile(file);
+		setStagedKey((n) => n + 1);
+	};
+
+	const postUpload = async (file: File, altText: string, token: string) => {
+		const form = new FormData();
+		form.set("file", file);
+		form.set("alt", altText);
+		form.set("csrfToken", token);
+		await runUpload({ data: form });
 	};
 
 	const handleUpload = async (event: FormEvent) => {
@@ -66,14 +170,19 @@ export function UploadPanel({
 		setUploading(true);
 		onBusyChange?.(true);
 		setUploadNotice(null);
+		const altText = uploadAlt.trim();
 		try {
-			const form = new FormData();
-			form.set("file", selectedFile);
-			form.set("alt", uploadAlt.trim());
-			form.set("csrfToken", csrfToken);
-			await runUpload({ data: form });
+			try {
+				await postUpload(selectedFile, altText, tokenRef.current);
+			} catch (error) {
+				if (!isForbiddenError(error)) throw error;
+				const nextToken = await refreshToken();
+				if (!nextToken) throw error;
+				await postUpload(selectedFile, altText, nextToken);
+			}
 			setSelectedFile(null);
 			setUploadAlt("");
+			setFileError(null);
 			if (fileInputRef.current) fileInputRef.current.value = "";
 			setUploadNotice({ tone: "ok", text: "Uploaded. It’s saved as a draft asset." });
 			await onUploaded();
@@ -89,14 +198,25 @@ export function UploadPanel({
 	};
 
 	return (
-		<section id={id} style={staggerStyle(0)} className="cms-panel cms-enter grid gap-4 p-4 sm:p-5">
+		<section
+			id={id}
+			onKeyDown={(event) => {
+				if (event.key !== "Escape" || !onClose || uploading) return;
+				event.preventDefault();
+				event.stopPropagation();
+				onClose();
+			}}
+			className="cms-panel grid gap-4 p-4 sm:p-5"
+		>
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<div className="grid gap-0.5">
 					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
 						Add media
 					</h2>
 					<p className="m-0 text-[13px] text-muted-foreground">
-						JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB.
+						{empty
+							? "Your library is empty. Add the first image or PDF."
+							: "JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB."}
 					</p>
 				</div>
 				{onClose ? (
@@ -114,104 +234,125 @@ export function UploadPanel({
 			</div>
 
 			<form onSubmit={(event) => void handleUpload(event)} className="grid gap-3.5">
-				<div
-					data-dragging={dragging ? "true" : "false"}
-					onDragEnter={(event) => {
-						event.preventDefault();
-						if (!uploading) setDragging(true);
-					}}
-					onDragOver={(event) => {
-						event.preventDefault();
-						if (!uploading) setDragging(true);
-					}}
-					onDragLeave={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+				<div className="grid gap-2">
+					<div
+						data-dragging={dragging ? "true" : "false"}
+						onDragEnter={(event) => {
+							event.preventDefault();
+							if (!uploading) setDragging(true);
+						}}
+						onDragOver={(event) => {
+							event.preventDefault();
+							if (!uploading) setDragging(true);
+						}}
+						onDragLeave={(event) => {
+							if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+								setDragging(false);
+							}
+						}}
+						onDrop={(event) => {
+							event.preventDefault();
 							setDragging(false);
-						}
-					}}
-					onDrop={(event) => {
-						event.preventDefault();
-						setDragging(false);
-						if (uploading) return;
-						const file = event.dataTransfer.files?.[0] ?? null;
-						if (file) acceptFile(file);
-					}}
-					className="cms-dropzone flex flex-wrap items-center justify-between gap-4 p-4"
-				>
-					<input
-						id="cms-media-file"
-						ref={fileInputRef}
-						type="file"
-						disabled={uploading}
-						accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
-						onChange={(event) => acceptFile(event.target.files?.[0] ?? null)}
-						className="sr-only"
-					/>
+							if (uploading) return;
+							const file = event.dataTransfer.files?.[0] ?? null;
+							if (file) acceptFile(file);
+						}}
+						className="cms-dropzone flex flex-wrap items-center justify-between gap-4 p-4"
+					>
+						<input
+							id="cms-media-file"
+							ref={fileInputRef}
+							type="file"
+							tabIndex={-1}
+							aria-hidden="true"
+							disabled={uploading}
+							accept="image/jpeg,image/png,image/webp,image/avif,application/pdf"
+							onChange={(event) => {
+								const file = event.target.files?.[0];
+								if (file) acceptFile(file);
+							}}
+							className="sr-only"
+						/>
 
-					{selectedFile ? (
-						<div className="flex min-w-0 flex-1 items-center gap-3">
-							{previewUrl ? (
-								<img
-									src={previewUrl}
-									alt={selectedFile.name}
-									className="size-12 shrink-0 rounded-[10px] border border-line object-cover"
-								/>
-							) : (
-								<span className="grid size-12 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-solid text-muted-foreground">
-									<MediaLibraryIcon className="size-5" />
-								</span>
-							)}
-							<div className="min-w-0">
-								<p className="m-0 truncate text-[13.5px] font-medium text-foreground">
-									{selectedFile.name}
-								</p>
-								<p className="m-0 font-mono text-[11.5px] tabular-nums text-muted-foreground">
-									{selectedFile.type || "file"} · {formatBytes(selectedFile.size)}
-								</p>
-							</div>
-						</div>
-					) : (
-						<div className="flex min-w-0 flex-1 items-center gap-3">
-							<span
-								aria-hidden="true"
-								className="grid size-10 shrink-0 place-items-center rounded-[12px] border border-line-strong bg-surface-solid text-primary-text shadow-[0_1px_2px_var(--theme-shadow-soft)]"
-							>
-								<UploadIcon className="size-4" />
-							</span>
-							<div className="min-w-0">
-								<p className="m-0 text-[13.5px] font-medium text-foreground">
-									{dragging ? "Drop file to attach" : "Drop an image or PDF here"}
-								</p>
-								<p className="m-0 text-[12px] text-muted-foreground">
-									or choose one from your device
-								</p>
-							</div>
-						</div>
-					)}
-
-					<div className="flex items-center gap-2">
 						{selectedFile ? (
+							<div key={stagedKey} className="cms-staged-file flex min-w-0 flex-1 items-center gap-3">
+								{previewUrl ? (
+									<img
+										src={previewUrl}
+										alt={selectedFile.name}
+										className="size-12 shrink-0 rounded-[10px] border border-line object-cover"
+									/>
+								) : (
+									<span className="grid size-12 shrink-0 place-items-center rounded-[10px] border border-line bg-surface-solid text-muted-foreground">
+										<MediaLibraryIcon className="size-5" />
+									</span>
+								)}
+								<p className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] text-muted-foreground">
+									<span className="max-w-full truncate font-medium text-foreground">
+										{selectedFile.name}
+									</span>
+									<span className="font-mono text-[11.5px] tabular-nums">
+										· {mediaTypeShortLabel(selectedFile.type)} · {formatBytes(selectedFile.size)}{" "}
+										(max 20 MB)
+									</span>
+								</p>
+							</div>
+						) : (
+							<div className="flex min-w-0 flex-1 items-center gap-3">
+								<span
+									aria-hidden="true"
+									className="grid size-10 shrink-0 place-items-center rounded-[12px] border border-line-strong bg-surface-solid text-primary-text shadow-[0_1px_2px_var(--theme-shadow-soft)]"
+								>
+									<DropzoneUploadIcon />
+								</span>
+								<div className="min-w-0">
+									<p className="m-0 text-[13.5px] font-medium text-foreground">
+										{dragging ? "Drop file to attach" : "Drop an image or PDF here"}
+									</p>
+									<p className="m-0 text-[12px] text-muted-foreground">
+										or choose one from your device
+									</p>
+								</div>
+							</div>
+						)}
+
+						<div className="flex items-center gap-2">
+							{selectedFile ? (
+								<button
+									type="button"
+									disabled={uploading}
+									onClick={clearFile}
+									className={cn(
+										pillControlClass,
+										"disabled:pointer-events-none disabled:opacity-45",
+									)}
+								>
+									Clear
+								</button>
+							) : null}
 							<button
+								ref={chooseButtonRef}
 								type="button"
 								disabled={uploading}
-								onClick={() => {
-									acceptFile(null);
-									if (fileInputRef.current) fileInputRef.current.value = "";
-								}}
+								aria-describedby={fileError ? fileErrorId : undefined}
+								onClick={() => fileInputRef.current?.click()}
 								className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
 							>
-								Clear
+								<span>{selectedFile ? "Replace file" : "Choose file"}</span>
 							</button>
-						) : null}
-						<button
-							type="button"
-							disabled={uploading}
-							onClick={() => fileInputRef.current?.click()}
-							className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
-						>
-							<span>{selectedFile ? "Replace file" : "Choose file"}</span>
-						</button>
+						</div>
 					</div>
+
+					{fileError ? (
+						<p
+							id={fileErrorId}
+							role="alert"
+							className="cms-enter m-0 flex items-center gap-2 text-[13px] text-destructive"
+						>
+							<AlertTriangleIcon className="size-4 shrink-0" />
+							<span>{fileError}</span>
+						</p>
+					) : null}
 				</div>
 
 				<div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
@@ -257,7 +398,7 @@ export function UploadPanel({
 
 			{uploadNotice ? (
 				<p
-					role="status"
+					role={uploadNotice.tone === "error" ? "alert" : "status"}
 					className={cn(
 						"cms-enter m-0 flex items-center gap-2 text-[13px]",
 						uploadNotice.tone === "ok" ? "text-success" : "text-destructive",

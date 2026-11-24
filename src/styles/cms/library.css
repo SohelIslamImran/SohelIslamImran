@@ -122,6 +122,44 @@
 		color: var(--theme-success);
 	}
 
+	/* Dropzone overrides (loaded after pages.css): no scale on drag-over; 2px arrow lift only. */
+	.cms-dropzone {
+		transition:
+			border-color var(--cms-dur-fast) var(--cms-ease-out),
+			background-color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-dropzone[data-dragging="true"] {
+		scale: 1;
+	}
+
+	.cms-dropzone-arrow {
+		transition: translate var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-dropzone[data-dragging="true"] .cms-dropzone-arrow {
+		translate: 0 -2px;
+	}
+
+	@keyframes cms-rise-4 {
+		from {
+			opacity: 0;
+			translate: 0 4px;
+		}
+	}
+
+	.cms-upload-reveal:not([hidden]) {
+		animation: cms-rise-4 var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	.cms-staged-file {
+		animation: cms-rise-4 var(--cms-dur-base) var(--cms-ease-out) both;
+	}
+
+	.cms-copy-check {
+		animation: cms-count-in var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
 	@media (hover: hover) and (pointer: fine) {
 		/* Keep hover zoom on the loaded image itself so the status chip stays still. */
 		a:hover > .cms-media-thumb {
@@ -149,6 +187,18 @@
 		.cms-media-thumbnail:hover .cms-media-frame-img,
 		.cms-choice-option[data-highlighted] .cms-media-thumbnail .cms-media-frame-img {
 			scale: 1;
+		}
+		.cms-dropzone-arrow {
+			transition: none;
+		}
+		.cms-dropzone[data-dragging="true"] .cms-dropzone-arrow {
+			translate: 0 0;
+		}
+		.cms-upload-reveal:not([hidden]),
+		.cms-staged-file,
+		.cms-copy-check {
+			animation: cms-fade 120ms linear both;
+			animation-duration: 120ms !important;
 		}
 	}
 }
