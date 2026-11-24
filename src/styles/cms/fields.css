@@ -1501,6 +1501,10 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
+	}
+
+	/* MediaFrame images carry their own fade-and-settle transition (library.css). */
+	.cms-media-thumbnail img:not(.cms-media-frame-img) {
 		transition: scale 180ms ease-out;
 	}
 

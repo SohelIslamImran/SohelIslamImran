@@ -34,6 +34,8 @@ export const editorButton = "cms-editor-button cms-press";
 
 interface RemovalToast {
 	id: string;
+	/** Removal order across every field, newest highest, so the deck leads with the latest. */
+	seq: number;
 	scoped?: boolean;
 	label: string;
 	canUndo: boolean;
@@ -56,7 +58,10 @@ interface ScopedRemoval {
 	dismiss: () => void;
 }
 
-type ListRemoval<T> = PendingRemoval<KeyedRow<T>> & { scoped?: ScopedRemoval };
+type ListRemoval<T> = PendingRemoval<KeyedRow<T>> & { seq: number; scoped?: ScopedRemoval };
+
+let removalSequence = 0;
+const nextRemovalSeq = () => ++removalSequence;
 type RemovalLists = Map<string, readonly ListRemoval<unknown>[]>;
 const EMPTY_REMOVALS: readonly never[] = [];
 const RemovalListsContext = createContext<{
@@ -145,7 +150,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 
 	const deckItems: RemovalToast[] = [
 		...toasts.filter((toast) => !toast.scoped),
-		...pending.flatMap(({ label, scoped }, index) => {
+		...pending.flatMap(({ label, scoped, seq }, index) => {
 			if (!scoped) return [];
 			const rawCount = counts[index];
 			if (rawCount === undefined || rawCount === "" || rawCount === "x") return [];
@@ -158,6 +163,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 			return [
 				{
 					id: scoped.key,
+					seq,
 					label,
 					canUndo: mounted?.canUndo ?? count < scoped.max,
 					onUndo:
@@ -171,6 +177,7 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 		}),
 	];
 
+	deckItems.sort((a, b) => b.seq - a.seq);
 	const total = deckItems.length;
 	const isExpanded = expanded && total > 1;
 	const isCollapsed = total > 1 && !isExpanded;
@@ -245,7 +252,7 @@ export function UndoRemoval({
 	onUndo,
 	onDismiss,
 }: {
-	removal: { label: string; canUndo: boolean; scopeKey?: string } | null;
+	removal: { label: string; canUndo: boolean; seq?: number; scopeKey?: string } | null;
 	onUndo: () => void;
 	onDismiss: () => void;
 }) {
@@ -255,6 +262,7 @@ export function UndoRemoval({
 	const scoped = removal?.scopeKey !== undefined;
 	const label = removal?.label;
 	const canUndo = removal?.canUndo ?? false;
+	const seq = removal?.seq ?? 0;
 	const actions = useRef({ onUndo, onDismiss });
 	useLayoutEffect(() => {
 		actions.current = { onUndo, onDismiss };
@@ -264,6 +272,7 @@ export function UndoRemoval({
 		if (!setToasts || label === undefined) return;
 		const toast = {
 			id,
+			seq,
 			scoped,
 			label,
 			canUndo,
@@ -272,7 +281,7 @@ export function UndoRemoval({
 		};
 		setToasts((current) => [toast, ...current.filter((entry) => entry.id !== id)]);
 		return () => setToasts((current) => current.filter((entry) => entry !== toast));
-	}, [setToasts, id, label, canUndo, scoped]);
+	}, [setToasts, id, label, canUndo, scoped, seq]);
 
 	return null;
 }
@@ -377,14 +386,10 @@ export function usePendingRemovals<T>(
 			row.allowDuplicate = rows.some((value, at) => at !== index && sameValue?.(value, row.value));
 			update(removeItem(rows, index), removeItem(keys, index));
 			setAll((current) => {
-				const removal: ListRemoval<T> = createRemoval(
-					before,
-					index,
-					label,
-					current,
-					sameRowKey,
-					row.key,
-				);
+				const removal: ListRemoval<T> = {
+					...createRemoval(before, index, label, current, sameRowKey, row.key),
+					seq: nextRemovalSeq(),
+				};
 				if (scope) {
 					const suffix = path.slice(scope.path.length);
 					const pathAt = (state: DraftState) => {
@@ -433,6 +438,7 @@ export function usePendingRemovals<T>(
 			label: removal.label,
 			row: removal.row.value,
 			canUndo: count < max,
+			seq: removal.seq,
 			scopeKey: removal.scoped?.key,
 		})),
 		reorder(next: number[]) {

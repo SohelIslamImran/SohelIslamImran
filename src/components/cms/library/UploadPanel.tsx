@@ -111,7 +111,8 @@ export function UploadPanel({
 	const fileErrorId = useId();
 	const [selectedFile, setSelectedFile] = useState<File | null>(null);
 	const [stagedKey, setStagedKey] = useState(0);
-	const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+	// Tied to the File that produced it, so a replaced file never shows the old image.
+	const [preview, setPreview] = useState<{ file: File; url: string } | null>(null);
 	const [dragging, setDragging] = useState(false);
 	const [uploadAlt, setUploadAlt] = useState("");
 	const [uploading, setUploading] = useState(false);
@@ -121,18 +122,14 @@ export function UploadPanel({
 	);
 
 	useEffect(() => {
-		if (!selectedFile || !selectedFile.type.startsWith("image/")) {
-			setPreviewUrl(null);
-			return;
-		}
+		setPreview(null);
+		if (!selectedFile || !selectedFile.type.startsWith("image/")) return;
 		// Site CSP allows `data:` images (not `blob:`), so read validated images via FileReader.
 		let active = true;
 		const reader = new FileReader();
 		reader.onload = () => {
-			if (active && typeof reader.result === "string") setPreviewUrl(reader.result);
-		};
-		reader.onerror = () => {
-			if (active) setPreviewUrl(null);
+			if (active && typeof reader.result === "string")
+				setPreview({ file: selectedFile, url: reader.result });
 		};
 		reader.readAsDataURL(selectedFile);
 		return () => {
@@ -141,6 +138,7 @@ export function UploadPanel({
 		};
 	}, [selectedFile]);
 
+	const previewUrl = preview && preview.file === selectedFile ? preview.url : null;
 	const isImage = selectedFile?.type.startsWith("image/") ?? false;
 	const altMissing = isImage && uploadAlt.trim() === "";
 

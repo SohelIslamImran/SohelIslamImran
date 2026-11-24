@@ -74,6 +74,10 @@ export function AssetCard({
 			setFeedback({ tone: "error", text: "Images need alt text." });
 			return;
 		}
+		// Save disables itself while saving and stays disabled once clean, so a
+		// keyboard owner working in this form gets focus back on the alt input.
+		const form = event.currentTarget as HTMLFormElement;
+		const focusWasInForm = form.contains(document.activeElement);
 		setSaving(true);
 		setFeedback(null);
 		const trimmed = alt.trim();
@@ -102,6 +106,14 @@ export function AssetCard({
 			setFeedback({ tone: "error", text: "Could not save alt text." });
 		} finally {
 			setSaving(false);
+			if (focusWasInForm) {
+				requestAnimationFrame(() => {
+					const active = document.activeElement;
+					if (active === null || active === document.body || form.contains(active)) {
+						document.getElementById(altId)?.focus({ preventScroll: true });
+					}
+				});
+			}
 		}
 	};
 
