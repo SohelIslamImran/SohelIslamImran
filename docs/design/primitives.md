@@ -217,6 +217,21 @@ Counts from 0 when first scrolled into view; already-visible instances show the
 final value (no flash). Width is reserved by the final value. Prop `duration` s.
 Non-numeric strings render as-is.
 
+**RollingNumber** — `<RollingNumber value={count} pad={2} />`. Per-digit
+odometer columns for non-negative integers that change in response to reader
+action (e.g. filter counts, chapter numerals). Each column is `1ch` wide and
+`1.2em` tall (`overflow: clip`), keyed from the right so growing past `pad`
+never remounts existing digits, and rolls with `translate` over `420ms`
+`ease-trace`. Server HTML places each strip on its final digit via inline `--d`
+so nothing animates on mount and no-JS reads correctly. Screen readers hear the
+number once (`sr-only`), and reduced motion snaps instantly. Negative,
+fractional, or non-finite values render as plain text. Exported from
+`@/components/motion` and `@/components/motion/RollingNumber`. Each strip is
+absolutely positioned inside its column, with an invisible `0` strut holding
+the baseline: an `overflow: clip` inline-block otherwise takes its baseline
+from the strip's last line (the `9`), which drops the digits below the text
+around them.
+
 **TraceLine** — the signature line + glowing dot. Props: `orientation`
 (`vertical` default | `horizontal`), `progress` (number or `MotionValue` 0–1;
 omit for the looping travel), `duration` s (3.2), `delay` s, `restAt` (0–1, the
@@ -258,8 +273,9 @@ reducedMotion="user"` is set at the root.
 - **NavDock** — owned by the root; pages never render nav.
 - **Command palette** — ⌘K / Ctrl+K anywhere, `/` outside text fields.
   `useCommandPalette()?.open()` opens it from any page (returns null outside
-  the provider). Projects currently go to `/work`; flip
-  `PROJECT_DETAIL_ROUTE_READY` in `CommandPalette.tsx` when `/work/$slug` exists.
+  the provider). Projects open `/work/$slug` via `linkableProjects` /
+  `projectSlug`; typed-query rows show right-aligned kind tags (`Page`,
+  `Project`, `Profile`, `Setting`, `Action`).
 - **SiteFooter**, **StatusScene** (`lost` | `paused` trace illustration),
   **icons.tsx** (20px stroke icons + `Monogram`), `useRoutePublicContent()`
   (published content from the current public route's loader; never CMS data).

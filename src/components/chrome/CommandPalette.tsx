@@ -57,9 +57,7 @@ import {
 	WorkIcon,
 } from "./icons";
 import { usePublicContent } from "./public-content";
-
-// Projects open their detail page (src/routes/work_.$slug.tsx → /work/$slug).
-const PROJECT_DETAIL_ROUTE_READY = true;
+import { paletteProjects } from "./palette-projects";
 
 type PaletteGroup = "Terminal" | "Pages" | "Projects" | "Profiles" | "Appearance" | "Actions";
 const groupOrder: readonly PaletteGroup[] = [
@@ -70,6 +68,14 @@ const groupOrder: readonly PaletteGroup[] = [
 	"Appearance",
 	"Actions",
 ];
+
+const groupKindLabel: Record<Exclude<PaletteGroup, "Terminal">, string> = {
+	Pages: "Page",
+	Projects: "Project",
+	Profiles: "Profile",
+	Appearance: "Setting",
+	Actions: "Action",
+};
 
 interface TerminalEntry {
 	id: number;
@@ -398,23 +404,18 @@ function CommandPalette({
 			},
 		];
 
-		const projects: PaletteItem[] = (content?.projects ?? [])
-			.filter((project) => project.title.trim())
-			.map((project) => {
-				const target = PROJECT_DETAIL_ROUTE_READY ? `/work/${project.slug}` : "/work";
-				return {
-					id: `project-${project.id}`,
-					group: "Projects" as const,
-					label: project.title.trim(),
-					detail: project.summary.trim() || undefined,
-					keywords: [project.category, project.year, project.role, ...project.tags].join(" "),
-					icon: <ProjectIcon />,
-					...go(target, () => {
-						if (PROJECT_DETAIL_ROUTE_READY) router.history.push(target);
-						else void navigate({ to: "/work", search: { group: "all" } });
-					}),
-				};
-			});
+		const projects: PaletteItem[] = paletteProjects(content?.projects).map((project) => ({
+			id: project.id,
+			group: "Projects" as const,
+			label: project.label,
+			detail: project.detail,
+			keywords: project.keywords,
+			icon: <ProjectIcon />,
+			...go(
+				project.target,
+				() => void navigate({ to: "/work/$slug", params: { slug: project.slug } }),
+			),
+		}));
 
 		const links: PaletteItem[] = (content?.profileLinks ?? [])
 			.filter((link) => link.href.trim() && !link.href.trim().startsWith("#"))
@@ -426,7 +427,14 @@ function CommandPalette({
 					id: `link-${link.id}`,
 					group: "Profiles" as const,
 					label: link.label.trim() || link.platform.trim() || href,
-					detail: link.handle?.trim() || hostOf(href),
+					// Name the platform when the label doesn't, so same-named profiles differ.
+					detail:
+						[
+							link.platform.trim() !== link.label.trim() ? link.platform.trim() : "",
+							link.handle?.trim() || hostOf(href),
+						]
+							.filter(Boolean)
+							.join(" · ") || undefined,
 					keywords: [link.platform, link.kind ?? "", link.description ?? ""].join(" "),
 					icon: mail ? <MailIcon /> : <ExternalIcon />,
 					external: !internal && !mail,
@@ -1055,6 +1063,10 @@ function PaletteSection({
 	const headingId = useId();
 	const options = items.map((item) => {
 		const active = item.id === activeId;
+		const kindTag =
+			group === null && !item.command && item.group !== "Terminal"
+				? groupKindLabel[item.group]
+				: null;
 		return (
 			<div
 				key={item.id}
@@ -1064,7 +1076,7 @@ function PaletteSection({
 				aria-checked={item.checked === undefined ? undefined : item.checked}
 				data-active={active || undefined}
 				className={cn(
-					"group/option relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px]",
+					"group/option @container relative flex min-h-12 cursor-default select-none items-center gap-3 rounded-[14px] px-3 py-2 text-[15px]",
 				)}
 				onPointerMove={(event) => {
 					if (event.pointerType === "mouse" && !active) onHover(item.id);
@@ -1100,17 +1112,28 @@ function PaletteSection({
 						<span className="truncate text-[13px] text-muted-foreground">{item.detail}</span>
 					) : null}
 				</span>
-				{item.checked ? <CheckIcon className="size-4 text-primary-text" /> : null}
+				{item.checked ? <CheckIcon className="size-4 shrink-0 text-primary-text" /> : null}
+				{kindTag ? <span className="sr-only">, {kindTag.toLowerCase()}</span> : null}
 				{item.external ? <span className="sr-only">, opens in a new tab</span> : null}
-				<span
-					aria-hidden="true"
-					className={cn(
-						"mono-label shrink-0 text-muted-foreground transition-opacity duration-150 max-md:hidden",
-						active ? "opacity-100" : "opacity-0",
-					)}
-				>
-					{item.command ? "Run ↵" : item.external ? "Open ↗" : item.stayOpen ? "Apply" : "Go"}
-				</span>
+				{kindTag ? (
+					<span
+						aria-hidden="true"
+						data-slot="palette-kind"
+						className="mono-label shrink-0 text-muted-foreground @max-[19.5rem]:hidden"
+					>
+						{kindTag}
+					</span>
+				) : (
+					<span
+						aria-hidden="true"
+						className={cn(
+							"mono-label shrink-0 text-muted-foreground transition-opacity duration-150 max-md:hidden",
+							active ? "opacity-100" : "opacity-0",
+						)}
+					>
+						{item.command ? "Run ↵" : item.external ? "Open ↗" : item.stayOpen ? "Apply" : "Go"}
+					</span>
+				)}
 			</div>
 		);
 	});

@@ -1,25 +1,6 @@
-import { useEffect, useState } from "react";
-
-function closestChapterId(elements: HTMLElement[]) {
-	if (elements.length === 0) return "";
-	const readingLine = window.innerHeight * 0.28;
-	let closest = elements[0];
-	let closestDistance = Number.POSITIVE_INFINITY;
-	for (const element of elements) {
-		const { top, bottom } = element.getBoundingClientRect();
-		const distance =
-			top <= readingLine && bottom >= readingLine
-				? 0
-				: top > readingLine
-					? top - readingLine
-					: readingLine - bottom;
-		if (distance < closestDistance) {
-			closest = element;
-			closestDistance = distance;
-		}
-	}
-	return closest.id;
-}
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useMotionValue } from "motion/react";
+import { readingProgress, type ReadingProgress } from "./reading-progress";
 
 function hashId() {
 	const hash = window.location.hash.slice(1);
@@ -37,10 +18,17 @@ function hashId() {
 export function useStoryProgress(chapterIds: string[]) {
 	const firstId = chapterIds[0] ?? "";
 	const [activeId, setActiveId] = useState(firstId);
+	const activeIdRef = useRef(firstId);
+	const select = useCallback((id: string) => {
+		if (activeIdRef.current === id) return;
+		activeIdRef.current = id;
+		setActiveId(id);
+	}, []);
+	const progress = useMotionValue<ReadingProgress>({ index: 0, fraction: 0 });
 
 	useEffect(() => {
-		setActiveId((current) => (chapterIds.includes(current) ? current : firstId));
-	}, [chapterIds, firstId]);
+		if (!chapterIds.includes(activeIdRef.current)) select(firstId);
+	}, [chapterIds, firstId, select]);
 
 	useEffect(() => {
 		if (chapterIds.length === 0) return;
@@ -56,8 +44,14 @@ export function useStoryProgress(chapterIds: string[]) {
 		let frame: number | null = null;
 		let observer: IntersectionObserver | undefined;
 		const update = () => {
-			const nextId = closestChapterId(elements);
-			setActiveId((current) => (current === nextId ? current : nextId));
+			const next = readingProgress(
+				elements.map((element) => element.getBoundingClientRect()),
+				window.innerHeight * 0.28,
+			);
+			const nextId = elements[next.index].id;
+			const previous = progress.get();
+			if (next.index !== previous.index || next.fraction !== previous.fraction) progress.set(next);
+			select(nextId);
 		};
 		const schedule = () => {
 			if (frame !== null) return;
@@ -68,10 +62,14 @@ export function useStoryProgress(chapterIds: string[]) {
 		};
 		const syncHash = () => {
 			const id = hashId();
-			if (id && chapterIds.includes(id)) setActiveId(id);
-			else schedule();
+			if (id && chapterIds.includes(id)) select(id);
+			schedule();
 		};
 
+		// The browser can still be smoothing its initial fragment jump when
+		// hydration starts. Land on that chapter before the first progress sample.
+		const initialHash = hashId();
+		elements.find((element) => element.id === initialHash)?.scrollIntoView({ behavior: "instant" });
 		syncHash();
 		window.addEventListener("hashchange", syncHash);
 		window.addEventListener("resize", schedule);
@@ -96,7 +94,7 @@ export function useStoryProgress(chapterIds: string[]) {
 			observer?.disconnect();
 			if (frame !== null) window.cancelAnimationFrame(frame);
 		};
-	}, [chapterIds]);
+	}, [chapterIds, progress, select]);
 
-	return [chapterIds.includes(activeId) ? activeId : firstId, setActiveId] as const;
+	return [chapterIds.includes(activeId) ? activeId : firstId, select, progress] as const;
 }

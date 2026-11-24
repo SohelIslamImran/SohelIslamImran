@@ -1,32 +1,17 @@
 import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import type { CapabilityContent } from "../types/content";
-import { usePrefersReducedMotion } from "@/components/motion";
+import { prefersReducedMotion, usePointerFine, usePrefersReducedMotion } from "@/components/motion";
 import { Section, SectionHeading, TagList } from "@/components/ui/portfolio";
 import { cn } from "@/lib/utils";
 import { plateSag, supportsFor } from "./home/supports";
 
-/** The loop, in milliseconds: rise, rest, show one consequence, sink, rise again. */
 const BUILD_START_MS = 260;
 const BUILD_STEP_MS = 320;
-const HOLD_MS = 1600;
-const DEMO_HOLD_MS = 2600;
-const DEMO_RETURN_MS = 1300;
-const TEARDOWN_STEP_MS = 200;
-const REBUILD_GAP_MS = 700;
-/** Share of the supports that must be on screen before the loop runs. */
+/** The final support's landing effect lasts 380ms + 900ms. */
+const BUILD_SETTLE_MS = 1280;
 const BUILD_IN_VIEW = 0.6;
-/** The first support the loop takes out; it then goes round the rest. */
-const DEMO_ID = "delivery";
 
-interface LoopControl {
-	/**
-	 * Hover or focus on the controls holds the loop with everything standing;
-	 * it carries on from the rest only once neither holds it.
-	 */
-	hold: (kind: "hover" | "focus", on: boolean) => void;
-	/** The visitor took over: stop until the supports leave the screen. */
-	stop: () => void;
-}
+type Phase = "standing" | "armed" | "building";
 
 /**
  * How I work, as one object anyone can read: a plate ("Your product") resting
@@ -36,18 +21,9 @@ interface LoopControl {
  * copy says what Sohel does about it. Put it back and everything settles.
  *
  * - The supports' labels are toggle buttons (aria-pressed), one out at a time.
- * - While the supports are in view the object runs a slow loop: they rise
- *   from the floor one at a time, left to right, each landing with an impact
- *   line, while the plate levels off and the label counts them in; a light
- *   sweeps the plate when the last one is in. After a rest, one support comes
- *   out to show its consequence (a different one each round) and goes back,
- *   then the supports sink right to left and rise again.
- * - Hovering or focusing the controls holds the loop with everything
- *   standing, until both the pointer and focus have left; clicking hands the
- *   object to the visitor and stops it until the supports next leave the
- *   screen. Off screen everything is quietly reset and taken down, so
- *   nothing is ever taken down in front of anyone mid-scroll. Never with
- *   reduced motion, and only the visitor's own changes are announced.
+ * - On their first entrance, the supports rise from the floor one by one, with
+ *   an impact line per landing and a sweep across the plate at the end.
+ * - Once built, the object keeps the visitor's selection across scrolls.
  * - Every readout is in the server HTML (stacked in one cell, so the height
  *   never changes), and the server HTML shows the finished object.
  */
@@ -55,181 +31,83 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 	const baseId = useId();
 	const supports = supportsFor(capabilities);
 	const count = supports.length;
-	const demoIndex = supports.findIndex((support) => support.capability.id === DEMO_ID);
 	const reducedMotion = usePrefersReducedMotion();
-	/** Index of the support that is out, or -1 (ignored if the list has shrunk past it). */
-	const [goneState, setGone] = useState(-1);
-	const gone = goneState < count ? goneState : -1;
-	const [hovered, setHovered] = useState(-1);
-	/** How many supports stand. Complete in the server HTML; the loop raises and lowers them. */
-	const [placed, setPlaced] = useState(count);
-	/** True while the loop owns the object (springier motion, landing effects). */
-	const [intro, setIntro] = useState(false);
-	/** Only the visitor's own changes go to the live region, never the loop's. */
+	const pointerFine = usePointerFine();
+	const [goneId, setGoneId] = useState<string | null>(null);
+	const gone = supports.findIndex((support) => support.id === goneId);
+	if (goneId !== null && gone < 0) setGoneId(null);
+	const [hovered, setHovered] = useState<string | null>(null);
+	const [phase, setPhase] = useState<Phase>("standing");
+	const [buildPlaced, setBuildPlaced] = useState(0);
+	const [buildSkipped, setBuildSkipped] = useState(false);
 	const [announce, setAnnounce] = useState(false);
 	const sceneRef = useRef<HTMLDivElement>(null);
-	const timers = useRef<number[]>([]);
-	// Read by the observer, which outlives renders.
-	const goneRef = useRef(gone);
-	const demoRef = useRef(demoIndex);
-	const loopRef = useRef<LoopControl | null>(null);
-	const controlRefs = useRef<(HTMLButtonElement | null)[]>([]);
-
-	useEffect(() => {
-		goneRef.current = gone;
-	}, [gone]);
-	useEffect(() => {
-		demoRef.current = demoIndex;
-	}, [demoIndex]);
-
-	const clearTimers = () => {
-		timers.current.forEach((timer) => window.clearTimeout(timer));
-		timers.current = [];
-	};
-	const later = (ms: number, run: () => void) => {
-		timers.current.push(window.setTimeout(run, ms));
-	};
+	const checkedScene = useRef(false);
+	const controlRefs = useRef(new Map<string, HTMLButtonElement>());
+	const hasSupports = count > 0;
 
 	useEffect(() => {
 		const scene = sceneRef.current;
-		if (!scene || count === 0 || reducedMotion || typeof IntersectionObserver === "undefined") {
-			loopRef.current = null;
-			clearTimers();
-			setIntro(false);
-			setPlaced(count);
+		if (!scene) {
+			setPhase("standing");
 			return;
 		}
-		/** Supports down, off screen, waiting to rise. */
-		let armed = false;
-		/** Loop timers are scheduled. */
-		let active = false;
-		const holds = { hover: false, focus: false };
-		const held = () => holds.hover || holds.focus;
-		let stopped = false;
-		/** The support that is out was taken out by the loop. */
-		let demoOut = false;
-		let round = 0;
+		if (checkedScene.current) return;
+		checkedScene.current = true;
+		if (prefersReducedMotion() || typeof IntersectionObserver === "undefined") return;
+		if (scene.getBoundingClientRect().top >= window.innerHeight) setPhase("armed");
+	}, [hasSupports]);
 
-		const build = (delay: number) => {
-			armed = false;
-			active = true;
-			clearTimers();
-			setIntro(true);
-			for (let step = 1; step <= count; step += 1) {
-				later(delay + (step - 1) * BUILD_STEP_MS, () => setPlaced(step));
-			}
-			later(delay + count * BUILD_STEP_MS, rest);
-		};
-		const rest = () => {
-			active = true;
-			setIntro(true);
-			later(HOLD_MS, () => {
-				const start = demoRef.current >= 0 ? demoRef.current : 0;
-				const index = (start + round) % count;
-				round += 1;
-				demoOut = true;
-				setGone(index);
-				later(DEMO_HOLD_MS, () => {
-					demoOut = false;
-					setGone(-1);
-					later(DEMO_RETURN_MS, teardown);
-				});
-			});
-		};
-		const teardown = () => {
-			for (let step = 1; step <= count; step += 1) {
-				later((step - 1) * TEARDOWN_STEP_MS, () => setPlaced(count - step));
-			}
-			later(count * TEARDOWN_STEP_MS + REBUILD_GAP_MS, () => build(0));
-		};
-		/** Everything standing, nothing scheduled. */
-		const standStill = () => {
-			active = false;
-			clearTimers();
-			setPlaced(count);
-			if (demoOut) {
-				demoOut = false;
-				setGone(-1);
-			}
-		};
-		// Off screen everything resets, the visitor's own selection included, so
-		// coming back always finds the loop.
-		const arm = () => {
-			clearTimers();
-			armed = true;
-			active = false;
-			stopped = false;
-			demoOut = false;
-			setAnnounce(false);
-			setGone(-1);
-			setIntro(true);
-			setPlaced(0);
-		};
-
-		loopRef.current = {
-			hold: (kind, on) => {
-				const wasHeld = held();
-				holds[kind] = on;
-				if (armed || stopped) return;
-				if (!wasHeld && held()) standStill();
-				else if (wasHeld && !held()) rest();
-			},
-			stop: () => {
-				stopped = true;
-				armed = false;
-				standStill();
-				setIntro(false);
-			},
-		};
-
+	useEffect(() => {
+		const scene = sceneRef.current;
+		if (!scene || phase !== "armed" || reducedMotion) return;
 		const observer = new IntersectionObserver(
 			([entry]) => {
-				if (!entry) return;
-				if (!entry.isIntersecting) {
-					if (!armed) arm();
-				} else if (entry.intersectionRatio >= BUILD_IN_VIEW) {
-					if (armed && !held()) build(BUILD_START_MS);
-					else if (armed) {
-						// Held while coming into view: stand up without the build.
-						armed = false;
-						standStill();
-					} else if (!active && !held() && !stopped) rest();
-				}
+				if (!entry || entry.intersectionRatio < BUILD_IN_VIEW) return;
+				observer.disconnect();
+				const nextPhase = prefersReducedMotion() ? "standing" : "building";
+				setPhase((current) => (current === "armed" ? nextPhase : current));
 			},
-			{ threshold: [0, BUILD_IN_VIEW] },
+			{ threshold: BUILD_IN_VIEW },
 		);
 		observer.observe(scene);
-		return () => {
-			loopRef.current = null;
-			observer.disconnect();
-			clearTimers();
-			// A support the loop took out must not outlive the loop.
-			if (demoOut) setGone(-1);
-		};
-	}, [reducedMotion, count]);
+		return () => observer.disconnect();
+	}, [phase, reducedMotion]);
 
-	if (count === 0) return null;
+	useEffect(() => {
+		if (reducedMotion && phase !== "standing") {
+			setPhase("standing");
+			return;
+		}
+		if (phase !== "building") return;
+		const delay =
+			buildPlaced === 0 ? BUILD_START_MS : buildPlaced < count ? BUILD_STEP_MS : BUILD_SETTLE_MS;
+		const timer = window.setTimeout(() => {
+			if (buildPlaced < count) setBuildPlaced(buildPlaced + 1);
+			else setPhase("standing");
+		}, delay);
+		return () => window.clearTimeout(timer);
+	}, [phase, buildPlaced, count, reducedMotion]);
 
-	/** A click hands the object to the visitor: the loop stops, everything stands. */
+	if (!hasSupports) return null;
+
 	const takeOver = () => {
-		loopRef.current?.stop();
-		clearTimers();
-		setPlaced(count);
-		setIntro(false);
+		setBuildSkipped(phase !== "standing");
+		setPhase("standing");
 		setAnnounce(true);
 	};
-	const toggle = (index: number) => {
+	const toggle = (id: string) => {
 		takeOver();
-		setGone((value) => (value === index ? -1 : index));
+		setGoneId((value) => (value === id ? null : id));
 	};
 	const restore = () => {
-		const index = gone;
 		takeOver();
-		setGone(-1);
+		setGoneId(null);
 		// The restore button hides itself, so focus goes back to that support's toggle.
-		controlRefs.current[index]?.focus();
+		if (goneId !== null) controlRefs.current.get(goneId)?.focus();
 	};
 
+	const placed = reducedMotion || phase === "standing" ? count : buildPlaced;
 	const building = placed < count;
 	// While building, the plate pivots on its supported (left) end and sags
 	// toward the right, less with every support that lands.
@@ -277,7 +155,9 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 				}
 				data-broken={gone >= 0 ? "" : undefined}
 				data-building={building ? "" : undefined}
-				data-intro={intro ? "" : undefined}
+				data-intro={phase === "building" && !reducedMotion ? "" : undefined}
+				data-armed={phase === "armed" && !reducedMotion ? "" : undefined}
+				data-build-skipped={buildSkipped ? "" : undefined}
 			>
 				<div
 					aria-hidden="true"
@@ -355,6 +235,7 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 							<span className="hw-plate-wait">Not ready yet</span>
 							<span className="hw-plate-bad">Something’s wrong</span>
 						</span>
+						<span className="hw-sweep" />
 						<svg className="hw-crack" viewBox="0 0 24 40" preserveAspectRatio="none">
 							<path pathLength={1} d="M11 0 L14 12 L9 22 L13 31 L12 40" />
 						</svg>
@@ -366,7 +247,9 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 								className="hw-pillar"
 								data-out={index === gone ? "" : undefined}
 								data-pending={index >= placed ? "" : undefined}
-								data-hover={index === hovered && index !== gone ? "" : undefined}
+								data-hover={
+									pointerFine && support.id === hovered && index !== gone ? "" : undefined
+								}
 							>
 								<span className="hw-ghost" />
 								<span className="hw-pillar-body">
@@ -384,18 +267,6 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					role="group"
 					aria-labelledby={`${baseId}-controls`}
 					className="hw-controls mt-4 grid min-w-0 gap-2"
-					onPointerEnter={(event) => {
-						if (event.pointerType === "mouse") loopRef.current?.hold("hover", true);
-					}}
-					onPointerLeave={(event) => {
-						if (event.pointerType === "mouse") loopRef.current?.hold("hover", false);
-					}}
-					onFocus={() => loopRef.current?.hold("focus", true)}
-					onBlur={(event) => {
-						if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-							loopRef.current?.hold("focus", false);
-						}
-					}}
 				>
 					<p id={`${baseId}-controls`} className="sr-only">
 						Take a support out
@@ -404,16 +275,17 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 						<button
 							key={support.id}
 							ref={(node) => {
-								controlRefs.current[index] = node;
+								if (node) controlRefs.current.set(support.id, node);
+								else controlRefs.current.delete(support.id);
 							}}
 							type="button"
 							aria-pressed={index === gone}
 							data-pending={index >= placed ? "" : undefined}
-							onClick={() => toggle(index)}
+							onClick={() => toggle(support.id)}
 							onPointerEnter={(event) => {
-								if (event.pointerType === "mouse") setHovered(index);
+								if (pointerFine && event.pointerType === "mouse") setHovered(support.id);
 							}}
-							onPointerLeave={() => setHovered(-1)}
+							onPointerLeave={() => setHovered(null)}
 							className="hw-control group/control"
 						>
 							<span className="flex min-w-0 items-center justify-between gap-2">
@@ -439,14 +311,14 @@ export function HowIWork({ capabilities }: { capabilities: CapabilityContent[] }
 					))}
 				</div>
 
-				<div className="mt-5 flex min-h-9 items-center justify-center">
+				<div className="mt-5 flex min-h-11 items-center justify-center">
 					<button
 						type="button"
 						onClick={restore}
 						tabIndex={gone >= 0 ? 0 : -1}
 						aria-hidden={gone < 0 || undefined}
 						className={cn(
-							"hw-restore inline-flex min-h-9 items-center gap-2 rounded-full border border-line-strong px-4 text-[13px] font-medium text-ink-soft hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+							"hw-restore inline-flex min-h-11 items-center gap-2 rounded-full border border-line-strong px-4 text-[13px] font-medium text-ink-soft pointer-fine:hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
 							gone < 0 && "pointer-events-none",
 						)}
 						data-on={gone >= 0 ? "" : undefined}

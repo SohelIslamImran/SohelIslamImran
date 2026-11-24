@@ -54,7 +54,7 @@ const LAYERS: readonly {
 	},
 	{
 		id: "infrastructure",
-		label: "Cloud",
+		label: "Infrastructure",
 		meaning: "Where the code runs.",
 		pattern: /\b(?:aws|terraform|docker|cloudflare|workers)\b/i,
 	},
@@ -317,7 +317,7 @@ export interface SkillTimeline {
 	max: number;
 	/** Role or project target id → the years it covers. */
 	spans: Record<string, [number, number]>;
-	/** Skill name → the first year a dated role or project used it (null when none did). */
+	/** Skill name → the first year a dated role or project named it (null for no dated mention). */
 	firstYear: Record<string, number | null>;
 }
 
@@ -357,4 +357,19 @@ export function eraAt(span: [number, number] | undefined, year: number) {
 	if (span[0] > year) return "later" as const;
 	if (span[1] < year) return "past" as const;
 	return "now" as const;
+}
+
+export function skillYearCounts(firstYears: (number | null)[], year: number) {
+	const dated = firstYears.filter((first): first is number => first !== null);
+	return {
+		namedByYear: dated.filter((first) => first <= year).length,
+		datedTotal: dated.length,
+		undated: firstYears.length - dated.length,
+	};
+}
+
+/** An undated layer stays neutral; otherwise its first dated mention sets its reach. */
+export function skillLayerReached(firstYears: (number | null)[], year: number): boolean {
+	const { namedByYear, datedTotal } = skillYearCounts(firstYears, year);
+	return datedTotal === 0 || namedByYear > 0;
 }

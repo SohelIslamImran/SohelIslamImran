@@ -1051,6 +1051,53 @@ html[data-theme-resolved="dark"][data-accent="mint"] {
 			scrollbar-width: none;
 		}
 	}
+
+	/* RollingNumber: per-digit odometer columns driven by inline `--d`. */
+	.rolling-number {
+		position: relative;
+		display: inline-flex;
+		align-items: baseline;
+		font-variant-numeric: tabular-nums;
+		line-height: 1.2;
+		vertical-align: baseline;
+	}
+	.rolling-number__digits {
+		display: inline-flex;
+		align-items: baseline;
+	}
+	.rolling-number__col {
+		position: relative;
+		display: inline-block;
+		width: 1ch;
+		height: 1.2em;
+		line-height: 1.2em;
+		overflow: clip;
+		text-align: center;
+	}
+	.rolling-number__col::before {
+		content: "0";
+		visibility: hidden;
+		pointer-events: none;
+	}
+	.rolling-number__strip {
+		position: absolute;
+		inset-block-start: 0;
+		inset-inline: 0;
+		display: flex;
+		flex-direction: column;
+		translate: 0 calc(var(--d, 0) * -1.2em);
+		transition: translate 420ms var(--theme-ease);
+	}
+	.rolling-number__digit {
+		display: block;
+		height: 1.2em;
+		line-height: 1.2em;
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.rolling-number__strip {
+			transition: none;
+		}
+	}
 }
 
 /* ------------------------------------------------------------------ */
@@ -2226,12 +2273,22 @@ html[data-theme-resolved="dark"] .sd-plate-front img {
 	}
 }
 .sd-rail-list {
+	position: relative;
+	margin-top: 20px;
+	padding: 16px 0 0 16px;
+	border-top: 1px solid var(--theme-line);
+}
+.sd-rail-list > [data-slot="trace-line"] {
+	position: absolute;
+	top: 16px;
+	height: auto;
+}
+.sd-rail-list > ol {
 	display: grid;
 	gap: 2px;
-	margin: 20px 0 0;
-	padding: 16px 0 0;
+	margin: 0;
+	padding: 0;
 	list-style: none;
-	border-top: 1px solid var(--theme-line);
 }
 /* The one layer stack: six isometric planes, a trace dot falling through them. */
 .sd-depth {
@@ -2496,7 +2553,6 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	height: 2px;
 	background: var(--theme-accent);
 	transform-origin: left center;
-	transition: transform 300ms var(--theme-ease);
 }
 .sd-bar-list {
 	max-height: 46vh;
@@ -2533,7 +2589,10 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 .sd-chapter:first-child {
 	padding-top: 0;
 }
+/* Chapters take focus only from a hash or a rail link (tabIndex -1), never
+   from Tab, so a hairline marks the place without boxing the whole chapter. */
 .sd-chapter:focus-visible {
+	outline: 1px solid var(--theme-accent-line);
 	outline-offset: 8px;
 	border-radius: 28px;
 }
@@ -3349,7 +3408,6 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 			translate 200ms var(--theme-ease),
 			scale 160ms var(--theme-ease);
 	}
-	[data-slot="resume-skill"] > button[data-unused],
 	[data-slot="resume-skill"] > button[data-later] {
 		border-style: dashed;
 		color: var(--theme-muted);
@@ -3357,8 +3415,10 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 	[data-slot="resume-skill-layer"] h3 {
 		transition: color 260ms var(--theme-ease);
 	}
-	[data-slot="resume-skill-layer"][data-later] h3 {
-		color: var(--theme-muted);
+	@media screen {
+		[data-slot="resume-skill-layer"][data-later] h3 {
+			color: var(--theme-muted);
+		}
 	}
 	[data-slot="resume-skill-layer"] path {
 		transition:
@@ -4371,6 +4431,38 @@ a.sd-depth-link:focus-visible .sd-depth-chapter {
 		opacity: 1;
 	}
 }
+/* Trace light over the footer wordmark: pointer-fine with motion only. */
+.footer-wordmark__light {
+	--wm-r: clamp(5rem, 14cqi, 12rem);
+	color: transparent;
+	-webkit-text-stroke: 1.25px var(--theme-accent-line);
+	-webkit-mask-image: radial-gradient(
+		circle var(--wm-r) at var(--wm-x, 50%) var(--wm-y, 50%),
+		#000 35%,
+		transparent 100%
+	);
+	mask-image: radial-gradient(
+		circle var(--wm-r) at var(--wm-x, 50%) var(--wm-y, 50%),
+		#000 35%,
+		transparent 100%
+	);
+	opacity: 0;
+	transition: opacity 260ms var(--theme-ease);
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+	[data-slot="footer-wordmark"] {
+		pointer-events: auto;
+	}
+	[data-slot="footer-wordmark"][data-lit] .footer-wordmark__light {
+		opacity: 1;
+	}
+}
+@media (prefers-reduced-motion: reduce) {
+	.footer-wordmark__light {
+		opacity: 0;
+		transition: none;
+	}
+}
 
 /* Easter egg: x-ray. Every box on the page shows its outline. */
 html[data-xray] [data-slot="app-frame"] *,
@@ -4581,15 +4673,6 @@ html[data-xray] body {
 		border-color 260ms var(--ease-trace),
 		background-color 260ms var(--ease-trace);
 }
-.hw-pillar[data-hover] .hw-pillar-body {
-	border-color: var(--theme-accent-line);
-	background: linear-gradient(
-		90deg,
-		color-mix(in srgb, var(--theme-accent) 12%, var(--theme-surface-solid)),
-		color-mix(in srgb, var(--theme-accent) 5%, var(--theme-surface-raised)) 42%,
-		color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid))
-	);
-}
 .hw-pillar-index {
 	font-family: var(--font-mono);
 	font-size: 10.5px;
@@ -4612,16 +4695,25 @@ html[data-xray] body {
 }
 /*
  * The intro build: pending supports wait below the floor (the pillar clips
- * them) and rise on a spring as they're placed; each one's number flashes as
+ * them) and rise as they're placed; each one's number flashes as
  * it lands, and its control lights up with it. The plate shows "Not ready
  * yet" until the last one is in.
  */
 .hw-pillar[data-pending] .hw-pillar-body {
 	translate: 0 104%;
 }
+.hw[data-armed] :is(.hw-plate, .hw-pillar-body),
+.hw[data-build-skipped] .hw-pillar:not([data-out]) .hw-pillar-body {
+	transition: none;
+}
+.hw[data-intro] .hw-plate {
+	transition:
+		rotate 700ms var(--ease-trace),
+		translate 700ms var(--ease-trace);
+}
 .hw[data-intro] .hw-pillar-body {
 	transition:
-		translate 720ms var(--ease-spring),
+		translate 700ms var(--ease-trace),
 		opacity 420ms var(--ease-trace),
 		border-color 260ms var(--ease-trace),
 		background-color 260ms var(--ease-trace);
@@ -4629,8 +4721,7 @@ html[data-xray] body {
 @keyframes hw-land {
 	0%,
 	30% {
-		color: var(--theme-accent-text);
-		text-shadow: 0 0 12px color-mix(in srgb, var(--theme-accent) 60%, transparent);
+		filter: drop-shadow(0 0 6px var(--theme-accent-line));
 	}
 }
 .hw[data-intro] .hw-pillar:not([data-pending]) .hw-pillar-index {
@@ -4665,45 +4756,60 @@ html[data-xray] body {
 }
 /* When the last support lands: a light sweeps across the levelled plate and
    the status dot pings as it turns green. */
-.hw-plate::after {
+.hw-sweep {
+	position: absolute;
+	inset: 0;
+	overflow: clip;
+	border-radius: inherit;
+	pointer-events: none;
+}
+.hw-sweep::before {
 	content: "";
 	position: absolute;
 	inset: 0;
-	border-radius: inherit;
 	background: linear-gradient(
-			100deg,
-			transparent 35%,
-			color-mix(in srgb, var(--theme-accent) 16%, transparent) 50%,
-			transparent 65%
-		)
-		no-repeat;
-	background-size: 260% 100%;
-	background-position: 130% 0;
+		100deg,
+		transparent 35%,
+		color-mix(in srgb, var(--theme-accent) 16%, transparent) 50%,
+		transparent 65%
+	);
 	opacity: 0;
-	pointer-events: none;
 }
 @keyframes hw-sweep {
 	from {
 		opacity: 1;
-		background-position: 130% 0;
+		translate: -75% 0;
 	}
 	to {
 		opacity: 1;
-		background-position: -30% 0;
+		translate: 75% 0;
 	}
 }
-.hw[data-intro]:not([data-building]) .hw-plate::after {
-	animation: hw-sweep 900ms var(--ease-trace) 240ms both;
+.hw[data-intro]:not([data-building]) .hw-sweep::before {
+	animation: hw-sweep 900ms var(--ease-trace) 240ms;
+}
+.hw-plate-dot {
+	position: relative;
+}
+.hw-plate-dot::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border: 1px solid var(--theme-success);
+	border-radius: inherit;
+	opacity: 0;
 }
 @keyframes hw-ping {
 	from {
-		box-shadow: 0 0 0 0 color-mix(in srgb, var(--theme-success) 55%, transparent);
+		opacity: 0.55;
+		scale: 1;
 	}
 	to {
-		box-shadow: 0 0 0 12px color-mix(in srgb, var(--theme-success) 0%, transparent);
+		opacity: 0;
+		scale: 4.4;
 	}
 }
-.hw[data-intro]:not([data-building]) .hw-plate-dot {
+.hw[data-intro]:not([data-building]) .hw-plate-dot::after {
 	animation: hw-ping 900ms var(--ease-trace) 240ms;
 }
 .hw-plate-wait,
@@ -4717,6 +4823,17 @@ html[data-xray] body {
 .hw[data-building] .hw-plate-dot {
 	background: var(--theme-muted);
 	box-shadow: 0 0 0 4px color-mix(in srgb, var(--theme-muted) 14%, transparent);
+}
+@media (hover: hover) and (pointer: fine) {
+	.hw-pillar[data-hover] .hw-pillar-body {
+		border-color: var(--theme-accent-line);
+		background: linear-gradient(
+			90deg,
+			color-mix(in srgb, var(--theme-accent) 12%, var(--theme-surface-solid)),
+			color-mix(in srgb, var(--theme-accent) 5%, var(--theme-surface-raised)) 42%,
+			color-mix(in srgb, var(--theme-accent) 16%, var(--theme-surface-solid))
+		);
+	}
 }
 .hw-control[data-pending] {
 	opacity: 0.4;
@@ -4810,11 +4927,19 @@ html[data-xray] body {
 	.hw-readout,
 	.hw-readout[data-on],
 	.hw-plate,
+	.hw-plate-dot,
+	.hw-crack,
 	.hw-pillar-body,
+	.hw-ghost,
+	.hw-control,
 	.hw-control-icon,
 	.hw-restore {
-		transition-duration: 0s !important;
-		transition-delay: 0s !important;
+		transition: none !important;
+	}
+	.hw :is(.hw-pillar-index, .hw-impact),
+	.hw .hw-sweep::before,
+	.hw .hw-plate-dot::after {
+		animation: none !important;
 	}
 	.hw-readout {
 		translate: none;

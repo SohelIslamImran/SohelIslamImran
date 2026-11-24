@@ -10,6 +10,7 @@ import {
 	orderProjects,
 	projectLinkName,
 	projectLinks,
+	projectsInGroup,
 	seededRandom,
 	statusTone,
 } from "./project-utils";
@@ -59,6 +60,23 @@ describe("work project helpers", () => {
 		expect(adjacentProjects(projects, "a").previous?.slug).toBe("c");
 		expect(adjacentProjects(projects, "c").next?.slug).toBe("a");
 		expect(adjacentProjects([project({ slug: "a" })], "a")).toEqual({});
+	});
+
+	it("steps within the reader's group when the project belongs to it", () => {
+		const projects = [
+			project({ slug: "p1", category: "product" }),
+			project({ slug: "e1", category: "experiment" }),
+			project({ slug: "p2", category: "product" }),
+			project({ slug: "e2", category: "experiment" }),
+		];
+		expect(adjacentProjects(projects, "e1", "experiment")).toEqual({
+			previous: projects[3],
+			next: projects[3],
+		});
+		expect(projectsInGroup(projects, "e2", "experiment").map((p) => p.slug)).toEqual(["e1", "e2"]);
+		// A project outside the remembered group falls back to all work.
+		expect(projectsInGroup(projects, "p1", "experiment")).toHaveLength(4);
+		expect(adjacentProjects(projects, "p2", "all").next?.slug).toBe("e1");
 	});
 
 	it("labels site, package, and source links for the cards", () => {

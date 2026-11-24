@@ -15,5 +15,7 @@ export { LocalTime, useLocalTime, type LocalTimeState } from "./LocalTime";
 export { Magnetic } from "./Magnetic";
 export { Marquee } from "./Marquee";
 export { Reveal, Stagger, type RevealTag } from "./Reveal";
+export { RollingNumber, type RollingNumberProps } from "./RollingNumber";
+export { rollingDigits } from "./rolling-number";
 export { SpotlightCard, useSpotlight } from "./SpotlightCard";
 export { TraceLine } from "./TraceLine";
