@@ -5,7 +5,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { cn } from "../../../lib/utils";
-import type { AuditEventItem } from "../../../server/cms-storage.server";
+import type { AuditEventItem, RevisionKind } from "../../../server/cms-storage.server";
 import {
 	ActivityIcon,
 	DiscardIcon,
@@ -28,6 +28,36 @@ export interface AuditEventDescription {
 
 const numberDetail = (event: AuditEventItem, key: string) =>
 	typeof event.details?.[key] === "number" ? (event.details[key] as number) : null;
+
+export function auditRevisionTarget(event: AuditEventItem) {
+	const revision = event.revision;
+	const link = (kind: RevisionKind, number: number | null, id: number | null = null) =>
+		number !== null
+			? {
+					search: id === null ? { kind, revision: number } : { id },
+					label: `${kind === "published" ? "Published" : "Draft"} r${number} in history`,
+					caption: `r${number}`,
+				}
+			: null;
+
+	switch (event.eventType) {
+		case "draft.save":
+			return link("draft", revision);
+		case "draft.publish":
+			return link("published", revision);
+		case "draft.discard": {
+			const live = numberDetail(event, "publishedRevision");
+			return live === null ? link("draft", revision) : link("published", live);
+		}
+		case "revision.restore": {
+			const source = numberDetail(event, "sourceRevision");
+			const kind = event.details?.sourceKind === "published" ? "published" : "draft";
+			return link(kind, source ?? revision, numberDetail(event, "sourceId"));
+		}
+		default:
+			return null;
+	}
+}
 
 export function describeAuditEvent(event: AuditEventItem): AuditEventDescription {
 	switch (event.eventType) {
@@ -100,6 +130,7 @@ export function AuditEventSummary({
 	compact?: boolean;
 }) {
 	const meta = describeAuditEvent(event);
+	const revision = auditRevisionTarget(event);
 	return (
 		<div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
 			<span
@@ -124,15 +155,15 @@ export function AuditEventSummary({
 				{meta.detail ? (
 					<span className="text-[12.5px] text-muted-foreground">{meta.detail}</span>
 				) : null}
-				{meta.revision !== null ? (
+				{revision ? (
 					<Link
 						to="/cms/history"
-						search={{ revision: meta.revision }}
-						aria-label={`Revision ${meta.revision} in history`}
+						search={revision.search}
+						aria-label={revision.label}
 						className="group/revision cms-press cms-page-focus inline-flex shrink-0 items-center justify-center rounded-full no-underline pointer-coarse:min-h-11 pointer-coarse:min-w-11 pointer-coarse:justify-start"
 					>
 						<span className="inline-flex min-h-7 items-center rounded-full border border-line bg-surface-solid px-2 font-mono text-[11.5px] text-primary-text tabular-nums group-hover/revision:border-primary-line group-hover/revision:bg-primary-soft">
-							r{meta.revision}
+							{revision.caption}
 						</span>
 					</Link>
 				) : null}

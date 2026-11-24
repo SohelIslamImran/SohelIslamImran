@@ -13,6 +13,7 @@ import { assertMutation, runtime } from "./cms.server";
 import {
 	AUDIT_EVENT_KINDS,
 	discardDraft as discardDraftInStorage,
+	findRevision,
 	getAdminSnapshot,
 	getRevision as getRevisionInStorage,
 	listAuditEvents as listAuditEventsInStorage,
@@ -41,6 +42,23 @@ export const listRevisions = createServerFn({ method: "GET" })
 		setResponseHeader("Cache-Control", "private, no-store");
 		await requireOwner(getRequest(), runtime());
 		return listRevisionsInStorage(runtime(), data);
+	});
+
+export const resolveRevision = createServerFn({ method: "GET" })
+	.validator(
+		z.object({
+			id: positiveId.optional(),
+			kind: z.enum(["draft", "published"]).optional(),
+			revision: revision.optional(),
+		}),
+	)
+	.handler(async ({ data }) => {
+		setResponseHeader("Cache-Control", "private, no-store");
+		const environment = runtime();
+		await requireOwner(getRequest(), environment);
+		if (data.id !== undefined) return findRevision(environment, { id: data.id });
+		if (data.revision === undefined) return null;
+		return findRevision(environment, { kind: data.kind, revision: data.revision });
 	});
 
 export const getRevision = createServerFn({ method: "GET" })

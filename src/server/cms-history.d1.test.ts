@@ -4,6 +4,7 @@ import { serializePortfolioContent } from "../lib/validation";
 import { createTestD1, type TestD1 } from "../test-support/d1";
 import {
 	discardDraft,
+	findRevision,
 	getAdminSnapshot,
 	getRevision,
 	listAuditEvents,
@@ -78,6 +79,26 @@ describe("CMS history, audit events, and media storage", () => {
 		const onlyPublished = await listRevisions({ DB: db }, { kind: "published" });
 		expect(onlyPublished.items.every((item) => item.kind === "published")).toBe(true);
 		expect(onlyPublished.items[0]).toMatchObject({ kind: "published", revision: 2 });
+	});
+
+	it("resolves exact revision summaries past the first page and handles ambiguous legacy links", async () => {
+		const env = { DB: fixture!.db };
+		await saveDraft(env, { content: INITIAL_PORTFOLIO_CONTENT, expectedRevision: 1, actor });
+		await publishDraft(env, { expectedDraftRevision: 2, actor });
+		await saveDraft(env, { content: INITIAL_PORTFOLIO_CONTENT, expectedRevision: 2, actor });
+		const first = await listRevisions(env, { limit: 1 });
+		const draft = await findRevision(env, { kind: "draft", revision: 2 });
+		const live = await findRevision(env, { kind: "published", revision: 2 });
+		expect(draft).toMatchObject({ kind: "draft", revision: 2 });
+		expect(live).toMatchObject({ kind: "published", revision: 2 });
+		expect(draft?.id).not.toBe(live?.id);
+		expect(first.items.map(({ id }) => id)).not.toContain(draft?.id);
+		expect(await findRevision(env, { id: draft!.id })).toEqual(draft);
+		expect(draft).not.toHaveProperty("content");
+		expect(await findRevision(env, { revision: 2 })).toEqual(live);
+		expect(await findRevision(env, { revision: 3 })).toEqual(first.items[0]);
+		expect(await findRevision(env, { kind: "published", revision: 3 })).toBeNull();
+		expect(await findRevision(env, { revision: 9_999_999 })).toBeNull();
 	});
 
 	it("restores a legacy v2 revision as an upgraded v3 draft and writes an audit event", async () => {

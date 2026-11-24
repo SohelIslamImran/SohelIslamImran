@@ -59,7 +59,7 @@ export function RevisionRow({
 			>
 				{selected ? (
 					<motion.span
-						layoutId="cms-history-active-row"
+						layoutId={reduced ? undefined : "cms-history-active-row"}
 						aria-hidden="true"
 						transition={reduced ? REDUCED : SPRING_MOVE}
 						className="pointer-events-none absolute inset-0 rounded-[12px] border border-primary-line bg-primary-soft/60"
