@@ -1,3 +1,4 @@
+import { InputShell, inputClass } from "./InputShell";
 import { AnimatePresence, motion, Reorder, useIsPresent } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
@@ -122,15 +123,7 @@ export function TagsField({
 			meta={<Counter length={tags.length} max={max} />}
 			className={className}
 		>
-			<div
-				className={cn(
-					controlClass,
-					"cms-tags flex min-h-10 flex-wrap items-center gap-1.5 px-1.5 py-1.5",
-				)}
-				onClick={(event) => {
-					if (event.target === event.currentTarget) input.current?.focus();
-				}}
-			>
+			<InputShell className="cms-tags" invalid={nested.length > 0}>
 				<ul
 					ref={chips}
 					className="contents"
@@ -160,12 +153,7 @@ export function TagsField({
 											else focusField(path, touch);
 										});
 									}}
-									className={cn(
-										"cms-press inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] pointer-coarse:size-11",
-										armed && index === tags.length - 1
-											? "text-primary-foreground"
-											: "text-muted-foreground hover:text-foreground",
-									)}
+									className="cms-press cms-tag-remove"
 								>
 									<CloseIcon className="size-3" />
 									<span className="sr-only">Remove {tag}</span>
@@ -178,7 +166,7 @@ export function TagsField({
 					ref={input}
 					id={fieldId(path)}
 					value={draft}
-					placeholder={tags.length ? "" : placeholder}
+					placeholder={tags.length ? "Add…" : placeholder}
 					aria-describedby={describedBy(path, Boolean(description), nested)}
 					aria-invalid={nested.length > 0 || undefined}
 					onChange={(event) => {
@@ -215,9 +203,14 @@ export function TagsField({
 						setArmed(false);
 						add(draft);
 					}}
-					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden"
+					className={inputClass}
 				/>
-			</div>
+				{draft ? (
+					<kbd className="cms-kbd" aria-hidden="true">
+						↵
+					</kbd>
+				) : null}
+			</InputShell>
 			<p
 				role="status"
 				className={

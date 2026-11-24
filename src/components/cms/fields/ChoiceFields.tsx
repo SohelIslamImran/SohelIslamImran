@@ -406,7 +406,7 @@ export function SwitchField({
 						render={
 							<motion.span
 								initial={false}
-								animate={{ x: checked ? 20 : 0 }}
+								animate={{ x: checked ? 18 : 0 }}
 								transition={reduced ? { duration: 0 } : SPRING_SNAPPY}
 							>
 								<span className="cms-switch-thumb-inner" />
