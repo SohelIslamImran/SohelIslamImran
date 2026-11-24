@@ -1,0 +1,9 @@
+/*
+ * Media library and media preview styles (stream B). Imported after
+ * pages.css, so a rule here may restyle a pages.css library selector such as
+ * .cms-dropzone or .cms-media-thumb without editing pages.css.
+ */
+
+@layer components {
+	/* Library styles go here. */
+}

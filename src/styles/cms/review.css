@@ -1,0 +1,9 @@
+/*
+ * Release, History and Activity styles (stream C). Imported after pages.css,
+ * so a rule here may restyle a pages.css selector such as .cms-confirm-card
+ * without editing pages.css.
+ */
+
+@layer components {
+	/* Review styles go here. */
+}

@@ -3,6 +3,7 @@ import {
 	useCallback,
 	useContext,
 	useEffect,
+	useMemo,
 	useRef,
 	useSyncExternalStore,
 	type ReactNode,
@@ -27,40 +28,56 @@ export interface CmsSession {
 interface CmsContextValue {
 	store: DraftStore;
 	session: CmsSession;
+	/**
+	 * Re-read the owner session (a fresh CSRF token) without touching the
+	 * draft. Resolves true when a new session for the same owner was adopted.
+	 */
+	refreshSession: () => Promise<boolean>;
 }
 
 const CmsDraftContext = createContext<CmsContextValue | null>(null);
 
+const NO_REFRESH = () => Promise.resolve(false);
+
 /**
  * One store per CMS layout mount. The store is created once from the loader
- * snapshot; later loader refreshes do not replace local edits.
+ * snapshot; later loader refreshes do not replace local edits. `session` is
+ * reactive: a refreshed CSRF token reaches every consumer, while the store
+ * instance never changes.
  */
 export function CmsDraftProvider({
 	snapshot,
 	session,
 	api,
+	refreshSession,
 	children,
 }: {
 	snapshot: DraftSnapshotInput;
 	session: CmsSession;
 	api: DraftApi;
+	/** Supplied by the layout route. Optional so tests can omit it. */
+	refreshSession?: () => Promise<boolean>;
 	children: ReactNode;
 }) {
 	const apiRef = useRef(api);
 	apiRef.current = api;
-	const valueRef = useRef<CmsContextValue | null>(null);
-	if (valueRef.current === null) {
-		valueRef.current = {
-			store: new DraftStore(snapshot, {
-				save: (input) => apiRef.current.save(input),
-				publish: (input) => apiRef.current.publish(input),
-				restore: (input) => apiRef.current.restore(input),
-				discard: (input) => apiRef.current.discard(input),
-			}),
-			session,
-		};
+	const refreshRef = useRef(refreshSession);
+	refreshRef.current = refreshSession;
+	const storeRef = useRef<DraftStore | null>(null);
+	if (storeRef.current === null) {
+		storeRef.current = new DraftStore(snapshot, {
+			save: (input) => apiRef.current.save(input),
+			publish: (input) => apiRef.current.publish(input),
+			restore: (input) => apiRef.current.restore(input),
+			discard: (input) => apiRef.current.discard(input),
+		});
 	}
-	const { store } = valueRef.current;
+	const store = storeRef.current;
+	const refresh = useCallback(() => (refreshRef.current ?? NO_REFRESH)(), []);
+	const value = useMemo<CmsContextValue>(
+		() => ({ store, session, refreshSession: refresh }),
+		[store, session, refresh],
+	);
 
 	useEffect(() => () => store.dispose(), [store]);
 
@@ -77,7 +94,7 @@ export function CmsDraftProvider({
 		return () => window.removeEventListener("beforeunload", onBeforeUnload);
 	}, [store]);
 
-	return <CmsDraftContext.Provider value={valueRef.current}>{children}</CmsDraftContext.Provider>;
+	return <CmsDraftContext.Provider value={value}>{children}</CmsDraftContext.Provider>;
 }
 
 function useCmsContext(): CmsContextValue {
@@ -97,6 +114,11 @@ export function useCmsSession(): CmsSession {
 /** Public portfolio origin for links and publish copy (falls back to production). */
 export function usePublicOrigin(): string {
 	return useCmsContext().session.publicOrigin ?? "https://sohelislamimran.com";
+}
+
+/** Refresh the owner session in place (new CSRF token); the draft is untouched. */
+export function useRefreshCmsSession(): () => Promise<boolean> {
+	return useCmsContext().refreshSession;
 }
 
 /**
