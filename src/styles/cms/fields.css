@@ -1149,6 +1149,13 @@
 		max-width: 100%;
 	}
 
+	.cms-undo-behind {
+		position: absolute;
+		inset: 0;
+		overflow: hidden;
+		transform-origin: center top;
+	}
+
 	/* The list’s error line keeps its live region but adds no gap while closed. */
 	.cms-collection-list > .cms-field-foot:not([data-open]) {
 		margin-top: -12px;
