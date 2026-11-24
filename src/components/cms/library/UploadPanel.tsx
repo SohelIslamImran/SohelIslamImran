@@ -125,9 +125,20 @@ export function UploadPanel({
 			setPreviewUrl(null);
 			return;
 		}
-		const url = URL.createObjectURL(selectedFile);
-		setPreviewUrl(url);
-		return () => URL.revokeObjectURL(url);
+		// Site CSP allows `data:` images (not `blob:`), so read validated images via FileReader.
+		let active = true;
+		const reader = new FileReader();
+		reader.onload = () => {
+			if (active && typeof reader.result === "string") setPreviewUrl(reader.result);
+		};
+		reader.onerror = () => {
+			if (active) setPreviewUrl(null);
+		};
+		reader.readAsDataURL(selectedFile);
+		return () => {
+			active = false;
+			reader.abort();
+		};
 	}, [selectedFile]);
 
 	const isImage = selectedFile?.type.startsWith("image/") ?? false;
@@ -277,7 +288,7 @@ export function UploadPanel({
 						{selectedFile ? (
 							<div
 								key={stagedKey}
-								className="cms-staged-file flex min-w-0 flex-1 items-center gap-3"
+								className="cms-staged-file flex min-w-0 flex-[1_1_14rem] items-center gap-3"
 							>
 								{previewUrl ? (
 									<img
@@ -293,7 +304,7 @@ export function UploadPanel({
 								<p className="m-0 flex min-w-0 flex-wrap items-baseline gap-x-1.5 text-[13px] text-muted-foreground">
 									<span className="max-w-full truncate font-medium text-foreground">
 										{selectedFile.name}
-									</span>
+									</span>{" "}
 									<span className="font-mono text-[11.5px] tabular-nums">
 										· {mediaTypeShortLabel(selectedFile.type)} · {formatBytes(selectedFile.size)}{" "}
 										(max 20 MB)
@@ -301,7 +312,7 @@ export function UploadPanel({
 								</p>
 							</div>
 						) : (
-							<div className="flex min-w-0 flex-1 items-center gap-3">
+							<div className="flex min-w-0 flex-[1_1_14rem] items-center gap-3">
 								<span
 									aria-hidden="true"
 									className="grid size-10 shrink-0 place-items-center rounded-[12px] border border-line-strong bg-surface-solid text-primary-text shadow-[0_1px_2px_var(--theme-shadow-soft)]"
