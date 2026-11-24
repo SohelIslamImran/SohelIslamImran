@@ -124,3 +124,12 @@ export function StackIcon(props: IconProps) {
 		</Icon>
 	);
 }
+
+export function MailIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<rect x="2.5" y="4.5" width="15" height="11" rx="2" />
+			<path d="m3 6 7 5 7-5" />
+		</Icon>
+	);
+}

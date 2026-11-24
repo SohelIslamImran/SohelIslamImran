@@ -48,103 +48,242 @@
 		gap: 1.25rem 1rem;
 	}
 
-	/*
-	 * Inputs are lifted white fields: a 1px edge and a soft two-layer shadow
-	 * set them just above the white panel, so they separate from it without
-	 * a gray fill (gray marks disabled fields only). Dark mode lifts the field
-	 * one step lighter than the panel instead. Focus turns the edge into a
-	 * solid 2px accent line with no glow.
-	 */
 	.cms-root,
 	.cms-field-popup {
-		--cms-control-bg: var(--theme-surface-solid);
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.08);
-		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.07), 0 4px 10px -3px rgb(0 0 0 / 0.1);
+		/* Surface */
+		--cms-field-bg: color-mix(in srgb, var(--theme-ink) 1.5%, var(--theme-paper));
+		--cms-field-bg-hover: color-mix(in srgb, var(--theme-ink) 2.5%, var(--theme-paper));
+		--cms-field-bg-focus: var(--theme-surface-solid);
+		--cms-field-edge: color-mix(in srgb, var(--theme-ink) 15%, transparent);
+		--cms-field-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
+		--cms-field-shade: inset 0 1px 1px rgb(0 0 0 / 0.04);
+		--cms-field-invalid-edge: color-mix(in srgb, var(--theme-destructive) 72%, transparent);
+		--cms-field-invalid-bg: color-mix(in srgb, var(--theme-destructive) 3%, var(--cms-field-bg));
+		--cms-field-selection: color-mix(in srgb, var(--theme-accent) 20%, transparent);
+		--cms-field-placeholder: var(--theme-muted);
+		/* Chips and tracks */
+		--cms-chip-bg: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		--cms-chip-edge: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		--cms-track-bg: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		--cms-track-thumb: var(--theme-surface-solid);
+		/* Geometry */
+		--cms-field-h: 40px;
+		--cms-field-h-sm: 36px;
+		--cms-field-pad: 12px;
+		--cms-field-radius: var(--cms-radius-control, 10px);
+		--cms-field-font: 14px;
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
-		--cms-control-bg: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 12%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 20%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.4);
-		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.45), 0 4px 10px -3px rgb(0 0 0 / 0.4);
+		--cms-field-bg: color-mix(in srgb, var(--theme-paper) 55%, var(--theme-surface-solid));
+		--cms-field-bg-hover: color-mix(in srgb, var(--theme-paper) 35%, var(--theme-surface-solid));
+		--cms-field-bg-focus: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		--cms-field-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
+		--cms-field-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
+		--cms-field-shade: inset 0 1px 2px rgb(0 0 0 / 0.4);
+		--cms-field-invalid-bg: color-mix(in srgb, var(--theme-destructive) 5%, var(--cms-field-bg));
+		--cms-field-selection: color-mix(in srgb, var(--theme-accent) 34%, transparent);
+		--cms-field-placeholder: color-mix(in srgb, var(--theme-muted) 86%, var(--cms-field-bg));
+		--cms-chip-bg: color-mix(in srgb, var(--theme-ink) 10%, var(--theme-surface-solid));
+		--cms-chip-edge: color-mix(in srgb, var(--theme-ink) 8%, transparent);
+		--cms-track-bg: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+		--cms-track-thumb: color-mix(in srgb, var(--theme-ink) 18%, var(--theme-surface-solid));
 	}
 
-	.cms-control {
-		border: 1px solid var(--cms-control-edge);
-		border-radius: var(--cms-radius-control, 10px);
-		background: var(--cms-control-bg);
-		background-clip: padding-box;
+	@media (pointer: coarse) {
+		.cms-root,
+		.cms-field-popup {
+			--cms-field-h: 44px;
+			--cms-field-h-sm: 44px;
+			--cms-field-font: 16px;
+		}
+	}
+
+	:is(.cms-input, .cms-control, .cms-stack, .cms-segments) {
+		--cms-focus-edge: var(--theme-accent);
+		--cms-focus-icon: var(--theme-accent-text);
+		min-width: 0;
+		min-height: var(--cms-field-h);
+		border: 1px solid var(--cms-field-edge);
+		border-radius: var(--cms-field-radius);
+		background: var(--cms-field-bg) padding-box;
+		box-shadow: var(--cms-field-shade);
 		color: var(--theme-ink);
-		box-shadow: var(--cms-control-lift);
+		font-size: var(--cms-field-font);
 		caret-color: var(--theme-accent);
-		/* Only button-like controls use scale for press feedback. */
-		transition:
-			background-color var(--cms-dur-fast) var(--cms-ease-out),
-			border-color var(--cms-dur-fast) var(--cms-ease-out),
-			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
-			color var(--cms-dur-fast) var(--cms-ease-out);
+		transition-property: border-color, background-color, box-shadow, color;
+		transition-duration: var(--cms-dur-fast);
+		transition-timing-function: var(--cms-ease-out);
 	}
 
 	.cms-control.cms-press {
-		transition-property: background-color, border-color, box-shadow, color, scale;
+		transition-property: border-color, background-color, box-shadow, color, scale;
 	}
 
-	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
-	.cms-control::placeholder,
-	.cms-control input::placeholder {
-		color: color-mix(in srgb, var(--theme-muted) 99%, var(--theme-surface-solid));
+	:is(.cms-input, .cms-control, .cms-stack, .cms-segments):is(
+		[data-invalid],
+		[aria-invalid="true"]
+	),
+	.cms-field[data-invalid] > .cms-tags {
+		--cms-focus-edge: var(--theme-destructive);
+		--cms-focus-icon: var(--theme-muted);
+		border-color: var(--cms-field-invalid-edge);
+		background-color: var(--cms-field-invalid-bg);
+	}
+
+	:is(.cms-input, .cms-control):is(:disabled, [data-disabled]) {
+		border-color: color-mix(in srgb, var(--theme-ink) 9%, transparent);
+		background: transparent;
+		box-shadow: none;
+		color: var(--theme-muted);
+		cursor: not-allowed;
+	}
+
+	:is(.cms-input, .cms-control):is([data-readonly], [readonly]) {
+		border-style: dashed;
+		border-color: color-mix(in srgb, var(--theme-ink) 14%, transparent);
+		background: transparent;
+		box-shadow: none;
+		color: var(--theme-ink-soft);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		:is(.cms-input, .cms-control):hover:not(
+				:focus-within,
+				[data-popup-open],
+				[data-invalid],
+				[aria-invalid="true"],
+				[data-disabled],
+				:disabled,
+				[data-readonly],
+				[readonly]
+			) {
+			border-color: var(--cms-field-edge-hover);
+			box-shadow: none;
+		}
+
+		.cms-input:hover .cms-input-leading {
+			color: var(--theme-ink-soft);
+		}
+	}
+
+	button.cms-control:active:not(:disabled) {
+		background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--cms-field-bg));
+	}
+
+	.cms-input {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		cursor: text;
+	}
+
+	.cms-input[data-size="sm"] {
+		--cms-field-h: var(--cms-field-h-sm);
+	}
+
+	.cms-input[data-multiline] {
+		align-items: start;
+	}
+
+	.cms-input-native {
+		grid-column: 2;
+		width: 100%;
+		min-width: 0;
+		min-height: calc(var(--cms-field-h) - 2px);
+		border: 0;
+		border-radius: inherit;
+		background: transparent;
+		padding-inline: var(--cms-field-pad);
+		color: inherit;
+		font: inherit;
+		line-height: 22px;
+		caret-color: var(--theme-accent);
+		outline: none;
+		appearance: none;
+	}
+
+	:is(.cms-input-native, .cms-control)::placeholder {
+		color: var(--cms-field-placeholder);
 		opacity: 1;
 	}
 
-	html[data-theme-resolved="dark"] .cms-control::placeholder,
-	html[data-theme-resolved="dark"] .cms-control input::placeholder {
-		color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-surface-solid));
+	:is(.cms-input-native, .cms-control)::selection {
+		background: var(--cms-field-selection);
 	}
 
-	.cms-control:disabled,
-	.cms-control[data-disabled] {
-		background: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
-		box-shadow: none;
-		opacity: 0.6;
-		cursor: default;
+	.cms-input-mono,
+	.cms-input-leading[data-prefix] {
+		font-family: var(--font-mono);
+		font-size: calc(var(--cms-field-font) - 1px);
+		letter-spacing: 0;
 	}
 
-	.cms-control:focus-visible,
-	.cms-control[data-popup-open],
-	.cms-control.cms-tags:focus-within {
-		/* Transparent, so forced-colors mode still draws a system outline. */
+	.cms-input-leading {
+		grid-column: 1;
+		display: inline-flex;
+		align-items: center;
+		padding-inline-start: var(--cms-field-pad);
+		color: var(--theme-muted);
+		transition: color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-input-leading svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.cms-input-leading + .cms-input-native {
+		padding-inline-start: 8px;
+	}
+
+	.cms-input-leading[data-prefix] + .cms-input-native {
+		padding-inline-start: 0;
+	}
+
+	.cms-input-trailing {
+		grid-column: 3;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding-inline-end: 6px;
+	}
+
+	.cms-input-action {
+		position: relative;
+		display: inline-grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 7px;
+		color: var(--theme-muted);
+		cursor: pointer;
+	}
+
+	.cms-input-action svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.cms-input-action:focus-visible {
 		outline: 2px solid transparent;
-		outline-offset: 1px;
-		border-color: var(--theme-accent);
-		box-shadow:
-			0 0 0 1px var(--theme-accent),
-			var(--cms-control-lift);
+		box-shadow: var(--cms-ring);
 	}
 
-	/* The error text under the field says what is wrong; the edge only tints. */
-	.cms-control[aria-invalid="true"],
-	.cms-field[data-invalid] > .cms-tags {
-		border-color: var(--theme-destructive);
-	}
-
-	.cms-control[aria-invalid="true"]:focus-visible,
-	.cms-field[data-invalid] > .cms-tags:focus-within {
-		border-color: var(--theme-destructive);
-		box-shadow: 0 0 0 1px var(--theme-destructive);
+	@media (hover: hover) and (pointer: fine) {
+		.cms-input-action:hover {
+			background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+			color: var(--theme-ink);
+		}
 	}
 
 	.cms-textarea {
 		field-sizing: content;
-		resize: vertical;
+		resize: none;
 	}
 
-	/* A wrapping single line: no grip, same height as a text input until it wraps. */
 	.cms-textarea-single {
-		resize: none;
-		min-block-size: 40px;
+		min-block-size: var(--cms-field-h);
 	}
 
 	.cms-control[type="date"] {
@@ -258,6 +397,23 @@
 		box-shadow: var(--cms-ring);
 	}
 
+	.cms-input:focus-within:not(:has(.cms-input-action:focus-visible)),
+	.cms-control.cms-tags:focus-within,
+	.cms-control:is(:focus-visible, [data-popup-open]),
+	.cms-stack:has(.cms-stack-row .cms-input-native:focus),
+	.cms-segments:focus-within {
+		outline: 2px solid transparent;
+		outline-offset: -2px;
+		border-color: var(--cms-focus-edge);
+		background-color: var(--cms-field-bg-focus);
+		box-shadow: inset 0 0 0 1px var(--cms-focus-edge);
+	}
+
+	.cms-input:focus-within:not(:has(.cms-input-action:focus-visible)) .cms-input-leading,
+	.cms-control:is(:focus-visible, [data-popup-open]) .cms-control-icon {
+		color: var(--cms-focus-icon);
+	}
+
 	/* Switches and checkboxes ring the visible track or box, not the hit area. */
 	.cms-field :is(.cms-switch, .cms-checkbox):focus-visible {
 		box-shadow: none;
@@ -271,18 +427,6 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-control:hover:not(
-				:disabled,
-				[data-disabled],
-				[data-popup-open],
-				:focus-visible,
-				[aria-invalid="true"],
-				.cms-tags:focus-within
-			) {
-			border-color: var(--cms-control-edge-hover);
-			box-shadow: var(--cms-control-lift-hover);
-		}
-
 		.cms-field-revert:hover {
 			background: color-mix(in srgb, var(--theme-accent) 14%, transparent);
 		}

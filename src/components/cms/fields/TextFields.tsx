@@ -12,6 +12,8 @@ import {
 	fieldId,
 	useFieldIssueFeedback,
 } from "./FieldFrame";
+import { InputShell, inputClass } from "./InputShell";
+import { MailIcon } from "./field-icons";
 import { toSingleLine } from "./field-logic";
 
 interface BaseFieldProps {
@@ -36,6 +38,8 @@ export interface TextFieldProps extends BaseFieldProps {
 	/** Monospace input, for slugs, ids, hrefs. */
 	mono?: boolean;
 	prefix?: ReactNode;
+	leading?: ReactNode;
+	trailing?: ReactNode;
 	valueOverride?: string;
 }
 
@@ -79,6 +83,8 @@ export function TextField({
 	spellCheck,
 	mono,
 	prefix,
+	leading,
+	trailing,
 	required,
 	valueOverride,
 }: TextFieldProps) {
@@ -96,12 +102,13 @@ export function TextField({
 			meta={<Counter length={value.length} max={maxLength} />}
 			className={className}
 		>
-			<div className="relative flex min-w-0 items-center">
-				{prefix ? (
-					<span className="pointer-events-none absolute left-3 font-mono text-[12.5px] text-muted-foreground">
-						{prefix}
-					</span>
-				) : null}
+			<InputShell
+				prefix={prefix}
+				leading={leading ?? (type === "email" ? <MailIcon /> : undefined)}
+				trailing={trailing}
+				invalid={issues.length > 0}
+				disabled={disabled}
+			>
 				<Input
 					id={fieldId(path)}
 					type={type}
@@ -121,19 +128,9 @@ export function TextField({
 						const next = event.currentTarget.value;
 						field.set(optional && next === "" ? undefined : next);
 					}}
-					className={cn(
-						controlClass,
-						"min-h-10",
-						mono && "font-mono text-[13px]",
-						prefix && "pl-[calc(var(--prefix-ch,1)*1ch+1.5rem)]",
-					)}
-					style={
-						prefix && typeof prefix === "string"
-							? ({ "--prefix-ch": prefix.length } as React.CSSProperties)
-							: undefined
-					}
+					className={cn(inputClass, mono && "cms-input-mono")}
 				/>
-			</div>
+			</InputShell>
 		</FieldFrame>
 	);
 }
