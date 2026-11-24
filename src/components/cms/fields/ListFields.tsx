@@ -20,7 +20,6 @@ import { Counter } from "./TextFields";
 import {
 	FieldFrame,
 	FieldMessage,
-	controlClass,
 	describedBy,
 	fieldId,
 	focusField,
@@ -377,40 +376,41 @@ export function StringListField({
 			meta={<Counter length={count} max={max} />}
 			className={className}
 		>
-			<Reorder.Group
-				as="ol"
-				axis="y"
-				values={keys}
-				onReorder={removals.reorder}
-				className="m-0 grid min-w-0 list-none gap-2 p-0 empty:hidden"
-				aria-labelledby={`${fieldId(path)}-label`}
-			>
-				<AnimatePresence initial={false}>
-					{keys.map((key, index) => (
-						<StringRow
-							key={key}
-							rowKey={key}
-							path={childPath(path, index)}
-							index={index}
-							label={`${itemLabel} ${index + 1}`}
-							settled={reorderFeedback.settledKey === key}
-							maxLength={maxLength}
-							multiline={multiline}
-							placeholder={placeholder}
-							canMoveDown={index < count - 1}
-							move={move}
-							remove={remove}
-							onDragStart={startDrag}
-							onDragEnd={handleDragEnd}
-						/>
-					))}
-				</AnimatePresence>
-			</Reorder.Group>
-			<p role="status" aria-live="polite" className="sr-only">
-				{reorderFeedback.announcement}
-			</p>
-			<div className={count ? "mt-2" : undefined}>
+			<div className="cms-stack" data-invalid={issues.length > 0 || undefined}>
+				<Reorder.Group
+					as="ol"
+					axis="y"
+					values={keys}
+					onReorder={removals.reorder}
+					className="cms-stack-rows"
+					aria-labelledby={`${fieldId(path)}-label`}
+				>
+					<AnimatePresence initial={false}>
+						{keys.map((key, index) => (
+							<StringRow
+								key={key}
+								rowKey={key}
+								path={childPath(path, index)}
+								index={index}
+								label={`${itemLabel} ${index + 1}`}
+								settled={reorderFeedback.settledKey === key}
+								maxLength={maxLength}
+								multiline={multiline}
+								placeholder={placeholder}
+								canMoveDown={index < count - 1}
+								move={move}
+								remove={remove}
+								onDragStart={startDrag}
+								onDragEnd={handleDragEnd}
+							/>
+						))}
+					</AnimatePresence>
+				</Reorder.Group>
+				<p role="status" aria-live="polite" className="sr-only">
+					{reorderFeedback.announcement}
+				</p>
 				<AddButton
+					stack
 					id={fieldId(path)}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
 					disabled={count >= max}
@@ -480,7 +480,8 @@ const StringRow = memo(function StringRow({
 			label={label}
 			settled={settled}
 			reorderable={reorderable}
-			className="cms-string-row"
+			className="cms-stack-row cms-string-row"
+			data-invalid={issues.length > 0 || undefined}
 			onMove={(offset) => move(index, index + offset)}
 			onDragStart={() => onDragStart(rowKey, index, label)}
 			onDragEnd={onDragEnd}
@@ -514,11 +515,9 @@ const StringRow = memo(function StringRow({
 								field.set(multiline ? raw : toSingleLine(raw));
 							}}
 							className={cn(
-								controlClass,
+								inputClass,
 								"cms-textarea",
-								multiline
-									? "min-h-20 py-2.5 leading-relaxed"
-									: "cms-textarea-single min-h-10 py-[8px] leading-[22px]",
+								multiline ? "min-h-20" : "cms-textarea-single",
 							)}
 						/>
 						<div className="justify-self-end empty:hidden">
