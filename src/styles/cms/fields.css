@@ -72,6 +72,7 @@
 		--cms-field-pad: 12px;
 		--cms-field-radius: var(--cms-radius-control, 10px);
 		--cms-field-font: 14px;
+		--cms-field-mono-font: 13px;
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
@@ -96,6 +97,7 @@
 			--cms-field-h: 44px;
 			--cms-field-h-sm: 44px;
 			--cms-field-font: 16px;
+			--cms-field-mono-font: 16px;
 		}
 	}
 
@@ -146,7 +148,7 @@
 		color: var(--theme-ink-soft);
 	}
 
-	@media (hover: hover) and (pointer: fine) {
+	@media (hover: hover) and (pointer: fine) and (forced-colors: none) {
 		:is(.cms-input, .cms-control):hover:not(
 				:focus-within,
 				[data-popup-open],
@@ -158,16 +160,19 @@
 				[readonly]
 			) {
 			border-color: var(--cms-field-edge-hover);
+			background-color: var(--cms-field-bg-hover);
 			box-shadow: none;
 		}
 
-		.cms-input:hover .cms-input-leading {
+		.cms-input:hover:not([data-disabled], [data-invalid]) .cms-input-leading {
 			color: var(--theme-ink-soft);
 		}
 	}
 
-	button.cms-control:active:not(:disabled) {
-		background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--cms-field-bg));
+	@media (forced-colors: none) {
+		button.cms-control:active:not(:disabled) {
+			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--cms-field-bg));
+		}
 	}
 
 	.cms-input {
@@ -185,6 +190,18 @@
 		align-items: start;
 	}
 
+	.cms-input[data-multiline] :is(.cms-input-leading, .cms-input-trailing) {
+		padding-block-start: 6px;
+	}
+
+	.cms-input[data-disabled] .cms-input-native::placeholder {
+		opacity: 0.7;
+	}
+
+	.cms-input[data-disabled] .cms-input-leading {
+		opacity: 0.6;
+	}
+
 	.cms-input-native {
 		grid-column: 2;
 		width: 100%;
@@ -196,6 +213,7 @@
 		padding-inline: var(--cms-field-pad);
 		color: inherit;
 		font: inherit;
+		font-size: var(--cms-field-font);
 		line-height: 22px;
 		caret-color: var(--theme-accent);
 		outline: none;
@@ -214,7 +232,7 @@
 	.cms-input-mono,
 	.cms-input-leading[data-prefix] {
 		font-family: var(--font-mono);
-		font-size: calc(var(--cms-field-font) - 1px);
+		font-size: var(--cms-field-mono-font);
 		letter-spacing: 0;
 	}
 
@@ -534,15 +552,19 @@
 		background-color: var(--theme-accent-soft);
 	}
 
-	.cms-field :is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible,
-	.cms-editor :is(button, a, [role="tab"], [data-row-handle]):focus-visible {
+	.cms-field
+		:is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible:where(
+			:not(.cms-control)
+		),
+	.cms-editor
+		:is(button, a, [role="tab"], [data-row-handle]):focus-visible:where(:not(.cms-control)) {
 		outline: 2px solid transparent;
 		outline-offset: 1px;
 		box-shadow: var(--cms-ring);
 	}
 
-	.cms-input:focus-within:not(:has(.cms-input-action:focus-visible)),
-	.cms-control:is(:focus-visible, [data-popup-open]),
+	.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible)),
+	.cms-control:not(:disabled):is(:focus-visible, [data-popup-open]),
 	.cms-stack:has(.cms-stack-row .cms-input-native:focus),
 	.cms-segments:focus-within {
 		outline: 2px solid transparent;
@@ -552,9 +574,95 @@
 		box-shadow: inset 0 0 0 1px var(--cms-focus-edge);
 	}
 
-	.cms-input:focus-within:not(:has(.cms-input-action:focus-visible)) .cms-input-leading,
+	.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible))
+		.cms-input-leading,
 	.cms-control:is(:focus-visible, [data-popup-open]) .cms-control-icon {
 		color: var(--cms-focus-icon);
+	}
+
+	.cms-stack:has(.cms-stack-row .cms-input-native:focus) {
+		background-color: var(--cms-field-bg);
+	}
+
+	.cms-input:has(.cms-input-native:autofill) {
+		background-color: color-mix(in srgb, var(--theme-accent) 5%, var(--cms-field-bg));
+	}
+
+	.cms-input-native:-webkit-autofill {
+		-webkit-text-fill-color: var(--theme-ink);
+		transition: background-color 600000s;
+	}
+
+	.cms-action-enter {
+		animation: cms-action-enter var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	@keyframes cms-action-enter {
+		from {
+			opacity: 0;
+			scale: 0.8;
+		}
+	}
+
+	@media (pointer: coarse) {
+		select.cms-control {
+			font-size: var(--cms-field-font) !important;
+		}
+
+		.cms-input-action::after {
+			content: "";
+			position: absolute;
+			inset: -8px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments, .cms-field-label, .cms-input-leading) {
+			transition: none;
+		}
+
+		.cms-field-foot {
+			transition: none;
+		}
+
+		.cms-field-message > p {
+			translate: none;
+			transition-property: opacity;
+		}
+
+		.cms-spinner {
+			animation: none;
+			opacity: 0.6;
+		}
+
+		.cms-action-enter {
+			animation-name: cms-action-fade;
+		}
+
+		.cms-combo-trigger > svg,
+		.cms-control-icon {
+			transition-property: color;
+		}
+	}
+
+	@keyframes cms-action-fade {
+		from {
+			opacity: 0;
+		}
+	}
+
+	@media (prefers-contrast: more) {
+		.cms-root,
+		.cms-field-popup,
+		html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
+			--cms-field-edge: var(--theme-control-border);
+			--cms-field-edge-hover: var(--theme-ink-soft);
+			--cms-field-placeholder: var(--theme-ink-soft);
+		}
+
+		.cms-field-label {
+			color: var(--theme-ink);
+		}
 	}
 
 	/* Switches and checkboxes ring the visible track or box, not the hit area. */
@@ -562,8 +670,8 @@
 		box-shadow: none;
 	}
 
-	.cms-switch:focus-visible .cms-switch-track,
-	.cms-checkbox:focus-visible .cms-checkbox-box {
+	.cms-switch:not([aria-invalid="true"]):focus-visible .cms-switch-track,
+	.cms-checkbox:not([aria-invalid="true"]):focus-visible .cms-checkbox-box {
 		box-shadow:
 			0 0 0 2px var(--theme-surface-solid),
 			0 0 0 4px var(--theme-accent);
@@ -820,6 +928,12 @@
 		border-color: var(--theme-destructive);
 	}
 
+	:is(.cms-switch, .cms-checkbox)[aria-invalid="true"]:focus-visible
+		:is(.cms-switch-track, .cms-checkbox-box) {
+		outline: 2px solid var(--theme-destructive);
+		outline-offset: 2px;
+	}
+
 	.cms-segments {
 		gap: 2px;
 		min-width: 0;
@@ -910,9 +1024,6 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.cms-choice-trigger > span:last-child {
-			transition-property: opacity;
-		}
 		.cms-switch-thumb-inner {
 			transition: none;
 		}
@@ -994,6 +1105,8 @@
 
 	.cms-tags .cms-input-native {
 		flex: 1 1 8ch;
+		width: auto;
+		min-width: 8ch;
 		min-height: calc(var(--cms-field-h) - 12px);
 		padding-inline: 4px;
 	}
@@ -2082,5 +2195,52 @@
 		color: var(--theme-ink-soft);
 		background: transparent;
 		white-space: nowrap;
+	}
+	@media (forced-colors: active) {
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments) {
+			forced-color-adjust: none;
+			border-color: CanvasText;
+			background: Field;
+			color: FieldText;
+			box-shadow: none;
+		}
+
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments):is(
+			[data-invalid],
+			[aria-invalid="true"]
+		) {
+			border: 2px dashed CanvasText;
+		}
+
+		:is(.cms-input, .cms-control):is(:disabled, [data-disabled]) {
+			border-color: GrayText;
+			color: GrayText;
+		}
+
+		.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible)),
+		.cms-control:not(:disabled):is(:focus-visible, [data-popup-open]),
+		.cms-stack:has(.cms-stack-row .cms-input-native:focus),
+		.cms-segments:focus-within,
+		.cms-input-action:focus-visible,
+		.cms-editor .cms-stack-add:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+			background: Field;
+			box-shadow: none;
+			border-color: CanvasText;
+		}
+
+		:is(.cms-input-native, .cms-control)::placeholder {
+			color: GrayText;
+		}
+
+		.cms-tag-chip,
+		.cms-switch-track {
+			border: 1px solid CanvasText;
+		}
+
+		.cms-switch[data-checked] .cms-switch-track {
+			background: Highlight;
+		}
 	}
 }

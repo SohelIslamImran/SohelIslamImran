@@ -5,6 +5,27 @@ import { CheckIcon, DuplicateIcon } from "./field-icons";
 
 export const inputClass = "cms-input-native";
 
+export const inputAttributes = {
+	"data-1p-ignore": "",
+	"data-lpignore": "true",
+	"data-form-type": "other",
+	autoComplete: "off",
+} as const;
+
+export const proseAttributes = {
+	...inputAttributes,
+	autoCapitalize: "sentences",
+	autoCorrect: "on",
+	spellCheck: true,
+} as const;
+
+export const identifierAttributes = {
+	...inputAttributes,
+	autoCapitalize: "none",
+	autoCorrect: "off",
+	spellCheck: false,
+} as const;
+
 export function InputShell({
 	children,
 	leading,
@@ -109,11 +130,14 @@ export function ClearAction({ label, onClear }: { label: string; onClear: () => 
 			label={label}
 			onPointerDown={(event) => event.preventDefault()}
 			onClick={(event) => {
-				event.currentTarget.closest(".cms-input")?.querySelector("input, textarea")?.focus();
+				event.currentTarget
+					.closest(".cms-input")
+					?.querySelector<HTMLElement>("input, textarea")
+					?.focus();
 				onClear();
 			}}
 		>
-			<CloseIcon />
+			<CloseIcon className="cms-action-enter" />
 		</InputAction>
 	);
 }
@@ -137,7 +161,7 @@ export function CopyAction({ text }: { text: string }) {
 					timer.current = setTimeout(() => setStatus(""), 1200);
 				}}
 			>
-				{status === "Copied" ? <CheckIcon /> : <DuplicateIcon />}
+				{status === "Copied" ? <CheckIcon className="cms-action-enter" /> : <DuplicateIcon />}
 			</InputAction>
 			<span className="sr-only" role="status">
 				{status}

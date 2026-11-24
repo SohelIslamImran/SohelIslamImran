@@ -29,7 +29,14 @@ import {
 } from "../fields/FieldFrame";
 import { SortableRow, useReorderFeedback } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
-import { ClearAction, CopyAction, InputShell, inputClass } from "../fields/InputShell";
+import {
+	ClearAction,
+	CopyAction,
+	InputShell,
+	identifierAttributes,
+	inputClass,
+	proseAttributes,
+} from "../fields/InputShell";
 import { fieldId, focusField } from "../fields";
 import {
 	UndoRemoval,
@@ -528,8 +535,7 @@ export function CollectionEditor<T extends { id: string }>({
 							value={query}
 							className={inputClass}
 							enterKeyHint="search"
-							autoComplete="off"
-							spellCheck={false}
+							{...identifierAttributes}
 							onKeyDown={(event) => {
 								if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
 								event.preventDefault();
@@ -559,11 +565,12 @@ export function CollectionEditor<T extends { id: string }>({
 						add(rows, create(name.trim(), newRowId(), rows), rows.length);
 					}}
 				>
-					<label htmlFor={nameId} className="text-[13px] font-semibold">
+					<label htmlFor={nameId} className="cms-field-label">
 						{nameLabel}
 					</label>
 					<InputShell multiline>
 						<textarea
+							{...proseAttributes}
 							id={nameId}
 							className={`${inputClass} cms-textarea cms-textarea-single`}
 							rows={1}
@@ -1223,7 +1230,7 @@ function ProfileSlugField({
 				}
 			}}
 		>
-			<label htmlFor={inputId} className="text-[13px] font-medium">
+			<label htmlFor={inputId} className="cms-field-label">
 				Public link slug
 			</label>
 			<div className="flex flex-wrap items-center gap-2">
@@ -1241,8 +1248,7 @@ function ProfileSlugField({
 						required
 						maxLength={80}
 						pattern={PUBLIC_SLUG_PATTERN.source}
-						spellCheck={false}
-						autoComplete="off"
+						{...identifierAttributes}
 						aria-invalid={taken || issues.length > 0 || undefined}
 						aria-describedby={`${inputId}-hint`}
 						onChange={(event) => setSlug(event.currentTarget.value)}

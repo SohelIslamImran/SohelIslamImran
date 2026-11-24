@@ -10,7 +10,7 @@ import { cn } from "../../../lib/utils";
 import { updateMediaAlt } from "../../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../../server/media.server";
 import { staggerStyle } from "../analytics/Widgets";
-import { controlClass } from "../fields/FieldFrame";
+import { InputShell, inputClass, proseAttributes } from "../fields/InputShell";
 import { CheckIcon } from "../fields/field-icons";
 import { AlertTriangleIcon, CheckCircleIcon, ExternalArrowIcon } from "../shell/cms-icons";
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
@@ -178,21 +178,24 @@ export function AssetCard({
 						</span>
 					</label>
 					<div className="flex items-center gap-2">
-						<input
-							id={altId}
-							type="text"
-							maxLength={240}
-							value={alt}
-							aria-invalid={altInvalid || undefined}
-							aria-describedby={altInvalid ? feedbackId : undefined}
-							onChange={(event) => {
-								setAlt(event.target.value);
-								window.clearTimeout(savedTimer.current);
-								if (feedback) setFeedback(null);
-							}}
-							placeholder="Describe what this shows"
-							className={cn(controlClass, "min-h-9 flex-1 py-1.5 text-[13px]")}
-						/>
+						<InputShell size="sm" className="flex-1" invalid={altInvalid}>
+							<input
+								{...proseAttributes}
+								id={altId}
+								type="text"
+								maxLength={240}
+								value={alt}
+								aria-invalid={altInvalid || undefined}
+								aria-describedby={altInvalid ? feedbackId : undefined}
+								onChange={(event) => {
+									setAlt(event.target.value);
+									window.clearTimeout(savedTimer.current);
+									if (feedback) setFeedback(null);
+								}}
+								placeholder="Describe what this shows"
+								className={inputClass}
+							/>
+						</InputShell>
 						<Button
 							type="submit"
 							variant="outline"

@@ -44,7 +44,7 @@ export function HrefField({
 			trailing={
 				kind === "web" && URL.canParse(href) ? (
 					<InputAction href={href} label="Open link in a new tab">
-						<ExternalArrowIcon />
+						<ExternalArrowIcon className="cms-action-enter" />
 					</InputAction>
 				) : undefined
 			}

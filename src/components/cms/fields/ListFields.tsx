@@ -1,4 +1,4 @@
-import { InputShell, inputClass } from "./InputShell";
+import { InputShell, identifierAttributes, inputClass, proseAttributes } from "./InputShell";
 import { AnimatePresence, motion, Reorder, useIsPresent } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
@@ -162,6 +162,8 @@ export function TagsField({
 					</AnimatePresence>
 				</ul>
 				<input
+					{...identifierAttributes}
+					enterKeyHint="enter"
 					ref={input}
 					id={fieldId(path)}
 					value={draft}
@@ -492,6 +494,7 @@ const StringRow = memo(function StringRow({
 					<div className="grid min-w-0 [grid-column:2]">
 						{/* Highlights wrap like paragraphs but stay one line of text. */}
 						<textarea
+							{...proseAttributes}
 							id={fieldId(path)}
 							value={value}
 							placeholder={placeholder}

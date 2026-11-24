@@ -6,7 +6,13 @@ import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
 import { FieldFrame, describedBy, fieldId, useFieldIssueFeedback } from "./FieldFrame";
-import { InputShell, inputClass } from "./InputShell";
+import {
+	InputShell,
+	identifierAttributes,
+	inputAttributes,
+	inputClass,
+	proseAttributes,
+} from "./InputShell";
 import { MailIcon } from "./field-icons";
 import { toSingleLine } from "./field-logic";
 
@@ -28,6 +34,7 @@ export interface TextFieldProps extends BaseFieldProps {
 	type?: "text" | "email" | "url" | "search" | "date";
 	inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 	autoComplete?: string;
+	autoCapitalize?: string;
 	spellCheck?: boolean;
 	/** Monospace input, for slugs, ids, hrefs. */
 	mono?: boolean;
@@ -50,11 +57,7 @@ export function Counter({
 	if (!max || length < Math.ceil(max * 0.8)) return null;
 	const remaining = max - length;
 	const count =
-		unit === "items"
-			? `${length}/${max}`
-			: remaining < 0
-				? `${-remaining} over`
-				: `${remaining} left`;
+		unit === "items" ? length : remaining < 0 ? `${-remaining} over` : `${remaining} left`;
 	return (
 		<span
 			className="cms-counter"
@@ -72,16 +75,19 @@ export function Counter({
 					strokeDashoffset={Math.max(0, remaining / max)}
 				/>
 			</svg>
-			<AnimatePresence initial={false}>
-				<motion.span
-					key={count}
-					initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={reduced ? REDUCED : SPRING_SNAPPY}
-				>
-					{count}
-				</motion.span>
-			</AnimatePresence>
+			<span>
+				<AnimatePresence initial={false}>
+					<motion.span
+						key={count}
+						initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={reduced ? REDUCED : SPRING_SNAPPY}
+					>
+						{count}
+					</motion.span>
+				</AnimatePresence>
+				{unit === "items" ? `/${max}` : null}
+			</span>
 		</span>
 	);
 }
@@ -98,6 +104,7 @@ export function TextField({
 	type = "text",
 	inputMode,
 	autoComplete = "off",
+	autoCapitalize,
 	spellCheck,
 	mono,
 	prefix,
@@ -108,6 +115,13 @@ export function TextField({
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = valueOverride ?? field.value ?? "";
+	const attributes: typeof inputAttributes &
+		Pick<React.InputHTMLAttributes<HTMLInputElement>, "autoCapitalize"> =
+		type === "date"
+			? inputAttributes
+			: mono || type === "email" || type === "url" || spellCheck === false
+				? identifierAttributes
+				: proseAttributes;
 	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, value);
 	return (
 		<FieldFrame
@@ -129,15 +143,16 @@ export function TextField({
 				disabled={disabled}
 			>
 				<Input
+					{...attributes}
 					id={fieldId(path)}
 					type={type}
 					value={value}
 					placeholder={placeholder}
 					disabled={disabled}
 					aria-required={required || undefined}
-					inputMode={inputMode}
+					inputMode={inputMode ?? (type === "email" ? "email" : undefined)}
 					autoComplete={autoComplete}
-					spellCheck={spellCheck}
+					autoCapitalize={autoCapitalize ?? attributes.autoCapitalize}
 					aria-invalid={issues.length > 0 || undefined}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
 					data-settle-issues=""
@@ -203,6 +218,7 @@ export function TextAreaField({
 		>
 			<InputShell multiline invalid={issues.length > 0} disabled={disabled}>
 				<textarea
+					{...proseAttributes}
 					ref={textarea}
 					id={fieldId(path)}
 					rows={rows}
@@ -251,6 +267,7 @@ export function NumberField({
 	placeholder,
 	className,
 	disabled,
+	optional,
 	min,
 	max,
 	step = "any",
@@ -263,6 +280,7 @@ export function NumberField({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
@@ -278,6 +296,8 @@ export function NumberField({
 				}
 			>
 				<Input
+					{...inputAttributes}
+					spellCheck={false}
 					id={fieldId(path)}
 					type="number"
 					inputMode="decimal"

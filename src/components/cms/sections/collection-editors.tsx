@@ -172,7 +172,14 @@ function ExperienceFields({ path }: { path: string }) {
 	return (
 		<>
 			<EditorGroup heading="h3" title="Role details">
-				<TextField path={`${path}.company`} label="Company" maxLength={240} required />
+				<TextField
+					path={`${path}.company`}
+					label="Company"
+					maxLength={240}
+					autoCapitalize="words"
+					spellCheck={false}
+					required
+				/>
 				<TextAreaField singleLine path={`${path}.role`} label="Role" maxLength={240} required />
 				<TextField path={`${path}.period`} label="Period" maxLength={120} />
 				<TextField path={`${path}.location`} label="Location" maxLength={160} optional />
@@ -292,7 +299,14 @@ function CredentialFields({ path }: { path: string }) {
 		<>
 			<EditorGroup heading="h3" title="Credential details">
 				<TextAreaField singleLine path={`${path}.title`} label="Title" maxLength={240} required />
-				<TextField path={`${path}.issuer`} label="Issuer" maxLength={240} required />
+				<TextField
+					path={`${path}.issuer`}
+					label="Issuer"
+					maxLength={240}
+					autoCapitalize="words"
+					spellCheck={false}
+					required
+				/>
 			</EditorGroup>
 			<EditorGroup heading="h3" title="Verification">
 				<TextField
@@ -438,7 +452,13 @@ function SocialFields({ path, profile = false }: { path: string; profile?: boole
 		<div className="grid gap-5">
 			<TextField path={`${path}.label`} label="Label" maxLength={profile ? 240 : 160} required />
 			<TextField path={`${path}.platform`} label="Platform" maxLength={80} required />
-			<TextField path={`${path}.handle`} label="Handle" maxLength={160} mono optional />
+			<TextField
+				path={`${path}.handle`}
+				label="Handle"
+				maxLength={160}
+				spellCheck={false}
+				optional
+			/>
 			<HrefField
 				path={`${path}.href`}
 				label="Destination"

@@ -17,7 +17,7 @@ import {
 	fieldId,
 	useFieldIssueFeedback,
 } from "./FieldFrame";
-import { InputShell, inputClass } from "./InputShell";
+import { InputShell, identifierAttributes, inputClass } from "./InputShell";
 import { splitMatch } from "./field-logic";
 import { CheckIcon, ChevronDownIcon, PlusIcon } from "./field-icons";
 
@@ -122,7 +122,11 @@ export function ChoiceSelect({
 				aria-invalid={invalid || undefined}
 				aria-describedby={descriptionId}
 				className={cn(
-					trigger === "add-row" ? "cms-stack-add" : controlClass,
+					trigger === "add-row"
+						? "cms-stack-add"
+						: trigger === "media"
+							? "cms-control w-full"
+							: controlClass,
 					"cms-choice-trigger",
 					trigger === "media" && "cms-media-card",
 				)}
@@ -281,8 +285,7 @@ export function SuggestionField({
 					>
 						<Combobox.Input
 							id={id}
-							autoComplete="off"
-							spellCheck={false}
+							{...identifierAttributes}
 							className={inputClass}
 							aria-invalid={feedback.issues.length > 0 || undefined}
 							aria-describedby={describedBy(path, Boolean(description), feedback.issues)}

@@ -9,7 +9,7 @@ import { cn } from "../../../lib/utils";
 import { uploadMedia } from "../../../server/cms.functions";
 import { controlClass as pillControlClass } from "../analytics/Widgets";
 import { useCmsSession, useRefreshCmsSession } from "../draft/context";
-import { controlClass } from "../fields";
+import { InputShell, inputClass, proseAttributes } from "../fields/InputShell";
 import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
@@ -383,17 +383,20 @@ export function UploadPanel({
 								{uploadAlt.length}/240
 							</span>
 						</label>
-						<input
-							id="cms-media-alt"
-							type="text"
-							maxLength={240}
-							value={uploadAlt}
-							required={isImage}
-							disabled={uploading}
-							onChange={(event) => setUploadAlt(event.target.value)}
-							placeholder="Describe the image for screen readers"
-							className={cn(controlClass, "min-h-10 py-2 text-[13px] pointer-coarse:min-h-11")}
-						/>
+						<InputShell size="sm" disabled={uploading}>
+							<input
+								{...proseAttributes}
+								id="cms-media-alt"
+								type="text"
+								maxLength={240}
+								value={uploadAlt}
+								required={isImage}
+								disabled={uploading}
+								onChange={(event) => setUploadAlt(event.target.value)}
+								placeholder="Describe the image for screen readers"
+								className={inputClass}
+							/>
+						</InputShell>
 					</div>
 					<Button
 						type="submit"
