@@ -107,15 +107,6 @@ export function MoreIcon(props: IconProps) {
 	);
 }
 
-export function AlertCircleIcon(props: IconProps) {
-	return (
-		<Icon {...props}>
-			<circle cx="10" cy="10" r="7" />
-			<path d="M10 6.5v4M10 13.5v.01" />
-		</Icon>
-	);
-}
-
 export function StackIcon(props: IconProps) {
 	return (
 		<Icon {...props}>
