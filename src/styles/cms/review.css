@@ -45,7 +45,8 @@
 		);
 	}
 
-	.cms-review-heading::before {
+	.cms-review-heading::before,
+	.cms-confirm-heading::before {
 		position: absolute;
 		inset-block: 4px;
 		inset-inline-start: -5px;
@@ -62,9 +63,17 @@
 	}
 
 	.cms-review-heading[data-landed="true"]::before,
-	.cms-review-heading:focus-visible::before {
+	.cms-review-heading:focus-visible::before,
+	.cms-confirm-heading:focus::before {
 		opacity: 1;
 		scale: 1 1;
+	}
+
+	@media (forced-colors: active) {
+		.cms-confirm-heading::before {
+			forced-color-adjust: none;
+			background: Highlight;
+		}
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -74,7 +83,8 @@
 			transition-property: opacity, display;
 		}
 
-		.cms-review-heading::before {
+		.cms-review-heading::before,
+		.cms-confirm-heading::before {
 			scale: none;
 			transition-property: opacity;
 		}

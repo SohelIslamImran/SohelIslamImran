@@ -6,7 +6,7 @@
  */
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { LiveVisitorsProvider } from "../components/cms/analytics/LiveVisitors";
 import { CmsDraftProvider, type CmsSession } from "../components/cms/draft/context";
 import type { DraftApi } from "../components/cms/draft/store";
@@ -58,6 +58,7 @@ function CmsWorkspace({
 		build: initial.build,
 	}));
 	const currentSession = useRef(session);
+	const readCsrfToken = useCallback(() => currentSession.current.csrfToken, []);
 	const refreshSession = useMemo(
 		() =>
 			createSessionRefresh(
@@ -85,26 +86,22 @@ function CmsWorkspace({
 		[initial.owner, readSession],
 	);
 	const api = useMemo<DraftApi>(() => {
-		const mutate = <T,>(call: (csrfToken: string) => Promise<T>) => {
-			const attempted = currentSession.current;
-			return withCsrfRetry(
-				() => call(currentSession.current.csrfToken),
-				() => (attempted === currentSession.current ? refreshSession() : Promise.resolve(true)),
-			);
-		};
+		const mutate = <T,>(call: (csrfToken: string) => Promise<T>) =>
+			withCsrfRetry(call, readCsrfToken, refreshSession);
 		return {
 			save: (input) => mutate((csrfToken) => save({ data: { ...input, csrfToken } })),
 			publish: (input) => mutate((csrfToken) => publish({ data: { ...input, csrfToken } })),
 			restore: (input) => mutate((csrfToken) => restore({ data: { ...input, csrfToken } })),
 			discard: (input) => mutate((csrfToken) => discard({ data: { ...input, csrfToken } })),
 		};
-	}, [save, publish, restore, discard, refreshSession]);
+	}, [save, publish, restore, discard, readCsrfToken, refreshSession]);
 	return (
 		<CmsDraftProvider
 			snapshot={initial.snapshot}
 			session={session}
 			api={api}
 			refreshSession={refreshSession}
+			readCsrfToken={readCsrfToken}
 		>
 			<LiveVisitorsProvider>
 				<CmsShell>

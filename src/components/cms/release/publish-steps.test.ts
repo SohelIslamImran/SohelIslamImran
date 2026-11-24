@@ -36,6 +36,13 @@ describe("publish trace", () => {
 		});
 	});
 
+	it("reports an autosave in flight before a publish is attempted", () => {
+		expect(publishStep({ ...state, status: "saving", dirty: true })).toEqual({
+			step: "save",
+			text: "Saving draft…",
+		});
+	});
+
 	it("offers an idempotent retry for an unconfirmed publish and defers conflicts", () => {
 		expect(publishStep({ ...state, status: "error", unconfirmed: true })).toMatchObject({
 			step: "publish",

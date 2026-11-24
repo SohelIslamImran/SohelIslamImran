@@ -10,6 +10,7 @@ import {
 } from "react";
 import type { CmsBuildInfo } from "../../../lib/cloudflare-dashboard";
 import type { ValidationIssue } from "../../../lib/validation";
+import { withCsrfRetry } from "../shell/session-refresh";
 import { DraftStore, type DraftApi, type DraftSnapshotInput, type DraftState } from "./store";
 
 export interface CmsSession {
@@ -28,6 +29,8 @@ export interface CmsSession {
 interface CmsContextValue {
 	store: DraftStore;
 	session: CmsSession;
+	/** Read the active token even before React commits a session refresh. */
+	readCsrfToken: () => string;
 	/**
 	 * Re-read the owner session (a fresh CSRF token) without touching the
 	 * draft. Resolves true when a new session for the same owner was adopted.
@@ -50,6 +53,7 @@ export function CmsDraftProvider({
 	session,
 	api,
 	refreshSession,
+	readCsrfToken,
 	children,
 }: {
 	snapshot: DraftSnapshotInput;
@@ -57,6 +61,7 @@ export function CmsDraftProvider({
 	api: DraftApi;
 	/** Supplied by the layout route. Optional so tests can omit it. */
 	refreshSession?: () => Promise<boolean>;
+	readCsrfToken?: () => string;
 	children: ReactNode;
 }) {
 	const apiRef = useRef(api);
@@ -75,8 +80,13 @@ export function CmsDraftProvider({
 	const store = storeRef.current;
 	const refresh = useCallback(() => (refreshRef.current ?? NO_REFRESH)(), []);
 	const value = useMemo<CmsContextValue>(
-		() => ({ store, session, refreshSession: refresh }),
-		[store, session, refresh],
+		() => ({
+			store,
+			session,
+			refreshSession: refresh,
+			readCsrfToken: readCsrfToken ?? (() => session.csrfToken),
+		}),
+		[store, session, refresh, readCsrfToken],
 	);
 
 	useEffect(() => () => store.dispose(), [store]);
@@ -119,6 +129,12 @@ export function usePublicOrigin(): string {
 /** Refresh the owner session in place (new CSRF token); the draft is untouched. */
 export function useRefreshCmsSession(): () => Promise<boolean> {
 	return useCmsContext().refreshSession;
+}
+
+export function useCsrfRetry() {
+	const { readCsrfToken, refreshSession } = useCmsContext();
+	return <T,>(call: (csrfToken: string) => Promise<T>) =>
+		withCsrfRetry(call, readCsrfToken, refreshSession);
 }
 
 /**

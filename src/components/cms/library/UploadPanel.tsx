@@ -2,13 +2,13 @@
  * Media upload panel: a drag-and-drop zone, default alt text, and Upload.
  * Shown only when the `MEDIA` R2 bucket is bound.
  */
-import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { checkUploadFile, mediaTypeShortLabel } from "../../../lib/media-policy";
 import { cn } from "../../../lib/utils";
 import { uploadMedia } from "../../../server/cms.functions";
 import { controlClass as pillControlClass } from "../analytics/Widgets";
-import { useCmsSession, useRefreshCmsSession } from "../draft/context";
+import { useCsrfRetry } from "../draft/context";
 import { InputShell, inputClass, proseAttributes } from "../fields/InputShell";
 import {
 	AlertTriangleIcon,
@@ -18,58 +18,6 @@ import {
 } from "../shell/cms-icons";
 import { formatBytes } from "../shell/time";
 import { Button } from "../../ui/button";
-
-export function isForbiddenError(error: unknown): boolean {
-	return (
-		error !== null &&
-		typeof error === "object" &&
-		"status" in error &&
-		(error as { status?: unknown }).status === 403
-	);
-}
-
-/**
- * Keeps the latest reactive CSRF token and lets library mutations refresh the
- * owner session once on a 403 before retrying.
- */
-export function useCsrfRetry(fallbackToken: string) {
-	const { csrfToken } = useCmsSession();
-	const refreshSession = useRefreshCmsSession();
-	const activeToken = csrfToken || fallbackToken;
-	const tokenRef = useRef(activeToken);
-	const waitersRef = useRef<Array<(token: string) => void>>([]);
-
-	useEffect(() => {
-		tokenRef.current = activeToken;
-		if (waitersRef.current.length > 0) {
-			const waiters = waitersRef.current.splice(0);
-			for (const resolve of waiters) resolve(activeToken);
-		}
-	}, [activeToken]);
-
-	const refreshToken = useCallback(async (): Promise<string | null> => {
-		const previous = tokenRef.current;
-		const ok = await refreshSession();
-		if (!ok) return null;
-		if (tokenRef.current !== previous) return tokenRef.current;
-		return new Promise<string>((resolve) => {
-			let settled = false;
-			const finish = (next: string) => {
-				if (settled) return;
-				settled = true;
-				clearTimeout(timer);
-				resolve(next);
-			};
-			const timer = setTimeout(() => {
-				waitersRef.current = waitersRef.current.filter((entry) => entry !== finish);
-				finish(tokenRef.current);
-			}, 100);
-			waitersRef.current.push(finish);
-		});
-	}, [refreshSession]);
-
-	return { tokenRef, refreshToken };
-}
 
 function DropzoneUploadIcon({ className }: { className?: string }) {
 	return (
@@ -91,21 +39,19 @@ function DropzoneUploadIcon({ className }: { className?: string }) {
 
 export function UploadPanel({
 	id,
-	csrfToken,
 	empty = false,
 	onUploaded,
 	onClose,
 	onBusyChange,
 }: {
 	id?: string;
-	csrfToken: string;
 	empty?: boolean;
 	onUploaded: () => Promise<void> | void;
 	onClose?: () => void;
 	onBusyChange?: (busy: boolean) => void;
 }) {
 	const runUpload = useServerFn(uploadMedia);
-	const { tokenRef, refreshToken } = useCsrfRetry(csrfToken);
+	const mutate = useCsrfRetry();
 	const fileInputRef = useRef<HTMLInputElement>(null);
 	const chooseButtonRef = useRef<HTMLButtonElement>(null);
 	const fileErrorId = useId();
@@ -190,14 +136,7 @@ export function UploadPanel({
 		setUploadNotice(null);
 		const altText = uploadAlt.trim();
 		try {
-			try {
-				await postUpload(selectedFile, altText, tokenRef.current);
-			} catch (error) {
-				if (!isForbiddenError(error)) throw error;
-				const nextToken = await refreshToken();
-				if (!nextToken) throw error;
-				await postUpload(selectedFile, altText, nextToken);
-			}
+			await mutate((csrfToken) => postUpload(selectedFile, altText, csrfToken));
 			setSelectedFile(null);
 			setUploadAlt("");
 			setFileError(null);
@@ -392,7 +331,7 @@ export function UploadPanel({
 								{uploadAlt.length}/240
 							</span>
 						</label>
-						<InputShell size="sm" disabled={uploading}>
+						<InputShell disabled={uploading}>
 							<input
 								{...proseAttributes}
 								id="cms-media-alt"

@@ -79,6 +79,7 @@ export function Counter({
 				<AnimatePresence initial={false}>
 					<motion.span
 						key={count}
+						className="inline-block"
 						initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={reduced ? REDUCED : SPRING_SNAPPY}
@@ -115,6 +116,8 @@ export function TextField({
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = valueOverride ?? field.value ?? "";
+	const id = fieldId(path);
+	const prefixId = prefix ? `${id}-prefix` : undefined;
 	const attributes: typeof inputAttributes &
 		Pick<React.InputHTMLAttributes<HTMLInputElement>, "autoCapitalize"> =
 		type === "date"
@@ -142,9 +145,14 @@ export function TextField({
 				invalid={issues.length > 0}
 				disabled={disabled}
 			>
+				{prefixId ? (
+					<span id={prefixId} className="sr-only">
+						Path prefix {prefix}
+					</span>
+				) : null}
 				<Input
 					{...attributes}
-					id={fieldId(path)}
+					id={id}
 					type={type}
 					value={value}
 					placeholder={placeholder}
@@ -154,7 +162,9 @@ export function TextField({
 					autoComplete={autoComplete}
 					autoCapitalize={autoCapitalize ?? attributes.autoCapitalize}
 					aria-invalid={issues.length > 0 || undefined}
-					aria-describedby={describedBy(path, Boolean(description), issues)}
+					aria-describedby={
+						cn(prefixId, describedBy(path, Boolean(description), issues)) || undefined
+					}
 					data-settle-issues=""
 					onFocus={onFocus}
 					onBlur={onBlur}

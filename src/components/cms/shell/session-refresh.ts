@@ -22,21 +22,23 @@ export function createSessionRefresh<T>(
 }
 
 export async function withCsrfRetry<T>(
-	call: () => Promise<T>,
+	call: (csrfToken: string) => Promise<T>,
+	readCsrfToken: () => string,
 	refreshSession: () => Promise<boolean>,
 ): Promise<T> {
+	const attempted = readCsrfToken();
 	try {
-		return await call();
+		return await call(attempted);
 	} catch (error) {
 		if (
 			!error ||
 			typeof error !== "object" ||
 			!("status" in error) ||
 			error.status !== 403 ||
-			!(await refreshSession())
+			(attempted === readCsrfToken() && !(await refreshSession()))
 		) {
 			throw error;
 		}
 	}
-	return call();
+	return call(readCsrfToken());
 }

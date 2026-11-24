@@ -109,13 +109,24 @@ const outcomeLabels: Record<string, string> = {
 
 // ── Small pieces ─────────────────────────────────────────────────────────────
 
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+function ExternalLink({
+	href,
+	children,
+	className,
+}: {
+	href: string;
+	children: ReactNode;
+	className?: string;
+}) {
 	return (
 		<a
 			href={href}
 			target="_blank"
 			rel="noreferrer"
-			className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+			className={cn(
+				"cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11",
+				className,
+			)}
 		>
 			<span>{children}</span>
 			<ExternalArrowIcon className="size-3.5" />
@@ -343,12 +354,10 @@ function MetricsStatus({
 	children: ReactNode;
 }) {
 	return (
-		<section className="cms-panel cms-enter cms-infra-status grid gap-1 px-4 py-2.5 sm:px-5">
-			<div className="flex items-start justify-between gap-x-3 max-sm:flex-col sm:items-center">
-				<h2 className="m-0 text-[16px] font-semibold text-foreground">{title}</h2>
-				{action}
-			</div>
+		<section className="cms-panel cms-enter cms-infra-status grid items-center gap-1 px-4 py-2.5 sm:grid-cols-[1fr_auto] sm:gap-x-3 sm:px-5">
+			<h2 className="m-0 text-[16px] font-semibold text-foreground">{title}</h2>
 			<p className="m-0 text-[12.5px] text-muted-foreground">{children}</p>
+			<div className="justify-self-start sm:col-start-2 sm:row-start-1">{action}</div>
 		</section>
 	);
 }
@@ -358,7 +367,10 @@ function NotConfigured() {
 		<MetricsStatus
 			title="Metrics not connected"
 			action={
-				<ExternalLink href="https://dash.cloudflare.com/?to=/:account/api-tokens">
+				<ExternalLink
+					href="https://dash.cloudflare.com/?to=/:account/api-tokens"
+					className="max-sm:-ms-2.5"
+				>
 					Connect Cloudflare metrics
 				</ExternalLink>
 			}
@@ -457,7 +469,7 @@ function Infrastructure() {
 							href={CLOUDFLARE_DASHBOARD_URL}
 							target="_blank"
 							rel="noreferrer"
-							className="cms-press cms-page-focus inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 text-[13px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline pointer-coarse:min-h-11"
+							className="cms-press cms-page-focus inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 text-[13px] max-sm:-ms-1.5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline pointer-coarse:min-h-11"
 						>
 							<span>Cloudflare</span>
 							<ExternalArrowIcon className="size-3.5" />

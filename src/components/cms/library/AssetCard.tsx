@@ -16,7 +16,7 @@ import { AlertTriangleIcon, CheckCircleIcon, ExternalArrowIcon } from "../shell/
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
 import { Button } from "../../ui/button";
 import { MediaFrame } from "./MediaFrame";
-import { isForbiddenError, useCsrfRetry } from "./UploadPanel";
+import { useCsrfRetry } from "../draft/context";
 
 function useCopied(durationMs = 1600) {
 	const [copied, setCopied] = useState(false);
@@ -32,19 +32,17 @@ function useCopied(durationMs = 1600) {
 
 export function AssetCard({
 	asset,
-	csrfToken,
 	publicOrigin,
 	stagger,
 	onUpdated,
 }: {
 	asset: MediaLibraryItem;
-	csrfToken: string;
 	publicOrigin: string;
 	stagger: number;
 	onUpdated: (id: string, alt: string, updatedAt: string) => void;
 }) {
 	const saveAlt = useServerFn(updateMediaAlt);
-	const { tokenRef, refreshToken } = useCsrfRetry(csrfToken);
+	const mutate = useCsrfRetry();
 	const [alt, setAlt] = useState(asset.alt);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
@@ -82,19 +80,9 @@ export function AssetCard({
 		setFeedback(null);
 		const trimmed = alt.trim();
 		try {
-			let result: Awaited<ReturnType<typeof saveAlt>>;
-			try {
-				result = await saveAlt({
-					data: { id: asset.id, alt: trimmed, csrfToken: tokenRef.current },
-				});
-			} catch (error) {
-				if (!isForbiddenError(error)) throw error;
-				const nextToken = await refreshToken();
-				if (!nextToken) throw error;
-				result = await saveAlt({
-					data: { id: asset.id, alt: trimmed, csrfToken: nextToken },
-				});
-			}
+			const result = await mutate((csrfToken) =>
+				saveAlt({ data: { id: asset.id, alt: trimmed, csrfToken } }),
+			);
 			if (result.ok) {
 				onUpdated(result.id, result.alt, result.updatedAt);
 				setFeedback({ tone: "ok", text: "Saved" });
