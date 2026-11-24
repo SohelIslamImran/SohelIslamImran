@@ -292,11 +292,11 @@
 		}
 	}
 
-	.cms-input-leading + .cms-input-native {
+	.cms-input-leading ~ .cms-input-native {
 		padding-inline-start: 8px;
 	}
 
-	.cms-input-leading[data-prefix] + .cms-input-native {
+	.cms-input-leading[data-prefix] ~ .cms-input-native {
 		padding-inline-start: 0;
 	}
 
@@ -608,6 +608,17 @@
 
 	.cms-stack:has(.cms-string-row .cms-input-native:focus) {
 		background-color: var(--cms-field-bg);
+	}
+
+	/* The focused row's fill covers the stack's inset line, so draw it on top. */
+	.cms-stack:has(.cms-string-row .cms-input-native:focus)::after {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		border-radius: 11px;
+		box-shadow: inset 0 0 0 1px var(--cms-focus-edge);
+		pointer-events: none;
 	}
 
 	.cms-segments:has(.cms-segment:focus-visible) {
@@ -1477,6 +1488,7 @@
 	}
 
 	.cms-stack {
+		position: relative;
 		border-radius: 12px;
 	}
 

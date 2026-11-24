@@ -521,7 +521,7 @@ function UndoToast({
 			transition={reduced ? REDUCED : SPRING_MOVE}
 			className={cn(
 				"cms-panel cms-undo max-w-full shrink-0 items-center gap-2 p-2 shadow-md",
-				total > 1 ? "grid grid-cols-[minmax(0,1fr)_auto_auto_5rem]" : "flex flex-wrap",
+				total > 1 ? "grid grid-cols-[auto_auto_minmax(0,1fr)]" : "flex flex-wrap",
 				expanded && "w-full",
 				expanded && index > 0 && "[contain:inline-size]",
 				slot.interactive ? "pointer-events-auto relative" : "pointer-events-none",
@@ -530,7 +530,10 @@ function UndoToast({
 		>
 			<p
 				role={slot.interactive ? "status" : undefined}
-				className="m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]"
+				className={cn(
+					"m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]",
+					total > 1 && "col-span-full",
+				)}
 			>
 				Removed {toast.label}.{toast.canUndo ? "" : " Make room in the list to undo."}
 			</p>
@@ -549,7 +552,7 @@ function UndoToast({
 				<button
 					ref={toggleRef}
 					type="button"
-					className={editorButton}
+					className={cn(editorButton, "justify-self-end whitespace-nowrap")}
 					aria-expanded={expanded}
 					aria-controls={stackId}
 					onClick={onToggleExpanded}
