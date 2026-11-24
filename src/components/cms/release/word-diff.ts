@@ -12,11 +12,19 @@ export function isWhitespaceChange(before: string, after: string): boolean {
 	return before !== after && before.replace(/\s/gu, "") === after.replace(/\s/gu, "");
 }
 
+/**
+ * Make every whitespace character visible. A non-breaking space gets its own
+ * glyph (⍽) so it never reads as an ordinary space; any other Unicode space
+ * (thin, em, ideographic, zero-width no-break…) shows as a middle dot ring (∘).
+ */
 export function whitespaceMarkers(text: string): string {
-	return text.replace(/\r\n|\r|\n|\t| /gu, (char) => {
+	return text.replace(/\r\n|\r|\n|\t|[\s\u200b\ufeff]/gu, (char) => {
 		if (char === " ") return "·";
 		if (char === "\t") return "→";
-		return "↵";
+		if (char === "\u00a0" || char === "\u202f") return "⍽";
+		if (char === "\r\n" || char === "\r" || char === "\n" || char === "\u2028" || char === "\u2029")
+			return "↵";
+		return "∘";
 	});
 }
 

@@ -27,4 +27,10 @@ describe("whitespace changes", () => {
 				.join(""),
 		).toBe("two \t\r\nwords");
 	});
+
+	it("shows non-breaking and other Unicode spaces with their own glyphs", () => {
+		expect(whitespaceMarkers("one\u00a0two")).toBe("one⍽two");
+		expect(whitespaceMarkers("a\u2009b\u3000c")).toBe("a∘b∘c");
+		expect(whitespaceMarkers("a \tb\r\nc")).toBe("a·→b↵c");
+	});
 });
