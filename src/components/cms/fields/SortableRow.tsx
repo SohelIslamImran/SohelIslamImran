@@ -47,13 +47,7 @@ export function useReorderFeedback() {
 			if (!drag) return;
 			const to = keys.indexOf(drag.key);
 			if (to < 0) return;
-			markMoved(
-				drag.key,
-				resolveLabel ? resolveLabel(to) : drag.label,
-				drag.from,
-				to,
-				keys.length,
-			);
+			markMoved(drag.key, resolveLabel ? resolveLabel(to) : drag.label, drag.from, to, keys.length);
 		},
 		[markMoved],
 	);

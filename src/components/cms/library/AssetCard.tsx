@@ -12,11 +12,7 @@ import type { MediaLibraryItem } from "../../../server/media.server";
 import { staggerStyle } from "../analytics/Widgets";
 import { controlClass } from "../fields/FieldFrame";
 import { CheckIcon } from "../fields/field-icons";
-import {
-	AlertTriangleIcon,
-	CheckCircleIcon,
-	ExternalArrowIcon,
-} from "../shell/cms-icons";
+import { AlertTriangleIcon, CheckCircleIcon, ExternalArrowIcon } from "../shell/cms-icons";
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
 import { Button } from "../../ui/button";
 import { MediaFrame } from "./MediaFrame";

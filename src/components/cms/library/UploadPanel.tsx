@@ -21,7 +21,7 @@ import { Button } from "../../ui/button";
 
 export function isForbiddenError(error: unknown): boolean {
 	return (
-		Boolean(error) &&
+		error !== null &&
 		typeof error === "object" &&
 		"status" in error &&
 		(error as { status?: unknown }).status === 403
@@ -275,7 +275,10 @@ export function UploadPanel({
 						/>
 
 						{selectedFile ? (
-							<div key={stagedKey} className="cms-staged-file flex min-w-0 flex-1 items-center gap-3">
+							<div
+								key={stagedKey}
+								className="cms-staged-file flex min-w-0 flex-1 items-center gap-3"
+							>
 								{previewUrl ? (
 									<img
 										src={previewUrl}

@@ -213,7 +213,9 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 								isCollapsed ? "pt-7 overflow-visible" : "pt-4 overflow-y-auto",
 							)}
 						>
-							<div className={cn("cms-undo-deck", isCollapsed ? "relative" : "flex flex-col gap-2")}>
+							<div
+								className={cn("cms-undo-deck", isCollapsed ? "relative" : "flex flex-col gap-2")}
+							>
 								<AnimatePresence initial={false}>
 									{deckItems.map((toast, index) => (
 										<UndoToast
