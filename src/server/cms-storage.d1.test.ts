@@ -6,6 +6,8 @@ import { serializePortfolioContent } from "../lib/validation";
 import {
 	getAdminSnapshot,
 	getPublishedContent,
+	listAuditEvents,
+	listRevisions,
 	parseStoredOrBootstrap,
 	publishDraft,
 	saveDraft,
@@ -288,4 +290,20 @@ describe("D1-backed CMS storage", () => {
 			},
 		]);
 	});
+});
+
+it("acknowledges a retried publication without a second history row or event", async () => {
+	const env = { DB: fixture!.db };
+	const actor = { email: "owner@example.com" };
+	await saveDraft(env, { content: INITIAL_PORTFOLIO_CONTENT, expectedRevision: 1, actor });
+	const input = { expectedDraftRevision: 2, actor };
+	const first = await publishDraft(env, input);
+	expect(first).toMatchObject({ ok: true, status: "published", revision: 2 });
+	expect(await publishDraft(env, input)).toEqual({ ...first, status: "already-published" });
+	expect(
+		(await listRevisions(env, { kind: "published" })).items.filter(
+			({ revision }) => revision === 2,
+		),
+	).toHaveLength(1);
+	expect((await listAuditEvents(env, { kind: "publish" })).items).toHaveLength(1);
 });

@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import {
@@ -20,7 +20,11 @@ import {
 	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
 import { useDraftSelector, useDraftStore } from "../../components/cms/draft/context";
-import { jsonEqual } from "../../components/cms/draft/paths";
+import {
+	cacheRevision,
+	defaultRevision,
+	readCachedRevision,
+} from "../../components/cms/history/history-select";
 import {
 	InspectorError,
 	InspectorSkeleton,
@@ -32,7 +36,7 @@ import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { AlertTriangleIcon, HistoryIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
 import { cn } from "../../lib/utils";
-import { getRevision, listRevisions } from "../../server/cms-history.functions";
+import { getRevision, listRevisions, resolveRevision } from "../../server/cms-history.functions";
 import type {
 	RevisionDetail,
 	RevisionKind,
@@ -46,17 +50,23 @@ import type {
 function visibleRevisions(
 	items: readonly RevisionSummary[],
 	filter: "all" | RevisionKind,
+	selectedId?: number,
 ): RevisionSummary[] {
 	if (filter !== "all") return [...items];
 	const published = new Map(
 		items.filter((row) => row.kind === "published").map((row) => [row.revision, row.bytes]),
 	);
-	return items.filter((row) => row.kind !== "draft" || published.get(row.revision) !== row.bytes);
+	return items.filter(
+		(row) =>
+			row.id === selectedId || row.kind !== "draft" || published.get(row.revision) !== row.bytes,
+	);
 }
 
 export const Route = createFileRoute("/cms/history")({
 	validateSearch: z.object({
-		revision: z.coerce.number().int().nonnegative().optional(),
+		id: z.number().int().positive().optional().catch(undefined),
+		kind: z.enum(["draft", "published"]).optional().catch(undefined),
+		revision: z.number().int().nonnegative().optional().catch(undefined),
 	}),
 	head: () => ({
 		meta: [{ title: "Revision history · Control plane" }],
@@ -66,7 +76,18 @@ export const Route = createFileRoute("/cms/history")({
 
 function HistoryRoute() {
 	const reduced = useLiveReducedMotion();
-	const { revision: searchRevision } = Route.useSearch();
+	const { id, kind, revision } = Route.useSearch();
+	const navigate = Route.useNavigate();
+	const hasTarget = id !== undefined || revision !== undefined;
+	const targetKey = id !== undefined ? `id:${id}` : `${kind ?? ""}:${revision}`;
+	const resolve = useServerFn(resolveRevision);
+	const [target, setTarget] = useState<{
+		key: string;
+		row: RevisionSummary | null;
+		error?: boolean;
+	}>();
+	const [targetRetry, setTargetRetry] = useState(0);
+	const pickedRow = useRef<RevisionSummary | null>(null);
 	const store = useDraftStore();
 	const draft = useDraftSelector((state) => state.draft);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
@@ -83,10 +104,20 @@ function HistoryRoute() {
 	const [listError, setListError] = useState<string | null>(null);
 	const listRequest = useRef(0);
 
-	const [selectedId, setSelectedId] = useState<number | null>(null);
+	const [pageError, setPageError] = useState(false);
+	const [defaultRow, setDefaultRow] = useState<RevisionSummary | null>(null);
+	const selected = hasTarget ? (target?.key === targetKey ? target.row : null) : defaultRow;
+	const selectedId = selected?.id ?? null;
+	const targetLoading = hasTarget && target?.key !== targetKey;
 	const detailCache = useRef(new Map<number, RevisionDetail>());
 	const [detail, setDetail] = useState<RevisionDetail | null>(null);
-	const [detailError, setDetailError] = useState<string | null>(null);
+	const [failedDetailId, setFailedDetailId] = useState<number | null>(null);
+	const [detailRetry, setDetailRetry] = useState(0);
+	const [retryingDetailId, setRetryingDetailId] = useState<number | null>(null);
+	const forceDetail = useRef<number | null>(null);
+	const forceHeadingFocus = useRef<number | null>(null);
+	const detailError = selectedId !== null && failedDetailId === selectedId;
+	const olderButton = useRef<HTMLButtonElement>(null);
 	const inspectorRef = useRef<HTMLElement>(null);
 	const timelineRef = useRef<HTMLElement>(null);
 	const inspectorFocusRequest = useRef<number | null>(null);
@@ -98,29 +129,23 @@ function HistoryRoute() {
 	const noticeRef = useRef<HTMLDivElement>(null);
 	const restoredRef = useRef(false);
 
-	const visibleItems = useMemo(() => visibleRevisions(items, filter), [filter, items]);
+	const visibleItems = useMemo(
+		() => visibleRevisions(items, filter, selected?.id),
+		[filter, items, selected?.id],
+	);
 
 	const baselineBytes = useMemo(() => {
 		const match = items.find((row) => row.kind === "draft" && row.revision === draftRevision);
 		return match ? match.bytes : null;
 	}, [items, draftRevision]);
 
-	const loadDetail = useCallback(
-		async (id: number) => {
-			const cached = detailCache.current.get(id);
-			if (cached) return cached;
-			const loaded = await fetchDetail({ data: { id } });
-			detailCache.current.set(id, loaded);
-			return loaded;
-		},
-		[fetchDetail],
-	);
-
 	const loadInitial = useCallback(
 		async (kindFilter: "all" | RevisionKind) => {
 			const request = ++listRequest.current;
 			setLoadingList(true);
+			setLoadingMore(false);
 			setListError(null);
+			setPageError(false);
 			try {
 				const result = await fetchList({
 					data: { kind: kindFilter === "all" ? undefined : kindFilter, limit: 30 },
@@ -128,80 +153,80 @@ function HistoryRoute() {
 				if (request !== listRequest.current) return;
 				setItems(result.items);
 				setNextBefore(result.nextBefore);
-
-				const matching =
-					result.items.find((row) => row.revision === searchRevision && row.kind === "published") ??
-					result.items.find((row) => row.revision === searchRevision);
-				if (matching || result.items.length === 0) {
-					setSelectedId(matching?.id ?? null);
-					return;
-				}
-
-				const current = store.getState();
 				const visible = visibleRevisions(result.items, kindFilter);
-				let defaultId = (visible[0] ?? result.items[0]!).id;
-				for (const row of visible) {
-					if (!current.dirty && row.revision === current.draftRevision) continue;
-					try {
-						const candidate = await loadDetail(row.id);
-						if (request !== listRequest.current) return;
-						if (jsonEqual(current.draft, candidate.content)) continue;
-					} catch {
-						// Let the inspector report an unreadable revision if it is selected.
-					}
-					defaultId = row.id;
-					break;
-				}
-				if (request === listRequest.current) {
-					setSelectedId((prev) => {
-						if (visible.some((row) => row.id === prev)) return prev;
-						// A draft hidden behind its identical published row selects that row.
-						const hidden = result.items.find((row) => row.id === prev);
-						const merged = hidden
-							? visible.find((row) => row.kind === "published" && row.revision === hidden.revision)
-							: undefined;
-						return merged?.id ?? defaultId;
-					});
-				}
+				setDefaultRow(
+					(previous) =>
+						visible.find((row) => row.id === previous?.id) ??
+						defaultRevision(visible, store.getState()),
+				);
 			} catch {
 				if (request === listRequest.current) setListError("Could not load revision history.");
 			} finally {
 				if (request === listRequest.current) setLoadingList(false);
 			}
 		},
-		[fetchList, loadDetail, searchRevision, store],
+		[fetchList, store],
 	);
 
 	useEffect(() => {
 		void loadInitial(filter);
+		return () => {
+			listRequest.current += 1;
+		};
 	}, [filter, loadInitial]);
 
+	// The first list page and an explicit target are independent reads.
 	useEffect(() => {
-		if (selectedId === null) {
-			setDetail(null);
+		if (!hasTarget) return;
+		if (pickedRow.current?.id === id && pickedRow.current) {
+			setTarget({ key: targetKey, row: pickedRow.current });
+			pickedRow.current = null;
 			return;
 		}
-		setDetailError(null);
-		const cached = detailCache.current.get(selectedId);
+		let cancelled = false;
+		void resolve({ data: { id, kind, revision } }).then(
+			(row) => {
+				if (!cancelled) setTarget({ key: targetKey, row });
+			},
+			() => {
+				if (!cancelled) setTarget({ key: targetKey, row: null, error: true });
+			},
+		);
+		return () => {
+			cancelled = true;
+		};
+	}, [hasTarget, id, kind, revision, resolve, targetKey, targetRetry]);
+
+	useEffect(() => {
+		if (selectedId === null) return;
+		const bypass = forceDetail.current === selectedId;
+		if (!bypass) setFailedDetailId(null);
+		forceDetail.current = null;
+		const cached = bypass ? undefined : readCachedRevision(detailCache.current, selectedId);
 		if (cached) {
 			setDetail(cached);
 			return;
 		}
 		let cancelled = false;
-		void loadDetail(selectedId)
-			.then((loaded) => {
-				if (!cancelled) setDetail(loaded);
-			})
-			.catch(() => {
-				if (!cancelled) {
-					setDetail(null);
-					setDetailError("Could not read this revision.");
-				}
-			});
+		void fetchDetail({ data: { id: selectedId } }).then(
+			(loaded) => {
+				if (cancelled) return;
+				cacheRevision(detailCache.current, loaded);
+				setDetail(loaded);
+				setFailedDetailId(null);
+				setRetryingDetailId(null);
+			},
+			() => {
+				if (cancelled) return;
+				setFailedDetailId(selectedId);
+				setRetryingDetailId(null);
+				forceHeadingFocus.current = null;
+			},
+		);
 		return () => {
 			cancelled = true;
 		};
-	}, [loadDetail, selectedId]);
+	}, [fetchDetail, selectedId, detailRetry]);
 
 	const loadMore = async () => {
 		if (nextBefore === null || loadingList || loadingMore) return;
@@ -218,10 +243,14 @@ function HistoryRoute() {
 			if (request !== listRequest.current) return;
 			setItems((prev) => [...prev, ...result.items]);
 			setNextBefore(result.nextBefore);
+			setPageError(false);
+			if (result.nextBefore === null && document.activeElement === olderButton.current) {
+				timelineRef.current?.focus({ preventScroll: true });
+			}
 		} catch {
-			if (request === listRequest.current) setListError("Could not load older revisions.");
+			if (request === listRequest.current) setPageError(true);
 		} finally {
-			setLoadingMore(false);
+			if (request === listRequest.current) setLoadingMore(false);
 		}
 	};
 
@@ -240,15 +269,34 @@ function HistoryRoute() {
 		focusInspector();
 	}, [detail?.id, detailError, focusInspector, selectedId]);
 
-	const selectRevision = (id: number) => {
-		if (id !== selectedId) setDetailError(null);
-		setSelectedId(id);
-		if (!window.matchMedia("(width < 1024px)").matches) return;
-		if (id === selectedId && (detail?.id === id || detailError)) {
-			focusInspector();
-		} else {
-			inspectorFocusRequest.current = id;
+	const selectRevision = (row: RevisionSummary) => {
+		const mobile = window.matchMedia("(width < 1024px)").matches;
+		if (mobile) {
+			if (row.id === selectedId && (detail?.id === row.id || detailError)) focusInspector();
+			else inspectorFocusRequest.current = row.id;
 		}
+		if (id === row.id) return;
+		pickedRow.current = row;
+		setTarget({ key: `id:${row.id}`, row });
+		void navigate({ search: { id: row.id }, replace: true, resetScroll: false });
+	};
+
+	useLayoutEffect(() => {
+		if (
+			selectedId !== null &&
+			detail?.id === selectedId &&
+			forceHeadingFocus.current === selectedId
+		) {
+			forceHeadingFocus.current = null;
+			document.getElementById("cms-revision-heading")?.focus({ preventScroll: true });
+		}
+	}, [detail, selectedId]);
+
+	const retryDetail = () => {
+		setRetryingDetailId(selectedId);
+		forceDetail.current = selectedId;
+		forceHeadingFocus.current = selectedId;
+		setDetailRetry((value) => value + 1);
 	};
 
 	const focusSelectedRow = () => {
@@ -267,6 +315,10 @@ function HistoryRoute() {
 		return diffPortfolioDocuments(draft, detail.content);
 	}, [detail, draft]);
 	const stale = detail !== null && selectedId !== null && detail.id !== selectedId;
+	const missingLabel =
+		id !== undefined
+			? `Revision #${id}`
+			: `${kind === "draft" ? "Draft" : kind === "published" ? "Published" : "Revision"} r${revision}`;
 
 	const handleRestore = async () => {
 		if (!detail || !restoreReview) return;
@@ -297,7 +349,7 @@ function HistoryRoute() {
 				actions={
 					<SegmentedControl
 						className="max-sm:grid max-sm:w-full max-sm:grid-cols-3"
-						layoutId="cms-history-filter-pill"
+						layoutId={reduced ? "" : "cms-history-filter-pill"}
 						ariaLabel="Filter revisions"
 						value={filter}
 						onChange={setFilter}
@@ -332,8 +384,9 @@ function HistoryRoute() {
 				<section
 					ref={timelineRef}
 					aria-label="Revisions"
+					tabIndex={-1}
 					style={staggerStyle(0)}
-					className="cms-panel cms-enter grid gap-2 p-3"
+					className="cms-panel cms-enter grid min-w-0 gap-2 p-3"
 				>
 					{listError ? (
 						<EmptyState
@@ -395,20 +448,34 @@ function HistoryRoute() {
 											}
 											isCurrentDraft={item.kind === "draft" && item.revision === draftRevision}
 											stagger={Math.min(idx, 8)}
-											onSelect={() => selectRevision(item.id)}
+											onSelect={() => selectRevision(item)}
 										/>
 									))}
 								</ul>
 							</div>
+							{selected && !canReturnToRow && !loadingList ? (
+								<p className="m-0 px-2 text-[13px] text-muted-foreground">
+									r{selected.revision} · {selected.kind === "draft" ? "Draft" : "Published"}
+									{(filter === "all" || selected.kind === filter) && nextBefore !== null
+										? " is older than this list."
+										: " is outside this filter."}
+								</p>
+							) : null}
+							{pageError ? (
+								<p role="status" className="m-0 px-2 text-[13px] text-destructive">
+									Couldn't load older revisions.
+								</p>
+							) : null}
 							{nextBefore !== null ? (
 								<Button
+									ref={olderButton}
 									variant="ghost"
 									size="sm"
-									disabled={loadingList || loadingMore}
+									aria-disabled={loadingList || loadingMore}
 									onClick={() => void loadMore()}
 									className="w-full pointer-coarse:min-h-11"
 								>
-									{loadingMore ? "Loading…" : "Load older revisions"}
+									{loadingMore ? "Loading…" : pageError ? "Retry" : "Load older"}
 								</Button>
 							) : null}
 						</>
@@ -421,9 +488,42 @@ function HistoryRoute() {
 					tabIndex={-1}
 					className="grid min-w-0 scroll-mt-3 gap-4"
 				>
-					{detailError ? (
+					{targetLoading ? (
+						<InspectorSkeleton />
+					) : hasTarget && target?.error ? (
+						<InspectorError
+							message="Could not find this revision."
+							onRetry={() => {
+								setTarget(undefined);
+								setTargetRetry((value) => value + 1);
+							}}
+						/>
+					) : hasTarget && !selected ? (
+						<div className="cms-panel">
+							<EmptyState
+								icon={<HistoryIcon className="size-5" />}
+								title={`${missingLabel} doesn't exist.`}
+								description={null}
+								action={
+									<Link
+										to="/cms/history"
+										search={{}}
+										replace
+										resetScroll={false}
+										className={controlClass}
+									>
+										Show latest
+									</Link>
+								}
+							/>
+						</div>
+					) : detailError ? (
 						<>
-							<InspectorError message={detailError} />
+							<InspectorError
+								message="Could not read this revision."
+								onRetry={retryDetail}
+								retrying={retryingDetailId === selectedId}
+							/>
 							{canReturnToRow ? (
 								<Button
 									variant="ghost"
@@ -435,10 +535,11 @@ function HistoryRoute() {
 								</Button>
 							) : null}
 						</>
-					) : detail && diff ? (
+					) : selected && detail && diff ? (
 						<RevisionInspector
 							detail={detail}
 							diff={diff}
+							selected={selected}
 							stale={stale}
 							baselineBytes={baselineBytes}
 							restoring={restoring}
@@ -450,7 +551,7 @@ function HistoryRoute() {
 							}}
 						/>
 					) : selectedId !== null || loadingList ? (
-						<InspectorSkeleton />
+						<InspectorSkeleton selected={selected ?? undefined} />
 					) : (
 						<div className="cms-panel">
 							<EmptyState

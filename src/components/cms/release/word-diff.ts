@@ -8,6 +8,26 @@ export interface WordDiffPart {
 	text: string;
 }
 
+export function isWhitespaceChange(before: string, after: string): boolean {
+	return before !== after && before.replace(/\s/gu, "") === after.replace(/\s/gu, "");
+}
+
+/**
+ * Make every whitespace character visible. A non-breaking space gets its own
+ * glyph (⍽) so it never reads as an ordinary space; any other Unicode space
+ * (thin, em, ideographic, zero-width no-break…) shows as a middle dot ring (∘).
+ */
+export function whitespaceMarkers(text: string): string {
+	return text.replace(/\r\n|\r|\n|\t|[\s\u200b\ufeff]/gu, (char) => {
+		if (char === " ") return "·";
+		if (char === "\t") return "→";
+		if (char === "\u00a0" || char === "\u202f") return "⍽";
+		if (char === "\r\n" || char === "\r" || char === "\n" || char === "\u2028" || char === "\u2029")
+			return "↵";
+		return "∘";
+	});
+}
+
 const MAX_LCS_TOKENS = 420;
 
 /** Split text into alternating word/punctuation and whitespace tokens so joining reproduces the exact input. */

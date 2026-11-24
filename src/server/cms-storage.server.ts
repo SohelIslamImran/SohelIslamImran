@@ -682,6 +682,33 @@ function parseAuditDetails(raw: string | null): AuditEventDetails | null {
 	}
 }
 
+const revisionSummaryColumns = {
+	id: portfolioRevisions.id,
+	kind: portfolioRevisions.kind,
+	revision: portfolioRevisions.revision,
+	changedBy: portfolioRevisions.changedBy,
+	changedAt: portfolioRevisions.changedAt,
+	bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
+};
+
+function toRevisionSummary(row: {
+	id: number;
+	kind: string;
+	revision: number;
+	changedBy: string;
+	changedAt: string;
+	bytes: number;
+}): RevisionSummary {
+	return {
+		id: integerColumn(row.id),
+		kind: row.kind === "published" ? "published" : "draft",
+		revision: integerColumn(row.revision),
+		changedBy: stringColumn(row.changedBy),
+		changedAt: stringColumn(row.changedAt),
+		bytes: integerColumn(row.bytes),
+	};
+}
+
 /** List revision metadata and byte sizes without fetching stored JSON bodies. */
 export async function listRevisions(
 	env: CmsEnvironment,
@@ -697,14 +724,7 @@ export async function listRevisions(
 		conditions.push(lt(portfolioRevisions.id, options.before));
 	}
 	const rows = await database(db)
-		.select({
-			id: portfolioRevisions.id,
-			kind: portfolioRevisions.kind,
-			revision: portfolioRevisions.revision,
-			changedBy: portfolioRevisions.changedBy,
-			changedAt: portfolioRevisions.changedAt,
-			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
-		})
+		.select(revisionSummaryColumns)
 		.from(portfolioRevisions)
 		.where(and(...conditions))
 		.orderBy(desc(portfolioRevisions.id))
@@ -712,19 +732,50 @@ export async function listRevisions(
 
 	const hasMore = rows.length > limit;
 	const page = hasMore ? rows.slice(0, limit) : rows;
-	const items: RevisionSummary[] = page.map((row) => ({
-		id: integerColumn(row.id),
-		kind: row.kind === "published" ? "published" : "draft",
-		revision: integerColumn(row.revision),
-		changedBy: stringColumn(row.changedBy),
-		changedAt: stringColumn(row.changedAt),
-		bytes: integerColumn(row.bytes),
-	}));
+	const items: RevisionSummary[] = page.map(toRevisionSummary);
 	const last = items[items.length - 1];
 	return {
 		items,
 		nextBefore: hasMore && last ? last.id : null,
 	};
+}
+
+/** Resolve metadata only, using the primary key or the document's unique revision key. */
+export async function findRevision(
+	env: CmsEnvironment,
+	target: { id: number } | { kind?: RevisionKind; revision: number },
+): Promise<RevisionSummary | null> {
+	const query = database(requireDatabase(env))
+		.select(revisionSummaryColumns)
+		.from(portfolioRevisions);
+
+	if ("id" in target) {
+		const [row] = await query
+			.where(
+				and(
+					eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioRevisions.id, target.id),
+				),
+			)
+			.limit(1);
+		return row ? toRevisionSummary(row) : null;
+	}
+
+	const lookup = async (kind: RevisionKind) => {
+		const [row] = await query
+			.where(
+				and(
+					eq(portfolioRevisions.documentId, PORTFOLIO_DOCUMENT_ID),
+					eq(portfolioRevisions.kind, kind),
+					eq(portfolioRevisions.revision, target.revision),
+				),
+			)
+			.limit(1);
+		return row ? toRevisionSummary(row) : null;
+	};
+
+	// Old number-only URLs prefer the published revision, then the draft.
+	return target.kind ? lookup(target.kind) : ((await lookup("published")) ?? lookup("draft"));
 }
 
 /** Read one historical revision, upgrading legacy schema versions to the current shape. */
@@ -733,13 +784,8 @@ export async function getRevision(env: CmsEnvironment, id: number): Promise<Revi
 	const revisionId = requireRevision(id, "id");
 	const [row] = await database(db)
 		.select({
-			id: portfolioRevisions.id,
-			kind: portfolioRevisions.kind,
-			revision: portfolioRevisions.revision,
+			...revisionSummaryColumns,
 			contentJson: portfolioRevisions.contentJson,
-			changedBy: portfolioRevisions.changedBy,
-			changedAt: portfolioRevisions.changedAt,
-			bytes: sql<number>`octet_length(${portfolioRevisions.contentJson})`,
 		})
 		.from(portfolioRevisions)
 		.where(
@@ -751,16 +797,8 @@ export async function getRevision(env: CmsEnvironment, id: number): Promise<Revi
 		.limit(1);
 
 	if (!row) return null;
-	const revisionNumber = integerColumn(row.revision);
-	return {
-		id: integerColumn(row.id),
-		kind: row.kind === "published" ? "published" : "draft",
-		revision: revisionNumber,
-		changedBy: stringColumn(row.changedBy),
-		changedAt: stringColumn(row.changedAt),
-		bytes: integerColumn(row.bytes),
-		content: parseContentColumn(row.contentJson, revisionNumber),
-	};
+	const summary = toRevisionSummary(row);
+	return { ...summary, content: parseContentColumn(row.contentJson, summary.revision) };
 }
 
 /**
