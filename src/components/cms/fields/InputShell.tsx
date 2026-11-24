@@ -150,6 +150,7 @@ export function CopyAction({ text }: { text: string }) {
 		<>
 			<InputAction
 				label="Copy public path"
+				data-done={status === "Copied" || undefined}
 				onClick={async () => {
 					try {
 						await navigator.clipboard.writeText(text);

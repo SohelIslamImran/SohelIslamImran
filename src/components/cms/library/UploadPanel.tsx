@@ -392,7 +392,7 @@ export function UploadPanel({
 								{uploadAlt.length}/240
 							</span>
 						</label>
-						<InputShell size="sm" disabled={uploading}>
+						<InputShell disabled={uploading}>
 							<input
 								{...proseAttributes}
 								id="cms-media-alt"

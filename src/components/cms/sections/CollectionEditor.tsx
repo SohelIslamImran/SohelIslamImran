@@ -1215,6 +1215,7 @@ function ProfileSlugField({
 		({ draft }) => slug !== id && draft.profileLinks.some((link) => link.id === slug),
 	);
 	const inputId = fieldId(path);
+	const prefix = "/links/";
 	return (
 		<form
 			className="grid gap-2"
@@ -1236,11 +1237,14 @@ function ProfileSlugField({
 			<div className="flex flex-wrap items-center gap-2">
 				<InputShell
 					className="flex-1"
-					prefix="/links/"
+					prefix={prefix}
 					invalid={taken || issues.length > 0}
 					pending={pending}
-					trailing={<CopyAction text={`/links/${id}`} />}
+					trailing={<CopyAction text={`${prefix}${id}`} />}
 				>
+					<span id={`${inputId}-prefix`} className="sr-only">
+						Path prefix {prefix}
+					</span>
 					<input
 						id={inputId}
 						className={`${inputClass} cms-input-mono`}
@@ -1250,7 +1254,7 @@ function ProfileSlugField({
 						pattern={PUBLIC_SLUG_PATTERN.source}
 						{...identifierAttributes}
 						aria-invalid={taken || issues.length > 0 || undefined}
-						aria-describedby={`${inputId}-hint`}
+						aria-describedby={`${inputId}-prefix ${inputId}-hint`}
 						onChange={(event) => setSlug(event.currentTarget.value)}
 					/>
 				</InputShell>

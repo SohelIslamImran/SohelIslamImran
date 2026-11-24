@@ -259,7 +259,14 @@ function TestimonialFields({ path }: { path: string }) {
 	return (
 		<>
 			<EditorGroup heading="h3" title="Attribution">
-				<TextField path={`${path}.author`} label="Author" maxLength={160} required />
+				<TextField
+					path={`${path}.author`}
+					label="Author"
+					maxLength={160}
+					autoCapitalize="words"
+					spellCheck={false}
+					required
+				/>
 				<TextAreaField singleLine path={`${path}.role`} label="Author's role" maxLength={240} />
 			</EditorGroup>
 			<EditorGroup heading="h3" title="Testimonial">
