@@ -15,18 +15,10 @@ import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
 	ExternalArrowIcon,
-	MediaLibraryIcon,
 } from "../shell/cms-icons";
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
 import { Button } from "../../ui/button";
-
-const mediaTypeLabels: Record<string, string> = {
-	"application/pdf": "PDF document",
-	"image/avif": "AVIF image",
-	"image/jpeg": "JPEG image",
-	"image/png": "PNG image",
-	"image/webp": "WebP image",
-};
+import { MediaFrame } from "./MediaFrame";
 
 function useCopied(durationMs = 1800) {
 	const [copied, setCopied] = useState(false);
@@ -58,7 +50,6 @@ export function AssetCard({
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 	const [copyFailed, setCopyFailed] = useState(false);
-	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 	const [copied, flashCopied] = useCopied();
 
 	useEffect(() => {
@@ -70,7 +61,6 @@ export function AssetCard({
 	const dirty = alt.trim() !== asset.alt.trim();
 	const name = asset.alt || "this asset";
 	const publicUrl = new URL(asset.url, publicOrigin).href;
-	const typeLabel = mediaTypeLabels[asset.mimeType ?? ""] ?? (isImage ? "Image" : "File");
 	const altId = `media-alt-${asset.id}`;
 	const feedbackId = `${altId}-feedback`;
 	const altInvalid = feedback?.tone === "error";
@@ -111,25 +101,16 @@ export function AssetCard({
 		}
 	};
 
-	// Unpublished images preview through the owner-only route on the CMS host.
-	const previewUrl = isPublished ? publicUrl : `/draft-media/${encodeURIComponent(asset.id)}`;
-	const thumbnail =
-		isImage && failedUrl !== previewUrl ? (
-			<img
-				src={previewUrl}
-				alt=""
-				loading="lazy"
-				onError={() => setFailedUrl(previewUrl)}
-				className="cms-media-thumb h-full w-full object-cover"
-			/>
-		) : (
-			<span className="grid place-items-center gap-1.5 px-4 text-center">
-				<MediaLibraryIcon className="size-6 text-muted-foreground" />
-				<span className="text-[12px] text-muted-foreground">
-					{isImage ? "Preview unavailable" : !isPublished ? "Not published yet" : typeLabel}
-				</span>
-			</span>
-		);
+	const thumbnail = (
+		<MediaFrame
+			assetId={asset.id}
+			mimeType={asset.mimeType}
+			width={asset.width}
+			height={asset.height}
+			chip={asset.status}
+			className="cms-media-thumb h-full w-full"
+		/>
+	);
 
 	return (
 		<article
@@ -148,7 +129,7 @@ export function AssetCard({
 						{thumbnail}
 						<span
 							aria-hidden="true"
-							className="absolute right-2.5 bottom-2.5 grid size-7 place-items-center rounded-full border border-line-strong bg-surface-solid/90 text-ink-soft opacity-0 shadow-[0_1px_3px_var(--theme-shadow-soft)] backdrop-blur-sm transition-opacity duration-150 group-hover/thumb:opacity-100 group-focus-visible/thumb:opacity-100"
+							className="absolute right-2.5 bottom-2.5 z-10 grid size-7 place-items-center rounded-full border border-line-strong bg-surface-solid text-ink-soft opacity-0 shadow-[0_1px_3px_var(--theme-shadow-soft)] transition-opacity duration-150 group-hover/thumb:opacity-100 group-focus-visible/thumb:opacity-100"
 						>
 							<ExternalArrowIcon className="size-3.5" />
 						</span>
