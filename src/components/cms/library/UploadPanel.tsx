@@ -124,17 +124,26 @@ export function UploadPanel({
 	useEffect(() => {
 		setPreview(null);
 		if (!selectedFile || !selectedFile.type.startsWith("image/")) return;
-		// Site CSP allows `data:` images (not `blob:`), so read validated images via FileReader.
+		// Decode once and draw a small thumbnail: a full-size data URL of a 20 MB
+		// photo is tens of millions of characters and stalls the main thread.
 		let active = true;
-		const reader = new FileReader();
-		reader.onload = () => {
-			if (active && typeof reader.result === "string")
-				setPreview({ file: selectedFile, url: reader.result });
-		};
-		reader.readAsDataURL(selectedFile);
+		void (async () => {
+			try {
+				const bitmap = await createImageBitmap(selectedFile);
+				const scale = Math.min(1, 96 / Math.max(bitmap.width, bitmap.height));
+				const canvas = document.createElement("canvas");
+				canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+				canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+				canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+				bitmap.close();
+				// Site CSP allows `data:` images (not `blob:`); this string is a few KB.
+				if (active) setPreview({ file: selectedFile, url: canvas.toDataURL("image/png") });
+			} catch {
+				// Unsupported codec or out of memory: the type icon stays.
+			}
+		})();
 		return () => {
 			active = false;
-			reader.abort();
 		};
 	}, [selectedFile]);
 
