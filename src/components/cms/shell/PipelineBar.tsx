@@ -7,9 +7,17 @@
  * hydration-safe relative save timestamp, ⌘K trigger, single accent Publish
  * button, and the phone top bar + bottom glass action bar.
  */
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+	type ComponentProps,
+	type ReactNode,
+	useEffect,
+	useLayoutEffect,
+	useRef,
+	useState,
+} from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { AnimatePresence, motion } from "motion/react";
+import { RollingNumber } from "../../motion/RollingNumber";
 import { Button } from "../../ui/button";
 import { Kbd, MenuSurface } from "../../ui/portfolio";
 import {
@@ -34,6 +42,7 @@ import {
 	SearchIcon,
 } from "./cms-icons";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
+import { StatusMark } from "./StatusMark";
 import { useRelativeTime } from "./time";
 import { useLiveReducedMotion } from "./use-live-reduced-motion";
 
@@ -44,38 +53,46 @@ function usePipelineStage(
 	saveFeedback: SaveFeedback,
 ): {
 	stage: PipelineStage;
+	phase: ComponentProps<typeof StatusMark>["phase"];
 	label: string;
 } {
 	const count = useSettledIssues().all.length;
 	return useDraftSelector((state) => {
 		if (state.authExpired) {
-			return { stage: "invalid", label: "Signed out" };
+			return { stage: "invalid", phase: "invalid", label: "Signed out" };
 		}
 		if (state.status === "conflict") {
-			return { stage: "invalid", label: "Conflict" };
+			return { stage: "invalid", phase: "invalid", label: "Conflict" };
 		}
 		if (state.status === "error") {
-			return { stage: "invalid", label: publishFailed ? "Publish failed" : "Save failed" };
+			return {
+				stage: "invalid",
+				phase: "invalid",
+				label: publishFailed ? "Publish failed" : "Save failed",
+			};
 		}
 		if (count > 0) {
 			return {
 				stage: "invalid",
+				phase: "invalid",
 				label: `${count} ${count === 1 ? "error" : "errors"}`,
 			};
 		}
 		if (state.status === "publishing") {
-			return { stage: "saving", label: "Publishing…" };
+			return { stage: "saving", phase: "saving", label: "Publishing…" };
 		}
 		if (state.status === "saving" || saveFeedback === "saving") {
-			return { stage: "saving", label: "Saving…" };
+			return { stage: "saving", phase: "saving", label: "Saving…" };
 		}
 		if (state.dirty) {
-			return { stage: "dirty", label: "Unsaved" };
+			return { stage: "dirty", phase: "dirty", label: "Unsaved" };
 		}
-		if (state.ahead) {
-			return { stage: "ahead", label: "Draft ahead" };
-		}
-		return { stage: "synced", label: saveFeedback === "saved" ? "Saved" : "Synced" };
+		const stage = state.ahead ? "ahead" : "synced";
+		return {
+			stage,
+			phase: saveFeedback === "saved" ? "saved" : stage,
+			label: state.ahead ? "Draft ahead" : "Synced",
+		};
 	});
 }
 
@@ -92,12 +109,15 @@ function focusFieldAfterNavigation(path: string) {
 
 function PipelineStatus({
 	stage,
+	phase,
 	label,
+	relativeSaved,
 	draftRevision,
 	publishedRevision,
 	onResolveConflict,
 	onReviewRelease,
 }: ReturnType<typeof usePipelineStage> & {
+	relativeSaved: string | null;
 	draftRevision: number;
 	publishedRevision: number;
 	onResolveConflict: () => void;
@@ -151,18 +171,10 @@ function PipelineStatus({
 				data-stage={stage}
 				aria-label={label}
 			>
-				<span className="cms-status-content">
-					<span key={label} className="cms-status-copy" aria-hidden="true">
-						{stage === "synced" ? (
-							<CheckCircleIcon />
-						) : stage === "invalid" ? (
-							<AlertTriangleIcon />
-						) : (
-							<span className="cms-status-mark">
-								{stage === "saving" ? "⋯" : stage === "ahead" ? "Δ" : "●"}
-							</span>
-						)}
-						{label}
+				<span className="cms-status-content" aria-hidden="true">
+					<StatusMark phase={phase} />
+					<span key={phase === "saved" ? "Saved" : label} className="cms-status-copy">
+						{phase === "saved" ? "Saved" : label}
 					</span>
 				</span>
 			</PopoverTrigger>
@@ -181,9 +193,14 @@ function PipelineStatus({
 							<span className="text-[11px] text-muted-foreground">Jump to field</span>
 						) : null}
 					</PopoverHeader>
-					<p className="m-0 flex flex-wrap gap-x-3 px-1.5 font-mono text-[11px] text-muted-foreground sm:hidden">
-						<span>Draft r{draftRevision}</span>
-						<span>Live r{publishedRevision}</span>
+					<p className="m-0 flex flex-wrap gap-x-3 px-1.5 font-mono text-[11px] text-muted-foreground">
+						<span>
+							Draft r<RollingNumber value={draftRevision} pad={1} />
+							{relativeSaved ? ` · saved ${relativeSaved}` : null}
+						</span>
+						<span className="sm:hidden">
+							Live r<RollingNumber value={publishedRevision} pad={1} />
+						</span>
 					</p>
 					{issues.length === 0 ? (
 						<Link
@@ -264,8 +281,11 @@ export function PipelineBar({
 	saveFeedback: SaveFeedback;
 	children: ReactNode;
 }) {
-	const { stage, label } = usePipelineStage(publishFailed, saveFeedback);
+	const { stage, phase, label } = usePipelineStage(publishFailed, saveFeedback);
 	const draftRevision = useDraftSelector((state) => state.draftRevision);
+	const announcedSave = useRef<number | null>(null);
+	if (stage === "ahead" && phase === "saved") announcedSave.current = draftRevision;
+	else if (stage !== "ahead") announcedSave.current = null;
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
 	const relativeSaved = useRelativeTime(draftUpdatedAt, 10_000);
@@ -300,22 +320,15 @@ export function PipelineBar({
 					<span className="sr-only sm:hidden">
 						Draft revision {draftRevision}, live revision {publishedRevision}
 					</span>
-					<span
-						className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline"
-						title={relativeSaved ? `Saved ${relativeSaved}` : undefined}
-					>
-						<span aria-hidden="true">
-							Draft{" "}
-							<span key={draftRevision} className="cms-count-tick">
-								r{draftRevision}
-							</span>
-						</span>
-						<span className="sr-only">Draft revision {draftRevision}</span>
+					<span className="hidden font-mono text-[11px] whitespace-nowrap text-muted-foreground sm:inline">
+						Draft r<RollingNumber value={draftRevision} pad={1} />
 					</span>
 					<span aria-hidden="true" className="cms-pipeline-connector" />
 					<PipelineStatus
 						stage={stage}
+						phase={phase}
 						label={label}
+						relativeSaved={relativeSaved}
 						draftRevision={draftRevision}
 						publishedRevision={publishedRevision}
 						onResolveConflict={onResolveConflict}
@@ -328,10 +341,10 @@ export function PipelineBar({
 						aria-label={`Live revision ${publishedRevision}`}
 						className="cms-chrome-control cms-press hidden min-h-8 shrink-0 items-center rounded-md px-1.5 font-mono text-[11px] whitespace-nowrap text-muted-foreground no-underline sm:inline-flex pointer-coarse:min-h-11 pointer-coarse:min-w-11"
 					>
-						Live r{publishedRevision}
+						Live r<RollingNumber value={publishedRevision} pad={1} />
 					</Link>
 					<span role="status" className="sr-only">
-						{stage === "ahead" && saveFeedback === "saved" ? "Draft saved. " : ""}
+						{announcedSave.current === draftRevision ? "Draft saved. " : ""}
 						{label}
 					</span>
 				</div>

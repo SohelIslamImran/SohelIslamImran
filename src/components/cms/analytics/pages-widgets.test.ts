@@ -3,9 +3,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { countWorkerErrors, formatDeploymentMessage } from "../../../lib/cloudflare-dashboard";
 import { TrafficChart } from "./TrafficChart";
-import { RankedList, formatUtcWindow } from "./Widgets";
+import { RankedList, TickingNumber, formatUtcWindow } from "./Widgets";
 
 describe("CMS dashboard widgets", () => {
+	it("exposes one accessible formatted KPI while hiding the animated glyphs", () => {
+		const html = renderToStaticMarkup(createElement(TickingNumber, { value: 1250, suffix: "ms" }));
+		expect(html).toContain('<span class="sr-only">1,250 ms</span>');
+		expect(html).toMatch(/<span aria-hidden="true"[^>]*>1,250 ms<\/span>/u);
+	});
+
 	it("formats GitHub merge PR deployment messages concisely", () => {
 		expect(
 			formatDeploymentMessage("Merge pull request #16 from SohelIslamImran/t3/fix-deploy-args"),

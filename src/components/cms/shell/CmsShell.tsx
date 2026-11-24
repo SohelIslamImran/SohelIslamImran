@@ -16,18 +16,24 @@ import {
 	useLayoutEffect,
 	useRef,
 	useState,
+	type CSSProperties,
 	type ReactNode,
 	type TouchEvent,
 } from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import { Tooltip } from "@base-ui/react/tooltip";
-import { useRouterState } from "@tanstack/react-router";
+import { useRouter, useRouterState } from "@tanstack/react-router";
 import { AnimatePresence, animate, motion, spring, useMotionValue } from "motion/react";
 import { CLOUDFLARE_DASHBOARD_URL } from "../../../lib/cloudflare-dashboard";
 import { cn } from "../../../lib/utils";
 import { AccentSwitcher } from "../../AccentSwitcher";
 import { Button, buttonVariants } from "../../ui/button";
-import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
+import {
+	useDraftSelector,
+	useDraftStore,
+	usePublicOrigin,
+	useRefreshCmsSession,
+} from "../draft/context";
 import { SettledIssuesProvider, useSettledIssues } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_MOVE } from "../motion";
 
@@ -52,6 +58,7 @@ import { CommandBar } from "./CommandBar";
 import { ConflictDialog, PublishConfirmDialog } from "./Dialogs";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
 import { MobileActionBar, PipelineBar, useSaveFeedback } from "./PipelineBar";
+import { initialOpenGroups, isFoldableGroup, type FoldableGroup } from "./rail-groups";
 import { RAIL_STORAGE_KEY, type RailMode } from "./rail-preference";
 import { RailPulseSlot } from "./RailPulseSlot";
 import { RailRouterLink } from "./RailRouterLink";
@@ -74,7 +81,15 @@ const DRAWER_SPRING = { stiffness: 300, damping: 34 } as const;
  * changes. Shared-layout (`layoutId`) measurement mixed the pre- and
  * post-navigation window scroll and started the slide from the wrong place.
  */
-function RailIndicator({ active }: { active: string }) {
+function RailIndicator({
+	active,
+	openGroups,
+	collapsed,
+}: {
+	active: string;
+	openGroups?: ReadonlySet<FoldableGroup>;
+	collapsed?: boolean;
+}) {
 	const ref = useRef<HTMLSpanElement>(null);
 	const y = useMotionValue(0);
 	const opacity = useMotionValue(0);
@@ -87,8 +102,8 @@ function RailIndicator({ active }: { active: string }) {
 		if (!indicator || !region) return;
 		const link = region.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
 		region.dataset.indicator = "";
-		if (!link) {
-			if (shown.current) animate(opacity, 0, reduce ? REDUCED : RAIL_PILL_FADE);
+		if (!link?.offsetHeight) {
+			if (shown.current) animate(opacity, 0, REDUCED);
 			shown.current = false;
 			return;
 		}
@@ -100,7 +115,7 @@ function RailIndicator({ active }: { active: string }) {
 			animate(opacity, 1, reduce ? REDUCED : RAIL_PILL_FADE);
 		}
 		shown.current = true;
-	}, [active, opacity, reduce, y]);
+	}, [active, openGroups, collapsed, opacity, reduce, y]);
 
 	// Link heights change with the pointer type; keep the pill on its link.
 	useEffect(() => {
@@ -114,7 +129,7 @@ function RailIndicator({ active }: { active: string }) {
 			const first = size === "";
 			size = next;
 			const link = region.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
-			if (first || !link) return;
+			if (first || !link?.offsetHeight) return;
 			indicator.style.height = `${link.offsetHeight}px`;
 			y.jump(link.offsetTop);
 		});
@@ -356,23 +371,106 @@ function RailHeading({ children }: { children: ReactNode }) {
 	);
 }
 
+function RailGroupHeading({
+	group,
+	label,
+	open,
+	containsCurrent,
+	controls,
+	onToggle,
+}: {
+	group: FoldableGroup;
+	label: string;
+	open: boolean;
+	containsCurrent: boolean;
+	controls: string;
+	onToggle: () => void;
+}) {
+	const sections = SECTIONS.filter((section) => section.group === group);
+	const changed = useDraftSelector(
+		(state, store) =>
+			sections.filter((section) => section.paths.some((path) => store.changedAt(path, state)))
+				.length,
+	);
+	const issues = useSettledIssues();
+	const errors = sections.reduce(
+		(total, section) =>
+			total + section.paths.reduce((sum, path) => sum + issues.under(path).length, 0),
+		0,
+	);
+	return (
+		<button
+			type="button"
+			aria-expanded={open}
+			aria-controls={controls}
+			onClick={onToggle}
+			className="cms-rail-group-toggle cms-chrome-control cms-press w-full items-center gap-1.5 rounded-[10px] px-3 text-left text-[11px] font-medium text-muted-foreground pointer-coarse:min-h-11"
+		>
+			<svg
+				className="cms-rail-chevron shrink-0"
+				width="12"
+				height="12"
+				viewBox="0 0 16 16"
+				aria-hidden="true"
+			>
+				<path
+					d="m6 4 4 4-4 4"
+					fill="none"
+					stroke="currentColor"
+					strokeWidth="1.6"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				/>
+			</svg>
+			<span className="flex-1">{label}</span>
+			{!open && containsCurrent ? (
+				<>
+					<span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
+					<span className="sr-only"> contains current page</span>
+				</>
+			) : null}
+			{!open && changed > 0 ? <ChangesRailBadge changedCount={changed} /> : null}
+			{!open && changed > 0 ? (
+				<span className="sr-only">
+					{" "}
+					{changed} {changed === 1 ? "changed section" : "changed sections"}
+				</span>
+			) : null}
+			{!open && errors > 0 ? (
+				<span className="shrink-0 rounded-full border border-dashed border-destructive/45 bg-destructive/10 px-1.5 py-0.5 font-mono text-[10.5px] leading-none text-destructive">
+					<span aria-hidden="true">! </span>
+					{errors}
+					<span className="sr-only"> {errors === 1 ? "error" : "errors"}</span>
+				</span>
+			) : null}
+		</button>
+	);
+}
+
 function LayerRailContent({
 	layoutScope,
 	pulseSlot,
 	collapsed,
+	railReady,
+	openGroups,
+	onToggleGroup,
 	onToggleRail,
 	onNavigate,
 }: {
 	layoutScope: "desktop" | "drawer";
 	pulseSlot?: ReactNode;
 	collapsed?: boolean;
+	railReady?: boolean;
+	openGroups: ReadonlySet<FoldableGroup>;
+	onToggleGroup: (group: FoldableGroup) => void;
 	onToggleRail?: () => void;
 	onNavigate?: () => void;
 }) {
 	const pathname = useCommittedPathname();
+	const iconOnly = layoutScope === "desktop" && railReady && collapsed;
 	const publicOrigin = usePublicOrigin();
 	const railScroll = useRef<HTMLElement>(null);
-	useScrollFade(railScroll);
+	useScrollFade(railScroll, openGroups);
 	const changedCount = useDraftSelector((state, store) =>
 		SECTIONS.reduce(
 			(count, section) =>
@@ -386,7 +484,7 @@ function LayerRailContent({
 		const link = nav?.querySelector<HTMLElement>('.cms-rail-link[aria-current="page"]');
 		if (!nav || !link) return;
 		const reveal = () => {
-			if (!nav.clientHeight) return;
+			if (!nav.clientHeight || !link.offsetHeight) return;
 			const viewport = nav.getBoundingClientRect();
 			const item = link.getBoundingClientRect();
 			const inset = Number.parseFloat(getComputedStyle(nav).scrollPaddingTop) || 0;
@@ -400,7 +498,7 @@ function LayerRailContent({
 		const observer = new ResizeObserver(reveal);
 		observer.observe(nav);
 		return () => observer.disconnect();
-	}, [pathname]);
+	}, [pathname, openGroups, iconOnly]);
 
 	const isPathActive = (to: string) => {
 		if (to === "/cms") return pathname === "/cms" || pathname === "/";
@@ -453,7 +551,7 @@ function LayerRailContent({
 				className="cms-rail-scroll cms-scroll-fade min-h-0 flex-1 overflow-y-auto px-2 pb-3"
 			>
 				<div className="cms-rail-region relative">
-					<RailIndicator active={pathname} />
+					<RailIndicator active={pathname} openGroups={openGroups} collapsed={iconOnly} />
 					<RailHeading>Signals</RailHeading>
 					<div className="grid grid-cols-1 gap-0.5">
 						{CMS_NAV.signals.map((item) => (
@@ -484,22 +582,66 @@ function LayerRailContent({
 						))}
 					</div>
 
-					{SECTION_GROUPS.map((group) => (
-						<div key={group.id} className="grid grid-cols-1 gap-0.5">
-							<RailHeading>{group.label}</RailHeading>
-							{SECTIONS.filter((section) => section.group === group.id).map((section) => (
-								<SectionRailItem
-									key={section.id}
-									id={section.id}
-									label={section.label}
-									paths={section.paths}
-									active={isPathActive(`/cms/content/${section.id}`)}
-									layoutScope={layoutScope}
-									onNavigate={onNavigate}
-								/>
-							))}
-						</div>
-					))}
+					{SECTION_GROUPS.map((group) => {
+						const groupId = group.id;
+						const foldable = isFoldableGroup(groupId);
+						const open = !foldable || openGroups.has(groupId);
+						const controls = `cms-${layoutScope}-${group.id}-links`;
+						const sections = SECTIONS.filter((section) => section.group === group.id);
+						return (
+							<div key={group.id} className="grid grid-cols-1 gap-0.5">
+								{foldable && !iconOnly ? (
+									<RailGroupHeading
+										group={groupId}
+										label={group.label}
+										open={open}
+										containsCurrent={sections.some((section) =>
+											isPathActive(`/cms/content/${section.id}`),
+										)}
+										controls={controls}
+										onToggle={() => {
+											const links = document.getElementById(controls);
+											if (open && links?.contains(document.activeElement)) {
+												railScroll.current
+													?.querySelector<HTMLElement>(`[aria-controls="${controls}"]`)
+													?.focus({ preventScroll: true });
+											}
+											onToggleGroup(groupId);
+										}}
+									/>
+								) : (
+									<RailHeading>{group.label}</RailHeading>
+								)}
+								<div
+									id={controls}
+									hidden={!open && !iconOnly}
+									className={foldable && !iconOnly ? "cms-rail-group-links" : "grid gap-0.5"}
+								>
+									{sections.map((section, index) => (
+										<div
+											key={section.id}
+											style={
+												foldable
+													? ({
+															"--cms-rail-row-delay": `${Math.min(index, 4) * 20}ms`,
+														} as CSSProperties)
+													: undefined
+											}
+										>
+											<SectionRailItem
+												id={section.id}
+												label={section.label}
+												paths={section.paths}
+												active={isPathActive(`/cms/content/${section.id}`)}
+												layoutScope={layoutScope}
+												onNavigate={onNavigate}
+											/>
+										</div>
+									))}
+								</div>
+							</div>
+						);
+					})}
 				</div>
 			</nav>
 
@@ -641,15 +783,18 @@ function SessionBanners({
 	onRetryPublish: () => void;
 }) {
 	const store = useDraftStore();
-	const reduce = useLiveReducedMotion();
+	const refreshSession = useRefreshCmsSession();
 	const authExpired = useDraftSelector((state) => state.authExpired);
 	const status = useDraftSelector((state) => state.status);
 	const error = useDraftSelector((state) => state.error);
 	const dirty = useDraftSelector((state) => state.dirty);
 	const [dismissed, setDismissed] = useState<string | null>(null);
 	const [signInOpened, setSignInOpened] = useState(false);
+	const [retrying, setRetrying] = useState(false);
+	const [stillSignedOut, setStillSignedOut] = useState(false);
 	const strip = useRef<HTMLDivElement>(null);
 	const retryRef = useRef<HTMLButtonElement>(null);
+	const signInRef = useRef<HTMLAnchorElement>(null);
 
 	const notice: SessionNotice | null = authExpired
 		? { kind: "expired" }
@@ -667,12 +812,16 @@ function SessionBanners({
 
 	useEffect(() => {
 		if (key === null) setDismissed(null);
-		if (!authExpired) setSignInOpened(false);
+		if (!authExpired) {
+			setSignInOpened(false);
+			setStillSignedOut(false);
+		}
 	}, [authExpired, key]);
 
 	useLayoutEffect(() => {
-		if (signInOpened) retryRef.current?.focus({ preventScroll: true });
-	}, [signInOpened]);
+		if (signInOpened)
+			(stillSignedOut ? signInRef : retryRef).current?.focus({ preventScroll: true });
+	}, [signInOpened, stillSignedOut]);
 
 	useLayoutEffect(() => {
 		if (!visible && strip.current?.contains(document.activeElement)) {
@@ -701,29 +850,31 @@ function SessionBanners({
 		}
 	};
 
-	const retryAfterSignIn = () => {
+	const retryAfterSignIn = async () => {
 		const retryPublish = publishFailed && !dirty;
-		setSignInOpened(false);
-		void store.resumeAfterSignIn().then((ok) => {
-			if (ok && retryPublish) onRetryPublish();
-		});
+		setRetrying(true);
+		try {
+			if (!(await refreshSession())) {
+				setStillSignedOut(true);
+				return;
+			}
+			if (await store.resumeAfterSignIn()) {
+				if (retryPublish) onRetryPublish();
+			}
+		} finally {
+			setRetrying(false);
+		}
 	};
 
 	return (
-		<AnimatePresence initial={false}>
+		<AnimatePresence initial={false} mode="popLayout">
 			{visible && content ? (
 				<motion.div
 					ref={strip}
 					key="session-notice"
-					className="overflow-hidden"
-					initial={{ height: 0, opacity: 0 }}
-					animate={{ height: "auto", opacity: 1 }}
-					exit={{ height: 0, opacity: 0 }}
-					transition={
-						reduce
-							? { height: { duration: 0 }, opacity: REDUCED }
-							: { height: SPRING_MOVE, opacity: RAIL_PILL_FADE }
-					}
+					className="cms-session-strip w-full"
+					exit={{ opacity: 0, pointerEvents: "none" }}
+					transition={{ duration: 0.16 }}
 				>
 					<div className="cms-topbar-inner mx-auto pb-2.5">
 						<div
@@ -737,9 +888,11 @@ function SessionBanners({
 								<AlertTriangleIcon className="size-4 shrink-0 text-destructive" />
 								<span>
 									{content.kind === "expired"
-										? signInOpened
-											? "Signed in again? Retry to save your edits from this tab."
-											: "You were signed out. Sign in again in a new tab; your edits stay in this one."
+										? stillSignedOut
+											? "Still signed out. Sign in again in a new tab, then retry."
+											: signInOpened
+												? "Signed in again? Retry to save your edits from this tab."
+												: "You were signed out. Sign in again in a new tab; your edits stay in this one."
 										: content.kind === "publish"
 											? "The draft could not be published. Check your connection."
 											: content.message}
@@ -756,21 +909,27 @@ function SessionBanners({
 										>
 											Reload console
 										</Button>
-										{signInOpened ? (
+										{signInOpened && !stillSignedOut ? (
 											<Button
 												ref={retryRef}
 												size="sm"
-												onClick={retryAfterSignIn}
+												onClick={() => void retryAfterSignIn()}
+												disabled={retrying}
+												focusableWhenDisabled
 												className="pointer-coarse:min-h-11"
 											>
 												{publishFailed && !dirty ? "Retry publish" : "Retry save"}
 											</Button>
 										) : (
 											<a
+												ref={signInRef}
 												href={new URL("/", window.location.origin).href}
 												target="_blank"
 												rel="noopener"
-												onClick={() => setSignInOpened(true)}
+												onClick={() => {
+													setSignInOpened(true);
+													setStillSignedOut(false);
+												}}
 												className={buttonVariants({
 													size: "sm",
 													className: "cms-press no-underline pointer-coarse:min-h-11",
@@ -1061,6 +1220,28 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 		});
 	}, [store]);
 	const pathname = useCommittedPathname();
+	const router = useRouter();
+	const [openGroups, setOpenGroups] = useState(() => initialOpenGroups(pathname));
+	useEffect(
+		() =>
+			router.subscribe("onResolved", ({ toLocation }) => {
+				const [destination] = initialOpenGroups(toLocation.pathname);
+				if (destination) {
+					setOpenGroups((current) =>
+						current.has(destination) ? current : new Set([...current, destination]),
+					);
+				}
+			}),
+		[router],
+	);
+	const toggleRailGroup = (group: FoldableGroup) => {
+		setOpenGroups((current) => {
+			const open = new Set(current);
+			if (!open.delete(group)) open.add(group);
+			return open;
+		});
+	};
+
 	const reduceMotion = useLiveReducedMotion();
 	const releaseGate = () => {
 		if (pathname !== "/cms/release" && pathname !== "/release") return null;
@@ -1180,8 +1361,11 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 					<Tooltip.Provider delay={450} closeDelay={0}>
 						<LayerRailContent
 							layoutScope="desktop"
+							openGroups={openGroups}
+							onToggleGroup={toggleRailGroup}
 							pulseSlot={pulseSlot}
 							collapsed={collapsed}
+							railReady={railReady}
 							onToggleRail={toggleRail}
 						/>
 					</Tooltip.Provider>
@@ -1255,6 +1439,8 @@ function CmsShellLayout({ children, pulseSlot }: { children: ReactNode; pulseSlo
 							</div>
 							<LayerRailContent
 								layoutScope="drawer"
+								openGroups={openGroups}
+								onToggleGroup={toggleRailGroup}
 								pulseSlot={pulseSlot}
 								onNavigate={() => setDrawerVisible(false)}
 							/>

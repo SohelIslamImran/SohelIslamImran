@@ -110,7 +110,7 @@ function Analytics() {
 				analyticsSearch.parse(state.resolvedLocation.search ?? {}).range,
 	});
 	const publicOrigin = usePublicOrigin();
-	const profileLinks = useDraftSelector((state) => state.draft.profileLinks);
+	const profileLinks = useDraftSelector((state) => state.published.profileLinks);
 	const links = new Map(profileLinks.map((link) => [link.id, link.label]));
 	const projects = new Map(summary?.topProjects.map((row) => [row.value, row.label]));
 	const pageLabel = (path: string) => pageLabels.get(path) ?? projects.get(path) ?? path;
@@ -171,7 +171,7 @@ function Analytics() {
 				className="cms-panel cms-enter flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-5"
 				style={staggerStyle(0)}
 			>
-				<nav aria-label="Traffic range" className="cms-seg-track">
+				<nav aria-label="Traffic range" className="cms-seg-track cms-seg-track-fill">
 					{ranges.map(([value, label]) => {
 						const isActive = range === value;
 						return (
@@ -181,12 +181,15 @@ function Analytics() {
 								search={{ range: value }}
 								resetScroll={false}
 								activeOptions={{ exact: true, includeSearch: true }}
+								aria-label={`Last ${label}`}
 								data-active={isActive ? "true" : "false"}
-								className="cms-seg-item shrink-0"
+								className="cms-seg-item"
 							>
 								{isActive ? (
 									<motion.span
-										layoutId="cms-analytics-range-pill"
+										layoutId={reduced ? undefined : "cms-analytics-range-pill"}
+										initial={reduced ? { opacity: 0 } : false}
+										animate={{ opacity: 1 }}
 										aria-hidden="true"
 										transition={reduced ? REDUCED : SPRING_MOVE}
 										className="cms-seg-pill"

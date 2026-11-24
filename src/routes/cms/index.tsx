@@ -9,7 +9,6 @@ import { CloudflarePanel } from "../../components/cms/CloudflarePanel";
 import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import {
 	AnalyticsUnavailable,
-	EmptyState,
 	PageHeader,
 	Panel,
 	TickingNumber,
@@ -23,7 +22,6 @@ import { AuditEventSummary } from "../../components/cms/history/audit-events";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { SECTIONS } from "../../components/cms/sections/registry";
 import {
-	ActivityIcon,
 	AlertTriangleIcon,
 	CheckCircleIcon,
 	HistoryIcon,
@@ -264,12 +262,7 @@ function RecentActivityCard() {
 					))}
 				</div>
 			) : events.length === 0 ? (
-				<EmptyState
-					icon={<ActivityIcon className="size-4" />}
-					title="No activity yet"
-					description="Saves, publishes, restores, discards, and media updates appear here automatically."
-					className="py-6"
-				/>
+				<p className="m-0 text-[13px] text-muted-foreground">No activity yet.</p>
 			) : (
 				<ul className="m-0 grid list-none gap-0.5 p-0">
 					{events.map((event) => (
@@ -333,11 +326,11 @@ function TrafficSummary() {
 					? "Traffic: no visits yet. Open analytics"
 					: `Traffic: ${stats.map((stat) => `${stat.label} ${stat.value ?? "unknown"}`).join(", ")}. Open analytics`
 			}
-			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
+			className="cms-panel cms-jump-card cms-signal-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
 		>
 			<div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+					<h2 className="cms-signal-title m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
 						Traffic
 					</h2>
 					<span className="text-[12px] text-muted-foreground">Today · 7 days (UTC)</span>
@@ -354,9 +347,10 @@ function TrafficSummary() {
 			</div>
 
 			{noVisits ? (
-				<div className="flex min-h-[48px] items-center">
+				<div className="grid gap-1">
+					<h3 className="m-0 text-[14px] font-semibold text-foreground">No visits yet</h3>
 					<p className="m-0 text-[13px] text-muted-foreground">
-						No visits yet. Traffic appears here once people browse your site.
+						Traffic appears here once people browse your site.
 					</p>
 				</div>
 			) : (
@@ -377,9 +371,11 @@ function TrafficSummary() {
 				</dl>
 			)}
 
-			<p className="m-0 border-t border-line pt-2.5 text-[12px] text-muted-foreground">
-				Cookieless visitor-days · live count in the sidebar
-			</p>
+			{noVisits ? null : (
+				<p className="m-0 border-t border-line pt-2.5 text-[12px] text-muted-foreground">
+					Cookieless visitor-days · live count in the sidebar
+				</p>
+			)}
 		</Link>
 	);
 }

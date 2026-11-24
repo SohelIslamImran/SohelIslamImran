@@ -6,12 +6,13 @@
  */
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 import { LiveVisitorsProvider } from "../components/cms/analytics/LiveVisitors";
-import { CmsDraftProvider } from "../components/cms/draft/context";
+import { CmsDraftProvider, type CmsSession } from "../components/cms/draft/context";
 import type { DraftApi } from "../components/cms/draft/store";
 import { AccessScreen } from "../components/cms/shell/AccessScreen";
 import { CmsShell, useCommittedPathname } from "../components/cms/shell/CmsShell";
+import { createSessionRefresh, withCsrfRetry } from "../components/cms/shell/session-refresh";
 import { discardDraft, restoreRevision } from "../server/cms-history.functions";
 import { getCmsSnapshot, publishDraft, saveDraft } from "../server/cms.functions";
 
@@ -48,30 +49,63 @@ function CmsWorkspace({
 	const publish = useServerFn(publishDraft);
 	const restore = useServerFn(restoreRevision);
 	const discard = useServerFn(discardDraft);
-	const csrfToken = initial.csrfToken;
-	const api = useMemo<DraftApi>(
-		() => ({
-			save: ({ content, expectedRevision }) =>
-				save({ data: { content, expectedRevision, csrfToken } }),
-			publish: ({ expectedDraftRevision }) =>
-				publish({ data: { expectedDraftRevision, csrfToken } }),
-			restore: (input) => restore({ data: { ...input, csrfToken } }),
-			discard: (input) => discard({ data: { ...input, csrfToken } }),
-		}),
-		[save, publish, restore, discard, csrfToken],
+	const readSession = useServerFn(getCmsSnapshot);
+	const [session, setSession] = useState<CmsSession>(() => ({
+		csrfToken: initial.csrfToken,
+		owner: initial.owner,
+		mediaEnabled: initial.mediaEnabled,
+		publicOrigin: initial.publicOrigin,
+		build: initial.build,
+	}));
+	const currentSession = useRef(session);
+	const refreshSession = useMemo(
+		() =>
+			createSessionRefresh(
+				initial.owner,
+				async () => {
+					const result = await readSession();
+					if (!result.ok) return result;
+					return {
+						ok: true,
+						owner: result.owner,
+						session: {
+							...currentSession.current,
+							csrfToken: result.csrfToken,
+							mediaEnabled: result.mediaEnabled,
+							build: result.build,
+						},
+					};
+				},
+				(next) => {
+					// Mutation retries can run before React commits the refreshed context.
+					currentSession.current = next;
+					setSession(next);
+				},
+			),
+		[initial.owner, readSession],
 	);
-	const session = useMemo(
-		() => ({
-			csrfToken,
-			owner: initial.owner,
-			mediaEnabled: initial.mediaEnabled,
-			publicOrigin: initial.publicOrigin,
-			build: initial.build,
-		}),
-		[csrfToken, initial.owner, initial.mediaEnabled, initial.publicOrigin, initial.build],
-	);
+	const api = useMemo<DraftApi>(() => {
+		const mutate = <T,>(call: (csrfToken: string) => Promise<T>) => {
+			const attempted = currentSession.current;
+			return withCsrfRetry(
+				() => call(currentSession.current.csrfToken),
+				() => (attempted === currentSession.current ? refreshSession() : Promise.resolve(true)),
+			);
+		};
+		return {
+			save: (input) => mutate((csrfToken) => save({ data: { ...input, csrfToken } })),
+			publish: (input) => mutate((csrfToken) => publish({ data: { ...input, csrfToken } })),
+			restore: (input) => mutate((csrfToken) => restore({ data: { ...input, csrfToken } })),
+			discard: (input) => mutate((csrfToken) => discard({ data: { ...input, csrfToken } })),
+		};
+	}, [save, publish, restore, discard, refreshSession]);
 	return (
-		<CmsDraftProvider snapshot={initial.snapshot} session={session} api={api}>
+		<CmsDraftProvider
+			snapshot={initial.snapshot}
+			session={session}
+			api={api}
+			refreshSession={refreshSession}
+		>
 			<LiveVisitorsProvider>
 				<CmsShell>
 					<CmsSection />

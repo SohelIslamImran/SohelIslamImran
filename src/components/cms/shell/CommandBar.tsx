@@ -25,7 +25,6 @@ import {
 	ThemeModeIcon,
 	useAppearance,
 } from "../../AccentSwitcher";
-import { scoreItem } from "../../chrome/fuzzy";
 import { Kbd } from "../../ui/portfolio";
 import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
 import { REDUCED, SPRING_MOVE } from "../motion";
@@ -48,6 +47,7 @@ import {
 	SectionIcon,
 	SidebarToggleIcon,
 } from "./cms-icons";
+import { pageKeywords, searchCommands } from "./command-search";
 import { useCommittedPathname } from "./CmsShell";
 import { useScrollFade } from "./use-scroll-fade";
 import { draftActionAvailability, saveDraftIfAvailable } from "./draft-actions";
@@ -84,6 +84,15 @@ const GROUP_ORDER: readonly CommandGroup[] = [
 	"Cloudflare",
 	"Appearance",
 ];
+
+const COMMAND_KIND: Record<CommandGroup, string> = {
+	Pages: "Page",
+	Sections: "Section",
+	Items: "Item",
+	Actions: "Action",
+	Cloudflare: "Cloudflare",
+	Appearance: "Action",
+};
 
 interface CommandEntry {
 	id: string;
@@ -196,7 +205,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Overview",
 				detail: "Signals and content health",
-				keywords: "home dashboard status signals",
+				keywords: pageKeywords["page-overview"],
 				icon: <OverviewIcon />,
 				run: () => navigate({ to: "/cms" }),
 			},
@@ -205,7 +214,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Analytics",
 				detail: "Visitors, pages, referrers, countries",
-				keywords: "traffic stats views metrics",
+				keywords: pageKeywords["page-analytics"],
 				icon: <AnalyticsIcon />,
 				// `/cms/analytics` is owned by the analytics workstream; keep wide string until merged.
 				run: () => navigate({ to: "/cms/analytics" as string }),
@@ -215,7 +224,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Infrastructure",
 				detail: "Requests, errors, database, storage, deployments",
-				keywords: "cloudflare worker health errors cpu latency d1 r2 deployments cron uptime",
+				keywords: pageKeywords["page-infrastructure"],
 				icon: <InfrastructureIcon />,
 				run: () => navigate({ to: "/cms/infrastructure" as string }),
 			},
@@ -224,7 +233,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Changes & Release",
 				detail: "Diff vs live, publish, discard, JSON import/export",
-				keywords: "diff publish deploy release json export import",
+				keywords: pageKeywords["page-release"],
 				icon: <ReleaseChangesIcon />,
 				badge:
 					ahead || dirty ? (
@@ -237,7 +246,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Revision history",
 				detail: "Inspect past drafts and published snapshots, restore",
-				keywords: "revisions rollback restore snapshots timeline",
+				keywords: pageKeywords["page-history"],
 				icon: <HistoryIcon />,
 				run: () => navigate({ to: "/cms/history" }),
 			},
@@ -246,7 +255,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Activity log",
 				detail: "Audit trail of saves, publishes, restores, and media updates",
-				keywords: "audit events log history",
+				keywords: pageKeywords["page-activity"],
 				icon: <ActivityIcon />,
 				run: () => navigate({ to: "/cms/activity" }),
 			},
@@ -255,7 +264,7 @@ function CommandBarOpen({
 				group: "Pages",
 				label: "Media library",
 				detail: "Assets, alt text, and draft usage",
-				keywords: "images photos uploads r2 files assets",
+				keywords: pageKeywords["page-library"],
 				icon: <MediaLibraryIcon />,
 				run: () => navigate({ to: "/cms/library" }),
 			},
@@ -518,22 +527,7 @@ function CommandBarOpen({
 					.slice(0, group === "Items" ? 6 : undefined),
 			})).filter((section) => section.items.length > 0);
 		}
-		const scored = entries
-			.map((item, order) => ({
-				item,
-				order,
-				score: scoreItem(
-					trimmed,
-					item.label,
-					`${item.detail ?? ""} ${item.keywords ?? ""} ${item.group}`,
-				),
-			}))
-			.filter(
-				(candidate): candidate is { item: CommandEntry; order: number; score: number } =>
-					candidate.score !== null,
-			)
-			.sort((a, b) => b.score - a.score || a.order - b.order)
-			.map((candidate) => candidate.item);
+		const scored = searchCommands(entries, trimmed);
 		return scored.length ? [{ group: null as CommandGroup | null, items: scored }] : [];
 	}, [entries, query]);
 
@@ -769,6 +763,11 @@ function CommandBarOpen({
 													</span>
 												</span>
 												<span className="flex shrink-0 items-center gap-2">
+													{query.trim() ? (
+														<span className="cms-command-secondary whitespace-nowrap font-mono text-[10.5px]">
+															{COMMAND_KIND[item.group]}
+														</span>
+													) : null}
 													{item.badge}
 													{item.shortcut ? <Kbd>{item.shortcut}</Kbd> : null}
 													{item.external ? (
@@ -797,9 +796,11 @@ function CommandBarOpen({
 						<span>
 							<Kbd className="text-inherit">↵</Kbd> open
 						</span>
-						<span className={cn("hidden sm:inline", !canSave && "opacity-45")}>
-							<Kbd className="text-inherit">⌘S</Kbd> save
-						</span>
+						{canSave ? (
+							<span className="hidden sm:inline">
+								<Kbd className="text-inherit">⌘S</Kbd> save
+							</span>
+						) : null}
 					</span>
 					<span>
 						<Kbd className="text-inherit">esc</Kbd> close

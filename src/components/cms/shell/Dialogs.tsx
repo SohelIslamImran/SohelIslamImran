@@ -6,7 +6,12 @@ import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { Link } from "@tanstack/react-router";
 import { Button, buttonVariants } from "../../ui/button";
-import { useDraftSelector, useDraftStore, usePublicOrigin } from "../draft/context";
+import {
+	useDraftSelector,
+	useDraftStore,
+	usePublicOrigin,
+	useRefreshCmsSession,
+} from "../draft/context";
 import { diffPortfolioDocuments } from "../release/diff";
 import { AlertTriangleIcon, ExternalArrowIcon, PublishIcon } from "./cms-icons";
 import { draftActionAvailability } from "./draft-actions";
@@ -186,11 +191,14 @@ function PublishConfirmDialogBody({
 	publishFailed: boolean;
 }) {
 	const store = useDraftStore();
+	const refreshSession = useRefreshCmsSession();
 	const publicHost = new URL(usePublicOrigin()).host;
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const signInRef = useRef<HTMLAnchorElement>(null);
 	const retryRef = useRef<HTMLButtonElement>(null);
 	const [signInOpened, setSignInOpened] = useState(false);
+	const [retrying, setRetrying] = useState(false);
+	const [stillSignedOut, setStillSignedOut] = useState(false);
 	const publishedSuccessfully = useRef(false);
 	const [attemptFailed, setAttemptFailed] = useState(false);
 	const draft = useDraftSelector((state) => state.draft);
@@ -229,13 +237,18 @@ function PublishConfirmDialogBody({
 	const dirty = !frozen && liveDirty;
 	const reviewExpired = !frozen && reviewedDraft !== draft;
 	const canPublish = !frozen && liveCanPublish;
-	const busy = frozen !== null || status === "saving" || status === "publishing";
+	const busy = retrying || frozen !== null || status === "saving" || status === "publishing";
 	const showError = !frozen && error !== null && (authExpired || publishFailed || attemptFailed);
 
 	useLayoutEffect(() => {
-		if (!authExpired) setSignInOpened(false);
-		else (signInOpened ? retryRef : signInRef).current?.focus();
-	}, [authExpired, signInOpened]);
+		if (!authExpired) {
+			if (signInOpened) cancelRef.current?.focus({ preventScroll: true });
+			setSignInOpened(false);
+			setStillSignedOut(false);
+		} else {
+			(signInOpened && !stillSignedOut ? retryRef : signInRef).current?.focus();
+		}
+	}, [authExpired, signInOpened, stillSignedOut]);
 
 	const changedSections = useMemo(
 		() => diffPortfolioDocuments(published, reviewedDraft).changedSections,
@@ -249,6 +262,19 @@ function PublishConfirmDialogBody({
 		publishedSuccessfully.current = ok;
 		if (ok || store.getState().conflict) onOpenChange(false);
 		else setAttemptFailed(true);
+	};
+
+	const retryPublish = async () => {
+		setRetrying(true);
+		try {
+			if (!(await refreshSession())) {
+				setStillSignedOut(true);
+				return;
+			}
+			if (await store.resumeAfterSignIn()) await confirmPublish();
+		} finally {
+			setRetrying(false);
+		}
 	};
 
 	return (
@@ -304,9 +330,11 @@ function PublishConfirmDialogBody({
 						role="alert"
 						className="m-0 rounded-[10px] bg-destructive/10 px-3 py-2 text-[13px] text-destructive"
 					>
-						{publishFailed && !authExpired
-							? "The draft could not be published. Check your connection and try again."
-							: error}
+						{stillSignedOut
+							? "Still signed out. Sign in again in a new tab, then retry."
+							: publishFailed && !authExpired
+								? "The draft could not be published. Check your connection and try again."
+								: error}
 					</p>
 				) : null}
 
@@ -340,17 +368,14 @@ function PublishConfirmDialogBody({
 						>
 							Cancel
 						</AlertDialog.Close>
-						{authExpired && signInOpened ? (
+						{authExpired && signInOpened && !stillSignedOut ? (
 							<Button
 								ref={retryRef}
 								size="sm"
 								className="pointer-coarse:min-h-11"
-								onClick={() => {
-									setSignInOpened(false);
-									void store.resumeAfterSignIn().then((ok) => {
-										if (ok) void confirmPublish();
-									});
-								}}
+								onClick={() => void retryPublish()}
+								disabled={retrying}
+								focusableWhenDisabled
 							>
 								Retry publish
 							</Button>
@@ -360,7 +385,10 @@ function PublishConfirmDialogBody({
 								href={new URL("/", window.location.origin).href}
 								target="_blank"
 								rel="noopener"
-								onClick={() => setSignInOpened(true)}
+								onClick={() => {
+									setSignInOpened(true);
+									setStillSignedOut(false);
+								}}
 								className={buttonVariants({
 									size: "sm",
 									className: "cms-press no-underline pointer-coarse:min-h-11",
