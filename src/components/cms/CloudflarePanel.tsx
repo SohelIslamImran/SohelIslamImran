@@ -208,7 +208,7 @@ export function CloudflarePanel({ stagger }: { stagger?: number }) {
 					<h2 className="cms-signal-title m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
 						Hosting
 					</h2>
-					<span className="text-[12px] text-muted-foreground">Last 24 hours</span>
+					{stats ? <span className="text-[12px] text-muted-foreground">Last 24 hours</span> : null}
 				</div>
 				<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
 					<span>
