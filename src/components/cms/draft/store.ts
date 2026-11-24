@@ -336,16 +336,6 @@ export class DraftStore {
 		});
 	}
 
-	/** Install and save an imported document. */
-	replaceDraft(content: PortfolioContent): Promise<boolean> {
-		this.cancelAutosave();
-		return this.enqueue(() => {
-			if (this.state.conflict) return Promise.resolve(false);
-			this.set({ draft: content });
-			return this.saveNow();
-		});
-	}
-
 	/**
 	 * Save an imported document as the next draft revision without changing
 	 * the working copy until the server accepts it. `reviewedDraft` is the
