@@ -282,14 +282,69 @@
 		resize: none;
 	}
 
-	.cms-textarea-single {
-		min-block-size: var(--cms-field-h);
+	.cms-input-native.cms-textarea {
+		padding-block: 9px;
+		line-height: 1.6;
 	}
 
-	.cms-control[type="date"] {
-		inline-size: 100%;
-		max-inline-size: 100%;
+	.cms-input-native.cms-textarea-single {
+		padding-block: 8px;
+		line-height: 22px;
+	}
+
+	.cms-input-native:is([type="number"], [type="date"]) {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.cms-input-native[type="number"] {
+		appearance: textfield;
+	}
+
+	.cms-input-native[type="number"]::-webkit-inner-spin-button,
+	.cms-input-native[type="number"]::-webkit-outer-spin-button,
+	.cms-input-native[type="search"]::-webkit-search-cancel-button,
+	.cms-input-native[type="search"]::-webkit-search-decoration {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	.cms-input-native[type="date"] {
+		color-scheme: light;
 		text-align: start;
+	}
+
+	html[data-theme-resolved="dark"] .cms-input-native[type="date"] {
+		color-scheme: dark;
+	}
+
+	.cms-input-native::-webkit-calendar-picker-indicator {
+		box-sizing: content-box;
+		width: 16px;
+		height: 16px;
+		padding: 6px;
+		margin-inline-end: -4px;
+		border-radius: 7px;
+		opacity: 0.55;
+		cursor: pointer;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-input-native::-webkit-calendar-picker-indicator:hover {
+			opacity: 1;
+		}
+	}
+
+	.cms-input-native::-webkit-datetime-edit-fields-wrapper {
+		padding: 0;
+	}
+
+	.cms-input-native::-webkit-datetime-edit-day-field:focus,
+	.cms-input-native::-webkit-datetime-edit-month-field:focus,
+	.cms-input-native::-webkit-datetime-edit-year-field:focus {
+		border-radius: 4px;
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
 	}
 
 	/*

@@ -5,13 +5,7 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
-import {
-	FieldFrame,
-	controlClass,
-	describedBy,
-	fieldId,
-	useFieldIssueFeedback,
-} from "./FieldFrame";
+import { FieldFrame, describedBy, fieldId, useFieldIssueFeedback } from "./FieldFrame";
 import { InputShell, inputClass } from "./InputShell";
 import { MailIcon } from "./field-icons";
 import { toSingleLine } from "./field-logic";
@@ -181,40 +175,37 @@ export function TextAreaField({
 			meta={<Counter length={value.length} max={maxLength} />}
 			className={className}
 		>
-			<textarea
-				ref={textarea}
-				id={fieldId(path)}
-				rows={rows}
-				style={singleLine ? undefined : { minBlockSize: `calc(${rows}lh + 22px)` }}
-				value={value}
-				placeholder={placeholder}
-				disabled={disabled}
-				aria-required={required || undefined}
-				aria-invalid={issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), issues)}
-				onKeyDown={
-					singleLine
-						? (event) => {
-								if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault();
-							}
-						: undefined
-				}
-				data-settle-issues=""
-				onFocus={onFocus}
-				onBlur={onBlur}
-				onChange={(event) => {
-					const raw = event.currentTarget.value;
-					const next = singleLine ? toSingleLine(raw) : raw;
-					field.set(optional && next === "" ? undefined : next);
-				}}
-				className={cn(
-					controlClass,
-					"cms-textarea",
-					singleLine
-						? "cms-textarea-single min-h-10 py-[8px] leading-[22px]"
-						: "py-2.5 leading-relaxed",
-				)}
-			/>
+			<InputShell multiline invalid={issues.length > 0} disabled={disabled}>
+				<textarea
+					ref={textarea}
+					id={fieldId(path)}
+					rows={rows}
+					style={singleLine ? undefined : { minBlockSize: `calc(${rows}lh + 18px)` }}
+					value={value}
+					placeholder={placeholder}
+					disabled={disabled}
+					aria-required={required || undefined}
+					aria-invalid={issues.length > 0 || undefined}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
+					onKeyDown={
+						singleLine
+							? (event) => {
+									if (event.key === "Enter" && !event.nativeEvent.isComposing)
+										event.preventDefault();
+								}
+							: undefined
+					}
+					data-settle-issues=""
+					onFocus={onFocus}
+					onBlur={onBlur}
+					onChange={(event) => {
+						const raw = event.currentTarget.value;
+						const next = singleLine ? toSingleLine(raw) : raw;
+						field.set(optional && next === "" ? undefined : next);
+					}}
+					className={cn(inputClass, "cms-textarea", singleLine && "cms-textarea-single")}
+				/>
+			</InputShell>
 		</FieldFrame>
 	);
 }
@@ -223,6 +214,7 @@ export interface NumberFieldProps extends Omit<BaseFieldProps, "maxLength"> {
 	min?: number;
 	max?: number;
 	step?: number | "any";
+	suffix?: string;
 }
 
 /** Optional numeric value; an empty input stores `undefined`. */
@@ -236,6 +228,7 @@ export function NumberField({
 	min,
 	max,
 	step = "any",
+	suffix,
 }: NumberFieldProps) {
 	const field = useField<number | undefined>(path);
 	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, field.value ?? "");
@@ -249,28 +242,38 @@ export function NumberField({
 			onRevert={field.revert}
 			className={className}
 		>
-			<Input
-				id={fieldId(path)}
-				type="number"
-				inputMode="decimal"
-				value={field.value ?? ""}
-				placeholder={placeholder}
+			<InputShell
+				invalid={issues.length > 0}
 				disabled={disabled}
-				min={min}
-				max={max}
-				step={step}
-				aria-invalid={issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), issues)}
-				data-settle-issues=""
-				onFocus={onFocus}
-				onBlur={onBlur}
-				onChange={(event) => {
-					const raw = event.currentTarget.value;
-					const parsed = raw === "" ? undefined : Number(raw);
-					field.set(parsed === undefined || Number.isNaN(parsed) ? undefined : parsed);
-				}}
-				className={cn(controlClass, "min-h-10 font-mono tabular-nums")}
-			/>
+				trailing={
+					suffix ? (
+						<span className="pe-1.5 text-[13px] text-muted-foreground">{suffix}</span>
+					) : undefined
+				}
+			>
+				<Input
+					id={fieldId(path)}
+					type="number"
+					inputMode="decimal"
+					value={field.value ?? ""}
+					placeholder={placeholder}
+					disabled={disabled}
+					min={min}
+					max={max}
+					step={step}
+					aria-invalid={issues.length > 0 || undefined}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
+					data-settle-issues=""
+					onFocus={onFocus}
+					onBlur={onBlur}
+					onChange={(event) => {
+						const raw = event.currentTarget.value;
+						const parsed = raw === "" ? undefined : Number(raw);
+						field.set(parsed === undefined || Number.isNaN(parsed) ? undefined : parsed);
+					}}
+					className={inputClass}
+				/>
+			</InputShell>
 		</FieldFrame>
 	);
 }

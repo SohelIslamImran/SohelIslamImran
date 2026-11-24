@@ -1,6 +1,7 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import type { LinkContent, MetricContent } from "../../../types/content";
 import { CheckboxField, SegmentedField } from "./ChoiceFields";
+import { ClearAction } from "./InputShell";
 import { focusField } from "./FieldFrame";
 import { RepeaterField } from "./RepeaterField";
 import { NumberField, TextField } from "./TextFields";
@@ -58,41 +59,34 @@ export function DateField(props: DateFieldProps) {
 				valueOverride={legacy && editingLegacy ? "" : undefined}
 				maxLength={80}
 				optional={optional}
-				mono
+				trailing={
+					optional && value ? (
+						<ClearAction
+							label="Clear date"
+							onClear={() => {
+								store.update(path, undefined);
+								setCalendarFor(undefined);
+							}}
+						/>
+					) : undefined
+				}
 				description={
 					legacy && !editingLegacy
 						? "This saved date uses a different format. Keep it as written or choose a calendar date."
 						: undefined
 				}
 			/>
-			{legacy || (optional && value) ? (
-				<div className="flex flex-wrap gap-2">
-					{legacy ? (
-						<button
-							type="button"
-							className={editorButton}
-							onClick={() => {
-								setCalendarFor(editingLegacy ? undefined : (value ?? undefined));
-								requestAnimationFrame(() => focusField(path));
-							}}
-						>
-							{editingLegacy ? "Show saved date" : "Choose a calendar date"}
-						</button>
-					) : null}
-					{optional && value ? (
-						<button
-							type="button"
-							className={editorButton}
-							onClick={() => {
-								store.update(path, undefined);
-								setCalendarFor(undefined);
-								requestAnimationFrame(() => focusField(path));
-							}}
-						>
-							Clear date
-						</button>
-					) : null}
-				</div>
+			{legacy ? (
+				<button
+					type="button"
+					className={`${editorButton} justify-self-start`}
+					onClick={() => {
+						setCalendarFor(editingLegacy ? undefined : (value ?? undefined));
+						requestAnimationFrame(() => focusField(path));
+					}}
+				>
+					{editingLegacy ? "Show saved date" : "Choose a calendar date"}
+				</button>
 			) : null}
 		</div>
 	);
@@ -110,6 +104,7 @@ export function CoordinateField({ path }: { path: string }) {
 			<NumberField
 				path={`${path}.latitude`}
 				label="Latitude"
+				suffix="°"
 				description="−90 to 90"
 				min={-90}
 				max={90}
@@ -117,6 +112,7 @@ export function CoordinateField({ path }: { path: string }) {
 			<NumberField
 				path={`${path}.longitude`}
 				label="Longitude"
+				suffix="°"
 				description="−180 to 180"
 				min={-180}
 				max={180}

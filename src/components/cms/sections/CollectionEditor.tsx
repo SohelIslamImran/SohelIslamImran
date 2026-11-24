@@ -29,6 +29,7 @@ import {
 } from "../fields/FieldFrame";
 import { SortableRow, useReorderFeedback } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
+import { ClearAction, InputShell, inputClass } from "../fields/InputShell";
 import { controlClass, fieldId, focusField } from "../fields";
 import {
 	UndoRemoval,
@@ -508,8 +509,14 @@ export function CollectionEditor<T extends { id: string }>({
 					</>
 				) : null}
 				{length ? (
-					<div className="cms-collection-search relative grid">
-						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+					<InputShell
+						size="sm"
+						className="cms-collection-search"
+						leading={<SearchIcon />}
+						trailing={
+							query ? <ClearAction label="Clear search" onClear={() => setQuery("")} /> : undefined
+						}
+					>
 						<label htmlFor={queryId} className="sr-only">
 							Search {label.toLowerCase()}
 						</label>
@@ -519,10 +526,20 @@ export function CollectionEditor<T extends { id: string }>({
 							type="search"
 							placeholder={`Search ${label.toLowerCase()}`}
 							value={query}
-							className={`${controlClass} min-h-10 pl-9`}
+							className={inputClass}
+							enterKeyHint="search"
+							autoComplete="off"
+							spellCheck={false}
+							onKeyDown={(event) => {
+								if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.stopPropagation();
+								if (query) setQuery("");
+								else event.currentTarget.blur();
+							}}
 							onChange={(event) => setQuery(event.currentTarget.value)}
 						/>
-					</div>
+					</InputShell>
 				) : null}
 			</header>
 			{adding ? (
@@ -545,20 +562,22 @@ export function CollectionEditor<T extends { id: string }>({
 					<label htmlFor={nameId} className="text-[13px] font-semibold">
 						{nameLabel}
 					</label>
-					<textarea
-						id={nameId}
-						className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
-						rows={1}
-						required
-						value={name}
-						maxLength={nameLimit}
-						onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
-						onKeyDown={(event) => {
-							if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-							event.preventDefault();
-							event.currentTarget.form?.requestSubmit();
-						}}
-					/>
+					<InputShell multiline>
+						<textarea
+							id={nameId}
+							className={`${inputClass} cms-textarea cms-textarea-single`}
+							rows={1}
+							required
+							value={name}
+							maxLength={nameLimit}
+							onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.currentTarget.form?.requestSubmit();
+							}}
+						/>
+					</InputShell>
 					<button
 						type="submit"
 						disabled={!name.trim() || full}
