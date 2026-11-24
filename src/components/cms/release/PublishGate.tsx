@@ -168,7 +168,7 @@ export function PublishGate({
 						<h3
 							ref={confirmRef}
 							tabIndex={-1}
-							className="cms-page-focus m-0 text-[14px] font-semibold"
+							className="cms-confirm-heading relative m-0 text-[14px] font-semibold outline-none"
 						>
 							Publish to {host}?
 						</h3>

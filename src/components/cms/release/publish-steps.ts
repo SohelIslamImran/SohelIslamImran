@@ -32,6 +32,7 @@ export function publishStep({
 			unconfirmed: true,
 		};
 	}
+	if (status === "saving") return { step: "save", text: "Saving draft…" };
 	if (dirty) return { step: "save", text: "Unsaved edits will be saved first." };
 	return ahead ? { step: "publish", text: `Ready to publish r${revision}.` } : null;
 }
