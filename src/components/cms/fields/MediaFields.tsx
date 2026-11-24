@@ -2,7 +2,7 @@ import { Counter } from "./TextFields";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { AnimatePresence, Reorder } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listMedia } from "../../../server/cms-history.functions";
 import type { MediaAsset } from "../../../types/content";
 import {
@@ -13,12 +13,12 @@ import {
 	useIssuesUnder,
 } from "../draft/context";
 import { childPath, setAt } from "../draft/paths";
-import { MediaLibraryIcon } from "../shell/cms-icons";
+import { MediaFrame } from "../library/MediaFrame";
 import { ChevronRightIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowMenu } from "./RowControls";
-import { SortableRow } from "./SortableRow";
+import { SortableRow, useReorderFeedback } from "./SortableRow";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { sameValue } from "./row-list";
 import { TextAreaField } from "./TextFields";
@@ -32,36 +32,17 @@ function mediaOption(asset: MediaAsset) {
 		value: asset.id,
 		label: asset.alt || asset.id,
 		hint: asset.alt ? asset.id : undefined,
-		thumbnail: <PublishedThumbnail key={asset.id} assetId={asset.id} />,
+		thumbnail: (
+			<MediaFrame
+				key={asset.id}
+				assetId={asset.id}
+				mimeType={asset.mimeType}
+				width={asset.width}
+				height={asset.height}
+				className="cms-media-thumbnail"
+			/>
+		),
 	};
-}
-
-function PublishedThumbnail({ assetId }: { assetId: string }) {
-	const published = useDraftSelector(
-		({ published }) =>
-			published.identity.avatar?.id === assetId ||
-			published.projects.some((project) => project.cover?.id === assetId) ||
-			published.travel.entries.some(
-				(entry) => entry.visibility === "public" && entry.mediaIds.includes(assetId),
-			),
-	);
-	const [failed, setFailed] = useState(false);
-	return (
-		<span className="cms-media-thumbnail" aria-hidden="true">
-			{published && !failed && /^[A-Za-z0-9_-]{8,160}$/u.test(assetId) ? (
-				<img
-					src={`/media/${encodeURIComponent(assetId)}`}
-					alt=""
-					width={64}
-					height={48}
-					loading="lazy"
-					onError={() => setFailed(true)}
-				/>
-			) : (
-				<MediaLibraryIcon />
-			)}
-		</span>
-	);
 }
 
 const EMPTY_ASSETS: readonly MediaAsset[] = [];
@@ -120,7 +101,15 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 					{
 						value: embedChoice(id),
 						label: field.value?.alt || id,
-						thumbnail: <PublishedThumbnail assetId={id} />,
+						thumbnail: (
+							<MediaFrame
+								assetId={id}
+								mimeType={field.value?.mimeType}
+								width={field.value?.width}
+								height={field.value?.height}
+								className="cms-media-thumbnail"
+							/>
+						),
 					},
 				]
 			: []),
@@ -153,7 +142,13 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 					{loading ? (
 						<span className="cms-skeleton h-11 w-14 shrink-0" />
 					) : (
-						<PublishedThumbnail key={id ?? ""} assetId={id ?? ""} />
+						<MediaFrame
+							assetId={id}
+							mimeType={field.value?.mimeType}
+							width={field.value?.width}
+							height={field.value?.height}
+							className="cms-media-thumbnail"
+						/>
 					)}
 					<ChoiceSelect
 						id={fieldId(path)}
@@ -196,12 +191,21 @@ export function MediaIdsField({ path }: { path: string }) {
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const removals = usePendingRemovals<string>(path, MAX_TRAVEL_MEDIA, sameValue);
 	const { keys } = removals;
+	const keysRef = useRef(keys);
+	keysRef.current = keys;
+	const reorderFeedback = useReorderFeedback();
 	const move = (from: number, to: number) => {
-		if (to < 0 || to >= ids.length) return;
+		if (from === to || to < 0 || to >= ids.length) return;
+		const movedKey = keysRef.current[from];
+		const movedId = ids[from];
+		const movedAlt = store.getState().draft.media.find((asset) => asset.id === movedId)?.alt;
 		const handle = document.activeElement
 			?.closest(".cms-sortable-row")
 			?.querySelector<HTMLButtonElement>("[data-row-handle]");
 		removals.move(from, to);
+		if (movedKey !== undefined) {
+			reorderFeedback.markMoved(movedKey, movedAlt || `Photo ${from + 1}`, from, to, ids.length);
+		}
 		requestAnimationFrame(() => {
 			if (handle?.isConnected && !handle.closest("[inert]")) {
 				handle.focus({ preventScroll: true });
@@ -258,8 +262,11 @@ export function MediaIdsField({ path }: { path: string }) {
 							id={id}
 							path={childPath(path, index)}
 							index={index}
+							settled={reorderFeedback.settledKey === keys[index]}
 							canMoveDown={index < ids.length - 1}
 							move={move}
+							onDragStart={(rowLabel) => reorderFeedback.startDrag(keys[index]!, index, rowLabel)}
+							onDragEnd={() => reorderFeedback.endDrag(keysRef.current)}
 							remove={(label, touch) => {
 								removals.remove(index, label);
 								requestAnimationFrame(() =>
@@ -273,6 +280,9 @@ export function MediaIdsField({ path }: { path: string }) {
 					))}
 				</AnimatePresence>
 			</Reorder.Group>
+			<p role="status" aria-live="polite" className="sr-only">
+				{reorderFeedback.announcement}
+			</p>
 			<ChoiceSelect
 				id={fieldId(path)}
 				label="Add photo"
@@ -319,36 +329,52 @@ function PhotoRow({
 	id,
 	path,
 	index,
+	settled,
 	canMoveDown,
 	move,
+	onDragStart,
+	onDragEnd,
 	remove,
 }: {
 	rowKey: number;
 	id: string;
 	path: string;
 	index: number;
+	settled: boolean;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
+	onDragStart: (label: string) => void;
+	onDragEnd: () => void;
 	remove: (label: string, touch: boolean) => void;
 }) {
-	const [assetIndex, alt] = useDraftSelector(({ draft }) => {
+	const [assetIndex, alt, mimeType, width, height] = useDraftSelector(({ draft }) => {
 		const index = draft.media.findIndex((asset) => asset.id === id);
-		return [index, draft.media[index]?.alt] as const;
+		const asset = draft.media[index];
+		return [index, asset?.alt, asset?.mimeType, asset?.width, asset?.height] as const;
 	});
 	const label = alt || `Photo ${index + 1}`;
 	return (
 		<SortableRow
 			value={rowKey}
+			settled={settled}
 			reorderable={index > 0 || canMoveDown}
 			label={label}
 			className="cms-repeater-row p-2"
 			onMove={(offset) => move(index, index + offset)}
+			onDragStart={() => onDragStart(label)}
+			onDragEnd={onDragEnd}
 		>
 			{(handle) => (
 				<>
 					<div className="flex min-w-0 flex-wrap items-center gap-2">
 						{handle}
-						<PublishedThumbnail assetId={id} />
+						<MediaFrame
+							assetId={id}
+							mimeType={mimeType}
+							width={width}
+							height={height}
+							className="cms-media-thumbnail"
+						/>
 						<span
 							id={fieldId(path)}
 							tabIndex={-1}

@@ -14,17 +14,12 @@ import {
 	PageHeader,
 	controlClass,
 	pageClass,
-	staggerStyle,
 } from "../../components/cms/analytics/Widgets";
 import { useCmsSession, usePublicOrigin } from "../../components/cms/draft/context";
 import { AssetCard } from "../../components/cms/library/AssetCard";
 import { StorageDisconnectedCard } from "../../components/cms/library/StorageCard";
 import { UploadPanel } from "../../components/cms/library/UploadPanel";
-import {
-	AlertTriangleIcon,
-	MediaLibraryIcon,
-	UploadIcon,
-} from "../../components/cms/shell/cms-icons";
+import { AlertTriangleIcon, UploadIcon } from "../../components/cms/shell/cms-icons";
 import { Button } from "../../components/ui/button";
 import { listMedia } from "../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../server/media.server";
@@ -123,10 +118,11 @@ function LibraryRoute() {
 			{!mediaEnabled ? (
 				<StorageDisconnectedCard hasAssets={hasAssets} />
 			) : (
-				<div id={UPLOAD_PANEL_ID} hidden={!uploadOpen}>
+				<div id={UPLOAD_PANEL_ID} hidden={!uploadOpen} className="cms-upload-reveal">
 					{uploadMounted ? (
 						<UploadPanel
 							csrfToken={csrfToken}
+							empty={!loading && !error && !hasAssets}
 							onUploaded={load}
 							onBusyChange={setUploadBusy}
 							onClose={hasAssets ? closeUpload : undefined}
@@ -163,17 +159,7 @@ function LibraryRoute() {
 						))}
 					</div>
 				) : null
-			) : items.length === 0 ? (
-				mediaEnabled ? (
-					<section style={staggerStyle(1)} className="cms-panel cms-enter">
-						<EmptyState
-							icon={<MediaLibraryIcon className="size-5" />}
-							title="No media yet"
-							description="Drop an image or PDF above to start your library."
-						/>
-					</section>
-				) : null
-			) : (
+			) : items.length === 0 ? null : (
 				<div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 					{items.map((asset, idx) => (
 						<AssetCard
