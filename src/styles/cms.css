@@ -17,6 +17,11 @@
 		font-size: 14px;
 	}
 
+	/* No accent glow under the CMS's primary buttons. */
+	:is(.cms-root, .cms-overlay) {
+		--theme-accent-shadow: transparent;
+	}
+
 	.cms-panel {
 		border: 1px solid var(--theme-line);
 		border-radius: var(--cms-radius-panel);

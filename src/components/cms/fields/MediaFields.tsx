@@ -48,6 +48,8 @@ function mediaOption(asset: MediaAsset) {
 
 const EMPTY_ASSETS: readonly MediaAsset[] = [];
 
+const EMPTY_LIBRARY = "Add assets in the media library.";
+
 function useMediaLibrary() {
 	const { mediaEnabled } = useCmsSession();
 	const loadMedia = useServerFn(listMedia);
@@ -71,7 +73,7 @@ function useMediaLibrary() {
 						? "Media storage is not connected."
 						: assets.length
 							? undefined
-							: "Add assets in the media library.",
+							: EMPTY_LIBRARY,
 				);
 			},
 			() => {
@@ -91,7 +93,7 @@ function useMediaLibrary() {
 
 export function MediaField({ path, label }: { path: string; label: string }) {
 	const field = useField<MediaAsset | null | undefined>(path);
-	const { library, description, loading, mediaEnabled } = useMediaLibrary();
+	const { library, description: libraryDescription, loading, mediaEnabled } = useMediaLibrary();
 	const id = field.value?.id;
 	const missing = id && !library.some((asset) => asset.id === id);
 	const options = [
@@ -130,6 +132,9 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 
 	const asset = field.value;
 	const unavailable = !loading && !id && library.length === 0;
+	// The empty card already says where to upload; other problems keep their message.
+	const description =
+		unavailable && libraryDescription === EMPTY_LIBRARY ? undefined : libraryDescription;
 	const descriptionId = describedBy(path, Boolean(description), pickerIssues);
 	const body = (
 		<>
@@ -159,7 +164,9 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 								.filter(Boolean)
 								.join(" · ")
 						: unavailable
-							? "Upload in Media library"
+							? libraryDescription === EMPTY_LIBRARY
+								? "Upload in Media library"
+								: "Not available right now"
 							: "From the media library"}
 				</span>
 			</span>

@@ -316,7 +316,7 @@ export function SuggestionField({
 													key={item}
 													value={item}
 													data-current={item === value || undefined}
-													className="cms-choice-option"
+													className="cms-choice-option cms-select-option"
 													render={(props, { highlighted }) => (
 														<div {...props}>
 															{highlighted ? <ChoiceHighlight reduced={reduced} /> : null}
@@ -324,17 +324,15 @@ export function SuggestionField({
 														</div>
 													)}
 												>
-													<span className="flex min-w-0 items-center justify-between gap-2">
-														<span>
-															{before}
-															{match ? <mark className="cms-match">{match}</mark> : null}
-															{after}
-														</span>
+													{item === value ? (
+														<CheckIcon className="cms-choice-check col-start-1 size-3.5 stroke-2" />
+													) : null}
+													<span className="col-start-2 min-w-0">
+														{before}
+														{match ? <mark className="cms-match">{match}</mark> : null}
+														{after}
 														{item === value ? (
-															<>
-																<CheckIcon className="cms-choice-check size-3.5 shrink-0" />
-																<span className="sr-only"> (current value)</span>
-															</>
+															<span className="sr-only"> (current value)</span>
 														) : null}
 													</span>
 												</Combobox.Item>

@@ -165,29 +165,15 @@ export function UploadPanel({
 			}}
 			className="cms-panel grid gap-4 p-4 sm:p-5"
 		>
-			<div className="flex flex-wrap items-center justify-between gap-2">
-				<div className="grid gap-0.5">
-					<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
-						Add media
-					</h2>
-					<p className="m-0 text-[13px] text-muted-foreground">
-						{empty
-							? "Your library is empty. Add the first image or PDF."
-							: "JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB."}
-					</p>
-				</div>
-				{onClose ? (
-					<button
-						type="button"
-						disabled={uploading}
-						onClick={() => {
-							if (!uploading) onClose();
-						}}
-						className={cn(pillControlClass, "disabled:pointer-events-none disabled:opacity-45")}
-					>
-						Done
-					</button>
-				) : null}
+			<div className="grid gap-0.5">
+				<h2 className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground">
+					Add media
+				</h2>
+				<p className="m-0 text-[13px] text-muted-foreground">
+					{empty
+						? "Your library is empty. Add the first image or PDF."
+						: "JPEG, PNG, WebP, AVIF, or PDF, up to 20 MB."}
+				</p>
 			</div>
 
 			<form onSubmit={(event) => void handleUpload(event)} className="grid gap-3.5">

@@ -25,6 +25,55 @@
 		container: cms-groups / inline-size;
 	}
 
+	/*
+	 * Headings take focus only from code (opening an entry, jumping to a page).
+	 * The trace mark shows where focus landed; a box would read as a field.
+	 */
+	.cms-root .cms-landing-heading {
+		position: relative;
+		outline: none;
+		box-shadow: none;
+	}
+
+	.cms-landing-heading::before {
+		position: absolute;
+		inset-block: 3px;
+		inset-inline-start: -8px;
+		width: 2px;
+		border-radius: 1px;
+		background: var(--theme-accent);
+		content: "";
+		opacity: 0;
+		scale: 1 0;
+		transform-origin: top;
+		transition:
+			scale var(--cms-dur-base) var(--cms-ease-out),
+			opacity var(--cms-dur-base) var(--cms-ease-out);
+	}
+
+	.cms-landing-heading:focus-visible::before {
+		opacity: 1;
+		scale: 1 1;
+	}
+
+	@media (forced-colors: active) {
+		.cms-landing-heading::before {
+			forced-color-adjust: none;
+			background: Highlight;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.cms-landing-heading::before {
+			scale: none;
+			transition-property: opacity;
+		}
+
+		.cms-landing-heading:focus-visible::before {
+			scale: none;
+		}
+	}
+
 	.cms-editor-group {
 		gap: 1.5rem;
 		border-color: color-mix(in srgb, var(--theme-line) 72%, transparent);
@@ -2189,6 +2238,11 @@
 			gap: var(--cms-group-gap);
 		}
 	}
+	/* List settings end where the list below them ends. */
+	.cms-collection-settings .cms-editor-group.cms-editor-group {
+		max-width: none;
+	}
+
 	.cms-media-card {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr) auto;

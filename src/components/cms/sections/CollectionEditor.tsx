@@ -759,7 +759,7 @@ export function CollectionEditor<T extends { id: string }>({
 											<span
 												id={detailHeadingId(shownId)}
 												tabIndex={-1}
-												className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
+												className="cms-landing-heading block wrap-anywhere lg:scroll-mt-32"
 											>
 												<CollectionTitle
 													path={shownPath}
