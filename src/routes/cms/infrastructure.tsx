@@ -10,7 +10,6 @@ import { CloudflareDashboardLinks } from "../../components/cms/CloudflarePanel";
 import { RelativeTime } from "../../components/cms/analytics/RelativeTime";
 import { TrafficChart } from "../../components/cms/analytics/TrafficChart";
 import {
-	EmptyState,
 	PageHeader,
 	Panel,
 	RankedList,
@@ -26,7 +25,6 @@ import {
 	AlertTriangleIcon,
 	CheckCircleIcon,
 	ExternalArrowIcon,
-	InfrastructureIcon,
 } from "../../components/cms/shell/cms-icons";
 import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import {
@@ -111,13 +109,24 @@ const outcomeLabels: Record<string, string> = {
 
 // ── Small pieces ─────────────────────────────────────────────────────────────
 
-function ExternalLink({ href, children }: { href: string; children: ReactNode }) {
+function ExternalLink({
+	href,
+	children,
+	className,
+}: {
+	href: string;
+	children: ReactNode;
+	className?: string;
+}) {
 	return (
 		<a
 			href={href}
 			target="_blank"
 			rel="noreferrer"
-			className="cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11"
+			className={cn(
+				"cms-press cms-page-focus inline-flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[13px] font-medium text-primary-text no-underline hover:bg-primary-soft pointer-coarse:min-h-11",
+				className,
+			)}
 		>
 			<span>{children}</span>
 			<ExternalArrowIcon className="size-3.5" />
@@ -199,7 +208,15 @@ function MetricGrid({
 	);
 }
 
-function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) {
+function DeploymentRow({
+	item,
+	latest,
+	current,
+}: {
+	item: DeploymentItem;
+	latest: boolean;
+	current: boolean;
+}) {
 	// Builds tag each version with its commit; older versions show their id.
 	const label = item.tag ? item.tag.slice(0, 7) : shortVersionId(item.versionId);
 	const rawMessage = item.message?.trim() || null;
@@ -216,19 +233,16 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 			<span className="flex min-w-0 flex-wrap items-center gap-1.5">
 				<code
 					title={item.versionId}
-					className={cn(
-						"rounded-[6px] border px-1.5 py-px font-mono text-[12px] tabular-nums",
-						live
-							? "border-success/35 bg-success/10 text-success"
-							: "border-line bg-surface-raised text-foreground",
-					)}
+					className="rounded-[6px] border border-line bg-surface-raised px-1.5 py-px font-mono text-[12px] text-foreground tabular-nums"
 				>
 					{label}
 				</code>
-				{live ? (
-					<span className="inline-flex items-center gap-1 rounded-full border border-success/35 bg-success/10 px-1.5 py-px text-[11px] leading-tight font-medium text-success">
-						<span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-						Live
+				{latest ? (
+					<span className="text-[11px] font-medium text-muted-foreground">Latest deployment</span>
+				) : null}
+				{current ? (
+					<span className="rounded-full border border-primary-line bg-primary-soft px-1.5 py-px text-[11px] leading-tight font-medium text-primary-text">
+						Current build
 					</span>
 				) : null}
 			</span>
@@ -250,6 +264,7 @@ function DeploymentRow({ item, live }: { item: DeploymentItem; live: boolean }) 
 }
 
 function DeploymentsPanel({ deployments }: { deployments: DeploymentItem[] | null }) {
+	const { build } = useCmsSession();
 	const [expanded, setExpanded] = useState(false);
 	const visible = deployments && !expanded ? deployments.slice(0, 1) : deployments;
 	const hiddenCount = deployments ? Math.max(0, deployments.length - 1) : 0;
@@ -268,7 +283,12 @@ function DeploymentsPanel({ deployments }: { deployments: DeploymentItem[] | nul
 				<div className="grid min-w-0 gap-1.5">
 					<ul className="@container m-0 grid list-none gap-0.5 p-0">
 						{visible.map((item, index) => (
-							<DeploymentRow key={item.id} item={item} live={index === 0} />
+							<DeploymentRow
+								key={item.id}
+								item={item}
+								latest={index === 0}
+								current={item.versionId === build?.id}
+							/>
 						))}
 					</ul>
 					{hiddenCount > 0 ? (
@@ -324,63 +344,55 @@ function InfrastructureSkeleton() {
 	);
 }
 
+function MetricsStatus({
+	title,
+	action,
+	children,
+}: {
+	title: string;
+	action: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<section className="cms-panel cms-enter cms-infra-status grid items-center gap-1 px-4 py-2.5 sm:grid-cols-[1fr_auto] sm:gap-x-3 sm:px-5">
+			<h2 className="m-0 text-[16px] font-semibold text-foreground">{title}</h2>
+			<p className="m-0 text-[12.5px] text-muted-foreground">{children}</p>
+			<div className="justify-self-start sm:col-start-2 sm:row-start-1">{action}</div>
+		</section>
+	);
+}
+
 function NotConfigured() {
 	return (
-		<section className="cms-panel cms-enter">
-			<EmptyState
-				icon={<InfrastructureIcon className="size-5" />}
-				title="Connect Cloudflare metrics"
-				description={
-					<>
-						Create a read-only API token with Account Analytics Read and Workers Scripts Read, then
-						add it to the Worker as the{" "}
-						<code className="font-mono text-[12.5px]">CF_API_TOKEN</code> secret.
-					</>
-				}
-				action={
-					<a
-						href="https://dash.cloudflare.com/?to=/:account/api-tokens"
-						target="_blank"
-						rel="noreferrer"
-						className={controlClass}
-					>
-						Create a token
-						<ExternalArrowIcon className="size-3.5" />
-						<span className="sr-only"> (opens in a new tab)</span>
-					</a>
-				}
-			/>
-		</section>
+		<MetricsStatus
+			title="Metrics not connected"
+			action={
+				<ExternalLink
+					href="https://dash.cloudflare.com/?to=/:account/api-tokens"
+					className="max-sm:-ms-2.5"
+				>
+					Connect Cloudflare metrics
+				</ExternalLink>
+			}
+		>
+			Add a read-only token as <code className="font-mono">CF_API_TOKEN</code>.
+		</MetricsStatus>
 	);
 }
 
 function Unavailable() {
 	const router = useRouter();
 	return (
-		<section className="cms-panel cms-enter">
-			<EmptyState
-				icon={<AlertTriangleIcon className="size-5" />}
-				title="Metrics unavailable"
-				description="Cloudflare's analytics could not be reached right now. Your site is unaffected."
-				action={
-					<>
-						<button type="button" className={controlClass} onClick={() => void router.invalidate()}>
-							Try again
-						</button>
-						<a
-							href={CLOUDFLARE_DASHBOARD_URL}
-							target="_blank"
-							rel="noreferrer"
-							className={controlClass}
-						>
-							Open dashboard
-							<ExternalArrowIcon className="size-3.5" />
-							<span className="sr-only"> (opens in a new tab)</span>
-						</a>
-					</>
-				}
-			/>
-		</section>
+		<MetricsStatus
+			title="Metrics unavailable"
+			action={
+				<button type="button" className={controlClass} onClick={() => void router.invalidate()}>
+					Retry
+				</button>
+			}
+		>
+			Could not load metrics from Cloudflare.
+		</MetricsStatus>
 	);
 }
 
@@ -420,9 +432,9 @@ function Infrastructure() {
 					</>
 				}
 				actions={
-					<div className="flex max-w-full flex-wrap items-center justify-end gap-2">
+					<div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end">
 						{showRangeControl ? (
-							<nav aria-label="Metrics range" className="cms-seg-track">
+							<nav aria-label="Metrics range" className="cms-seg-track cms-seg-track-fill">
 								{ranges.map(([value, label]) => {
 									const isActive = range === value;
 									return (
@@ -432,12 +444,15 @@ function Infrastructure() {
 											search={{ range: value }}
 											resetScroll={false}
 											activeOptions={{ exact: true, includeSearch: true }}
+											aria-label={`Last ${label}`}
 											data-active={isActive ? "true" : "false"}
-											className="cms-seg-item shrink-0"
+											className="cms-seg-item"
 										>
 											{isActive ? (
 												<motion.span
-													layoutId="cms-infra-range-pill"
+													layoutId={reduced ? undefined : "cms-infra-range-pill"}
+													initial={reduced ? { opacity: 0 } : false}
+													animate={{ opacity: 1 }}
 													aria-hidden="true"
 													transition={reduced ? REDUCED : SPRING_MOVE}
 													className="cms-seg-pill"
@@ -454,7 +469,7 @@ function Infrastructure() {
 							href={CLOUDFLARE_DASHBOARD_URL}
 							target="_blank"
 							rel="noreferrer"
-							className="cms-header-action cms-press cms-page-focus"
+							className="cms-press cms-page-focus inline-flex min-h-9 items-center gap-1.5 rounded-md px-1.5 text-[13px] max-sm:-ms-1.5 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline pointer-coarse:min-h-11"
 						>
 							<span>Cloudflare</span>
 							<ExternalArrowIcon className="size-3.5" />
@@ -538,6 +553,16 @@ function InsightsBody({
 
 	return (
 		<>
+			{worker.requests === 0 || !database || !storage || deployments === null ? (
+				<div className="cms-panel cms-enter grid gap-1 p-4 text-[13px] text-muted-foreground">
+					{worker.requests === 0 ? <p className="m-0">No Worker requests in this range.</p> : null}
+					{!database || !storage || deployments === null ? (
+						<p className="m-0">
+							Cloudflare returned partial data. Some panels could not be loaded.
+						</p>
+					) : null}
+				</div>
+			) : null}
 			<StatStrip stats={stats} stagger={0} />
 
 			{/* Primary band: Requests chart paired with Outcomes + Deployments on wide screens. */}

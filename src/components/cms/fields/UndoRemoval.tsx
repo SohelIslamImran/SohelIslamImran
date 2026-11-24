@@ -10,13 +10,14 @@ import {
 	useRef,
 	useState,
 } from "react";
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import type { Dispatch, ReactNode, RefObject, SetStateAction } from "react";
 import { createPortal } from "react-dom";
+import { cn } from "../../../lib/utils";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { useDraftSelector, useDraftStore } from "../draft/context";
 import { childPath, getAt, insertItem, jsonEqual, moveItem, removeItem } from "../draft/paths";
 import type { DraftState } from "../draft/store";
-import { REDUCED, SPRING_SURFACE } from "../motion";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import {
 	createRemoval,
 	replacedDraft,
@@ -27,11 +28,14 @@ import {
 	sameRowKey,
 	type KeyedRow,
 } from "./row-list";
+import { stackSlot } from "./undo-stack";
 
 export const editorButton = "cms-editor-button cms-press";
 
 interface RemovalToast {
 	id: string;
+	/** Removal order across every field, newest highest, so the deck leads with the latest. */
+	seq: number;
 	scoped?: boolean;
 	label: string;
 	canUndo: boolean;
@@ -54,7 +58,10 @@ interface ScopedRemoval {
 	dismiss: () => void;
 }
 
-type ListRemoval<T> = PendingRemoval<KeyedRow<T>> & { scoped?: ScopedRemoval };
+type ListRemoval<T> = PendingRemoval<KeyedRow<T>> & { seq: number; scoped?: ScopedRemoval };
+
+let removalSequence = 0;
+const nextRemovalSeq = () => ++removalSequence;
 type RemovalLists = Map<string, readonly ListRemoval<unknown>[]>;
 const EMPTY_REMOVALS: readonly never[] = [];
 const RemovalListsContext = createContext<{
@@ -94,12 +101,25 @@ export function UndoRemovalScope({
 	return <RemovalScope.Provider value={value}>{children}</RemovalScope.Provider>;
 }
 
+function focusFallbackAfterScopedClose() {
+	const back = document.querySelector<HTMLElement>(".cms-collection-back button:not(:disabled)");
+	const target = back?.getClientRects().length
+		? back
+		: document.getElementById("cms-section-heading");
+	target?.focus({ preventScroll: true });
+}
+
 /** Keep the stack outside the animated editor so it stays fixed to the viewport. */
 export function UndoRemovalHost({ children }: { children: ReactNode }) {
 	const [host, setHost] = useState<HTMLElement | null>(null);
 	const [toasts, setToasts] = useState<RemovalToast[]>([]);
 	const [lists, setLists] = useState<RemovalLists>(() => new Map());
 	const [identities] = useState(() => new Map<string, RowIdentity>());
+	const [expanded, setExpanded] = useState(false);
+	const [hovered, setHovered] = useState(false);
+	const stackId = useId();
+	const toggleRef = useRef<HTMLButtonElement>(null);
+	const reduced = useLiveReducedMotion();
 	const store = useDraftStore();
 	const removals = useMemo(() => ({ lists, setLists, identities }), [lists, identities]);
 	useLayoutEffect(() => {
@@ -112,30 +132,116 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 		});
 	}, [store]);
 	useEffect(() => setHost(document.querySelector<HTMLElement>(".cms-root") ?? document.body), []);
+
 	const pending = Array.from(lists.values()).flat().reverse();
+	// Read scoped availability as a primitive string so unrelated edits don't re-render the host.
+	const scopedCounts = useDraftSelector((state) => {
+		if (pending.length === 0) return "";
+		return pending
+			.map(({ scoped }) => {
+				if (!scoped) return "";
+				const targetPath = scoped.pathAt(state);
+				if (targetPath === undefined) return "x";
+				return String((getAt(state.draft, targetPath) as unknown[] | undefined)?.length ?? 0);
+			})
+			.join(",");
+	});
+	const counts = scopedCounts ? scopedCounts.split(",") : [];
+
+	const deckItems: RemovalToast[] = [
+		...toasts.filter((toast) => !toast.scoped),
+		...pending.flatMap(({ label, scoped, seq }, index) => {
+			if (!scoped) return [];
+			const rawCount = counts[index];
+			if (rawCount === undefined || rawCount === "" || rawCount === "x") return [];
+			const count = Number(rawCount);
+			const mounted = toasts.find((toast) => toast.id === scoped.key);
+			const close = () => {
+				scoped.dismiss();
+				focusFallbackAfterScopedClose();
+			};
+			return [
+				{
+					id: scoped.key,
+					seq,
+					label,
+					canUndo: mounted?.canUndo ?? count < scoped.max,
+					onUndo:
+						mounted?.onUndo ??
+						(() => {
+							if (scoped.restore() !== undefined) close();
+						}),
+					onDismiss: mounted?.onDismiss ?? close,
+				},
+			];
+		}),
+	];
+
+	deckItems.sort((a, b) => b.seq - a.seq);
+	const total = deckItems.length;
+	const isExpanded = expanded && total > 1;
+	const isCollapsed = total > 1 && !isExpanded;
+
+	useEffect(() => {
+		if (total <= 1 && expanded) setExpanded(false);
+		if (total <= 1 && hovered) setHovered(false);
+	}, [expanded, hovered, total]);
+
+	const toggleExpanded = useCallback(() => {
+		setExpanded((current) => {
+			const next = !current;
+			if (next) setHovered(false);
+			return next;
+		});
+	}, []);
+
 	return (
 		<UndoHost.Provider value={setToasts}>
 			<RemovalListsContext.Provider value={removals}>{children}</RemovalListsContext.Provider>
 			{host
 				? createPortal(
-						<div className="cms-undo-stack pointer-events-none fixed bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit flex-col gap-2 overflow-y-auto px-3 py-4 lg:bottom-2">
-							<AnimatePresence initial={false}>
-								{toasts
-									.filter((toast) => !toast.scoped)
-									.map((toast) => (
-										<UndoToast key={toast.id} {...toast} />
-									))}
-								{pending.map(({ label, scoped }) =>
-									scoped ? (
-										<ScopedUndoToast
-											key={scoped.key}
-											removal={scoped}
-											label={label}
-											mounted={toasts.find((toast) => toast.id === scoped.key)}
-										/>
-									) : null,
+						<div
+							id={stackId}
+							data-collapsed={isCollapsed || undefined}
+							data-expanded={isExpanded || undefined}
+							onPointerEnter={(event) => {
+								if (isCollapsed && event.pointerType === "mouse") setHovered(true);
+							}}
+							onPointerLeave={() => setHovered(false)}
+							onKeyDown={(event) => {
+								if (event.key !== "Escape" || !isExpanded) return;
+								event.preventDefault();
+								event.stopPropagation();
+								setExpanded(false);
+								requestAnimationFrame(() => toggleRef.current?.focus({ preventScroll: true }));
+							}}
+							className={cn(
+								"cms-undo-stack pointer-events-none fixed bottom-20 z-(--z-toast) mx-auto flex max-h-[calc(100dvh-9rem)] w-fit flex-col gap-2 px-3 pb-4 lg:bottom-2",
+								isCollapsed ? "pt-7 overflow-visible" : "pt-4 overflow-y-auto",
+							)}
+						>
+							<div
+								className={cn(
+									"cms-undo-deck",
+									isCollapsed ? "relative" : "flex flex-col-reverse gap-2",
 								)}
-							</AnimatePresence>
+							>
+								<AnimatePresence initial={false}>
+									{deckItems.map((toast, index) => (
+										<UndoToast
+											key={toast.id}
+											toast={toast}
+											index={index}
+											total={total}
+											expanded={isExpanded}
+											spread={isCollapsed && hovered && !reduced}
+											stackId={stackId}
+											toggleRef={index === 0 ? toggleRef : undefined}
+											onToggleExpanded={index === 0 && total > 1 ? toggleExpanded : undefined}
+										/>
+									))}
+								</AnimatePresence>
+							</div>
 						</div>,
 						host,
 					)
@@ -149,7 +255,7 @@ export function UndoRemoval({
 	onUndo,
 	onDismiss,
 }: {
-	removal: { label: string; canUndo: boolean; scopeKey?: string } | null;
+	removal: { label: string; canUndo: boolean; seq?: number; scopeKey?: string } | null;
 	onUndo: () => void;
 	onDismiss: () => void;
 }) {
@@ -159,6 +265,7 @@ export function UndoRemoval({
 	const scoped = removal?.scopeKey !== undefined;
 	const label = removal?.label;
 	const canUndo = removal?.canUndo ?? false;
+	const seq = removal?.seq ?? 0;
 	const actions = useRef({ onUndo, onDismiss });
 	useLayoutEffect(() => {
 		actions.current = { onUndo, onDismiss };
@@ -168,6 +275,7 @@ export function UndoRemoval({
 		if (!setToasts || label === undefined) return;
 		const toast = {
 			id,
+			seq,
 			scoped,
 			label,
 			canUndo,
@@ -176,7 +284,7 @@ export function UndoRemoval({
 		};
 		setToasts((current) => [toast, ...current.filter((entry) => entry.id !== id)]);
 		return () => setToasts((current) => current.filter((entry) => entry !== toast));
-	}, [setToasts, id, label, canUndo, scoped]);
+	}, [setToasts, id, label, canUndo, scoped, seq]);
 
 	return null;
 }
@@ -281,14 +389,10 @@ export function usePendingRemovals<T>(
 			row.allowDuplicate = rows.some((value, at) => at !== index && sameValue?.(value, row.value));
 			update(removeItem(rows, index), removeItem(keys, index));
 			setAll((current) => {
-				const removal: ListRemoval<T> = createRemoval(
-					before,
-					index,
-					label,
-					current,
-					sameRowKey,
-					row.key,
-				);
+				const removal: ListRemoval<T> = {
+					...createRemoval(before, index, label, current, sameRowKey, row.key),
+					seq: nextRemovalSeq(),
+				};
 				if (scope) {
 					const suffix = path.slice(scope.path.length);
 					const pathAt = (state: DraftState) => {
@@ -337,6 +441,7 @@ export function usePendingRemovals<T>(
 			label: removal.label,
 			row: removal.row.value,
 			canUndo: count < max,
+			seq: removal.seq,
 			scopeKey: removal.scoped?.key,
 		})),
 		reorder(next: number[]) {
@@ -366,79 +471,95 @@ export function usePendingRemovals<T>(
 	};
 }
 
-function ScopedUndoToast({
-	removal,
-	label,
-	mounted,
+function UndoToast({
+	toast,
+	index,
+	total,
+	expanded,
+	spread,
+	stackId,
+	toggleRef,
+	onToggleExpanded,
 }: {
-	removal: ScopedRemoval;
-	label: string;
-	mounted?: RemovalToast;
+	toast: RemovalToast;
+	index: number;
+	total: number;
+	expanded: boolean;
+	spread: boolean;
+	stackId: string;
+	toggleRef?: RefObject<HTMLButtonElement | null>;
+	onToggleExpanded?: () => void;
 }) {
-	const count = useDraftSelector((state) => {
-		const path = removal.pathAt(state);
-		return path === undefined
-			? null
-			: ((getAt(state.draft, path) as unknown[] | undefined)?.length ?? 0);
-	});
-	if (count === null) return null;
-
-	// An inactive field has no focus target. Restore it in place by item ID.
-	const close = () => {
-		removal.dismiss();
-		const back = document.querySelector<HTMLElement>(".cms-collection-back button:not(:disabled)");
-		const target = back?.getClientRects().length
-			? back
-			: document.getElementById("cms-section-heading");
-		target?.focus({ preventScroll: true });
-	};
-	return (
-		<UndoToast
-			id={removal.key}
-			label={label}
-			canUndo={mounted?.canUndo ?? count < removal.max}
-			onUndo={
-				mounted?.onUndo ??
-				(() => {
-					if (removal.restore() !== undefined) close();
-				})
-			}
-			onDismiss={mounted?.onDismiss ?? close}
-		/>
-	);
-}
-
-function UndoToast({ label, canUndo, onUndo, onDismiss }: RemovalToast) {
 	const reduced = useLiveReducedMotion();
 	const present = useIsPresent();
+	const slot = stackSlot(index, total, expanded, spread);
+	const stackedBehind = total > 1 && !expanded && index > 0;
+	const target =
+		reduced && stackedBehind
+			? { opacity: 0, y: 0, scale: 1 }
+			: {
+					opacity: slot.opacity,
+					y: reduced ? 0 : slot.y,
+					scale: reduced ? 1 : slot.scale,
+				};
+
 	return (
 		<motion.div
-			inert={!present}
+			layout={reduced ? false : "position"}
+			inert={!present || !slot.interactive}
+			aria-hidden={!slot.interactive || undefined}
+			data-stacked={stackedBehind || undefined}
+			style={{ zIndex: total - index }}
 			initial={{ opacity: 0, y: reduced ? 0 : 16, scale: reduced ? 1 : 0.98 }}
-			animate={{ opacity: 1, y: 0, scale: 1 }}
+			animate={target}
 			exit={{
 				opacity: 0,
 				y: reduced ? 0 : 10,
 				scale: reduced ? 1 : 0.98,
 				transition: reduced ? REDUCED : { duration: 0.16, ease: [0.55, 0, 1, 0.45] },
 			}}
-			transition={reduced ? REDUCED : SPRING_SURFACE}
-			className="cms-panel cms-undo pointer-events-auto flex max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-md"
+			transition={reduced ? REDUCED : SPRING_MOVE}
+			className={cn(
+				"cms-panel cms-undo max-w-full shrink-0 items-center gap-2 p-2 shadow-md",
+				total > 1 ? "grid grid-cols-[auto_auto_minmax(0,1fr)]" : "flex flex-wrap",
+				expanded && "w-full",
+				expanded && index > 0 && "[contain:inline-size]",
+				slot.interactive ? "pointer-events-auto relative" : "pointer-events-none",
+				stackedBehind && "cms-undo-behind",
+			)}
 		>
-			<p role="status" className="m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]">
-				Removed {label}.{canUndo ? "" : " Make room in the list to undo."}
+			<p
+				role={slot.interactive ? "status" : undefined}
+				className={cn(
+					"m-0 min-w-0 max-w-[55ch] wrap-anywhere px-2 text-[13px]",
+					total > 1 && "col-span-full",
+				)}
+			>
+				Removed {toast.label}.{toast.canUndo ? "" : " Make room in the list to undo."}
 			</p>
 			<button
 				type="button"
 				className={`${editorButton} cms-editor-primary`}
-				onClick={onUndo}
-				disabled={!canUndo}
+				onClick={toast.onUndo}
+				disabled={!toast.canUndo}
 			>
 				Undo
 			</button>
-			<button type="button" className={editorButton} onClick={onDismiss}>
+			<button type="button" className={editorButton} onClick={toast.onDismiss}>
 				Dismiss
 			</button>
+			{onToggleExpanded ? (
+				<button
+					ref={toggleRef}
+					type="button"
+					className={cn(editorButton, "justify-self-end whitespace-nowrap")}
+					aria-expanded={expanded}
+					aria-controls={stackId}
+					onClick={onToggleExpanded}
+				>
+					{expanded ? "Show less" : `${total - 1} more`}
+				</button>
+			) : null}
 		</motion.div>
 	);
 }

@@ -69,8 +69,21 @@ export function IdentityEditor() {
 		<>
 			<EditorGroup title="Profile">
 				<div className="cms-field-pair">
-					<TextField path="identity.name" label="Name" maxLength={160} required />
-					<TextField path="identity.handle" label="Handle" maxLength={160} mono required />
+					<TextField
+						path="identity.name"
+						label="Name"
+						maxLength={160}
+						autoCapitalize="words"
+						spellCheck={false}
+						required
+					/>
+					<TextField
+						path="identity.handle"
+						label="Handle"
+						maxLength={160}
+						spellCheck={false}
+						required
+					/>
 				</div>
 				<TextAreaField singleLine path="identity.role" label="Role" maxLength={240} />
 				<TextAreaField

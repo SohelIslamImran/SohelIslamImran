@@ -5,13 +5,15 @@ import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
+import { FieldFrame, describedBy, fieldId, useFieldIssueFeedback } from "./FieldFrame";
 import {
-	FieldFrame,
-	controlClass,
-	describedBy,
-	fieldId,
-	useFieldIssueFeedback,
-} from "./FieldFrame";
+	InputShell,
+	identifierAttributes,
+	inputAttributes,
+	inputClass,
+	proseAttributes,
+} from "./InputShell";
+import { MailIcon } from "./field-icons";
 import { toSingleLine } from "./field-logic";
 
 interface BaseFieldProps {
@@ -32,34 +34,61 @@ export interface TextFieldProps extends BaseFieldProps {
 	type?: "text" | "email" | "url" | "search" | "date";
 	inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
 	autoComplete?: string;
+	autoCapitalize?: string;
 	spellCheck?: boolean;
 	/** Monospace input, for slugs, ids, hrefs. */
 	mono?: boolean;
 	prefix?: ReactNode;
+	leading?: ReactNode;
+	trailing?: ReactNode;
 	valueOverride?: string;
 }
 
-export function Counter({ length, max }: { length: number; max?: number }) {
+export function Counter({
+	length,
+	max,
+	unit = "chars",
+}: {
+	length: number;
+	max?: number;
+	unit?: "chars" | "items";
+}) {
 	const reduced = useLiveReducedMotion();
 	if (!max || length < Math.ceil(max * 0.8)) return null;
+	const remaining = max - length;
+	const count =
+		unit === "items" ? length : remaining < 0 ? `${-remaining} over` : `${remaining} left`;
 	return (
 		<span
-			className={cn(
-				"cms-counter inline-flex font-mono text-[11px] tabular-nums",
-				length > max ? "text-destructive" : "text-muted-foreground",
-			)}
+			className="cms-counter"
+			data-over={remaining < 0 || undefined}
+			aria-label={`${length} of ${max} ${unit === "chars" ? "characters" : "items"}`}
 		>
-			<AnimatePresence initial={false}>
-				<motion.span
-					key={length}
-					initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
-					animate={{ opacity: 1, y: 0 }}
-					transition={reduced ? REDUCED : SPRING_SNAPPY}
-				>
-					{length}
-				</motion.span>
-			</AnimatePresence>
-			/{max}
+			<svg viewBox="0 0 14 14" aria-hidden="true">
+				<circle cx="7" cy="7" r="5.5" />
+				<circle
+					cx="7"
+					cy="7"
+					r="5.5"
+					pathLength="1"
+					strokeDasharray="1"
+					strokeDashoffset={Math.max(0, remaining / max)}
+				/>
+			</svg>
+			<span>
+				<AnimatePresence initial={false}>
+					<motion.span
+						key={count}
+						className="inline-block"
+						initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
+						animate={{ opacity: 1, y: 0 }}
+						transition={reduced ? REDUCED : SPRING_SNAPPY}
+					>
+						{count}
+					</motion.span>
+				</AnimatePresence>
+				{unit === "items" ? `/${max}` : null}
+			</span>
 		</span>
 	);
 }
@@ -76,44 +105,66 @@ export function TextField({
 	type = "text",
 	inputMode,
 	autoComplete = "off",
+	autoCapitalize,
 	spellCheck,
 	mono,
 	prefix,
+	leading,
+	trailing,
 	required,
 	valueOverride,
 }: TextFieldProps) {
 	const field = useField<string | undefined>(path);
 	const value = valueOverride ?? field.value ?? "";
+	const id = fieldId(path);
+	const prefixId = prefix ? `${id}-prefix` : undefined;
+	const attributes: typeof inputAttributes &
+		Pick<React.InputHTMLAttributes<HTMLInputElement>, "autoCapitalize"> =
+		type === "date"
+			? inputAttributes
+			: mono || type === "email" || type === "url" || spellCheck === false
+				? identifierAttributes
+				: proseAttributes;
 	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, value);
 	return (
 		<FieldFrame
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			meta={<Counter length={value.length} max={maxLength} />}
 			className={className}
 		>
-			<div className="relative flex min-w-0 items-center">
-				{prefix ? (
-					<span className="pointer-events-none absolute left-3 font-mono text-[12.5px] text-muted-foreground">
-						{prefix}
+			<InputShell
+				prefix={prefix}
+				leading={leading ?? (type === "email" ? <MailIcon /> : undefined)}
+				trailing={trailing}
+				invalid={issues.length > 0}
+				disabled={disabled}
+			>
+				{prefixId ? (
+					<span id={prefixId} className="sr-only">
+						Path prefix {prefix}
 					</span>
 				) : null}
 				<Input
-					id={fieldId(path)}
+					{...attributes}
+					id={id}
 					type={type}
 					value={value}
 					placeholder={placeholder}
 					disabled={disabled}
 					aria-required={required || undefined}
-					inputMode={inputMode}
+					inputMode={inputMode ?? (type === "email" ? "email" : undefined)}
 					autoComplete={autoComplete}
-					spellCheck={spellCheck}
+					autoCapitalize={autoCapitalize ?? attributes.autoCapitalize}
 					aria-invalid={issues.length > 0 || undefined}
-					aria-describedby={describedBy(path, Boolean(description), issues)}
+					aria-describedby={
+						cn(prefixId, describedBy(path, Boolean(description), issues)) || undefined
+					}
 					data-settle-issues=""
 					onFocus={onFocus}
 					onBlur={onBlur}
@@ -121,19 +172,9 @@ export function TextField({
 						const next = event.currentTarget.value;
 						field.set(optional && next === "" ? undefined : next);
 					}}
-					className={cn(
-						controlClass,
-						"min-h-10",
-						mono && "font-mono text-[13px]",
-						prefix && "pl-[calc(var(--prefix-ch,1)*1ch+1.5rem)]",
-					)}
-					style={
-						prefix && typeof prefix === "string"
-							? ({ "--prefix-ch": prefix.length } as React.CSSProperties)
-							: undefined
-					}
+					className={cn(inputClass, mono && "cms-input-mono")}
 				/>
-			</div>
+			</InputShell>
 		</FieldFrame>
 	);
 }
@@ -178,46 +219,45 @@ export function TextAreaField({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			meta={<Counter length={value.length} max={maxLength} />}
 			className={className}
 		>
-			<textarea
-				ref={textarea}
-				id={fieldId(path)}
-				rows={rows}
-				style={singleLine ? undefined : { minBlockSize: `calc(${rows}lh + 22px)` }}
-				value={value}
-				placeholder={placeholder}
-				disabled={disabled}
-				aria-required={required || undefined}
-				aria-invalid={issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), issues)}
-				onKeyDown={
-					singleLine
-						? (event) => {
-								if (event.key === "Enter" && !event.nativeEvent.isComposing) event.preventDefault();
-							}
-						: undefined
-				}
-				data-settle-issues=""
-				onFocus={onFocus}
-				onBlur={onBlur}
-				onChange={(event) => {
-					const raw = event.currentTarget.value;
-					const next = singleLine ? toSingleLine(raw) : raw;
-					field.set(optional && next === "" ? undefined : next);
-				}}
-				className={cn(
-					controlClass,
-					"cms-textarea",
-					singleLine
-						? "cms-textarea-single min-h-10 py-[8px] leading-[22px]"
-						: "py-2.5 leading-relaxed",
-				)}
-			/>
+			<InputShell multiline invalid={issues.length > 0} disabled={disabled}>
+				<textarea
+					{...proseAttributes}
+					ref={textarea}
+					id={fieldId(path)}
+					rows={rows}
+					style={singleLine ? undefined : { minBlockSize: `calc(${rows}lh + 18px)` }}
+					value={value}
+					placeholder={placeholder}
+					disabled={disabled}
+					aria-required={required || undefined}
+					aria-invalid={issues.length > 0 || undefined}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
+					onKeyDown={
+						singleLine
+							? (event) => {
+									if (event.key === "Enter" && !event.nativeEvent.isComposing)
+										event.preventDefault();
+								}
+							: undefined
+					}
+					data-settle-issues=""
+					onFocus={onFocus}
+					onBlur={onBlur}
+					onChange={(event) => {
+						const raw = event.currentTarget.value;
+						const next = singleLine ? toSingleLine(raw) : raw;
+						field.set(optional && next === "" ? undefined : next);
+					}}
+					className={cn(inputClass, "cms-textarea", singleLine && "cms-textarea-single")}
+				/>
+			</InputShell>
 		</FieldFrame>
 	);
 }
@@ -226,6 +266,7 @@ export interface NumberFieldProps extends Omit<BaseFieldProps, "maxLength"> {
 	min?: number;
 	max?: number;
 	step?: number | "any";
+	suffix?: string;
 }
 
 /** Optional numeric value; an empty input stores `undefined`. */
@@ -236,9 +277,11 @@ export function NumberField({
 	placeholder,
 	className,
 	disabled,
+	optional,
 	min,
 	max,
 	step = "any",
+	suffix,
 }: NumberFieldProps) {
 	const field = useField<number | undefined>(path);
 	const { issues, onFocus, onBlur } = useFieldIssueFeedback(field.issues, field.value ?? "");
@@ -247,33 +290,46 @@ export function NumberField({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
 			className={className}
 		>
-			<Input
-				id={fieldId(path)}
-				type="number"
-				inputMode="decimal"
-				value={field.value ?? ""}
-				placeholder={placeholder}
+			<InputShell
+				invalid={issues.length > 0}
 				disabled={disabled}
-				min={min}
-				max={max}
-				step={step}
-				aria-invalid={issues.length > 0 || undefined}
-				aria-describedby={describedBy(path, Boolean(description), issues)}
-				data-settle-issues=""
-				onFocus={onFocus}
-				onBlur={onBlur}
-				onChange={(event) => {
-					const raw = event.currentTarget.value;
-					const parsed = raw === "" ? undefined : Number(raw);
-					field.set(parsed === undefined || Number.isNaN(parsed) ? undefined : parsed);
-				}}
-				className={cn(controlClass, "min-h-10 font-mono tabular-nums")}
-			/>
+				trailing={
+					suffix ? (
+						<span className="pe-1.5 text-[13px] text-muted-foreground">{suffix}</span>
+					) : undefined
+				}
+			>
+				<Input
+					{...inputAttributes}
+					spellCheck={false}
+					id={fieldId(path)}
+					type="number"
+					inputMode="decimal"
+					value={field.value ?? ""}
+					placeholder={placeholder}
+					disabled={disabled}
+					min={min}
+					max={max}
+					step={step}
+					aria-invalid={issues.length > 0 || undefined}
+					aria-describedby={describedBy(path, Boolean(description), issues)}
+					data-settle-issues=""
+					onFocus={onFocus}
+					onBlur={onBlur}
+					onChange={(event) => {
+						const raw = event.currentTarget.value;
+						const parsed = raw === "" ? undefined : Number(raw);
+						field.set(parsed === undefined || Number.isNaN(parsed) ? undefined : parsed);
+					}}
+					className={inputClass}
+				/>
+			</InputShell>
 		</FieldFrame>
 	);
 }

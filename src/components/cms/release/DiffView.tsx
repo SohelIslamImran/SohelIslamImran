@@ -3,10 +3,10 @@
  * and Raw JSON import preview. Pairs every state with an icon and text label
  * (never hue alone) and supports smooth collapsible section groups.
  */
-import { useId, useState, type ReactNode } from "react";
+import { useId, useLayoutEffect, useState, type ReactNode } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { Link } from "@tanstack/react-router";
-import { AnimatePresence, motion } from "motion/react";
+import { motion } from "motion/react";
 import { cn } from "../../../lib/utils";
 import { EmptyState, staggerStyle } from "../analytics/Widgets";
 import { REDUCED, SPRING_MOVE } from "../motion";
@@ -31,6 +31,7 @@ interface DiffViewProps {
 	showEditLinks?: boolean;
 	/** Show collapsed unchanged sections below changed ones. Default true. */
 	showUnchanged?: boolean;
+	showIndex?: boolean;
 	/** Copy shown when `diff.changedSections.length === 0`. */
 	emptyTitle?: string;
 	emptyDescription?: string;
@@ -44,7 +45,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 			viewBox="0 0 16 16"
 			aria-hidden="true"
 			className={cn(
-				"size-4 shrink-0 fill-none stroke-current stroke-[1.7] text-muted-foreground transition-transform duration-200 ease-trace motion-reduce:transition-none [stroke-linecap:round] [stroke-linejoin:round]",
+				"size-4 shrink-0 fill-none stroke-current stroke-[1.7] text-muted-foreground transition-transform duration-200 ease-trace motion-reduce:transition-none motion-reduce:rotate-none [stroke-linecap:round] [stroke-linejoin:round]",
 				open && "rotate-180",
 			)}
 		>
@@ -102,7 +103,7 @@ function FieldDiffRow({
 	onRevertField?: (path: string) => void;
 }) {
 	return (
-		<div className="grid gap-2 py-3.5 first:pt-0 last:pb-0">
+		<div className="grid min-w-0 gap-2 py-3.5 first:pt-0 last:pb-0">
 			<div className="flex min-h-7 flex-wrap items-center justify-between gap-2">
 				<span className="min-w-0 text-[12.5px] font-medium text-muted-foreground">
 					{field.label}
@@ -172,7 +173,7 @@ function RowDiffBlock({
 	const linked = showEditLinks && row.status !== "removed" && Boolean(row.itemId);
 
 	return (
-		<div className="grid gap-3 py-4 first:pt-0 last:pb-0">
+		<div className="grid min-w-0 gap-3 py-4 first:pt-0 last:pb-0">
 			<div className="flex min-w-0 flex-wrap items-center gap-2">
 				<StatusChip
 					status={row.status}
@@ -198,7 +199,11 @@ function RowDiffBlock({
 				)}
 			</div>
 
-			{row.preview ? <p className="m-0 text-[13px] text-muted-foreground">{row.preview}</p> : null}
+			{row.preview ? (
+				<p className="m-0 text-[13px] text-muted-foreground [overflow-wrap:anywhere]">
+					{row.preview}
+				</p>
+			) : null}
 
 			{row.fields.length > 0 ? (
 				<div className="grid divide-y divide-line border-l border-line pl-3.5">
@@ -239,6 +244,8 @@ function SectionDiffCard({
 	onRevertField,
 	showEditLinks,
 	showSummary,
+	headingId,
+	landed,
 	stagger,
 }: {
 	entry: SectionDiff;
@@ -250,9 +257,10 @@ function SectionDiffCard({
 	showEditLinks: boolean;
 	/** Off when the page already states the totals (a single changed section). */
 	showSummary: boolean;
+	headingId: string;
+	landed: boolean;
 	stagger: number;
 }) {
-	const reduced = useLiveReducedMotion();
 	const bodyId = useId();
 	// Deep-link straight to the item when the section has exactly one changed row.
 	const onlyItem =
@@ -260,9 +268,14 @@ function SectionDiffCard({
 			? entry.rows[0]!.itemId
 			: undefined;
 	return (
-		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0 overflow-hidden">
+		<section style={staggerStyle(stagger)} className="cms-panel cms-enter min-w-0">
 			<div className="flex items-center gap-2 px-4 py-3 sm:px-5">
-				<h3 className="m-0 min-w-0 flex-1">
+				<h3
+					id={headingId}
+					tabIndex={-1}
+					data-landed={landed}
+					className="cms-review-heading cms-page-focus m-0 min-w-0 flex-1 rounded-[12px]"
+				>
 					<button
 						type="button"
 						aria-expanded={open}
@@ -302,48 +315,32 @@ function SectionDiffCard({
 				) : null}
 			</div>
 
-			<AnimatePresence initial={false}>
-				{open ? (
-					// Height animates both ways so collapse mirrors expand; the clip
-					// keeps the body from spilling while it closes.
-					<motion.div
-						key="body"
-						id={bodyId}
-						initial={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-						animate={reduced ? { opacity: 1 } : { height: "auto", opacity: 1 }}
-						exit={reduced ? { opacity: 0 } : { height: 0, opacity: 0 }}
-						transition={
-							reduced
-								? REDUCED
-								: { ...SPRING_MOVE, opacity: { duration: 0.18, ease: [0.22, 1, 0.36, 1] } }
-						}
-						className="overflow-hidden"
-					>
-						<div className="grid divide-y divide-line border-t border-line px-4 py-4 sm:px-5">
-							{entry.fields.map((field) => (
-								<FieldDiffRow
-									key={field.path}
-									field={field}
-									beforeLabel={beforeLabel}
-									afterLabel={afterLabel}
-									onRevertField={onRevertField}
-								/>
-							))}
-							{entry.rows.map((row) => (
-								<RowDiffBlock
-									key={`${row.status}-${row.id}`}
-									sectionId={entry.section.id}
-									row={row}
-									beforeLabel={beforeLabel}
-									afterLabel={afterLabel}
-									onRevertField={onRevertField}
-									showEditLinks={showEditLinks}
-								/>
-							))}
-						</div>
-					</motion.div>
-				) : null}
-			</AnimatePresence>
+			<div className="cms-review-expander">
+				<div id={bodyId} data-open={open} inert={!open} className="cms-review-expand">
+					<div className="grid divide-y divide-line border-t border-line px-4 py-4 sm:px-5">
+						{entry.fields.map((field) => (
+							<FieldDiffRow
+								key={field.path}
+								field={field}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+							/>
+						))}
+						{entry.rows.map((row) => (
+							<RowDiffBlock
+								key={`${row.status}-${row.id}`}
+								sectionId={entry.section.id}
+								row={row}
+								beforeLabel={beforeLabel}
+								afterLabel={afterLabel}
+								onRevertField={onRevertField}
+								showEditLinks={showEditLinks}
+							/>
+						))}
+					</div>
+				</div>
+			</div>
 		</section>
 	);
 }
@@ -355,6 +352,7 @@ export function DiffView({
 	onRevertField,
 	showEditLinks = true,
 	showUnchanged = true,
+	showIndex = false,
 	emptyTitle = "Your live site is up to date",
 	emptyDescription = "Every section in the draft matches what visitors see right now.",
 	emptyAction,
@@ -362,6 +360,19 @@ export function DiffView({
 	const [collapsedIds, setCollapsedIds] = useState<ReadonlySet<string>>(() => new Set());
 	const [unchangedOpen, setUnchangedOpen] = useState(false);
 	const unchangedId = useId();
+	const indexId = useId();
+	const reduced = useLiveReducedMotion();
+	const [landing, setLanding] = useState<{ id: string; behavior: "instant" | "smooth" } | null>(
+		null,
+	);
+
+	useLayoutEffect(() => {
+		if (!landing) return;
+		const heading = document.getElementById(`${indexId}-${landing.id}`);
+		heading?.focus({ preventScroll: true });
+		heading?.scrollIntoView({ behavior: landing.behavior, block: "start" });
+		// The preference is sampled on activation. Toggling it does not refocus the heading.
+	}, [indexId, landing]);
 
 	if (diff.changedSections.length === 0) {
 		return (
@@ -397,7 +408,49 @@ export function DiffView({
 	};
 
 	return (
-		<div className="grid gap-4">
+		<div className="grid min-w-0 gap-4">
+			{showIndex ? (
+				<nav aria-label="Changed sections" className="flex flex-wrap gap-2">
+					{diff.changedSections.map(({ section, counts, fields }) => {
+						const edited = counts.edited + fields.length;
+						const total = counts.added + counts.fields + counts.removed + counts.reordered;
+						const active = landing?.id === section.id;
+						return (
+							<button
+								key={section.id}
+								type="button"
+								aria-current={active || undefined}
+								aria-label={`${section.label}, ${counts.added} added, ${edited} edited, ${counts.removed} removed, ${counts.reordered} moved`}
+								onClick={() => {
+									setCollapsedIds((previous) => {
+										if (!previous.has(section.id)) return previous;
+										const next = new Set(previous);
+										next.delete(section.id);
+										return next;
+									});
+									setLanding({ id: section.id, behavior: reduced ? "instant" : "smooth" });
+								}}
+								className="cms-page-focus cms-press relative isolate inline-flex min-h-9 items-center gap-2 rounded-full border border-line bg-surface-solid px-3 text-[13px] text-foreground pointer-coarse:min-h-11"
+							>
+								{active ? (
+									<motion.span
+										aria-hidden="true"
+										layoutId={reduced ? undefined : `cms-review-index-${indexId}`}
+										initial={reduced ? { opacity: 0 } : false}
+										animate={{ opacity: 1 }}
+										transition={reduced ? REDUCED : SPRING_MOVE}
+										className="absolute inset-0 -z-10 rounded-full border border-primary-line bg-primary-soft"
+									/>
+								) : null}
+								<span className={cn(active && "font-semibold")}>{section.label}</span>
+								<span className="text-[11.5px] text-muted-foreground tabular-nums">
+									{total} {total === 1 ? "edit" : "edits"}
+								</span>
+							</button>
+						);
+					})}
+				</nav>
+			) : null}
 			{diff.changedSections.length > 1 ? (
 				<div className="flex flex-wrap items-center justify-end gap-2 px-0.5">
 					<button
@@ -414,6 +467,8 @@ export function DiffView({
 				<SectionDiffCard
 					key={entry.section.id}
 					entry={entry}
+					headingId={`${indexId}-${entry.section.id}`}
+					landed={landing?.id === entry.section.id}
 					open={!collapsedIds.has(entry.section.id)}
 					onToggle={() => toggleSection(entry.section.id)}
 					beforeLabel={beforeLabel}

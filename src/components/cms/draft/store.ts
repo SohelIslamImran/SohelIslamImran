@@ -49,6 +49,20 @@ type ReplaceResult =
 	| { ok: false; kind: "conflict"; current: DraftSnapshotInput }
 	| { ok: false; kind: "not-found" };
 
+/** Outcome of `importDraft`. The working copy changes only on `saved`. */
+export type ImportDraftResult =
+	| { status: "saved"; revision: number }
+	/** The draft changed after the owner reviewed the import. Nothing was sent. */
+	| { status: "stale" }
+	/** The import fails validation. Nothing was sent. */
+	| { status: "invalid" }
+	/** A conflict is already open. Nothing was sent. */
+	| { status: "blocked" }
+	/** The server holds a newer revision, or edits landed while the import was in flight. */
+	| { status: "conflict" }
+	/** Transport or server failure. The import may or may not have been stored. */
+	| { status: "failed"; message: string; authExpired: boolean };
+
 export interface DraftApi {
 	save(input: { content: PortfolioContent; expectedRevision: number }): Promise<SaveResult>;
 	publish(input: { expectedDraftRevision: number }): Promise<PublishResult>;
@@ -322,13 +336,62 @@ export class DraftStore {
 		});
 	}
 
-	/** Install and save an imported document. */
-	replaceDraft(content: PortfolioContent): Promise<boolean> {
+	/**
+	 * Save an imported document as the next draft revision without changing
+	 * the working copy until the server accepts it. `reviewedDraft` is the
+	 * draft the owner compared the import against; if the draft changed since,
+	 * nothing is sent. Runs in the serial queue like every other write.
+	 */
+	importDraft(
+		content: PortfolioContent,
+		reviewedDraft: PortfolioContent,
+	): Promise<ImportDraftResult> {
 		this.cancelAutosave();
-		return this.enqueue(() => {
-			if (this.state.conflict) return Promise.resolve(false);
-			this.set({ draft: content });
-			return this.saveNow();
+		return this.enqueue(async (): Promise<ImportDraftResult> => {
+			if (this.state.conflict) return { status: "blocked" };
+			if (this.state.draft !== reviewedDraft) {
+				this.scheduleAutosave();
+				return { status: "stale" };
+			}
+			if (issuesFor(content).all.length > 0) {
+				this.scheduleAutosave();
+				return { status: "invalid" };
+			}
+			if (jsonEqual(content, this.state.saved)) {
+				this.set({ draft: this.state.saved, status: "idle", error: null });
+				return { status: "saved", revision: this.state.draftRevision };
+			}
+			this.set({ status: "saving", error: null });
+			try {
+				const result = await this.api.save({
+					content,
+					expectedRevision: this.state.draftRevision,
+				});
+				if (!result.ok) {
+					this.set({ status: "conflict", conflict: result.current });
+					return { status: "conflict" };
+				}
+				const snapshot: DraftSnapshotInput = {
+					draft: content,
+					published: this.state.published,
+					draftRevision: result.revision,
+					publishedRevision: this.state.publishedRevision,
+					draftUpdatedAt: result.updatedAt,
+					publishedAt: this.state.publishedAt,
+				};
+				// Edits landed while the request ran: let the owner choose which to keep.
+				if (this.state.draft !== reviewedDraft) {
+					this.set({ status: "conflict", conflict: snapshot });
+					return { status: "conflict" };
+				}
+				this.adoptSnapshot(snapshot);
+				return { status: "saved", revision: result.revision };
+			} catch (error) {
+				const { message, authExpired } = messageFor(error);
+				this.set({ status: "error", error: message, authExpired });
+				this.scheduleAutosave();
+				return { status: "failed", message, authExpired };
+			}
 		});
 	}
 

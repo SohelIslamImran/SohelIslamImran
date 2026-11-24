@@ -8,7 +8,7 @@ import { formatPath, isPathWithin, parsePath } from "../../components/cms/draft/
 import { fieldId, focusField } from "../../components/cms/fields";
 import { UndoRemovalHost } from "../../components/cms/fields/UndoRemoval";
 import { fieldIssueMessage } from "../../components/cms/fields/FieldFrame";
-import { AlertCircleIcon } from "../../components/cms/fields/field-icons";
+import { AlertTriangleIcon } from "../../components/cms/shell/cms-icons";
 import { absolute } from "../../lib/seo";
 import { EditorLayout } from "../../components/cms/sections/EditorLayout";
 import { issueLabel, itemForIssue } from "../../components/cms/sections/collection-helpers";
@@ -106,7 +106,7 @@ function SectionIssues({ section }: { section: SectionMeta }) {
 			}}
 		>
 			<Popover.Trigger className="cms-issues-pill cms-press cms-enter">
-				<AlertCircleIcon className="size-3.5" />
+				<AlertTriangleIcon className="size-3.5" />
 				{count}
 				<span className="sr-only"> to fix</span>
 			</Popover.Trigger>

@@ -67,9 +67,11 @@ export function TickingNumber({
 		<span
 			className={cn("relative inline-flex overflow-hidden align-baseline tabular-nums", className)}
 		>
+			<span className="sr-only">{display}</span>
 			<AnimatePresence mode="popLayout" initial={false}>
 				<motion.span
 					key={display}
+					aria-hidden="true"
 					initial={reduced ? { opacity: 0 } : { opacity: 0, y: dir * 8 }}
 					animate={{ opacity: 1, y: 0 }}
 					exit={reduced ? { opacity: 0 } : { opacity: 0, y: dir * -8 }}
@@ -174,7 +176,9 @@ export function SegmentedControl<T extends string>({
 					>
 						{active ? (
 							<motion.span
-								layoutId={layoutId}
+								layoutId={reduced ? undefined : layoutId}
+								initial={reduced ? { opacity: 0 } : false}
+								animate={{ opacity: 1 }}
 								aria-hidden="true"
 								transition={reduced ? REDUCED : SPRING_MOVE}
 								className="cms-seg-pill"

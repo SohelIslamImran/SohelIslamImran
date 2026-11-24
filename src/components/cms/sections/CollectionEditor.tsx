@@ -2,6 +2,7 @@ import { animate, AnimatePresence, LayoutGroup, motion, Reorder, useIsPresent } 
 import {
 	memo,
 	useCallback,
+	useEffect,
 	useId,
 	useLayoutEffect,
 	useRef,
@@ -11,6 +12,7 @@ import {
 	type ComponentType,
 	type ReactNode,
 } from "react";
+import { RollingNumber } from "../../motion/RollingNumber";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { MAX_COLLECTION_ITEMS, PUBLIC_SLUG_PATTERN } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
@@ -25,9 +27,17 @@ import {
 	sentenceCase,
 	useActionPointer,
 } from "../fields/FieldFrame";
-import { SortableRow } from "../fields/SortableRow";
+import { SortableRow, useReorderFeedback } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
-import { controlClass, fieldId, focusField } from "../fields";
+import {
+	ClearAction,
+	CopyAction,
+	InputShell,
+	identifierAttributes,
+	inputClass,
+	proseAttributes,
+} from "../fields/InputShell";
+import { fieldId, focusField } from "../fields";
 import {
 	UndoRemoval,
 	UndoRemovalScope,
@@ -44,7 +54,7 @@ import {
 } from "../fields/field-icons";
 import { toSingleLine } from "../fields/field-logic";
 import { duplicateRow, newRowId, sameRow } from "../fields/row-list";
-import { countLabel } from "./collection-helpers";
+import { countNoun } from "./collection-helpers";
 import { EditorGroup } from "./EditorLayout";
 
 export interface EditorProps {
@@ -110,6 +120,11 @@ export function CollectionEditor<T extends { id: string }>({
 	const [name, setName] = useState("");
 	const removals = usePendingRemovals<T>(path, MAX_COLLECTION_ITEMS, sameRow);
 	const { keys: rowKeys, move: moveRow } = removals;
+	const rowKeysRef = useRef(rowKeys);
+	rowKeysRef.current = rowKeys;
+	const reorderFeedback = useReorderFeedback();
+	const { markMoved, startDrag, endDrag } = reorderFeedback;
+	const handleDragEnd = useCallback(() => endDrag(rowKeysRef.current), [endDrag]);
 	const listPosition = useRef<{ scroll: number; id: string } | null>(null);
 	const pendingListFocus = useRef<{
 		id?: string;
@@ -118,6 +133,7 @@ export function CollectionEditor<T extends { id: string }>({
 	} | null>(null);
 	const filter = query.trim().toLowerCase();
 	const length = rowIds.length;
+	const noun = countNoun(length, itemLabel);
 	const full = length >= MAX_COLLECTION_ITEMS;
 	const reduced = useLiveReducedMotion();
 	const narrow = useMediaQuery(NARROW_QUERY);
@@ -130,6 +146,16 @@ export function CollectionEditor<T extends { id: string }>({
 			return words.some((word) => word?.toLowerCase().includes(filter)) ? [index] : [];
 		}),
 	);
+	const [searchAnnouncement, setSearchAnnouncement] = useState("");
+	useEffect(() => {
+		if (!filter) {
+			setSearchAnnouncement("");
+			return;
+		}
+		const message = `${visible.length} of ${length} ${noun} match`;
+		const timer = setTimeout(() => setSearchAnnouncement(message), 500);
+		return () => clearTimeout(timer);
+	}, [filter, length, noun, visible.length]);
 	const duplicates = duplicateIds(rowIds.map((id) => ({ id })));
 	const fade = useScrollFade(list);
 
@@ -366,9 +392,14 @@ export function CollectionEditor<T extends { id: string }>({
 		(from: number, to: number) => {
 			const rows = store.valueAt(path) as T[];
 			const row = rows[from];
-			if (!row || to < 0 || to >= rows.length || filter) return;
+			if (!row || from === to || to < 0 || to >= rows.length || filter) return;
+			const movedKey = rowKeysRef.current[from];
+			const rowLabel = describe(row).title || `${itemLabel} ${from + 1}`;
 			const focused = document.activeElement;
 			moveRow(from, to);
+			if (movedKey !== undefined) {
+				markMoved(movedKey, rowLabel, from, to, rows.length);
+			}
 			// The menu restores focus to the row trigger on close.
 			if (focused?.matches("[role=menuitem]")) return;
 			requestAnimationFrame(() => {
@@ -383,7 +414,7 @@ export function CollectionEditor<T extends { id: string }>({
 				}
 			});
 		},
-		[filter, moveRow, path, rowButton, store],
+		[describe, filter, itemLabel, markMoved, moveRow, path, rowButton, store],
 	);
 
 	function add(rows: T[], row: T, index: number) {
@@ -412,7 +443,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const rename = useCallback(
 		(id: string) => {
 			store.update(`${shownPath}.id`, id);
-			void select(id, undefined, true).then(() =>
+			return select(id, undefined, true).then(() =>
 				focusAfterNavigation(id, () => focusField(`${shownPath}.id`)),
 			);
 		},
@@ -467,7 +498,16 @@ export function CollectionEditor<T extends { id: string }>({
 				{length || adding ? (
 					<>
 						<p className="cms-collection-count m-0 text-[13px] font-medium tabular-nums">
-							{countLabel(length, itemLabel)}
+							{filter ? (
+								<>
+									<RollingNumber value={visible.length} pad={1} /> of{" "}
+									<RollingNumber value={length} pad={1} /> {noun}
+								</>
+							) : (
+								<>
+									<RollingNumber value={length} pad={1} /> {noun}
+								</>
+							)}
 							{full ? (
 								<span className="text-muted-foreground"> · limit {MAX_COLLECTION_ITEMS}</span>
 							) : null}
@@ -476,8 +516,14 @@ export function CollectionEditor<T extends { id: string }>({
 					</>
 				) : null}
 				{length ? (
-					<div className="cms-collection-search relative grid">
-						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+					<InputShell
+						size="sm"
+						className="cms-collection-search"
+						leading={<SearchIcon />}
+						trailing={
+							query ? <ClearAction label="Clear search" onClear={() => setQuery("")} /> : undefined
+						}
+					>
 						<label htmlFor={queryId} className="sr-only">
 							Search {label.toLowerCase()}
 						</label>
@@ -487,10 +533,19 @@ export function CollectionEditor<T extends { id: string }>({
 							type="search"
 							placeholder={`Search ${label.toLowerCase()}`}
 							value={query}
-							className={`${controlClass} min-h-10 pl-9`}
+							className={inputClass}
+							enterKeyHint="search"
+							{...identifierAttributes}
+							onKeyDown={(event) => {
+								if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.stopPropagation();
+								if (query) setQuery("");
+								else event.currentTarget.blur();
+							}}
 							onChange={(event) => setQuery(event.currentTarget.value)}
 						/>
-					</div>
+					</InputShell>
 				) : null}
 			</header>
 			{adding ? (
@@ -510,23 +565,26 @@ export function CollectionEditor<T extends { id: string }>({
 						add(rows, create(name.trim(), newRowId(), rows), rows.length);
 					}}
 				>
-					<label htmlFor={nameId} className="text-[13px] font-semibold">
+					<label htmlFor={nameId} className="cms-field-label">
 						{nameLabel}
 					</label>
-					<textarea
-						id={nameId}
-						className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
-						rows={1}
-						required
-						value={name}
-						maxLength={nameLimit}
-						onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
-						onKeyDown={(event) => {
-							if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-							event.preventDefault();
-							event.currentTarget.form?.requestSubmit();
-						}}
-					/>
+					<InputShell multiline>
+						<textarea
+							{...proseAttributes}
+							id={nameId}
+							className={`${inputClass} cms-textarea cms-textarea-single`}
+							rows={1}
+							required
+							value={name}
+							maxLength={nameLimit}
+							onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.currentTarget.form?.requestSubmit();
+							}}
+						/>
+					</InputShell>
 					<button
 						type="submit"
 						disabled={!name.trim() || full}
@@ -572,16 +630,25 @@ export function CollectionEditor<T extends { id: string }>({
 								itemLabel={itemLabel}
 								describe={describe}
 								selected={index === current}
+								settled={reorderFeedback.settledKey === rowKeys[index]}
 								reorderable={!filter && length > 1}
 								draggable={!duplicates.size}
 								last={index === length - 1}
 								open={open}
 								move={move}
+								onDragStart={startDrag}
+								onDragEnd={handleDragEnd}
 							/>
 						))}
 					</AnimatePresence>
 				</Reorder.Group>
 			</LayoutGroup>
+			<p role="status" aria-live="polite" className="sr-only">
+				{searchAnnouncement}
+			</p>
+			<p role="status" aria-live="polite" className="sr-only">
+				{reorderFeedback.announcement}
+			</p>
 			{!length && !adding ? (
 				<div className="cms-collection-empty-state cms-enter">
 					<span className="cms-collection-empty-icon" aria-hidden="true">
@@ -692,7 +759,7 @@ export function CollectionEditor<T extends { id: string }>({
 											<span
 												id={detailHeadingId(shownId)}
 												tabIndex={-1}
-												className="block wrap-anywhere rounded-sm lg:scroll-mt-32"
+												className="cms-landing-heading block wrap-anywhere lg:scroll-mt-32"
 											>
 												<CollectionTitle
 													path={shownPath}
@@ -888,11 +955,14 @@ function CollectionRow<T extends { id: string }>({
 	itemLabel,
 	describe,
 	selected,
+	settled,
 	reorderable,
 	draggable,
 	last,
 	open,
 	move,
+	onDragStart,
+	onDragEnd,
 }: {
 	rowKey: number;
 	id: string;
@@ -901,11 +971,14 @@ function CollectionRow<T extends { id: string }>({
 	itemLabel: string;
 	describe: (row: T) => CollectionSummary;
 	selected: boolean;
+	settled: boolean;
 	reorderable: boolean;
 	draggable: boolean;
 	last: boolean;
 	open: (id: string) => void;
 	move: (from: number, to: number) => void;
+	onDragStart: (key: number, from: number, label: string) => void;
+	onDragEnd: () => void;
 }) {
 	const [title, subtitle, ...chips] = useDraftSelector((_state, store) => {
 		const row = store.valueAt(path) as T | undefined;
@@ -916,14 +989,18 @@ function CollectionRow<T extends { id: string }>({
 	const issueCount = useSettledIssues().under(path).length;
 	const isNew = useDraftSelector((state, store) => store.liveValueAt(path, state) === undefined);
 	const reduced = useLiveReducedMotion();
+	const rowLabel = title || itemLabel;
 	return (
 		<SortableRow
 			value={rowKey}
-			label={title || itemLabel}
+			label={rowLabel}
+			settled={settled}
 			reorderable={reorderable && draggable}
 			data-selected={selected || undefined}
 			className="cms-collection-row"
 			onMove={reorderable ? (offset) => move(index, index + offset) : undefined}
+			onDragStart={() => onDragStart(rowKey, index, rowLabel)}
+			onDragEnd={onDragEnd}
 		>
 			{(handle) => (
 				<>
@@ -1018,7 +1095,7 @@ function ConfirmListAction({
 	};
 	return confirming ? (
 		<div
-			className="flex flex-wrap items-center gap-2"
+			className="cms-list-confirm"
 			onKeyDown={(event) => {
 				if (event.key !== "Escape") return;
 				event.preventDefault();
@@ -1026,21 +1103,28 @@ function ConfirmListAction({
 				cancelConfirmation();
 			}}
 		>
-			<p className="m-0 text-xs">{prompt}</p>
-			<button ref={cancel} type="button" className={editorButton} onClick={cancelConfirmation}>
-				Cancel
-			</button>
-			<button
-				type="button"
-				className={`${editorButton} text-destructive`}
-				onPointerDown={pointer.onPointerDown}
-				onClick={(event) => {
-					setConfirming(false);
-					onConfirm(pointer.isTouchClick(event));
-				}}
-			>
-				{label}
-			</button>
+			<p className="m-0 text-xs text-ink-soft">{prompt}</p>
+			<div className="cms-list-confirm-actions">
+				<button
+					ref={cancel}
+					type="button"
+					className={`${editorButton} shrink-0`}
+					onClick={cancelConfirmation}
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					className={`${editorButton} cms-editor-destructive shrink-0`}
+					onPointerDown={pointer.onPointerDown}
+					onClick={(event) => {
+						setConfirming(false);
+						onConfirm(pointer.isTouchClick(event));
+					}}
+				>
+					{label}
+				</button>
+			</div>
 		</div>
 	) : (
 		<button
@@ -1093,7 +1177,7 @@ const CollectionDetails = memo(function CollectionDetails({
 	path: string;
 	id: string;
 	profile: boolean;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	return (
@@ -1119,9 +1203,10 @@ function ProfileSlugField({
 }: {
 	path: string;
 	id: string;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 }) {
 	const [slug, setSlug] = useState(id);
+	const [pending, setPending] = useState(false);
 	const issues = useIssuesAt(path);
 	const existsLive = useDraftSelector(({ published }) =>
 		published.profileLinks.some((link) => link.id === slug),
@@ -1130,36 +1215,50 @@ function ProfileSlugField({
 		({ draft }) => slug !== id && draft.profileLinks.some((link) => link.id === slug),
 	);
 	const inputId = fieldId(path);
+	const prefix = "/links/";
 	return (
 		<form
 			className="grid gap-2"
-			onSubmit={(event) => {
+			onSubmit={async (event) => {
 				event.preventDefault();
-				if (slug !== id && !taken && slug.length <= 80 && PUBLIC_SLUG_PATTERN.test(slug))
-					onRename(slug);
+				if (pending || slug === id || taken || slug.length > 80 || !PUBLIC_SLUG_PATTERN.test(slug))
+					return;
+				setPending(true);
+				try {
+					await onRename(slug);
+				} finally {
+					setPending(false);
+				}
 			}}
 		>
-			<label htmlFor={inputId} className="text-[13px] font-medium">
+			<label htmlFor={inputId} className="cms-field-label">
 				Public link slug
 			</label>
 			<div className="flex flex-wrap items-center gap-2">
-				<span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
-					/links/
-				</span>
-				<input
-					id={inputId}
-					className={`${controlClass} min-h-10 flex-1 font-mono`}
-					value={slug}
-					required
-					maxLength={80}
-					pattern={PUBLIC_SLUG_PATTERN.source}
-					spellCheck={false}
-					autoComplete="off"
-					aria-invalid={taken || issues.length > 0 || undefined}
-					aria-describedby={`${inputId}-hint`}
-					onChange={(event) => setSlug(event.currentTarget.value)}
-				/>
-				<button type="submit" className={editorButton} disabled={slug === id || taken}>
+				<InputShell
+					className="flex-1"
+					prefix={prefix}
+					invalid={taken || issues.length > 0}
+					pending={pending}
+					trailing={<CopyAction text={`${prefix}${id}`} />}
+				>
+					<span id={`${inputId}-prefix`} className="sr-only">
+						Path prefix {prefix}
+					</span>
+					<input
+						id={inputId}
+						className={`${inputClass} cms-input-mono`}
+						value={slug}
+						required
+						maxLength={80}
+						pattern={PUBLIC_SLUG_PATTERN.source}
+						{...identifierAttributes}
+						aria-invalid={taken || issues.length > 0 || undefined}
+						aria-describedby={`${inputId}-prefix ${inputId}-hint`}
+						onChange={(event) => setSlug(event.currentTarget.value)}
+					/>
+				</InputShell>
+				<button type="submit" className={editorButton} disabled={pending || slug === id || taken}>
 					Apply slug
 				</button>
 			</div>

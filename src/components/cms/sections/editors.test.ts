@@ -10,6 +10,7 @@ import { CollectionEditor } from "./CollectionEditor";
 import { LinksEditor, ProjectsEditor } from "./collection-editors";
 import { sectionSearch } from "../../../routes/cms/content.$section";
 
+vi.mock("@/lib/utils", () => import("../../../lib/utils"));
 vi.mock("../../../server/cms-history.functions", () => ({ listMedia: vi.fn() }));
 
 vi.mock("@tanstack/react-start", async (importOriginal) => ({

@@ -5,7 +5,7 @@
  */
 import { AlertDialog } from "@base-ui/react/alert-dialog";
 import { cn } from "../../../lib/utils";
-import type { RevisionDetail } from "../../../server/cms-storage.server";
+import type { RevisionDetail, RevisionSummary } from "../../../server/cms-storage.server";
 import { RelativeTime } from "../analytics/RelativeTime";
 import { EmptyState } from "../analytics/Widgets";
 import { useDraftSelector } from "../draft/context";
@@ -21,18 +21,36 @@ function formatByteDelta(delta: number): string {
 	return `${prefix}${formatBytes(Math.abs(delta))}`;
 }
 
-const kindLabel = (detail: RevisionDetail) => (detail.kind === "published" ? "Published" : "Draft");
+const kindLabel = (detail: RevisionSummary) =>
+	detail.kind === "published" ? "Published" : "Draft";
 
 function sectionCount(count: number): string {
 	return `${count} ${count === 1 ? "section" : "sections"}`;
 }
 
-export function InspectorSkeleton() {
+function RevisionHeading({ selected, loading }: { selected: RevisionSummary; loading: boolean }) {
 	return (
-		<div className="cms-panel grid gap-4 p-5">
-			<div className="flex items-center justify-between gap-3">
+		<h2
+			id="cms-revision-heading"
+			tabIndex={-1}
+			className="cms-page-focus m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground"
+		>
+			<span className="font-mono tabular-nums">r{selected.revision}</span> · {kindLabel(selected)}
+			{loading ? " · loading" : null}
+		</h2>
+	);
+}
+
+export function InspectorSkeleton({ selected }: { selected?: RevisionSummary }) {
+	return (
+		<div aria-busy="true" className="cms-panel grid min-w-0 gap-4 p-5">
+			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="grid min-w-0 gap-2">
-					<div className="cms-skeleton h-5 w-36 max-w-full" />
+					{selected ? (
+						<RevisionHeading selected={selected} loading />
+					) : (
+						<div className="cms-skeleton h-5 w-36 max-w-full" />
+					)}
 					<div className="cms-skeleton h-3.5 w-48 max-w-full" />
 				</div>
 				<div className="cms-skeleton h-9 w-36 max-w-[42%] rounded-full" />
@@ -44,6 +62,7 @@ export function InspectorSkeleton() {
 
 export function RevisionInspector({
 	detail,
+	selected,
 	diff,
 	stale,
 	baselineBytes,
@@ -52,6 +71,7 @@ export function RevisionInspector({
 	onBack,
 }: {
 	detail: RevisionDetail;
+	selected: RevisionSummary;
 	diff: DocumentDiff;
 	/** A different revision is loading; keep this one visible but dimmed. */
 	stale: boolean;
@@ -63,14 +83,7 @@ export function RevisionInspector({
 	const differs = diff.changedSections.length > 0;
 
 	return (
-		<div
-			key={detail.id}
-			aria-busy={stale}
-			className={cn(
-				"cms-collapse-panel grid min-w-0 gap-4 transition-opacity duration-200",
-				stale && "opacity-55",
-			)}
-		>
+		<div aria-busy={stale} className="grid min-w-0 gap-4">
 			<div className="cms-panel grid gap-2 p-4 sm:p-5">
 				{onBack ? (
 					<Button
@@ -84,22 +97,18 @@ export function RevisionInspector({
 				) : null}
 				<div className="flex flex-wrap items-center justify-between gap-4">
 					<div className="grid min-w-0 gap-1">
-						<h2
-							id="cms-revision-heading"
-							tabIndex={-1}
-							className="m-0 text-[16px] font-semibold tracking-[-0.01em] text-foreground outline-none"
-						>
-							{kindLabel(detail)} <span className="font-mono tabular-nums">r{detail.revision}</span>
-						</h2>
-						<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
-							{detail.kind === "published" ? "Published" : "Saved"}{" "}
-							<RelativeTime iso={detail.changedAt} className="w-auto" />
-							<span aria-hidden="true"> · </span>
-							{formatBytes(detail.bytes)}
-							{differs && baselineBytes !== null && detail.bytes !== baselineBytes
-								? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
-								: ""}
-						</p>
+						<RevisionHeading selected={selected} loading={stale} />
+						{!stale ? (
+							<p className="m-0 text-[13px] text-muted-foreground tabular-nums">
+								{detail.kind === "published" ? "Published" : "Saved"}{" "}
+								<RelativeTime iso={detail.changedAt} className="w-auto" />
+								<span aria-hidden="true"> · </span>
+								{formatBytes(detail.bytes)}
+								{differs && baselineBytes !== null && detail.bytes !== baselineBytes
+									? ` (${formatByteDelta(detail.bytes - baselineBytes)} vs draft)`
+									: ""}
+							</p>
+						) : null}
 					</div>
 					<Button
 						variant="outline"
@@ -114,28 +123,57 @@ export function RevisionInspector({
 				</div>
 			</div>
 
-			<p className="m-0 text-[13px] font-medium text-muted-foreground lg:hidden">
-				Compared with current draft
-			</p>
-			<DiffView
-				diff={diff}
-				beforeLabel="Current draft"
-				afterLabel={`r${detail.revision}`}
-				showEditLinks={false}
-				emptyTitle="Same as your current draft"
-				emptyDescription="Restoring this revision would not change anything."
-			/>
+			<div
+				className={cn(
+					"grid min-w-0 gap-4 transition-opacity duration-(--cms-dur-base) ease-(--cms-ease-out)",
+					stale && "opacity-60",
+				)}
+				inert={stale}
+			>
+				<p className="m-0 text-[13px] font-medium text-muted-foreground lg:hidden">
+					Compared with current draft
+				</p>
+				<DiffView
+					diff={diff}
+					beforeLabel="Current draft"
+					afterLabel={`r${detail.revision}`}
+					showEditLinks={false}
+					emptyTitle="Same as your current draft"
+					emptyDescription="Restoring this revision would not change anything."
+				/>
+			</div>
 		</div>
 	);
 }
 
-export function InspectorError({ message }: { message: string }) {
+export function InspectorError({
+	message,
+	onRetry,
+	retrying = false,
+}: {
+	message: string;
+	onRetry: () => void;
+	retrying?: boolean;
+}) {
 	return (
 		<div className="cms-panel">
 			<EmptyState
 				icon={<AlertTriangleIcon className="size-4 text-destructive" />}
 				title="Revision unavailable"
 				description={message}
+				action={
+					<Button
+						variant="outline"
+						size="sm"
+						className="pointer-coarse:min-h-11"
+						aria-disabled={retrying}
+						onClick={() => {
+							if (!retrying) onRetry();
+						}}
+					>
+						{retrying ? "Retrying…" : "Retry"}
+					</Button>
+				}
 			/>
 		</div>
 	);

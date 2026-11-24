@@ -14,7 +14,8 @@ import { useDraftSelector } from "../draft/context";
 import { ISSUE_IDLE_MS } from "../draft/use-settled-issues";
 import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { correspondingPath, getAt, parsePath } from "../draft/paths";
-import { AlertCircleIcon, RevertIcon } from "./field-icons";
+import { AlertTriangleIcon } from "../shell/cms-icons";
+import { RevertIcon } from "./field-icons";
 
 /**
  * Deterministic DOM id for the control at a content path, so a validation
@@ -78,6 +79,7 @@ export interface FieldFrameProps {
 	path: string;
 	label: ReactNode;
 	description?: ReactNode;
+	optional?: boolean;
 	issues: readonly ValidationIssue[];
 	changed: boolean;
 	onRevert?: () => void;
@@ -112,6 +114,7 @@ export function FieldFrame({
 	path,
 	label,
 	description,
+	optional,
 	issues,
 	changed,
 	onRevert,
@@ -143,12 +146,10 @@ export function FieldFrame({
 		<LabelTag
 			id={`${id}-label`}
 			{...(asGroup ? {} : { htmlFor: id })}
-			className={cn(
-				"m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground",
-				labelHidden && "sr-only",
-			)}
+			className={cn("cms-field-label", labelHidden && "sr-only")}
 		>
 			{label}
+			{optional ? <span className="cms-field-optional">Optional</span> : null}
 			{changedFromLive ? <span className="sr-only"> (changed from live)</span> : null}
 		</LabelTag>
 	);
@@ -280,7 +281,7 @@ export function FieldMessage({
 							data-open={Boolean(message) || undefined}
 							className="m-0 flex items-start gap-1.5 wrap-anywhere text-destructive"
 						>
-							{message ? <AlertCircleIcon className="mt-px size-3.5" /> : null}
+							{message ? <AlertTriangleIcon className="mt-px size-3.5" /> : null}
 							<span>{message}</span>
 						</p>
 					</div>
@@ -359,4 +360,4 @@ export function sentenceCase(message: string): string {
 }
 
 /** Shared control chrome for the CMS density tier. */
-export const controlClass = "cms-control min-w-0 w-full px-3 text-[14px] pointer-coarse:min-h-11";
+export const controlClass = "cms-control min-w-0 w-full px-3";

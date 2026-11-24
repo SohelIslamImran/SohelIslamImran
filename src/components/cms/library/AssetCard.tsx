@@ -10,25 +10,15 @@ import { cn } from "../../../lib/utils";
 import { updateMediaAlt } from "../../../server/cms-history.functions";
 import type { MediaLibraryItem } from "../../../server/media.server";
 import { staggerStyle } from "../analytics/Widgets";
-import { controlClass } from "../fields/FieldFrame";
-import {
-	AlertTriangleIcon,
-	CheckCircleIcon,
-	ExternalArrowIcon,
-	MediaLibraryIcon,
-} from "../shell/cms-icons";
+import { InputShell, inputClass, proseAttributes } from "../fields/InputShell";
+import { CheckIcon } from "../fields/field-icons";
+import { AlertTriangleIcon, CheckCircleIcon, ExternalArrowIcon } from "../shell/cms-icons";
 import { formatBytes, formatUtcTimestamp } from "../shell/time";
 import { Button } from "../../ui/button";
+import { MediaFrame } from "./MediaFrame";
+import { useCsrfRetry } from "../draft/context";
 
-const mediaTypeLabels: Record<string, string> = {
-	"application/pdf": "PDF document",
-	"image/avif": "AVIF image",
-	"image/jpeg": "JPEG image",
-	"image/png": "PNG image",
-	"image/webp": "WebP image",
-};
-
-function useCopied(durationMs = 1800) {
+function useCopied(durationMs = 1600) {
 	const [copied, setCopied] = useState(false);
 	const timer = useRef<number | undefined>(undefined);
 	useEffect(() => () => window.clearTimeout(timer.current), []);
@@ -42,24 +32,25 @@ function useCopied(durationMs = 1800) {
 
 export function AssetCard({
 	asset,
-	csrfToken,
 	publicOrigin,
 	stagger,
 	onUpdated,
 }: {
 	asset: MediaLibraryItem;
-	csrfToken: string;
 	publicOrigin: string;
 	stagger: number;
 	onUpdated: (id: string, alt: string, updatedAt: string) => void;
 }) {
 	const saveAlt = useServerFn(updateMediaAlt);
+	const mutate = useCsrfRetry();
 	const [alt, setAlt] = useState(asset.alt);
 	const [saving, setSaving] = useState(false);
 	const [feedback, setFeedback] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
 	const [copyFailed, setCopyFailed] = useState(false);
-	const [failedUrl, setFailedUrl] = useState<string | null>(null);
 	const [copied, flashCopied] = useCopied();
+	const savedTimer = useRef<number | undefined>(undefined);
+
+	useEffect(() => () => window.clearTimeout(savedTimer.current), []);
 
 	useEffect(() => {
 		setAlt(asset.alt);
@@ -70,26 +61,32 @@ export function AssetCard({
 	const dirty = alt.trim() !== asset.alt.trim();
 	const name = asset.alt || "this asset";
 	const publicUrl = new URL(asset.url, publicOrigin).href;
-	const typeLabel = mediaTypeLabels[asset.mimeType ?? ""] ?? (isImage ? "Image" : "File");
 	const altId = `media-alt-${asset.id}`;
 	const feedbackId = `${altId}-feedback`;
 	const altInvalid = feedback?.tone === "error";
 
 	const handleSaveAlt = async (event: FormEvent) => {
 		event.preventDefault();
+		window.clearTimeout(savedTimer.current);
 		if (isImage && alt.trim().length === 0) {
 			setFeedback({ tone: "error", text: "Images need alt text." });
 			return;
 		}
+		// Save disables itself while saving and stays disabled once clean, so a
+		// keyboard owner working in this form gets focus back on the alt input.
+		const form = event.currentTarget as HTMLFormElement;
+		const focusWasInForm = form.contains(document.activeElement);
 		setSaving(true);
 		setFeedback(null);
+		const trimmed = alt.trim();
 		try {
-			const result = await saveAlt({
-				data: { id: asset.id, alt: alt.trim(), csrfToken },
-			});
+			const result = await mutate((csrfToken) =>
+				saveAlt({ data: { id: asset.id, alt: trimmed, csrfToken } }),
+			);
 			if (result.ok) {
 				onUpdated(result.id, result.alt, result.updatedAt);
-				setFeedback({ tone: "ok", text: "Saved." });
+				setFeedback({ tone: "ok", text: "Saved" });
+				savedTimer.current = window.setTimeout(() => setFeedback(null), 2000);
 			} else {
 				setFeedback({ tone: "error", text: "This asset no longer exists." });
 			}
@@ -97,6 +94,14 @@ export function AssetCard({
 			setFeedback({ tone: "error", text: "Could not save alt text." });
 		} finally {
 			setSaving(false);
+			if (focusWasInForm) {
+				requestAnimationFrame(() => {
+					const active = document.activeElement;
+					if (active === null || active === document.body || form.contains(active)) {
+						document.getElementById(altId)?.focus({ preventScroll: true });
+					}
+				});
+			}
 		}
 	};
 
@@ -111,25 +116,16 @@ export function AssetCard({
 		}
 	};
 
-	// Unpublished images preview through the owner-only route on the CMS host.
-	const previewUrl = isPublished ? publicUrl : `/draft-media/${encodeURIComponent(asset.id)}`;
-	const thumbnail =
-		isImage && failedUrl !== previewUrl ? (
-			<img
-				src={previewUrl}
-				alt=""
-				loading="lazy"
-				onError={() => setFailedUrl(previewUrl)}
-				className="cms-media-thumb h-full w-full object-cover"
-			/>
-		) : (
-			<span className="grid place-items-center gap-1.5 px-4 text-center">
-				<MediaLibraryIcon className="size-6 text-muted-foreground" />
-				<span className="text-[12px] text-muted-foreground">
-					{isImage ? "Preview unavailable" : !isPublished ? "Not published yet" : typeLabel}
-				</span>
-			</span>
-		);
+	const thumbnail = (
+		<MediaFrame
+			assetId={asset.id}
+			mimeType={asset.mimeType}
+			width={asset.width}
+			height={asset.height}
+			chip={asset.status}
+			className="cms-media-thumb h-full w-full"
+		/>
+	);
 
 	return (
 		<article
@@ -148,7 +144,7 @@ export function AssetCard({
 						{thumbnail}
 						<span
 							aria-hidden="true"
-							className="absolute right-2.5 bottom-2.5 grid size-7 place-items-center rounded-full border border-line-strong bg-surface-solid/90 text-ink-soft opacity-0 shadow-[0_1px_3px_var(--theme-shadow-soft)] backdrop-blur-sm transition-opacity duration-150 group-hover/thumb:opacity-100 group-focus-visible/thumb:opacity-100"
+							className="absolute right-2.5 bottom-2.5 z-10 grid size-7 place-items-center rounded-full border border-line-strong bg-surface-solid text-ink-soft opacity-0 shadow-[0_1px_3px_var(--theme-shadow-soft)] transition-opacity duration-150 group-hover/thumb:opacity-100 group-focus-visible/thumb:opacity-100"
 						>
 							<ExternalArrowIcon className="size-3.5" />
 						</span>
@@ -170,20 +166,24 @@ export function AssetCard({
 						</span>
 					</label>
 					<div className="flex items-center gap-2">
-						<input
-							id={altId}
-							type="text"
-							maxLength={240}
-							value={alt}
-							aria-invalid={altInvalid || undefined}
-							aria-describedby={altInvalid ? feedbackId : undefined}
-							onChange={(event) => {
-								setAlt(event.target.value);
-								if (feedback) setFeedback(null);
-							}}
-							placeholder="Describe what this shows"
-							className={cn(controlClass, "min-h-9 flex-1 py-1.5 text-[13px]")}
-						/>
+						<InputShell size="sm" className="flex-1" invalid={altInvalid}>
+							<input
+								{...proseAttributes}
+								id={altId}
+								type="text"
+								maxLength={240}
+								value={alt}
+								aria-invalid={altInvalid || undefined}
+								aria-describedby={altInvalid ? feedbackId : undefined}
+								onChange={(event) => {
+									setAlt(event.target.value);
+									window.clearTimeout(savedTimer.current);
+									if (feedback) setFeedback(null);
+								}}
+								placeholder="Describe what this shows"
+								className={inputClass}
+							/>
+						</InputShell>
 						<Button
 							type="submit"
 							variant="outline"
@@ -223,8 +223,9 @@ export function AssetCard({
 						<button
 							type="button"
 							onClick={() => void copyUrl()}
-							className="cms-press cms-page-focus inline-flex min-h-8 items-center rounded-full px-2.5 text-[12.5px] font-medium text-primary-text hover:bg-primary-soft pointer-coarse:min-h-11"
+							className="cms-press cms-page-focus inline-flex min-h-8 min-w-[5.75rem] items-center justify-center gap-1 rounded-full px-2.5 text-[12.5px] font-medium text-primary-text hover:bg-primary-soft pointer-coarse:min-h-11"
 						>
+							{copied ? <CheckIcon className="cms-copy-check size-3.5 stroke-[2.2]" /> : null}
 							<span aria-live="polite">{copied ? "Copied" : "Copy URL"}</span>
 						</button>
 					) : null}

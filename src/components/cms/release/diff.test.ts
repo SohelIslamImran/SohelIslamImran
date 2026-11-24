@@ -52,6 +52,20 @@ describe("portfolio structural diff", () => {
 		expect(diff.totalChanges).toBe(0);
 	});
 
+	it("preserves exact whitespace and long URLs in section changes", () => {
+		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
+		const intro = draft.hero.intro;
+		draft.hero.intro = `${intro}	 `;
+		draft.site.url = `https://example.com/${"x".repeat(200)}`;
+		const { changedSections } = diffPortfolioDocuments(INITIAL_PORTFOLIO_CONTENT, draft);
+		expect(changedSections.find(({ section }) => section.id === "hero")?.fields).toContainEqual(
+			expect.objectContaining({ path: "hero.intro", before: intro, after: draft.hero.intro }),
+		);
+		expect(changedSections.flatMap(({ fields }) => fields)).toContainEqual(
+			expect.objectContaining({ path: "site.url", after: draft.site.url }),
+		);
+	});
+
 	it("matches collection rows by id so reordering reports reordered instead of edited", () => {
 		const draft = structuredClone(INITIAL_PORTFOLIO_CONTENT);
 		const [first, second, ...rest] = draft.projects;

@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { useLiveReducedMotion } from "../../components/cms/shell/use-live-reduced-motion";
 import {
 	EmptyState,
 	PageHeader,
@@ -25,6 +27,9 @@ import { listAuditEvents } from "../../server/cms-history.functions";
 import type { AuditEventItem, AuditEventKind } from "../../server/cms-storage.server";
 
 export const Route = createFileRoute("/cms/activity")({
+	validateSearch: z.object({
+		kind: z.enum(["publish", "save", "restore", "discard", "media"]).optional().catch(undefined),
+	}),
 	head: () => ({
 		meta: [{ title: "Activity · Control plane" }],
 	}),
@@ -86,23 +91,41 @@ function ActivityRoute() {
 	const [loadingMore, setLoadingMore] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [moreError, setMoreError] = useState(false);
-	const [filter, setFilter] = useState<FilterKind>("all");
+	const reduced = useLiveReducedMotion();
+	const filter = Route.useSearch().kind ?? "all";
+	const navigate = Route.useNavigate();
+	const setFilter = (kind: FilterKind) => {
+		void navigate({ search: kind === "all" ? {} : { kind }, resetScroll: false });
+	};
+	const [announcement, setAnnouncement] = useState("");
 	const request = useRef(0);
 	const [todayKeys, setTodayKeys] = useState<{ today: string; yesterday: string } | null>(null);
 
 	// Hydration-safe "Today" / "Yesterday" labels (populated post-mount only).
 	useEffect(() => {
-		const now = Date.now();
-		setTodayKeys({
-			today: new Date(now).toISOString().slice(0, 10),
-			yesterday: new Date(now - 86_400_000).toISOString().slice(0, 10),
-		});
+		let timeout: number;
+		const refresh = () => {
+			window.clearTimeout(timeout);
+			const now = Date.now();
+			const today = utcDayKey(new Date(now).toISOString());
+			const midnight = Date.parse(today);
+			setTodayKeys({ today, yesterday: utcDayKey(new Date(midnight - 86_400_000).toISOString()) });
+			timeout = window.setTimeout(refresh, midnight + 86_400_000 - now);
+		};
+		refresh();
+		document.addEventListener("visibilitychange", refresh);
+		return () => {
+			window.clearTimeout(timeout);
+			document.removeEventListener("visibilitychange", refresh);
+		};
 	}, []);
 
 	const loadInitial = useCallback(
 		async (kind: FilterKind) => {
 			const current = ++request.current;
 			setLoading(true);
+			setLoadingMore(false);
+			setAnnouncement("");
 			setError(null);
 			setMoreError(false);
 			try {
@@ -111,6 +134,8 @@ function ActivityRoute() {
 				});
 				if (current !== request.current) return;
 				setEvents(result.items);
+				const count = result.items.length;
+				setAnnouncement(count === 0 ? "No events" : `${count} ${count === 1 ? "event" : "events"}`);
 				setNextBefore(result.nextBefore);
 			} catch {
 				if (current === request.current) setError("Could not load activity events.");
@@ -127,6 +152,9 @@ function ActivityRoute() {
 
 	useEffect(() => {
 		void loadInitial(filter);
+		return () => {
+			request.current += 1;
+		};
 	}, [filter, loadInitial, draftRevision, publishedRevision]);
 
 	// A failed "Load older" keeps the list and offers a retry beside the button.
@@ -149,7 +177,7 @@ function ActivityRoute() {
 		} catch {
 			if (current === request.current) setMoreError(true);
 		} finally {
-			setLoadingMore(false);
+			if (current === request.current) setLoadingMore(false);
 		}
 	};
 
@@ -203,7 +231,7 @@ function ActivityRoute() {
 						</label>
 						<SegmentedControl
 							className="max-sm:hidden"
-							layoutId="cms-activity-filter-pill"
+							layoutId={reduced ? "" : "cms-activity-filter-pill"}
 							ariaLabel="Filter activity"
 							value={filter}
 							onChange={setFilter}
@@ -213,6 +241,9 @@ function ActivityRoute() {
 				}
 			/>
 
+			<p role="status" className="sr-only">
+				{announcement}
+			</p>
 			{error ? (
 				<section className="cms-panel">
 					<EmptyState
@@ -265,7 +296,10 @@ function ActivityRoute() {
 			) : (
 				<div
 					aria-busy={loading}
-					className={cn("grid gap-5 transition-opacity duration-200", loading && "opacity-55")}
+					className={cn(
+						"transition-opacity duration-(--cms-dur-base) ease-(--cms-ease-out) grid gap-5",
+						loading && "opacity-60",
+					)}
 				>
 					{groupedByDay.map((group, groupIndex) => (
 						<section key={group.dayKey} className="cms-panel overflow-hidden">
