@@ -2,7 +2,7 @@ import { Counter } from "./TextFields";
 import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { AnimatePresence, Reorder } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listMedia } from "../../../server/cms-history.functions";
 import type { MediaAsset } from "../../../types/content";
 import {
@@ -18,7 +18,7 @@ import { ChevronRightIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowMenu } from "./RowControls";
-import { SortableRow } from "./SortableRow";
+import { SortableRow, useReorderFeedback } from "./SortableRow";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { sameValue } from "./row-list";
 import { TextAreaField } from "./TextFields";
@@ -191,12 +191,21 @@ export function MediaIdsField({ path }: { path: string }) {
 	const available = library.filter((asset) => !ids.includes(asset.id));
 	const removals = usePendingRemovals<string>(path, MAX_TRAVEL_MEDIA, sameValue);
 	const { keys } = removals;
+	const keysRef = useRef(keys);
+	keysRef.current = keys;
+	const reorderFeedback = useReorderFeedback();
 	const move = (from: number, to: number) => {
-		if (to < 0 || to >= ids.length) return;
+		if (from === to || to < 0 || to >= ids.length) return;
+		const movedKey = keysRef.current[from];
+		const movedId = ids[from];
+		const movedAlt = store.getState().draft.media.find((asset) => asset.id === movedId)?.alt;
 		const handle = document.activeElement
 			?.closest(".cms-sortable-row")
 			?.querySelector<HTMLButtonElement>("[data-row-handle]");
 		removals.move(from, to);
+		if (movedKey !== undefined) {
+			reorderFeedback.markMoved(movedKey, movedAlt || `Photo ${from + 1}`, from, to, ids.length);
+		}
 		requestAnimationFrame(() => {
 			if (handle?.isConnected && !handle.closest("[inert]")) {
 				handle.focus({ preventScroll: true });
@@ -253,8 +262,11 @@ export function MediaIdsField({ path }: { path: string }) {
 							id={id}
 							path={childPath(path, index)}
 							index={index}
+							settled={reorderFeedback.settledKey === keys[index]}
 							canMoveDown={index < ids.length - 1}
 							move={move}
+							onDragStart={(rowLabel) => reorderFeedback.startDrag(keys[index]!, index, rowLabel)}
+							onDragEnd={() => reorderFeedback.endDrag(keysRef.current)}
 							remove={(label, touch) => {
 								removals.remove(index, label);
 								requestAnimationFrame(() =>
@@ -268,6 +280,9 @@ export function MediaIdsField({ path }: { path: string }) {
 					))}
 				</AnimatePresence>
 			</Reorder.Group>
+			<p role="status" aria-live="polite" className="sr-only">
+				{reorderFeedback.announcement}
+			</p>
 			<ChoiceSelect
 				id={fieldId(path)}
 				label="Add photo"
@@ -314,16 +329,22 @@ function PhotoRow({
 	id,
 	path,
 	index,
+	settled,
 	canMoveDown,
 	move,
+	onDragStart,
+	onDragEnd,
 	remove,
 }: {
 	rowKey: number;
 	id: string;
 	path: string;
 	index: number;
+	settled: boolean;
 	canMoveDown: boolean;
 	move: (from: number, to: number) => void;
+	onDragStart: (label: string) => void;
+	onDragEnd: () => void;
 	remove: (label: string, touch: boolean) => void;
 }) {
 	const [assetIndex, alt, mimeType, width, height] = useDraftSelector(({ draft }) => {
@@ -335,10 +356,13 @@ function PhotoRow({
 	return (
 		<SortableRow
 			value={rowKey}
+			settled={settled}
 			reorderable={index > 0 || canMoveDown}
 			label={label}
 			className="cms-repeater-row p-2"
 			onMove={(offset) => move(index, index + offset)}
+			onDragStart={() => onDragStart(label)}
+			onDragEnd={onDragEnd}
 		>
 			{(handle) => (
 				<>

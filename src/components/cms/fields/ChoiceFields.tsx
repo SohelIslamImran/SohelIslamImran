@@ -8,7 +8,7 @@ import { Select } from "@base-ui/react/select";
 import { Switch } from "@base-ui/react/switch";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
 import { cn } from "../../../lib/utils";
-import { SPRING_SNAPPY } from "../motion";
+import { REDUCED, SPRING_SNAPPY } from "../motion";
 import { useField } from "../draft/context";
 import {
 	FieldFrame,
@@ -344,6 +344,7 @@ export function SwitchField({
 	const field = useField<boolean | undefined>(path);
 	const checked = field.value === true;
 	const reduced = useLiveReducedMotion();
+	const [pressed, setPressed] = useState(false);
 	return (
 		<FieldFrame
 			path={path}
@@ -358,12 +359,24 @@ export function SwitchField({
 			<Switch.Root
 				id={fieldId(path)}
 				data-visible-field-control=""
+				data-pressed={!reduced && pressed ? "" : undefined}
 				aria-labelledby={`${fieldId(path)}-label`}
 				checked={checked}
 				aria-invalid={field.issues.length > 0 || undefined}
 				onCheckedChange={(next) => field.set(next ? true : optional ? undefined : false)}
 				aria-describedby={describedBy(path, Boolean(description), field.issues)}
-				className="cms-switch cms-press"
+				onPointerDown={() => setPressed(true)}
+				onPointerUp={() => setPressed(false)}
+				onPointerCancel={() => setPressed(false)}
+				onPointerLeave={() => setPressed(false)}
+				onKeyDown={(event) => {
+					if (event.key === " " || event.key === "Enter") setPressed(true);
+				}}
+				onKeyUp={(event) => {
+					if (event.key === " " || event.key === "Enter") setPressed(false);
+				}}
+				onBlur={() => setPressed(false)}
+				className="cms-switch"
 			>
 				<span className="cms-switch-track" aria-hidden="true">
 					<Switch.Thumb
@@ -373,7 +386,9 @@ export function SwitchField({
 								initial={false}
 								animate={{ x: checked ? 20 : 0 }}
 								transition={reduced ? { duration: 0 } : SPRING_SNAPPY}
-							/>
+							>
+								<span className="cms-switch-thumb-inner" />
+							</motion.span>
 						}
 					/>
 				</span>
@@ -384,6 +399,8 @@ export function SwitchField({
 
 export function CheckboxField({ path, label, description, optional = true }: SwitchFieldProps) {
 	const field = useField<boolean | undefined>(path);
+	const checked = field.value === true;
+	const reduced = useLiveReducedMotion();
 	const id = fieldId(path);
 	return (
 		<FieldFrame
@@ -401,13 +418,37 @@ export function CheckboxField({ path, label, description, optional = true }: Swi
 				aria-invalid={field.issues.length > 0 || undefined}
 				aria-describedby={describedBy(path, Boolean(description), field.issues)}
 				data-visible-field-control=""
-				checked={field.value === true}
+				checked={checked}
 				onCheckedChange={(next) => field.set(next ? true : optional ? undefined : false)}
 				className="cms-checkbox cms-press"
 			>
 				<span className="cms-checkbox-box" aria-hidden="true">
 					<Checkbox.Indicator keepMounted className="cms-checkbox-check">
-						<CheckIcon className="size-3.5 stroke-[2.2]" />
+						<svg
+							viewBox="0 0 20 20"
+							aria-hidden="true"
+							className="size-3.5 shrink-0 fill-none stroke-current stroke-[2.2] [stroke-linecap:round] [stroke-linejoin:round]"
+						>
+							<motion.path
+								d="m4.75 10.25 3.5 3.5 7-7.5"
+								initial={false}
+								animate={
+									checked
+										? { pathLength: 1, opacity: 1 }
+										: { pathLength: reduced ? 1 : 0, opacity: 0 }
+								}
+								transition={
+									reduced
+										? { pathLength: { duration: 0 }, opacity: REDUCED }
+										: checked
+											? { pathLength: SPRING_SNAPPY, opacity: { duration: 0.08, ease: "linear" } }
+											: {
+													opacity: { duration: 0.16, ease: [0.22, 1, 0.36, 1] },
+													pathLength: { duration: 0, delay: 0.16 },
+												}
+								}
+							/>
+						</svg>
 					</Checkbox.Indicator>
 				</span>
 			</Checkbox.Root>

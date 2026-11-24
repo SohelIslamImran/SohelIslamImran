@@ -3,6 +3,7 @@ import { removeItem, setAt } from "../draft/paths";
 import {
 	createRemoval,
 	keyRows,
+	moveAnnouncement,
 	removalRules,
 	reorderOffset,
 	replacedDraft,
@@ -178,4 +179,19 @@ describe("keyboard reorder", () => {
 			expect(offset(new TestElement("span", new TestElement(selector, summary)))).toBeUndefined();
 		},
 	);
+});
+
+describe("moveAnnouncement", () => {
+	it("announces the new 1-based position when order changes", () => {
+		expect(moveAnnouncement("Kuno", 0, 1, 8)).toBe("Moved Kuno to position 2 of 8.");
+		expect(moveAnnouncement("Kuno", 4, 0, 8)).toBe("Moved Kuno to position 1 of 8.");
+		expect(moveAnnouncement("   ", 0, 2, 5)).toBe("Moved Item 3 to position 3 of 5.");
+	});
+
+	it("returns null when the row did not move or indexes are out of range", () => {
+		expect(moveAnnouncement("Kuno", 2, 2, 8)).toBeNull();
+		expect(moveAnnouncement("Kuno", 0, -1, 8)).toBeNull();
+		expect(moveAnnouncement("Kuno", 7, 8, 8)).toBeNull();
+		expect(moveAnnouncement("Kuno", 0, 1, 0)).toBeNull();
+	});
 });

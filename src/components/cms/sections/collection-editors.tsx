@@ -1,7 +1,7 @@
 import { LayoutGroup, motion } from "motion/react";
 import { useId } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
-import { SPRING_MOVE } from "../motion";
+import { REDUCED, SPRING_MOVE } from "../motion";
 import { Tabs } from "@base-ui/react/tabs";
 import { categoryLabels } from "../../work/project-utils";
 import type {
@@ -16,7 +16,8 @@ import type {
 	WritingContent,
 } from "../../../types/content";
 import { PROJECT_CATEGORIES } from "../../../types/content";
-import { useDraftSelector, useDraftValue } from "../draft/context";
+import { useChangedAt, useDraftSelector, useDraftValue } from "../draft/context";
+import { useSettledIssues } from "../draft/use-settled-issues";
 import {
 	CoordinateField,
 	DateField,
@@ -470,6 +471,25 @@ export function LinksEditor(props: EditorProps) {
 	const tab = props.tab ?? "profile";
 	const groupId = useId();
 	const reduced = useLiveReducedMotion();
+	const profileChanged = useChangedAt("profileLinks");
+	const socialChanged = useChangedAt("social");
+	const settled = useSettledIssues();
+	const profileErrors = settled.under("profileLinks").length > 0;
+	const socialErrors = settled.under("social").length > 0;
+	const tabItems = [
+		{
+			value: "profile" as const,
+			label: "Profile links",
+			changed: profileChanged,
+			hasErrors: profileErrors,
+		},
+		{
+			value: "social" as const,
+			label: "Social",
+			changed: socialChanged,
+			hasErrors: socialErrors,
+		},
+	];
 	return (
 		<Tabs.Root
 			value={tab}
@@ -480,17 +500,29 @@ export function LinksEditor(props: EditorProps) {
 		>
 			<LayoutGroup id={groupId}>
 				<Tabs.List aria-label="Link editors" className="cms-segments flex justify-self-start">
-					{(["profile", "social"] as const).map((value) => (
-						<Tabs.Tab key={value} value={value} className="cms-segment cms-press">
-							{tab === value ? (
+					{tabItems.map((entry) => (
+						<Tabs.Tab key={entry.value} value={entry.value} className="cms-segment cms-press">
+							{tab === entry.value ? (
 								<motion.span
 									aria-hidden="true"
 									className="cms-choice-highlight"
 									layoutId={reduced ? undefined : "tab"}
-									transition={SPRING_MOVE}
+									transition={reduced ? REDUCED : SPRING_MOVE}
 								/>
 							) : null}
-							{value === "profile" ? "Profile links" : "Social"}
+							<span>{entry.label}</span>
+							{entry.changed ? (
+								<span className="cms-tab-mark cms-tab-mark-changed">
+									<span aria-hidden="true">Δ</span>
+									<span className="sr-only"> has changes</span>
+								</span>
+							) : null}
+							{entry.hasErrors ? (
+								<span className="cms-tab-mark cms-tab-mark-error">
+									<span aria-hidden="true">!</span>
+									<span className="sr-only"> has errors</span>
+								</span>
+							) : null}
 						</Tabs.Tab>
 					))}
 				</Tabs.List>

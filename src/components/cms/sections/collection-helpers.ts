@@ -169,9 +169,14 @@ export function issueLabel(draft: unknown, path: string): string {
 	return parts.join(" › ") || humanize(String(segments[0] ?? ""));
 }
 
+/** Pluralize a singular title-case item label ("project" / "projects", "entry" / "entries"). */
+export function countNoun(count: number, itemLabel: string): string {
+	const noun = itemLabel.toLowerCase();
+	if (count === 1) return noun;
+	return /[^aeiou]y$/u.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`;
+}
+
 /** "8 projects", "1 entry": the item label is singular title case. */
 export function countLabel(count: number, itemLabel: string): string {
-	const noun = itemLabel.toLowerCase();
-	if (count === 1) return `1 ${noun}`;
-	return `${count} ${/[^aeiou]y$/u.test(noun) ? `${noun.slice(0, -1)}ies` : `${noun}s`}`;
+	return `${count} ${countNoun(count, itemLabel)}`;
 }

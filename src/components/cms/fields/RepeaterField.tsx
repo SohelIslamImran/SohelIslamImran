@@ -1,13 +1,13 @@
 import { Counter } from "./TextFields";
 import { AnimatePresence, Reorder } from "motion/react";
-import { memo, useCallback, useState, type ComponentType } from "react";
+import { memo, useCallback, useRef, useState, type ComponentType } from "react";
 import { MAX_COLLECTION_ITEMS } from "../../../lib/validation";
 import { cn } from "../../../lib/utils";
 import { useChangedAt, useDraftSelector, useDraftStore, useIssuesAt } from "../draft/context";
 import { useSettledIssues } from "../draft/use-settled-issues";
 import { childPath, isPathWithin } from "../draft/paths";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
-import { SortableRow } from "./SortableRow";
+import { SortableRow, useReorderFeedback } from "./SortableRow";
 import { AddButton, RowMenu } from "./RowControls";
 import { UndoRemoval, usePendingRemovals } from "./UndoRemoval";
 import { ChevronDownIcon } from "./field-icons";
@@ -45,13 +45,24 @@ export function RepeaterField<T extends object>({
 	const changed = useChangedAt(path);
 	const removals = usePendingRemovals<T>(path, max);
 	const { keys, move: moveRow, insert: insertRow, remove: removeRow } = removals;
+	const keysRef = useRef(keys);
+	keysRef.current = keys;
+	const reorderFeedback = useReorderFeedback();
+	const { markMoved, startDrag, endDrag } = reorderFeedback;
+	const handleDragEnd = useCallback(() => endDrag(keysRef.current), [endDrag]);
 
 	const move = useCallback(
 		(from: number, to: number) => {
 			const rows = (store.valueAt(path) as T[] | undefined) ?? EMPTY;
-			if (to < 0 || to >= rows.length) return;
+			if (from === to || to < 0 || to >= rows.length) return;
+			const movedKey = keysRef.current[from];
+			const row = rows[from];
+			const rowName = (row ? summarize(row).trim() : "") || `${itemLabel} ${from + 1}`;
 			const focused = document.activeElement;
 			moveRow(from, to);
+			if (movedKey !== undefined) {
+				markMoved(movedKey, rowName, from, to, rows.length);
+			}
 			requestAnimationFrame(() => {
 				if (
 					focused instanceof HTMLElement &&
@@ -62,7 +73,7 @@ export function RepeaterField<T extends object>({
 				} else focusField(childPath(path, to));
 			});
 		},
-		[moveRow, path, store],
+		[itemLabel, markMoved, moveRow, path, store, summarize],
 	);
 
 	const insert = useCallback(
@@ -132,6 +143,7 @@ export function RepeaterField<T extends object>({
 							key={rowKey}
 							rowKey={rowKey}
 							path={childPath(path, index)}
+							settled={reorderFeedback.settledKey === rowKey}
 							targeted={
 								targetPath !== undefined && isPathWithin(targetPath, childPath(path, index))
 							}
@@ -144,24 +156,40 @@ export function RepeaterField<T extends object>({
 							move={move}
 							remove={remove}
 							duplicate={duplicate}
+							onDragStart={startDrag}
+							onDragEnd={handleDragEnd}
 							Editor={Editor}
 						/>
 					))}
 				</AnimatePresence>
 			</Reorder.Group>
+			<p role="status" aria-live="polite" className="sr-only">
+				{reorderFeedback.announcement}
+			</p>
 			{keys.length === 0 ? (
-				<p className="cms-editor-empty mb-2">No {label.toLowerCase()} yet.</p>
-			) : null}
-			<div className={keys.length ? "mt-2" : undefined}>
-				<AddButton
-					id={fieldId(path)}
-					aria-describedby={describedBy(path, Boolean(description), issues)}
-					disabled={keys.length >= max}
-					onClick={() => insert(keys.length, create())}
-				>
-					Add {itemLabel.toLowerCase()}
-				</AddButton>
-			</div>
+				<div className="cms-repeater-empty">
+					<p className="m-0 text-[13px] text-muted-foreground">No {label.toLowerCase()} yet.</p>
+					<AddButton
+						id={fieldId(path)}
+						aria-describedby={describedBy(path, Boolean(description), issues)}
+						disabled={keys.length >= max}
+						onClick={() => insert(keys.length, create())}
+					>
+						Add {itemLabel.toLowerCase()}
+					</AddButton>
+				</div>
+			) : (
+				<div className="mt-2">
+					<AddButton
+						id={fieldId(path)}
+						aria-describedby={describedBy(path, Boolean(description), issues)}
+						disabled={keys.length >= max}
+						onClick={() => insert(keys.length, create())}
+					>
+						Add {itemLabel.toLowerCase()}
+					</AddButton>
+				</div>
+			)}
 			{removals.removals.map((removal) => (
 				<UndoRemoval
 					key={removal.id}
@@ -184,6 +212,7 @@ export function RepeaterField<T extends object>({
 function RepeaterRow<T extends object>({
 	rowKey,
 	path,
+	settled,
 	targeted,
 	index,
 	itemLabel,
@@ -194,10 +223,13 @@ function RepeaterRow<T extends object>({
 	move,
 	remove,
 	duplicate,
+	onDragStart,
+	onDragEnd,
 	Editor,
 }: {
 	rowKey: number;
 	path: string;
+	settled: boolean;
 	targeted: boolean;
 	index: number;
 	itemLabel: string;
@@ -208,6 +240,8 @@ function RepeaterRow<T extends object>({
 	move: (from: number, to: number) => void;
 	remove: (index: number, label: string, touch: boolean) => void;
 	duplicate: (index: number) => void;
+	onDragStart: (key: number, from: number, rowName: string) => void;
+	onDragEnd: () => void;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	// Mount the editor on first open and keep it, so closing can animate.
@@ -223,10 +257,13 @@ function RepeaterRow<T extends object>({
 		<SortableRow
 			value={rowKey}
 			label={name}
+			settled={settled}
 			reorderable={reorderable}
 			data-handle={reorderable || undefined}
 			className="cms-repeater-row"
 			onMove={reorderable ? (offset) => move(index, index + offset) : undefined}
+			onDragStart={() => onDragStart(rowKey, index, name)}
+			onDragEnd={onDragEnd}
 		>
 			{(handle) => (
 				<>

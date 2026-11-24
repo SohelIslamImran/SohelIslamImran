@@ -185,3 +185,18 @@ export function newRowId(): string {
 export function duplicateRow<T extends object>(row: T): T {
 	return rowId(row) ? { ...structuredClone(row), id: newRowId() } : structuredClone(row);
 }
+
+/**
+ * Polite announcement for a completed reorder, or `null` when the row stayed
+ * in place or the target index is out of bounds.
+ */
+export function moveAnnouncement(
+	label: string,
+	from: number,
+	to: number,
+	total: number,
+): string | null {
+	if (from === to || from < 0 || to < 0 || from >= total || to >= total) return null;
+	const name = label.trim() || `Item ${to + 1}`;
+	return `Moved ${name} to position ${to + 1} of ${total}.`;
+}
