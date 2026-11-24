@@ -12,6 +12,11 @@
 		color: color-mix(in srgb, var(--theme-muted) 64%, var(--theme-ink));
 	}
 
+	/* Over the accent-tinted highlight the muted mix drops below 4.5:1. */
+	.cms-command-row[aria-selected="true"] .cms-command-secondary {
+		color: var(--theme-ink-soft);
+	}
+
 	.cms-layout {
 		--cms-content-max: 69rem;
 		display: grid;

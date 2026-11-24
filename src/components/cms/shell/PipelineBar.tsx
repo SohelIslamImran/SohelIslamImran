@@ -286,6 +286,16 @@ export function PipelineBar({
 	const announcedSave = useRef<number | null>(null);
 	if (stage === "ahead" && phase === "saved") announcedSave.current = draftRevision;
 	else if (stage !== "ahead") announcedSave.current = null;
+	// The live region speaks once per settled outcome: progress (Unsaved,
+	// Saving…, Publishing…) stays in the visible pill, and each completed save
+	// names its revision so a second save in a row is still announced.
+	const settledAnnouncement = useRef("");
+	if (stage !== "dirty" && stage !== "saving") {
+		settledAnnouncement.current =
+			announcedSave.current === draftRevision
+				? `Draft saved as revision ${draftRevision}. ${label}`
+				: label;
+	}
 	const publishedRevision = useDraftSelector((state) => state.publishedRevision);
 	const draftUpdatedAt = useDraftSelector((state) => state.draftUpdatedAt);
 	const relativeSaved = useRelativeTime(draftUpdatedAt, 10_000);
@@ -344,8 +354,7 @@ export function PipelineBar({
 						Live r<RollingNumber value={publishedRevision} pad={1} />
 					</Link>
 					<span role="status" className="sr-only">
-						{announcedSave.current === draftRevision ? "Draft saved. " : ""}
-						{label}
+						{settledAnnouncement.current}
 					</span>
 				</div>
 
