@@ -67,7 +67,7 @@ export function cloudflareLinks(publicOrigin: string): CloudflareLink[] {
 			id: "deployments",
 			label: "Deployments",
 			detail: "Builds from main, versions, and rollbacks",
-			keywords: "deployments builds versions rollback ci",
+			keywords: "rollback ci deploy history",
 			href: dashboardUrl(`${WORKER_PATH}/deployments`),
 		},
 		{

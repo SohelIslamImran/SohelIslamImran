@@ -60,57 +60,6 @@
 			0 8px 28px -12px var(--theme-shadow-strong);
 	}
 
-	@media (max-width: 1023px) {
-		.cms-topbar {
-			background: color-mix(in srgb, var(--theme-surface-solid) 82%, transparent);
-			backdrop-filter: blur(20px) saturate(180%);
-			-webkit-backdrop-filter: blur(20px) saturate(180%);
-			border-bottom-color: var(--theme-glass-border);
-		}
-	}
-
-	/* Pipeline conduit lines & state motion (only transform/translate/scale/opacity). */
-	.cms-pipeline-line {
-		position: relative;
-		height: 2px;
-		border-radius: 999px;
-		overflow: hidden;
-		background: var(--theme-line-strong);
-	}
-
-	.cms-pipeline-line[data-tone="accent"] {
-		background: var(--theme-accent-line);
-	}
-
-	.cms-pipeline-line[data-tone="success"] {
-		background: color-mix(in srgb, var(--theme-success) 55%, transparent);
-	}
-
-	.cms-pipeline-line[data-tone="invalid"] {
-		background: repeating-linear-gradient(
-			to right,
-			var(--theme-destructive) 0 5px,
-			transparent 5px 9px
-		);
-	}
-
-	.cms-pipeline-runner {
-		position: absolute;
-		inset: 0;
-		border-radius: 999px;
-		background: linear-gradient(90deg, transparent 0%, var(--theme-accent) 50%, transparent 100%);
-		animation: cms-conduit-travel 1.25s var(--ease-in-out-soft) infinite;
-	}
-
-	@keyframes cms-conduit-travel {
-		from {
-			translate: -100% 0;
-		}
-		to {
-			translate: 100% 0;
-		}
-	}
-
 	/* One-shot luminous trace sweep across the pipeline bar after publish. */
 	.cms-publish-sweep {
 		position: absolute;
@@ -227,14 +176,8 @@
 		.cms-trace-mark {
 			transition: none;
 		}
-		.cms-pipeline-runner,
 		.cms-publish-sweep::after {
 			animation: none;
-		}
-		.cms-pipeline-runner {
-			translate: 0 0;
-			background: var(--theme-accent);
-			opacity: 0.65;
 		}
 		.cms-publish-sweep {
 			display: none;

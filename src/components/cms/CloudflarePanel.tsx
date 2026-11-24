@@ -118,29 +118,21 @@ export function CloudflareDashboardLinks({ stagger }: { stagger?: number }) {
 }
 
 /** Running version line: id, commit tag, and how long ago it was deployed. */
-function LiveVersion() {
+function CurrentBuild() {
 	const { build } = useCmsSession();
 	if (!build) {
-		return <p className="m-0 text-[12px] text-muted-foreground">Live version unavailable</p>;
+		return <p className="m-0 text-[12px] text-muted-foreground">Current build unavailable</p>;
 	}
 	const created = build.timestamp ? parseCmsTimestamp(build.timestamp) : null;
 	return (
 		<p className="m-0 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
-			<span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-				<span aria-hidden="true" className="size-1.5 rounded-full bg-success" />
-				Live
-			</span>
+			<span className="font-medium text-foreground">Current build</span>
 			<code
 				title={build.id}
 				className="rounded-[6px] border border-line bg-surface-raised px-1.5 py-px font-mono text-[11.5px] text-foreground tabular-nums"
 			>
 				{shortVersionId(build.id)}
 			</code>
-			{build.tag ? (
-				<span title={build.tag} className="font-mono text-[11.5px]">
-					{build.tag.slice(0, 7)}
-				</span>
-			) : null}
 			{created ? (
 				<span className="inline-flex items-center gap-1">
 					<span aria-hidden="true">·</span>
@@ -205,35 +197,25 @@ export function CloudflarePanel({ stagger }: { stagger?: number }) {
 				]
 			: null;
 
-	const ariaLabel =
-		stats !== null
-			? `Hosting, last 24 hours: ${stats
-					.map(
-						(stat) => `${stat.label} ${stat.value === null ? "no data" : stat.format(stat.value)}`,
-					)
-					.join(", ")}. Open infrastructure`
-			: health.kind === "loading"
-				? "Hosting, last 24 hours: loading metrics. Open infrastructure"
-				: health.kind === "unavailable" && health.notConfigured
-					? "Hosting, last 24 hours: metrics unavailable, connect Cloudflare. Open infrastructure"
-					: "Hosting, last 24 hours: metrics unavailable. Open infrastructure";
-
 	return (
 		<Link
 			to="/cms/infrastructure"
 			style={stagger !== undefined ? staggerStyle(stagger) : undefined}
-			aria-label={ariaLabel}
-			className="cms-panel cms-jump-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
+			className="cms-panel cms-jump-card cms-signal-card cms-enter cms-page-focus group flex h-full min-w-0 flex-col justify-between gap-3.5 p-4 no-underline sm:p-5"
 		>
 			<div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 				<div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-					<h2 className="m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+					<h2 className="cms-signal-title m-0 text-[15px] font-semibold tracking-[-0.01em] text-foreground">
 						Hosting
 					</h2>
 					<span className="text-[12px] text-muted-foreground">Last 24 hours</span>
 				</div>
 				<span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-medium text-primary-text">
-					<span>Infrastructure</span>
+					<span>
+						{health.kind === "unavailable" && health.notConfigured
+							? "Connect Cloudflare metrics"
+							: "Infrastructure"}
+					</span>
 					<span
 						aria-hidden="true"
 						className="transition-[translate,color] duration-150 group-hover:translate-x-0.5 group-hover:text-foreground motion-reduce:group-hover:translate-x-0"
@@ -256,9 +238,7 @@ export function CloudflarePanel({ stagger }: { stagger?: number }) {
 				) : health.kind === "unavailable" ? (
 					<div className="flex min-h-[48px] items-center">
 						<p className="m-0 text-[13px] text-muted-foreground">
-							{health.notConfigured
-								? "Metrics unavailable · connect Cloudflare"
-								: "Metrics unavailable"}
+							{health.notConfigured ? "Metrics not connected" : "Metrics unavailable"}
 						</p>
 					</div>
 				) : (
@@ -289,7 +269,7 @@ export function CloudflarePanel({ stagger }: { stagger?: number }) {
 			</div>
 
 			<div className="border-t border-line pt-2.5">
-				<LiveVersion />
+				<CurrentBuild />
 			</div>
 		</Link>
 	);
