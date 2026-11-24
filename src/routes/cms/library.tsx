@@ -34,7 +34,7 @@ export const Route = createFileRoute("/cms/library")({
 });
 
 function LibraryRoute() {
-	const { csrfToken, mediaEnabled: sessionMediaEnabled } = useCmsSession();
+	const { mediaEnabled: sessionMediaEnabled } = useCmsSession();
 	const publicOrigin = usePublicOrigin();
 	const fetchMedia = useServerFn(listMedia);
 
@@ -121,7 +121,6 @@ function LibraryRoute() {
 				<div id={UPLOAD_PANEL_ID} hidden={!uploadOpen} className="cms-upload-reveal">
 					{uploadMounted ? (
 						<UploadPanel
-							csrfToken={csrfToken}
 							empty={!loading && !error && !hasAssets}
 							onUploaded={load}
 							onBusyChange={setUploadBusy}
@@ -165,7 +164,6 @@ function LibraryRoute() {
 						<AssetCard
 							key={asset.id}
 							asset={asset}
-							csrfToken={csrfToken}
 							publicOrigin={publicOrigin}
 							stagger={Math.min(idx, 8)}
 							onUpdated={handleUpdated}
