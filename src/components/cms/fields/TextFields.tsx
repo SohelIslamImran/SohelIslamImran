@@ -37,27 +37,51 @@ export interface TextFieldProps extends BaseFieldProps {
 	valueOverride?: string;
 }
 
-export function Counter({ length, max }: { length: number; max?: number }) {
+export function Counter({
+	length,
+	max,
+	unit = "chars",
+}: {
+	length: number;
+	max?: number;
+	unit?: "chars" | "items";
+}) {
 	const reduced = useLiveReducedMotion();
 	if (!max || length < Math.ceil(max * 0.8)) return null;
+	const remaining = max - length;
+	const count =
+		unit === "items"
+			? `${length}/${max}`
+			: remaining < 0
+				? `${-remaining} over`
+				: `${remaining} left`;
 	return (
 		<span
-			className={cn(
-				"cms-counter inline-flex font-mono text-[11px] tabular-nums",
-				length > max ? "text-destructive" : "text-muted-foreground",
-			)}
+			className="cms-counter"
+			data-over={remaining < 0 || undefined}
+			aria-label={`${length} of ${max} ${unit === "chars" ? "characters" : "items"}`}
 		>
+			<svg viewBox="0 0 14 14" aria-hidden="true">
+				<circle cx="7" cy="7" r="5.5" />
+				<circle
+					cx="7"
+					cy="7"
+					r="5.5"
+					pathLength="1"
+					strokeDasharray="1"
+					strokeDashoffset={Math.max(0, remaining / max)}
+				/>
+			</svg>
 			<AnimatePresence initial={false}>
 				<motion.span
-					key={length}
+					key={count}
 					initial={{ opacity: 0.5, y: reduced ? 0 : 3 }}
 					animate={{ opacity: 1, y: 0 }}
 					transition={reduced ? REDUCED : SPRING_SNAPPY}
 				>
-					{length}
+					{count}
 				</motion.span>
 			</AnimatePresence>
-			/{max}
 		</span>
 	);
 }
@@ -90,6 +114,7 @@ export function TextField({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}
@@ -169,6 +194,7 @@ export function TextAreaField({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={issues}
 			changed={field.changed}
 			onRevert={field.revert}

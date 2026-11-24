@@ -296,7 +296,7 @@ export function MediaIdsField({ path }: { path: string }) {
 							<span aria-hidden="true">→</span>
 						</Link>
 					) : null}
-					<Counter length={ids.length} max={MAX_TRAVEL_MEDIA} />
+					<Counter length={ids.length} unit="items" max={MAX_TRAVEL_MEDIA} />
 				</>
 			}
 		>

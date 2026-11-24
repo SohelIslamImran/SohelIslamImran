@@ -119,7 +119,7 @@ export function TagsField({
 							field.revert();
 						}
 			}
-			meta={<Counter length={tags.length} max={max} />}
+			meta={<Counter length={tags.length} unit="items" max={max} />}
 			className={className}
 		>
 			<InputShell className="cms-tags" invalid={nested.length > 0}>
@@ -373,7 +373,7 @@ export function StringListField({
 						}
 			}
 			asGroup
-			meta={<Counter length={count} max={max} />}
+			meta={<Counter length={count} unit="items" max={max} />}
 			className={className}
 		>
 			<div className="cms-stack" data-invalid={issues.length > 0 || undefined}>

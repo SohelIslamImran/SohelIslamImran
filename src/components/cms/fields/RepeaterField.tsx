@@ -127,7 +127,7 @@ export function RepeaterField<T extends object>({
 							store.revertAt(path);
 						}
 			}
-			meta={<Counter length={keys.length} max={max} />}
+			meta={<Counter length={keys.length} unit="items" max={max} />}
 		>
 			<Reorder.Group
 				as="ol"
@@ -251,6 +251,7 @@ function RepeaterRow<T extends object>({
 		return row ? summarize(row).trim() : "";
 	});
 	const name = summary || `${itemLabel} ${index + 1}`;
+	const changed = useChangedAt(path);
 	const issueCount = useSettledIssues().under(path).length;
 	const reorderable = index > 0 || canMoveDown;
 	return (
@@ -289,10 +290,16 @@ function RepeaterRow<T extends object>({
 									</span>
 								) : null}
 							</span>
+							{changed ? (
+								<>
+									<span className="cms-repeater-changed" aria-hidden="true" />
+									<span className="sr-only"> has changes</span>
+								</>
+							) : null}
 							<ChevronDownIcon className="cms-disclosure-chevron cms-disclosure-chevron-down size-3.5 text-muted-foreground" />
 						</summary>
 						{opened || targeted ? (
-							<div className="cms-repeater-body grid min-w-0 gap-5 px-4 pt-1 pb-4">
+							<div className="cms-repeater-body grid min-w-0 gap-5 px-4 pt-4 pb-[18px]">
 								<Editor path={path} />
 							</div>
 						) : null}

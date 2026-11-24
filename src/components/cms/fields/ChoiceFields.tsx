@@ -59,6 +59,7 @@ export function SelectField<V extends string>({
 			path={path}
 			label={label}
 			description={description}
+			optional={optional}
 			issues={field.issues}
 			changed={field.changed}
 			onRevert={field.revert}

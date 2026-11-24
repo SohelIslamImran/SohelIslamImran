@@ -379,10 +379,63 @@
 		color: var(--theme-accent-text);
 	}
 
-	/*
-	 * Field rhythm: label to control 6px, control to helper 6px, field to
-	 * field 20 to 24px (set by the containing grid's gap).
-	 */
+	.cms-field-label {
+		min-width: 0;
+		margin: 0;
+		color: var(--theme-ink-soft);
+		font-size: 13px;
+		line-height: 18px;
+		font-weight: 550;
+		transition: color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-field:not([data-invalid]):focus-within:not(
+			:has(
+				.cms-field:focus-within,
+				.cms-field-revert:focus-visible,
+				.cms-input-action:focus-visible
+			)
+		)
+		> :is(.cms-field-head, .cms-field-inline)
+		.cms-field-label {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-field-optional {
+		margin-inline-start: 6px;
+		color: var(--theme-muted);
+		font-size: 12px;
+		font-weight: 400;
+	}
+
+	.cms-counter {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		color: var(--theme-muted);
+		font-size: 11.5px;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.cms-counter svg {
+		width: 14px;
+		height: 14px;
+		rotate: -90deg;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+	}
+
+	.cms-counter circle:first-child {
+		opacity: 0.2;
+	}
+
+	.cms-counter[data-over] {
+		color: var(--theme-destructive);
+	}
+
 	.cms-field-head {
 		display: flex;
 		min-width: 0;
@@ -391,7 +444,7 @@
 		align-items: center;
 		justify-content: space-between;
 		column-gap: 8px;
-		margin-bottom: 6px;
+		margin-bottom: 8px;
 	}
 
 	/*
@@ -466,11 +519,15 @@
 
 	.cms-field-message > p {
 		opacity: 0;
-		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		translate: 0 -3px;
+		transition:
+			opacity var(--cms-dur-base) var(--cms-ease-out),
+			translate var(--cms-dur-base) var(--cms-ease-out);
 	}
 
 	.cms-field-message > p[data-open] {
 		opacity: 1;
+		translate: 0 0;
 	}
 
 	.cms-field-revert {
@@ -1052,8 +1109,60 @@
 	}
 
 	.cms-repeater-row {
+		border: 1px solid color-mix(in srgb, var(--theme-ink) 9%, transparent);
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		background: var(--theme-surface-solid);
+	}
+
+	html[data-theme-resolved="dark"] .cms-repeater-row {
+		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-surface-solid));
+	}
+
+	.cms-repeater-row:has(> details[open]) {
+		border-color: color-mix(in srgb, var(--theme-ink) 13%, transparent);
+	}
+
+	.cms-repeater-row > details[open] > summary {
+		border-bottom: 1px solid color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		border-radius: 11px 11px 0 0;
+	}
+
+	.cms-repeater-row .cms-repeater-summary:focus-visible {
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	.cms-repeater-changed {
+		flex: none;
+		width: 6px;
+		height: 6px;
+		margin-block-start: calc(0.5lh - 3px);
+		border-radius: 50%;
+		background: var(--theme-accent);
+	}
+
+	.cms-editor-button.cms-add-button:not(.cms-editor-primary) {
+		min-height: var(--cms-field-h-sm);
+		border-radius: 9px;
+		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-editor-button.cms-add-button:hover:not(:disabled, .cms-editor-primary) {
+			background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+		}
+
+		:is(.cms-stack-row, .cms-repeater-row) :is(.cms-drag-handle, .cms-row-tool) {
+			opacity: 0.45;
+			transition:
+				opacity var(--cms-dur-fast) var(--cms-ease-out),
+				scale var(--cms-dur-press) var(--cms-ease-out);
+		}
+
+		:is(.cms-stack-row, .cms-repeater-row):is(:hover, :focus-within)
+			:is(.cms-drag-handle, .cms-row-tool),
+		:is(.cms-stack-row, .cms-repeater-row) .cms-row-tool[data-popup-open] {
+			opacity: 1;
+		}
 	}
 
 	/* Disclosure rows: one line with a chevron that turns as the body opens. */
