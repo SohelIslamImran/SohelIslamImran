@@ -221,7 +221,10 @@ export function UndoRemovalHost({ children }: { children: ReactNode }) {
 							)}
 						>
 							<div
-								className={cn("cms-undo-deck", isCollapsed ? "relative" : "flex flex-col gap-2")}
+								className={cn(
+									"cms-undo-deck",
+									isCollapsed ? "relative" : "flex flex-col-reverse gap-2",
+								)}
 							>
 								<AnimatePresence initial={false}>
 									{deckItems.map((toast, index) => (
@@ -517,7 +520,10 @@ function UndoToast({
 			}}
 			transition={reduced ? REDUCED : SPRING_MOVE}
 			className={cn(
-				"cms-panel cms-undo flex max-w-full shrink-0 flex-wrap items-center gap-2 p-2 shadow-md",
+				"cms-panel cms-undo max-w-full shrink-0 items-center gap-2 p-2 shadow-md",
+				total > 1 ? "grid grid-cols-[minmax(0,1fr)_auto_auto_5rem]" : "flex flex-wrap",
+				expanded && "w-full",
+				expanded && index > 0 && "[contain:inline-size]",
 				slot.interactive ? "pointer-events-auto relative" : "pointer-events-none",
 				stackedBehind && "cms-undo-behind",
 			)}
