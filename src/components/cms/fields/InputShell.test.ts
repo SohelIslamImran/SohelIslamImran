@@ -1,6 +1,7 @@
 import { createElement, useState, type MouseEventHandler, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { CheckIcon } from "./field-icons";
 import { ClearAction, CopyAction } from "./InputShell";
 
 vi.mock("react", { spy: true });
@@ -75,6 +76,8 @@ describe("CopyAction", () => {
 		const feedback = render();
 		expect(feedback).toContain(`role="status">${message}</span>`);
 		expect(feedback.includes('data-done="true"')).toBe(succeeds);
+		const check = renderToStaticMarkup(createElement(CheckIcon, { className: "cms-action-enter" }));
+		expect(feedback.includes(check)).toBe(succeeds);
 		vi.advanceTimersByTime(1200);
 		expect(render()).toContain('role="status"></span>');
 	});

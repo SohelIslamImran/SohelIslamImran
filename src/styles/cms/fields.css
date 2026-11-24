@@ -162,19 +162,10 @@
 			) {
 			border-color: var(--cms-field-edge-hover);
 			background-color: var(--cms-field-bg-hover);
-		}
 
-		.cms-input:hover:not([data-disabled], [data-invalid], [data-readonly]) .cms-input-leading,
-		.cms-control:hover:not(
-				:disabled,
-				[data-disabled],
-				[data-invalid],
-				[aria-invalid="true"],
-				[data-readonly],
-				[readonly]
-			)
-			.cms-control-icon {
-			color: var(--theme-ink-soft);
+			& :is(.cms-input-leading, .cms-control-icon) {
+				color: var(--theme-ink-soft);
+			}
 		}
 	}
 
@@ -2265,7 +2256,8 @@
 		:is(.cms-input, .cms-control, .cms-stack, .cms-segments):is(
 			[data-invalid],
 			[aria-invalid="true"]
-		) {
+		),
+		.cms-stack:has(.cms-string-row[data-invalid]) {
 			border: 2px dashed CanvasText;
 		}
 
