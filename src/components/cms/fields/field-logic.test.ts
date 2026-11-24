@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { removeItem } from "../draft/paths";
-import { tagBackspace, toSingleLine } from "./field-logic";
+import { hrefKind, splitMatch, tagBackspace, toSingleLine } from "./field-logic";
 import {
 	createRemoval,
 	neverSame,
@@ -75,4 +75,29 @@ describe("undo for string lists, tags, and photos", () => {
 			"Added later",
 		]);
 	});
+});
+
+it.each([
+	["https://example.com", "web"],
+	["http://example.com", "web"],
+	[" HTTPS://example.com ", "web"],
+	["/path", "path"],
+	["#anchor", "path"],
+	["mailto:test@example.com", "mail"],
+	["tel:123", "tel"],
+	["", "empty"],
+	["   ", "empty"],
+	["example.com", "path"],
+])("classifies %j as %s", (href, kind) => {
+	expect(hrefKind(href)).toBe(kind);
+});
+
+it.each([
+	["Europe/London", "lon", ["Europe/", "Lon", "don"]],
+	["Europe/London", "Paris", ["Europe/London", "", ""]],
+	["Europe/London", "Europe", ["", "Europe", "/London"]],
+	["Europe/London", "don", ["Europe/Lon", "don", ""]],
+	["banana", "ana", ["b", "ana", "na"]],
+])("splits %j on %j", (item, query, parts) => {
+	expect(splitMatch(item, query)).toEqual(parts);
 });

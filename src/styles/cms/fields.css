@@ -48,115 +48,412 @@
 		gap: 1.25rem 1rem;
 	}
 
-	/*
-	 * Inputs are lifted white fields: a 1px edge and a soft two-layer shadow
-	 * set them just above the white panel, so they separate from it without
-	 * a gray fill (gray marks disabled fields only). Dark mode lifts the field
-	 * one step lighter than the panel instead. Focus turns the edge into a
-	 * solid 2px accent line with no glow.
-	 */
 	.cms-root,
 	.cms-field-popup {
-		--cms-control-bg: var(--theme-surface-solid);
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.06), 0 2px 6px -2px rgb(0 0 0 / 0.08);
-		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.07), 0 4px 10px -3px rgb(0 0 0 / 0.1);
+		/* Surface */
+		--cms-field-bg: color-mix(in srgb, var(--theme-ink) 1.5%, var(--theme-paper));
+		--cms-field-bg-hover: color-mix(in srgb, var(--theme-ink) 2.5%, var(--theme-paper));
+		--cms-field-bg-focus: var(--theme-surface-solid);
+		--cms-field-edge: color-mix(in srgb, var(--theme-ink) 15%, transparent);
+		--cms-field-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
+		--cms-field-shade: inset 0 1px 1px rgb(0 0 0 / 0.04);
+		--cms-field-invalid-edge: color-mix(in srgb, var(--theme-destructive) 72%, transparent);
+		--cms-field-invalid-bg: color-mix(in srgb, var(--theme-destructive) 3%, var(--cms-field-bg));
+		--cms-field-selection: color-mix(in srgb, var(--theme-accent) 20%, transparent);
+		--cms-field-placeholder: var(--theme-muted);
+		/* Chips and tracks */
+		--cms-chip-bg: color-mix(in srgb, var(--theme-ink) 6%, var(--theme-surface-solid));
+		--cms-chip-edge: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		--cms-track-bg: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+		--cms-track-thumb: var(--theme-surface-solid);
+		/* Geometry */
+		--cms-field-h: 40px;
+		--cms-field-h-sm: 36px;
+		--cms-field-pad: 12px;
+		--cms-field-radius: var(--cms-radius-control, 10px);
+		--cms-field-font: 14px;
+		--cms-field-mono-font: 13px;
 	}
 
 	html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
-		--cms-control-bg: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
-		--cms-control-edge: color-mix(in srgb, var(--theme-ink) 12%, transparent);
-		--cms-control-edge-hover: color-mix(in srgb, var(--theme-ink) 20%, transparent);
-		--cms-control-lift: 0 1px 2px rgb(0 0 0 / 0.4);
-		--cms-control-lift-hover: 0 1px 2px rgb(0 0 0 / 0.45), 0 4px 10px -3px rgb(0 0 0 / 0.4);
+		--cms-field-bg: color-mix(in srgb, var(--theme-paper) 55%, var(--theme-surface-solid));
+		--cms-field-bg-hover: color-mix(in srgb, var(--theme-paper) 35%, var(--theme-surface-solid));
+		--cms-field-bg-focus: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		--cms-field-edge: color-mix(in srgb, var(--theme-ink) 13%, transparent);
+		--cms-field-edge-hover: color-mix(in srgb, var(--theme-ink) 22%, transparent);
+		--cms-field-shade: inset 0 1px 2px rgb(0 0 0 / 0.4);
+		--cms-field-invalid-bg: color-mix(in srgb, var(--theme-destructive) 5%, var(--cms-field-bg));
+		--cms-field-selection: color-mix(in srgb, var(--theme-accent) 38%, transparent);
+		--cms-field-placeholder: color-mix(in srgb, var(--theme-muted) 86%, var(--cms-field-bg));
+		--cms-chip-bg: color-mix(in srgb, var(--theme-ink) 10%, var(--theme-surface-solid));
+		--cms-chip-edge: color-mix(in srgb, var(--theme-ink) 8%, transparent);
+		--cms-track-bg: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+		--cms-track-thumb: color-mix(in srgb, var(--theme-ink) 18%, var(--theme-surface-solid));
 	}
 
-	.cms-control {
-		border: 1px solid var(--cms-control-edge);
-		border-radius: var(--cms-radius-control, 10px);
-		background: var(--cms-control-bg);
-		background-clip: padding-box;
+	@media (pointer: coarse) {
+		.cms-root,
+		.cms-field-popup {
+			--cms-field-h: 44px;
+			--cms-field-h-sm: 44px;
+			--cms-field-font: 16px;
+			--cms-field-mono-font: 16px;
+		}
+	}
+
+	:is(.cms-input, .cms-control, .cms-stack, .cms-segments) {
+		--cms-focus-edge: var(--theme-accent);
+		--cms-focus-icon: var(--theme-accent-text);
+		min-width: 0;
+		min-height: var(--cms-field-h);
+		border: 1px solid var(--cms-field-edge);
+		border-radius: var(--cms-field-radius);
+		background: var(--cms-field-bg) padding-box;
+		box-shadow: var(--cms-field-shade);
 		color: var(--theme-ink);
-		box-shadow: var(--cms-control-lift);
+		font-size: var(--cms-field-font);
 		caret-color: var(--theme-accent);
-		/* Only button-like controls use scale for press feedback. */
-		transition:
-			background-color var(--cms-dur-fast) var(--cms-ease-out),
-			border-color var(--cms-dur-fast) var(--cms-ease-out),
-			box-shadow var(--cms-dur-fast) var(--cms-ease-out),
-			color var(--cms-dur-fast) var(--cms-ease-out);
+		transition-property: border-color, background-color, box-shadow, color;
+		transition-duration: var(--cms-dur-fast);
+		transition-timing-function: var(--cms-ease-out);
 	}
 
 	.cms-control.cms-press {
-		transition-property: background-color, border-color, box-shadow, color, scale;
+		transition-property: border-color, background-color, box-shadow, color, scale;
 	}
 
-	/* Lighter than helper text (5:1) and still above 4.5:1 on the control fill. */
-	.cms-control::placeholder,
-	.cms-control input::placeholder {
-		color: color-mix(in srgb, var(--theme-muted) 99%, var(--theme-surface-solid));
+	:is(.cms-input, .cms-control, .cms-stack, .cms-segments):is(
+		[data-invalid],
+		[aria-invalid="true"]
+	) {
+		--cms-focus-edge: var(--theme-destructive);
+		--cms-focus-icon: var(--theme-muted);
+		border-color: var(--cms-field-invalid-edge);
+		background-color: var(--cms-field-invalid-bg);
+	}
+
+	:is(.cms-input, .cms-control):is(:disabled, [data-disabled]) {
+		border-color: color-mix(in srgb, var(--theme-ink) 9%, transparent);
+		background: transparent;
+		box-shadow: none;
+		color: var(--theme-muted);
+		cursor: not-allowed;
+	}
+
+	:is(.cms-input, .cms-control):is([data-readonly], [readonly]) {
+		border-style: dashed;
+		border-color: color-mix(in srgb, var(--theme-ink) 14%, transparent);
+		background: transparent;
+		box-shadow: none;
+		color: var(--theme-ink-soft);
+	}
+
+	@media (hover: hover) and (pointer: fine) and (forced-colors: none) {
+		:is(.cms-input, .cms-control):hover:not(
+				:focus-within,
+				[data-popup-open],
+				[data-invalid],
+				[aria-invalid="true"],
+				[data-disabled],
+				:disabled,
+				[data-readonly],
+				[readonly]
+			) {
+			border-color: var(--cms-field-edge-hover);
+			background-color: var(--cms-field-bg-hover);
+			box-shadow: none;
+		}
+
+		.cms-input:hover:not([data-disabled], [data-invalid]) .cms-input-leading {
+			color: var(--theme-ink-soft);
+		}
+	}
+
+	@media (forced-colors: none) {
+		button.cms-control:active:not(:disabled) {
+			background-color: color-mix(in srgb, var(--theme-ink) 4%, var(--cms-field-bg));
+		}
+	}
+
+	.cms-input {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		cursor: text;
+	}
+
+	.cms-input[data-size="sm"] {
+		--cms-field-h: var(--cms-field-h-sm);
+	}
+
+	.cms-input[data-multiline] {
+		align-items: start;
+	}
+
+	.cms-input[data-multiline] :is(.cms-input-leading, .cms-input-trailing) {
+		padding-block-start: 6px;
+	}
+
+	.cms-input[data-disabled] .cms-input-native::placeholder {
+		opacity: 0.7;
+	}
+
+	.cms-input[data-disabled] .cms-input-leading {
+		opacity: 0.6;
+	}
+
+	.cms-input-native {
+		grid-column: 2;
+		width: 100%;
+		min-width: 0;
+		min-height: calc(var(--cms-field-h) - 2px);
+		border: 0;
+		border-radius: inherit;
+		background: transparent;
+		padding-inline: var(--cms-field-pad);
+		color: inherit;
+		font: inherit;
+		font-size: var(--cms-field-font);
+		line-height: 22px;
+		caret-color: var(--theme-accent);
+		outline: none;
+		appearance: none;
+	}
+
+	:is(.cms-input-native, .cms-control)::placeholder {
+		color: var(--cms-field-placeholder);
 		opacity: 1;
 	}
 
-	html[data-theme-resolved="dark"] .cms-control::placeholder,
-	html[data-theme-resolved="dark"] .cms-control input::placeholder {
-		color: color-mix(in srgb, var(--theme-muted) 82%, var(--theme-surface-solid));
+	:is(.cms-input-native, .cms-control)::selection {
+		background: var(--cms-field-selection);
 	}
 
-	.cms-control:disabled,
-	.cms-control[data-disabled] {
-		background: color-mix(in srgb, var(--theme-ink) 4%, var(--theme-surface-solid));
-		box-shadow: none;
-		opacity: 0.6;
-		cursor: default;
+	.cms-input-mono,
+	.cms-input-leading[data-prefix] {
+		font-family: var(--font-mono);
+		font-size: var(--cms-field-mono-font);
+		letter-spacing: 0;
 	}
 
-	.cms-control:focus-visible,
-	.cms-control[data-popup-open],
-	.cms-control.cms-tags:focus-within {
-		/* Transparent, so forced-colors mode still draws a system outline. */
+	.cms-input-leading {
+		grid-column: 1;
+		display: inline-flex;
+		align-items: center;
+		padding-inline-start: var(--cms-field-pad);
+		color: var(--theme-muted);
+		transition: color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-input-leading svg {
+		width: 16px;
+		height: 16px;
+	}
+
+	.cms-href-icons {
+		display: grid;
+	}
+
+	.cms-href-icons svg {
+		grid-area: 1 / 1;
+		opacity: 0;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-href-icons[data-kind="web"] [data-icon="web"],
+	.cms-href-icons[data-kind="path"] [data-icon="path"],
+	.cms-href-icons[data-kind="mail"] [data-icon="mail"],
+	.cms-href-icons[data-kind="tel"] [data-icon="tel"] {
+		opacity: 1;
+	}
+
+	.cms-spinner {
+		width: 14px;
+		height: 14px;
+		margin-inline: 7px;
+		border-radius: 50%;
+		border: 1.5px solid var(--cms-field-edge);
+		border-top-color: var(--theme-accent);
+		animation: cms-field-spin 800ms linear infinite;
+	}
+
+	@keyframes cms-field-spin {
+		to {
+			rotate: 1turn;
+		}
+	}
+
+	.cms-input-leading + .cms-input-native {
+		padding-inline-start: 8px;
+	}
+
+	.cms-input-leading[data-prefix] + .cms-input-native {
+		padding-inline-start: 0;
+	}
+
+	.cms-input-trailing {
+		grid-column: 3;
+		display: inline-flex;
+		align-items: center;
+		gap: 2px;
+		padding-inline-end: 6px;
+	}
+
+	.cms-input-action {
+		position: relative;
+		display: inline-grid;
+		place-items: center;
+		width: 28px;
+		height: 28px;
+		border-radius: 7px;
+		color: var(--theme-muted);
+		cursor: pointer;
+	}
+
+	.cms-input-action svg {
+		width: 14px;
+		height: 14px;
+	}
+
+	.cms-input-action:focus-visible {
 		outline: 2px solid transparent;
-		outline-offset: 1px;
-		border-color: var(--theme-accent);
-		box-shadow:
-			0 0 0 1px var(--theme-accent),
-			var(--cms-control-lift);
+		box-shadow: var(--cms-ring);
 	}
 
-	/* The error text under the field says what is wrong; the edge only tints. */
-	.cms-control[aria-invalid="true"],
-	.cms-field[data-invalid] > .cms-tags {
-		border-color: var(--theme-destructive);
-	}
-
-	.cms-control[aria-invalid="true"]:focus-visible,
-	.cms-field[data-invalid] > .cms-tags:focus-within {
-		border-color: var(--theme-destructive);
-		box-shadow: 0 0 0 1px var(--theme-destructive);
+	@media (hover: hover) and (pointer: fine) {
+		.cms-input-action:hover {
+			background: color-mix(in srgb, var(--theme-ink) 7%, transparent);
+			color: var(--theme-ink);
+		}
 	}
 
 	.cms-textarea {
 		field-sizing: content;
-		resize: vertical;
-	}
-
-	/* A wrapping single line: no grip, same height as a text input until it wraps. */
-	.cms-textarea-single {
 		resize: none;
-		min-block-size: 40px;
 	}
 
-	.cms-control[type="date"] {
-		inline-size: 100%;
-		max-inline-size: 100%;
+	.cms-input-native.cms-textarea {
+		padding-block: 9px;
+		line-height: 1.6;
+	}
+
+	.cms-input-native.cms-textarea-single {
+		padding-block: 8px;
+		line-height: 22px;
+	}
+
+	.cms-input-native:is([type="number"], [type="date"]) {
+		font-variant-numeric: tabular-nums;
+	}
+
+	.cms-input-native[type="number"] {
+		appearance: textfield;
+	}
+
+	.cms-input-native[type="number"]::-webkit-inner-spin-button,
+	.cms-input-native[type="number"]::-webkit-outer-spin-button,
+	.cms-input-native[type="search"]::-webkit-search-cancel-button,
+	.cms-input-native[type="search"]::-webkit-search-decoration {
+		-webkit-appearance: none;
+		margin: 0;
+	}
+
+	.cms-input-native[type="date"] {
+		color-scheme: light;
 		text-align: start;
 	}
 
-	/*
-	 * Field rhythm: label to control 6px, control to helper 6px, field to
-	 * field 20 to 24px (set by the containing grid's gap).
-	 */
+	html[data-theme-resolved="dark"] .cms-input-native[type="date"] {
+		color-scheme: dark;
+	}
+
+	.cms-input-native::-webkit-calendar-picker-indicator {
+		box-sizing: content-box;
+		width: 16px;
+		height: 16px;
+		padding: 6px;
+		margin-inline-end: -4px;
+		border-radius: 7px;
+		opacity: 0.55;
+		cursor: pointer;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-input-native::-webkit-calendar-picker-indicator:hover {
+			opacity: 1;
+		}
+	}
+
+	.cms-input-native::-webkit-datetime-edit-fields-wrapper {
+		padding: 0;
+	}
+
+	.cms-input-native::-webkit-datetime-edit-day-field:focus,
+	.cms-input-native::-webkit-datetime-edit-month-field:focus,
+	.cms-input-native::-webkit-datetime-edit-year-field:focus {
+		border-radius: 4px;
+		background: var(--theme-accent-soft);
+		color: var(--theme-accent-text);
+	}
+
+	.cms-field-label {
+		min-width: 0;
+		margin: 0;
+		color: var(--theme-ink-soft);
+		font-size: 13px;
+		line-height: 18px;
+		font-weight: 550;
+		transition: color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-field:not([data-invalid]):focus-within:not(
+			:has(
+				.cms-field:focus-within,
+				.cms-field-revert:focus-visible,
+				.cms-input-action:focus-visible
+			)
+		)
+		> :is(.cms-field-head, .cms-field-inline)
+		.cms-field-label {
+		color: var(--theme-accent-text);
+	}
+
+	.cms-field-optional {
+		margin-inline-start: 6px;
+		color: var(--theme-muted);
+		font-size: 12px;
+		font-weight: 400;
+	}
+
+	.cms-counter {
+		display: inline-flex;
+		align-items: center;
+		gap: 5px;
+		color: var(--theme-muted);
+		font-size: 11.5px;
+		font-variant-numeric: tabular-nums;
+		white-space: nowrap;
+	}
+
+	.cms-counter svg {
+		width: 14px;
+		height: 14px;
+		rotate: -90deg;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: round;
+	}
+
+	.cms-counter circle:first-child {
+		opacity: 0.2;
+	}
+
+	.cms-counter[data-over] {
+		color: var(--theme-destructive);
+	}
+
 	.cms-field-head {
 		display: flex;
 		min-width: 0;
@@ -165,7 +462,7 @@
 		align-items: center;
 		justify-content: space-between;
 		column-gap: 8px;
-		margin-bottom: 6px;
+		margin-bottom: 8px;
 	}
 
 	/*
@@ -240,22 +537,132 @@
 
 	.cms-field-message > p {
 		opacity: 0;
-		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+		translate: 0 -3px;
+		transition:
+			opacity var(--cms-dur-base) var(--cms-ease-out),
+			translate var(--cms-dur-base) var(--cms-ease-out);
 	}
 
 	.cms-field-message > p[data-open] {
 		opacity: 1;
+		translate: 0 0;
 	}
 
 	.cms-field-revert {
 		background-color: var(--theme-accent-soft);
 	}
 
-	.cms-field :is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible,
-	.cms-editor :is(button, a, [role="tab"], [data-row-handle]):focus-visible {
+	.cms-field
+		:is(button, summary, [role="radio"], [role="switch"], [role="checkbox"]):focus-visible:where(
+			:not(.cms-control)
+		),
+	.cms-editor
+		:is(button, a, [role="tab"], [data-row-handle]):focus-visible:where(:not(.cms-control)) {
 		outline: 2px solid transparent;
 		outline-offset: 1px;
 		box-shadow: var(--cms-ring);
+	}
+
+	.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible)),
+	.cms-control:not(:disabled):is(:focus-visible, [data-popup-open]),
+	.cms-stack:has(.cms-stack-row .cms-input-native:focus),
+	.cms-segments:focus-within {
+		outline: 2px solid transparent;
+		outline-offset: -2px;
+		border-color: var(--cms-focus-edge);
+		background-color: var(--cms-field-bg-focus);
+		box-shadow: inset 0 0 0 1px var(--cms-focus-edge);
+	}
+
+	.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible))
+		.cms-input-leading,
+	.cms-control:is(:focus-visible, [data-popup-open]) .cms-control-icon {
+		color: var(--cms-focus-icon);
+	}
+
+	.cms-stack:has(.cms-stack-row .cms-input-native:focus) {
+		background-color: var(--cms-field-bg);
+	}
+
+	.cms-input:has(.cms-input-native:autofill) {
+		background-color: color-mix(in srgb, var(--theme-accent) 5%, var(--cms-field-bg));
+	}
+
+	.cms-input-native:-webkit-autofill {
+		-webkit-text-fill-color: var(--theme-ink);
+		transition: background-color 600000s;
+	}
+
+	.cms-action-enter {
+		animation: cms-action-enter var(--cms-dur-fast) var(--cms-ease-out) both;
+	}
+
+	@keyframes cms-action-enter {
+		from {
+			opacity: 0;
+			scale: 0.8;
+		}
+	}
+
+	@media (pointer: coarse) {
+		select.cms-control {
+			font-size: var(--cms-field-font) !important;
+		}
+
+		.cms-input-action::after {
+			content: "";
+			position: absolute;
+			inset: -8px;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments, .cms-field-label, .cms-input-leading) {
+			transition: none;
+		}
+
+		.cms-field-foot {
+			transition: none;
+		}
+
+		.cms-field-message > p {
+			translate: none;
+			transition-property: opacity;
+		}
+
+		.cms-spinner {
+			animation: none;
+			opacity: 0.6;
+		}
+
+		.cms-action-enter {
+			animation-name: cms-action-fade;
+		}
+
+		.cms-combo-trigger > svg,
+		.cms-control-icon {
+			transition-property: color;
+		}
+	}
+
+	@keyframes cms-action-fade {
+		from {
+			opacity: 0;
+		}
+	}
+
+	@media (prefers-contrast: more) {
+		.cms-root,
+		.cms-field-popup,
+		html[data-theme-resolved="dark"] :is(.cms-root, .cms-field-popup) {
+			--cms-field-edge: var(--theme-control-border);
+			--cms-field-edge-hover: var(--theme-ink-soft);
+			--cms-field-placeholder: var(--theme-ink-soft);
+		}
+
+		.cms-field-label {
+			color: var(--theme-ink);
+		}
 	}
 
 	/* Switches and checkboxes ring the visible track or box, not the hit area. */
@@ -263,26 +670,14 @@
 		box-shadow: none;
 	}
 
-	.cms-switch:focus-visible .cms-switch-track,
-	.cms-checkbox:focus-visible .cms-checkbox-box {
+	.cms-switch:not([aria-invalid="true"]):focus-visible .cms-switch-track,
+	.cms-checkbox:not([aria-invalid="true"]):focus-visible .cms-checkbox-box {
 		box-shadow:
 			0 0 0 2px var(--theme-surface-solid),
 			0 0 0 4px var(--theme-accent);
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-control:hover:not(
-				:disabled,
-				[data-disabled],
-				[data-popup-open],
-				:focus-visible,
-				[aria-invalid="true"],
-				.cms-tags:focus-within
-			) {
-			border-color: var(--cms-control-edge-hover);
-			box-shadow: var(--cms-control-lift-hover);
-		}
-
 		.cms-field-revert:hover {
 			background: color-mix(in srgb, var(--theme-accent) 14%, transparent);
 		}
@@ -299,7 +694,7 @@
 		--cms-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
 		--cms-ease-in: cubic-bezier(0.55, 0, 1, 0.45);
 		--cms-ring: 0 0 0 2px var(--theme-accent);
-		min-width: min(var(--anchor-width), var(--available-width));
+		min-width: min(max(var(--anchor-width, 0px), 12rem), var(--available-width));
 		max-width: min(24rem, var(--available-width));
 		transform-origin: var(--transform-origin);
 		border-radius: 14px;
@@ -343,7 +738,7 @@
 		align-items: center;
 		min-height: 38px;
 		padding: 0.4rem 0.7rem;
-		border-radius: 9px;
+		border-radius: 10px;
 		cursor: default;
 		outline: none;
 		overflow-wrap: anywhere;
@@ -392,12 +787,41 @@
 		opacity: 0.85;
 	}
 
-	.cms-choice-trigger > span:last-child {
+	.cms-choice-trigger {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 8px;
+		padding-inline: 12px 10px;
+		cursor: pointer;
+		text-align: start;
+	}
+
+	.cms-choice-trigger[data-placeholder]:not(.cms-media-card, .cms-stack-add) {
+		color: var(--cms-field-placeholder);
+	}
+
+	.cms-control-icon {
+		flex: none;
+		color: var(--theme-muted);
+		transition:
+			rotate var(--cms-dur-fast) var(--cms-ease-out),
+			color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-choice-trigger[data-popup-open] > .cms-control-icon,
+	.cms-combo-trigger[data-popup-open] > svg {
+		rotate: 180deg;
+	}
+
+	.cms-combo-trigger > svg {
 		transition: rotate var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
-	.cms-choice-trigger[data-popup-open] > span:last-child {
-		rotate: 180deg;
+	.cms-match {
+		background: none;
+		color: inherit;
+		font-weight: 600;
 	}
 
 	.cms-switch,
@@ -415,13 +839,18 @@
 	.cms-switch-track {
 		display: flex;
 		align-items: center;
-		width: 46px;
+		width: 44px;
 		height: 26px;
 		padding-inline: 2px;
 		/* An off switch is a plain gray capsule, as on iOS. */
 		border: 1px solid transparent;
 		border-radius: 999px;
-		background: color-mix(in srgb, var(--theme-ink) 16%, var(--theme-surface-solid));
+		background: color-mix(
+			in srgb,
+			var(--theme-ink) var(--cms-switch-off, 16%),
+			var(--theme-surface-solid)
+		);
+		box-shadow: inset 0 1px 2px rgb(0 0 0 / var(--cms-switch-shade, 0.08));
 		transition:
 			background-color var(--cms-dur-fast) var(--cms-ease-out),
 			box-shadow var(--cms-dur-fast) var(--cms-ease-out);
@@ -448,7 +877,8 @@
 		transform-origin: left center;
 		box-shadow:
 			0 0 0 0.5px rgb(0 0 0 / 0.04),
-			0 2px 5px rgb(0 0 0 / 0.16);
+			0 1px 2px rgb(0 0 0 / 0.12),
+			0 3px 8px rgb(0 0 0 / 0.12);
 		transition: scale var(--cms-dur-fast) var(--cms-ease-out);
 	}
 
@@ -466,10 +896,10 @@
 		place-items: center;
 		width: 20px;
 		height: 20px;
-		border: 1px solid color-mix(in srgb, var(--theme-ink) 24%, transparent);
+		border: 1px solid color-mix(in srgb, var(--theme-ink) 26%, transparent);
 		border-radius: 6px;
-		background: var(--theme-surface-solid);
-		box-shadow: 0 1px 1px var(--theme-shadow-soft);
+		background: var(--cms-field-bg);
+		box-shadow: var(--cms-field-shade);
 		color: var(--color-primary-foreground);
 		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
 	}
@@ -479,13 +909,40 @@
 		place-items: center;
 	}
 
+	html[data-theme-resolved="dark"] .cms-switch-track {
+		--cms-switch-off: 26%;
+		--cms-switch-hover: 31%;
+		--cms-switch-shade: 0.35;
+	}
+
+	:is(.cms-switch, .cms-checkbox):is(:disabled, [data-disabled]) {
+		opacity: 0.45;
+		cursor: not-allowed;
+	}
+
+	.cms-switch[aria-invalid="true"] .cms-switch-track {
+		box-shadow: inset 0 0 0 1px var(--theme-destructive);
+	}
+
+	.cms-checkbox[aria-invalid="true"] .cms-checkbox-box {
+		border-color: var(--theme-destructive);
+	}
+
+	:is(.cms-switch, .cms-checkbox)[aria-invalid="true"]:focus-visible
+		:is(.cms-switch-track, .cms-checkbox-box) {
+		outline: 2px solid var(--theme-destructive);
+		outline-offset: 2px;
+	}
+
 	.cms-segments {
 		gap: 2px;
 		min-width: 0;
 		max-width: 100%;
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
-		padding: 3px;
+		background: var(--cms-track-bg);
+		border-color: color-mix(in srgb, var(--theme-ink) 5%, transparent);
+		box-shadow: none;
+		padding: 2px;
 	}
 
 	.cms-segment {
@@ -495,9 +952,9 @@
 		align-items: center;
 		justify-content: center;
 		gap: 6px;
-		min-height: 36px;
+		min-height: 34px;
 		min-width: 0;
-		padding-inline: clamp(0.4rem, 2vw, 0.75rem);
+		padding-inline: clamp(0.5rem, 2vw, 0.85rem);
 		border-radius: 9px;
 		font-size: 13px;
 		font-weight: 500;
@@ -524,7 +981,7 @@
 	}
 
 	.cms-segment .cms-choice-highlight {
-		background: var(--theme-surface-solid);
+		background: var(--cms-track-thumb);
 		box-shadow:
 			0 0 0 0.5px var(--theme-line-strong),
 			0 1px 2px var(--theme-shadow-soft),
@@ -537,14 +994,23 @@
 	}
 
 	@media (hover: hover) and (pointer: fine) {
-		.cms-segment:hover {
+		.cms-segment:hover:not([data-checked], [data-active], :disabled) {
 			color: var(--theme-ink);
+			background: color-mix(in srgb, var(--theme-ink) 4%, transparent);
 		}
-		.cms-switch:hover:not([data-checked]) .cms-switch-track {
-			background: color-mix(in srgb, var(--theme-ink) 21%, var(--theme-surface-solid));
+
+		.cms-switch[data-checked]:hover:not(:disabled) .cms-switch-track {
+			background: color-mix(in srgb, var(--theme-accent) 88%, var(--theme-ink));
+		}
+		.cms-switch:hover:not([data-checked], :disabled) .cms-switch-track {
+			background: color-mix(
+				in srgb,
+				var(--theme-ink) var(--cms-switch-hover, 21%),
+				var(--theme-surface-solid)
+			);
 		}
 		.cms-checkbox:hover:not([data-checked]) .cms-checkbox-box {
-			border-color: color-mix(in srgb, var(--theme-ink) 34%, transparent);
+			border-color: color-mix(in srgb, var(--theme-ink) 38%, transparent);
 		}
 	}
 
@@ -558,9 +1024,6 @@
 	}
 
 	@media (prefers-reduced-motion: reduce) {
-		.cms-choice-trigger > span:last-child {
-			transition-property: opacity;
-		}
 		.cms-switch-thumb-inner {
 			transition: none;
 		}
@@ -633,16 +1096,33 @@
 		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-surface-solid));
 	}
 
+	.cms-tags {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		padding: 5px;
+	}
+
+	.cms-tags .cms-input-native {
+		flex: 1 1 8ch;
+		width: auto;
+		min-width: 8ch;
+		min-height: calc(var(--cms-field-h) - 12px);
+		padding-inline: 4px;
+	}
+
 	.cms-tag-chip {
 		display: inline-flex;
 		align-items: center;
 		gap: 2px;
 		min-height: 28px;
 		max-width: 100%;
-		border-radius: 8px;
-		background: var(--theme-accent-soft);
-		padding: 2px 3px 2px 9px;
-		font-size: 12.5px;
+		border-radius: 6px;
+		background: var(--cms-chip-bg);
+		box-shadow: inset 0 0 0 1px var(--cms-chip-edge);
+		padding: 0 4px 0 9px;
+		font-size: 13px;
+		font-weight: 500;
 		transition:
 			background-color var(--cms-dur-slow) var(--cms-ease-out),
 			box-shadow var(--cms-dur-slow) var(--cms-ease-out);
@@ -650,7 +1130,51 @@
 
 	.cms-tag-chip[data-duplicate] {
 		background: var(--theme-accent-soft);
-		box-shadow: 0 0 0 1px var(--theme-accent-line);
+		box-shadow: inset 0 0 0 1px var(--theme-accent);
+	}
+
+	.cms-tag-remove {
+		position: relative;
+		display: grid;
+		flex: none;
+		place-items: center;
+		width: 20px;
+		height: 20px;
+		border-radius: 50%;
+		color: var(--theme-muted);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-tag-remove:hover {
+			background: color-mix(in srgb, var(--theme-ink) 10%, transparent);
+			color: var(--theme-ink);
+		}
+	}
+
+	.cms-kbd {
+		padding-inline: 4px;
+		border-radius: 5px;
+		background: color-mix(in srgb, var(--theme-ink) 6%, transparent);
+		color: var(--theme-muted);
+		font: 11px/18px var(--font-mono);
+		opacity: 0;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-tags:has(input:focus) .cms-kbd {
+		opacity: 1;
+	}
+
+	@media (pointer: coarse) {
+		.cms-tag-chip {
+			min-height: 32px;
+		}
+
+		.cms-tag-remove::after {
+			content: "";
+			position: absolute;
+			inset: -12px;
+		}
 	}
 
 	.cms-sortable-row {
@@ -698,8 +1222,60 @@
 	}
 
 	.cms-repeater-row {
+		border: 1px solid color-mix(in srgb, var(--theme-ink) 9%, transparent);
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		background: var(--theme-surface-solid);
+	}
+
+	html[data-theme-resolved="dark"] .cms-repeater-row {
+		background: color-mix(in srgb, var(--theme-ink) 2%, var(--theme-surface-solid));
+	}
+
+	.cms-repeater-row:has(> details[open]) {
+		border-color: color-mix(in srgb, var(--theme-ink) 13%, transparent);
+	}
+
+	.cms-repeater-row > details[open] > summary {
+		border-bottom: 1px solid color-mix(in srgb, var(--theme-ink) 7%, transparent);
+		border-radius: 11px 11px 0 0;
+	}
+
+	.cms-repeater-row .cms-repeater-summary:focus-visible {
+		box-shadow: inset 0 0 0 2px var(--theme-accent);
+	}
+
+	.cms-repeater-changed {
+		flex: none;
+		width: 6px;
+		height: 6px;
+		margin-block-start: calc(0.5lh - 3px);
+		border-radius: 50%;
+		background: var(--theme-accent);
+	}
+
+	.cms-editor-button.cms-add-button:not(.cms-editor-primary) {
+		min-height: var(--cms-field-h-sm);
+		border-radius: 9px;
+		background: color-mix(in srgb, var(--theme-ink) 5%, var(--theme-surface-solid));
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-editor-button.cms-add-button:hover:not(:disabled, .cms-editor-primary) {
+			background: color-mix(in srgb, var(--theme-ink) 8%, var(--theme-surface-solid));
+		}
+
+		:is(.cms-stack-row, .cms-repeater-row) :is(.cms-drag-handle, .cms-row-tool) {
+			opacity: 0.45;
+			transition:
+				opacity var(--cms-dur-fast) var(--cms-ease-out),
+				scale var(--cms-dur-press) var(--cms-ease-out);
+		}
+
+		:is(.cms-stack-row, .cms-repeater-row):is(:hover, :focus-within)
+			:is(.cms-drag-handle, .cms-row-tool),
+		:is(.cms-stack-row, .cms-repeater-row) .cms-row-tool[data-popup-open] {
+			opacity: 1;
+		}
 	}
 
 	/* Disclosure rows: one line with a chevron that turns as the body opens. */
@@ -857,31 +1433,116 @@
 		background: var(--theme-line);
 	}
 
-	/* String list rows: handle | control | menu. */
+	.cms-stack {
+		border-radius: 12px;
+	}
+
+	.cms-stack-rows {
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+
+	.cms-stack-row {
+		min-height: 44px;
+		padding: 2px 6px;
+		transition: background-color var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-stack-row:first-child {
+		border-start-start-radius: 11px;
+		border-start-end-radius: 11px;
+	}
+
+	.cms-stack-row + .cms-stack-row,
+	.cms-stack:has(.cms-stack-row) > .cms-stack-add {
+		border-top: 1px solid color-mix(in srgb, var(--theme-ink) 8%, transparent);
+	}
+
+	.cms-stack-row[data-invalid] {
+		background: color-mix(in srgb, var(--theme-destructive) 4%, transparent);
+		box-shadow: inset 2px 0 0 var(--theme-destructive);
+	}
+
+	.cms-stack-row:has(.cms-input-native:focus) {
+		background: var(--cms-field-bg-focus);
+	}
+
+	.cms-stack-row[data-dragging] {
+		border-radius: 10px;
+	}
+
 	.cms-string-row {
 		display: grid;
 		grid-template-columns: auto minmax(0, 1fr) auto;
 		align-items: start;
-		border-radius: 11px;
 	}
 
-	.cms-string-handle {
-		display: flex;
-		align-items: center;
-		min-height: 40px;
-		margin-inline-end: 4px;
+	.cms-string-row .cms-input-native {
+		padding-inline: 6px;
+	}
+
+	.cms-string-handle,
+	.cms-string-menu {
+		margin-block-start: 3px;
 	}
 
 	.cms-string-menu {
 		grid-column: 3;
-		margin-top: 4px;
-		margin-inline-start: 4px;
+	}
+
+	.cms-photo-row {
+		padding-block: 6px;
+	}
+
+	.cms-photo-row > div > .cms-row-tool {
+		margin-inline-start: auto;
+	}
+
+	.cms-stack-add {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 8px;
+		width: 100%;
+		min-height: var(--cms-field-h);
+		padding-inline: var(--cms-field-pad);
+		border-radius: 0 0 11px 11px;
+		color: var(--theme-ink-soft);
+		font-size: 13px;
+		font-weight: 500;
+		text-align: start;
+		cursor: pointer;
+	}
+
+	.cms-stack-add .cms-control-icon {
+		margin-inline-start: auto;
+	}
+
+	.cms-stack:not(:has(.cms-stack-row)) > .cms-stack-add {
+		border-radius: 11px;
+	}
+
+	.cms-stack-add:disabled {
+		color: var(--theme-muted);
+		cursor: not-allowed;
+	}
+
+	.cms-editor .cms-stack-add:is(:focus-visible, [data-popup-open]) {
+		box-shadow: inset 0 0 0 2px var(--cms-focus-edge);
+	}
+
+	@media (hover: hover) and (pointer: fine) {
+		.cms-stack-add:hover:not(:disabled) {
+			background: color-mix(in srgb, var(--theme-ink) 3%, transparent);
+			color: var(--theme-accent-text);
+		}
 	}
 
 	.cms-tag-chip[data-armed] {
 		background: var(--theme-accent);
 		color: var(--theme-accent-foreground);
-		box-shadow: 0 0 0 2px var(--theme-accent-soft);
+		box-shadow: none;
 	}
 
 	.cms-tag-chip[data-armed] button {
@@ -1387,8 +2048,9 @@
 			padding-inline-start: 48px;
 		}
 
+		.cms-string-handle,
 		.cms-string-menu {
-			margin-top: -2px;
+			margin-block-start: 0;
 		}
 	}
 
@@ -1479,10 +2141,25 @@
 			gap: var(--cms-group-gap);
 		}
 	}
-	.cms-media-field {
-		padding: 0.75rem;
+	.cms-media-card {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		gap: 12px;
+		align-items: center;
+		min-height: 56px;
+		padding: 6px 12px 6px 6px;
 		border-radius: 12px;
-		background: color-mix(in srgb, var(--theme-ink) 3%, var(--theme-surface-solid));
+		text-align: start;
+	}
+
+	.cms-media-card[data-disabled] {
+		cursor: default;
+	}
+
+	.cms-media-card .cms-media-placeholder {
+		border: 1px dashed color-mix(in srgb, var(--theme-ink) 18%, transparent);
+		background: transparent;
+		color: var(--theme-muted);
 	}
 
 	.cms-media-thumbnail {
@@ -1490,9 +2167,9 @@
 		place-items: center;
 		flex: none;
 		width: 56px;
-		height: 44px;
+		height: 42px;
 		overflow: hidden;
-		border-radius: 8px;
+		border-radius: 6px;
 		background: color-mix(in srgb, var(--theme-ink) 7%, var(--theme-surface-solid));
 		color: var(--theme-ink-soft);
 	}
@@ -1518,5 +2195,52 @@
 		color: var(--theme-ink-soft);
 		background: transparent;
 		white-space: nowrap;
+	}
+	@media (forced-colors: active) {
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments) {
+			forced-color-adjust: none;
+			border-color: CanvasText;
+			background: Field;
+			color: FieldText;
+			box-shadow: none;
+		}
+
+		:is(.cms-input, .cms-control, .cms-stack, .cms-segments):is(
+			[data-invalid],
+			[aria-invalid="true"]
+		) {
+			border: 2px dashed CanvasText;
+		}
+
+		:is(.cms-input, .cms-control):is(:disabled, [data-disabled]) {
+			border-color: GrayText;
+			color: GrayText;
+		}
+
+		.cms-input:focus-within:not([data-disabled], :has(.cms-input-action:focus-visible)),
+		.cms-control:not(:disabled):is(:focus-visible, [data-popup-open]),
+		.cms-stack:has(.cms-stack-row .cms-input-native:focus),
+		.cms-segments:focus-within,
+		.cms-input-action:focus-visible,
+		.cms-editor .cms-stack-add:focus-visible {
+			outline: 2px solid Highlight;
+			outline-offset: 2px;
+			background: Field;
+			box-shadow: none;
+			border-color: CanvasText;
+		}
+
+		:is(.cms-input-native, .cms-control)::placeholder {
+			color: GrayText;
+		}
+
+		.cms-tag-chip,
+		.cms-switch-track {
+			border: 1px solid CanvasText;
+		}
+
+		.cms-switch[data-checked] .cms-switch-track {
+			background: Highlight;
+		}
 	}
 }

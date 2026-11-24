@@ -14,7 +14,8 @@ import {
 } from "../draft/context";
 import { childPath, setAt } from "../draft/paths";
 import { MediaFrame } from "../library/MediaFrame";
-import { ChevronRightIcon } from "./field-icons";
+import { mediaTypeShortLabel } from "../../../lib/media-policy";
+import { ChevronRightIcon, ImageIcon } from "./field-icons";
 import { ChoiceSelect } from "./ChoiceFields";
 import { FieldFrame, describedBy, fieldId, focusField } from "./FieldFrame";
 import { RowMenu } from "./RowControls";
@@ -127,37 +128,90 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 			</Link>
 		) : null;
 
+	const asset = field.value;
+	const unavailable = !loading && !id && library.length === 0;
+	const descriptionId = describedBy(path, Boolean(description), pickerIssues);
+	const body = (
+		<>
+			{asset ? (
+				<MediaFrame
+					assetId={asset.id}
+					mimeType={asset.mimeType}
+					width={asset.width}
+					height={asset.height}
+					className="cms-media-thumbnail"
+				/>
+			) : (
+				<span className="cms-media-thumbnail cms-media-placeholder">
+					<ImageIcon className="size-5" />
+				</span>
+			)}
+			<span className="grid min-w-0">
+				<span className="truncate font-medium">
+					{asset ? asset.alt || asset.id : unavailable ? "No images yet" : "Choose image"}
+				</span>
+				<span className="text-xs text-muted-foreground tabular-nums">
+					{asset
+						? [
+								asset.mimeType && mediaTypeShortLabel(asset.mimeType),
+								asset.width && asset.height ? `${asset.width}×${asset.height}` : null,
+							]
+								.filter(Boolean)
+								.join(" · ")
+						: unavailable
+							? "Upload in Media library"
+							: "From the media library"}
+				</span>
+			</span>
+		</>
+	);
 	return (
 		<FieldFrame
 			path={path}
 			label={label}
+			asGroup={unavailable}
 			description={description}
 			issues={pickerIssues}
 			changed={field.changed}
 			onRevert={field.revert}
 			meta={libraryLink}
 		>
-			<div className="cms-media-field grid min-w-0 gap-3" aria-busy={loading}>
-				<div className="flex min-w-0 items-center gap-2.5">
-					{loading ? (
-						<span className="cms-skeleton h-11 w-14 shrink-0" />
-					) : (
-						<MediaFrame
-							assetId={id}
-							mimeType={field.value?.mimeType}
-							width={field.value?.width}
-							height={field.value?.height}
-							className="cms-media-thumbnail"
-						/>
-					)}
+			<div className="grid min-w-0 gap-3">
+				{loading ? (
+					<button
+						type="button"
+						id={fieldId(path)}
+						className="cms-control cms-media-card"
+						disabled
+						aria-busy="true"
+						aria-label={`${label}, loading media`}
+					>
+						<span className="cms-media-thumbnail cms-skeleton" />
+						<span className="grid gap-[7px]">
+							<span className="cms-skeleton h-2.5 w-36 max-w-full rounded-sm" />
+							<span className="cms-skeleton h-2 w-24 max-w-full rounded-sm" />
+						</span>
+					</button>
+				) : unavailable ? (
+					<div
+						id={fieldId(path)}
+						tabIndex={-1}
+						className="cms-input cms-media-card"
+						data-disabled=""
+						data-invalid={pickerIssues.length > 0 || undefined}
+						aria-describedby={descriptionId}
+					>
+						{body}
+					</div>
+				) : (
 					<ChoiceSelect
 						id={fieldId(path)}
+						trigger="media"
+						triggerContent={body}
 						value={id ? embedChoice(id) : null}
-						placeholder={loading ? "Loading media…" : "Choose image"}
-						disabled={!id && library.length === 0}
 						options={options}
 						invalid={pickerIssues.length > 0}
-						descriptionId={describedBy(path, Boolean(description), pickerIssues)}
+						descriptionId={descriptionId}
 						onChange={(next) => {
 							if (next === NO_ASSET) field.set(null);
 							else {
@@ -166,7 +220,7 @@ export function MediaField({ path, label }: { path: string; label: string }) {
 							}
 						}}
 					/>
-				</div>
+				)}
 				{field.value ? (
 					<div className="cms-enter">
 						<TextAreaField
@@ -242,69 +296,72 @@ export function MediaIdsField({ path }: { path: string }) {
 							<span aria-hidden="true">→</span>
 						</Link>
 					) : null}
-					<Counter length={ids.length} max={MAX_TRAVEL_MEDIA} />
+					<Counter length={ids.length} unit="items" max={MAX_TRAVEL_MEDIA} />
 				</>
 			}
 		>
-			<Reorder.Group
-				as="ol"
-				axis="y"
-				values={keys}
-				onReorder={removals.reorder}
-				className="m-0 mb-2 grid list-none gap-2 p-0 empty:hidden"
-				aria-labelledby={`${fieldId(path)}-label`}
-			>
-				<AnimatePresence initial={false}>
-					{ids.map((id, index) => (
-						<PhotoRow
-							key={keys[index]}
-							rowKey={keys[index]}
-							id={id}
-							path={childPath(path, index)}
-							index={index}
-							settled={reorderFeedback.settledKey === keys[index]}
-							canMoveDown={index < ids.length - 1}
-							move={move}
-							onDragStart={(rowLabel) => reorderFeedback.startDrag(keys[index]!, index, rowLabel)}
-							onDragEnd={() => reorderFeedback.endDrag(keysRef.current)}
-							remove={(label, touch) => {
-								removals.remove(index, label);
-								requestAnimationFrame(() =>
-									focusField(
-										ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
-										touch,
-									),
-								);
-							}}
-						/>
-					))}
-				</AnimatePresence>
-			</Reorder.Group>
-			<p role="status" aria-live="polite" className="sr-only">
-				{reorderFeedback.announcement}
-			</p>
-			<ChoiceSelect
-				id={fieldId(path)}
-				label="Add photo"
-				disabled={loading || ids.length >= MAX_TRAVEL_MEDIA || !available.length}
-				descriptionId={describedBy(path, true, issues)}
-				invalid={issues.length > 0}
-				value={null}
-				placeholder={loading ? "Loading media…" : "Add photo"}
-				options={available.map(mediaOption)}
-				onChange={(id) => {
-					const asset = available.find((entry) => entry.id === id);
-					if (!asset) return;
-					const draft = store.getState().draft;
-					const withAttachment = setAt(draft, path, [...ids, id]);
-					store.update(
-						[],
-						draft.media.some((entry) => entry.id === id)
-							? withAttachment
-							: { ...withAttachment, media: [...draft.media, asset] },
-					);
-				}}
-			/>
+			<div className="cms-stack" data-invalid={issues.length > 0 || undefined}>
+				<Reorder.Group
+					as="ol"
+					axis="y"
+					values={keys}
+					onReorder={removals.reorder}
+					className="cms-stack-rows"
+					aria-labelledby={`${fieldId(path)}-label`}
+				>
+					<AnimatePresence initial={false}>
+						{ids.map((id, index) => (
+							<PhotoRow
+								key={keys[index]}
+								rowKey={keys[index]}
+								id={id}
+								path={childPath(path, index)}
+								index={index}
+								settled={reorderFeedback.settledKey === keys[index]}
+								canMoveDown={index < ids.length - 1}
+								move={move}
+								onDragStart={(rowLabel) => reorderFeedback.startDrag(keys[index]!, index, rowLabel)}
+								onDragEnd={() => reorderFeedback.endDrag(keysRef.current)}
+								remove={(label, touch) => {
+									removals.remove(index, label);
+									requestAnimationFrame(() =>
+										focusField(
+											ids.length > 1 ? childPath(path, Math.min(index, ids.length - 2)) : path,
+											touch,
+										),
+									);
+								}}
+							/>
+						))}
+					</AnimatePresence>
+				</Reorder.Group>
+				<p role="status" aria-live="polite" className="sr-only">
+					{reorderFeedback.announcement}
+				</p>
+				<ChoiceSelect
+					id={fieldId(path)}
+					label="Add photo"
+					trigger="add-row"
+					disabled={loading || ids.length >= MAX_TRAVEL_MEDIA || !available.length}
+					descriptionId={describedBy(path, true, issues)}
+					invalid={issues.length > 0}
+					value={null}
+					placeholder={loading ? "Loading media…" : "Add photo"}
+					options={available.map(mediaOption)}
+					onChange={(id) => {
+						const asset = available.find((entry) => entry.id === id);
+						if (!asset) return;
+						const draft = store.getState().draft;
+						const withAttachment = setAt(draft, path, [...ids, id]);
+						store.update(
+							[],
+							draft.media.some((entry) => entry.id === id)
+								? withAttachment
+								: { ...withAttachment, media: [...draft.media, asset] },
+						);
+					}}
+				/>
+			</div>
 			{removals.removals.map((removal) => (
 				<UndoRemoval
 					key={removal.id}
@@ -359,14 +416,14 @@ function PhotoRow({
 			settled={settled}
 			reorderable={index > 0 || canMoveDown}
 			label={label}
-			className="cms-repeater-row p-2"
+			className="cms-stack-row cms-photo-row"
 			onMove={(offset) => move(index, index + offset)}
 			onDragStart={() => onDragStart(label)}
 			onDragEnd={onDragEnd}
 		>
 			{(handle) => (
 				<>
-					<div className="flex min-w-0 flex-wrap items-center gap-2">
+					<div className="flex min-w-0 items-center gap-2">
 						{handle}
 						<MediaFrame
 							assetId={id}
@@ -378,7 +435,7 @@ function PhotoRow({
 						<span
 							id={fieldId(path)}
 							tabIndex={-1}
-							className="min-w-0 flex-1 basis-20 wrap-anywhere rounded-sm text-[13px]"
+							className="min-w-0 flex-1 wrap-anywhere rounded-sm text-[13px]"
 						>
 							{assetIndex >= 0 ? (
 								label

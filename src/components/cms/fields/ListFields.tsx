@@ -1,3 +1,4 @@
+import { InputShell, identifierAttributes, inputClass, proseAttributes } from "./InputShell";
 import { AnimatePresence, motion, Reorder, useIsPresent } from "motion/react";
 import { memo, useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
@@ -19,7 +20,6 @@ import { Counter } from "./TextFields";
 import {
 	FieldFrame,
 	FieldMessage,
-	controlClass,
 	describedBy,
 	fieldId,
 	focusField,
@@ -119,18 +119,10 @@ export function TagsField({
 							field.revert();
 						}
 			}
-			meta={<Counter length={tags.length} max={max} />}
+			meta={<Counter length={tags.length} unit="items" max={max} />}
 			className={className}
 		>
-			<div
-				className={cn(
-					controlClass,
-					"cms-tags flex min-h-10 flex-wrap items-center gap-1.5 px-1.5 py-1.5",
-				)}
-				onClick={(event) => {
-					if (event.target === event.currentTarget) input.current?.focus();
-				}}
-			>
+			<InputShell className="cms-tags" invalid={nested.length > 0}>
 				<ul
 					ref={chips}
 					className="contents"
@@ -160,12 +152,7 @@ export function TagsField({
 											else focusField(path, touch);
 										});
 									}}
-									className={cn(
-										"cms-press inline-flex size-6 shrink-0 items-center justify-center rounded-full hover:bg-[color-mix(in_srgb,var(--theme-ink)_8%,transparent)] pointer-coarse:size-11",
-										armed && index === tags.length - 1
-											? "text-primary-foreground"
-											: "text-muted-foreground hover:text-foreground",
-									)}
+									className="cms-press cms-tag-remove"
 								>
 									<CloseIcon className="size-3" />
 									<span className="sr-only">Remove {tag}</span>
@@ -175,10 +162,12 @@ export function TagsField({
 					</AnimatePresence>
 				</ul>
 				<input
+					{...identifierAttributes}
+					enterKeyHint="enter"
 					ref={input}
 					id={fieldId(path)}
 					value={draft}
-					placeholder={tags.length ? "" : placeholder}
+					placeholder={tags.length ? "Add…" : placeholder}
 					aria-describedby={describedBy(path, Boolean(description), nested)}
 					aria-invalid={nested.length > 0 || undefined}
 					onChange={(event) => {
@@ -215,9 +204,14 @@ export function TagsField({
 						setArmed(false);
 						add(draft);
 					}}
-					className="min-h-7 pointer-coarse:min-h-11 min-w-[8ch] flex-1 bg-transparent px-1.5 text-[14px] outline-hidden"
+					className={inputClass}
 				/>
-			</div>
+				{draft ? (
+					<kbd className="cms-kbd" aria-hidden="true">
+						↵
+					</kbd>
+				) : null}
+			</InputShell>
 			<p
 				role="status"
 				className={
@@ -381,43 +375,44 @@ export function StringListField({
 						}
 			}
 			asGroup
-			meta={<Counter length={count} max={max} />}
+			meta={<Counter length={count} unit="items" max={max} />}
 			className={className}
 		>
-			<Reorder.Group
-				as="ol"
-				axis="y"
-				values={keys}
-				onReorder={removals.reorder}
-				className="m-0 grid min-w-0 list-none gap-2 p-0 empty:hidden"
-				aria-labelledby={`${fieldId(path)}-label`}
-			>
-				<AnimatePresence initial={false}>
-					{keys.map((key, index) => (
-						<StringRow
-							key={key}
-							rowKey={key}
-							path={childPath(path, index)}
-							index={index}
-							label={`${itemLabel} ${index + 1}`}
-							settled={reorderFeedback.settledKey === key}
-							maxLength={maxLength}
-							multiline={multiline}
-							placeholder={placeholder}
-							canMoveDown={index < count - 1}
-							move={move}
-							remove={remove}
-							onDragStart={startDrag}
-							onDragEnd={handleDragEnd}
-						/>
-					))}
-				</AnimatePresence>
-			</Reorder.Group>
-			<p role="status" aria-live="polite" className="sr-only">
-				{reorderFeedback.announcement}
-			</p>
-			<div className={count ? "mt-2" : undefined}>
+			<div className="cms-stack" data-invalid={issues.length > 0 || undefined}>
+				<Reorder.Group
+					as="ol"
+					axis="y"
+					values={keys}
+					onReorder={removals.reorder}
+					className="cms-stack-rows"
+					aria-labelledby={`${fieldId(path)}-label`}
+				>
+					<AnimatePresence initial={false}>
+						{keys.map((key, index) => (
+							<StringRow
+								key={key}
+								rowKey={key}
+								path={childPath(path, index)}
+								index={index}
+								label={`${itemLabel} ${index + 1}`}
+								settled={reorderFeedback.settledKey === key}
+								maxLength={maxLength}
+								multiline={multiline}
+								placeholder={placeholder}
+								canMoveDown={index < count - 1}
+								move={move}
+								remove={remove}
+								onDragStart={startDrag}
+								onDragEnd={handleDragEnd}
+							/>
+						))}
+					</AnimatePresence>
+				</Reorder.Group>
+				<p role="status" aria-live="polite" className="sr-only">
+					{reorderFeedback.announcement}
+				</p>
 				<AddButton
+					stack
 					id={fieldId(path)}
 					aria-describedby={describedBy(path, Boolean(description), issues)}
 					disabled={count >= max}
@@ -487,7 +482,8 @@ const StringRow = memo(function StringRow({
 			label={label}
 			settled={settled}
 			reorderable={reorderable}
-			className="cms-string-row"
+			className="cms-stack-row cms-string-row"
+			data-invalid={issues.length > 0 || undefined}
 			onMove={(offset) => move(index, index + offset)}
 			onDragStart={() => onDragStart(rowKey, index, label)}
 			onDragEnd={onDragEnd}
@@ -498,6 +494,7 @@ const StringRow = memo(function StringRow({
 					<div className="grid min-w-0 [grid-column:2]">
 						{/* Highlights wrap like paragraphs but stay one line of text. */}
 						<textarea
+							{...proseAttributes}
 							id={fieldId(path)}
 							value={value}
 							placeholder={placeholder}
@@ -521,11 +518,9 @@ const StringRow = memo(function StringRow({
 								field.set(multiline ? raw : toSingleLine(raw));
 							}}
 							className={cn(
-								controlClass,
+								inputClass,
 								"cms-textarea",
-								multiline
-									? "min-h-20 py-2.5 leading-relaxed"
-									: "cms-textarea-single min-h-10 py-[8px] leading-[22px]",
+								multiline ? "min-h-20" : "cms-textarea-single",
 							)}
 						/>
 						<div className="justify-self-end empty:hidden">

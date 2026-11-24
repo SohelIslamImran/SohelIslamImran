@@ -78,6 +78,7 @@ export interface FieldFrameProps {
 	path: string;
 	label: ReactNode;
 	description?: ReactNode;
+	optional?: boolean;
 	issues: readonly ValidationIssue[];
 	changed: boolean;
 	onRevert?: () => void;
@@ -112,6 +113,7 @@ export function FieldFrame({
 	path,
 	label,
 	description,
+	optional,
 	issues,
 	changed,
 	onRevert,
@@ -143,12 +145,10 @@ export function FieldFrame({
 		<LabelTag
 			id={`${id}-label`}
 			{...(asGroup ? {} : { htmlFor: id })}
-			className={cn(
-				"m-0 min-w-0 text-[13px] leading-5 font-semibold text-foreground",
-				labelHidden && "sr-only",
-			)}
+			className={cn("cms-field-label", labelHidden && "sr-only")}
 		>
 			{label}
+			{optional ? <span className="cms-field-optional">Optional</span> : null}
 			{changedFromLive ? <span className="sr-only"> (changed from live)</span> : null}
 		</LabelTag>
 	);
@@ -359,4 +359,4 @@ export function sentenceCase(message: string): string {
 }
 
 /** Shared control chrome for the CMS density tier. */
-export const controlClass = "cms-control min-w-0 w-full px-3 text-[14px] pointer-coarse:min-h-11";
+export const controlClass = "cms-control min-w-0 w-full px-3";

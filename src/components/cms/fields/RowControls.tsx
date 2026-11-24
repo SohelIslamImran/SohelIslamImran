@@ -17,13 +17,21 @@ export function AddButton({
 	children,
 	className,
 	primary,
+	stack,
 	...props
-}: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type"> & { primary?: boolean }) {
+}: Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, "type"> & {
+	primary?: boolean;
+	stack?: boolean;
+}) {
 	return (
 		<button
 			type="button"
 			{...props}
-			className={cn(editorButton, primary && "cms-editor-primary", className)}
+			className={cn(
+				stack ? "cms-stack-add" : cn(editorButton, "cms-add-button"),
+				primary && "cms-editor-primary",
+				className,
+			)}
 		>
 			<PlusIcon className="size-3.5" />
 			{children}

@@ -29,7 +29,15 @@ import {
 } from "../fields/FieldFrame";
 import { SortableRow, useReorderFeedback } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
-import { controlClass, fieldId, focusField } from "../fields";
+import {
+	ClearAction,
+	CopyAction,
+	InputShell,
+	identifierAttributes,
+	inputClass,
+	proseAttributes,
+} from "../fields/InputShell";
+import { fieldId, focusField } from "../fields";
 import {
 	UndoRemoval,
 	UndoRemovalScope,
@@ -435,7 +443,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const rename = useCallback(
 		(id: string) => {
 			store.update(`${shownPath}.id`, id);
-			void select(id, undefined, true).then(() =>
+			return select(id, undefined, true).then(() =>
 				focusAfterNavigation(id, () => focusField(`${shownPath}.id`)),
 			);
 		},
@@ -508,8 +516,14 @@ export function CollectionEditor<T extends { id: string }>({
 					</>
 				) : null}
 				{length ? (
-					<div className="cms-collection-search relative grid">
-						<SearchIcon className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground" />
+					<InputShell
+						size="sm"
+						className="cms-collection-search"
+						leading={<SearchIcon />}
+						trailing={
+							query ? <ClearAction label="Clear search" onClear={() => setQuery("")} /> : undefined
+						}
+					>
 						<label htmlFor={queryId} className="sr-only">
 							Search {label.toLowerCase()}
 						</label>
@@ -519,10 +533,19 @@ export function CollectionEditor<T extends { id: string }>({
 							type="search"
 							placeholder={`Search ${label.toLowerCase()}`}
 							value={query}
-							className={`${controlClass} min-h-10 pl-9`}
+							className={inputClass}
+							enterKeyHint="search"
+							{...identifierAttributes}
+							onKeyDown={(event) => {
+								if (event.key !== "Escape" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.stopPropagation();
+								if (query) setQuery("");
+								else event.currentTarget.blur();
+							}}
 							onChange={(event) => setQuery(event.currentTarget.value)}
 						/>
-					</div>
+					</InputShell>
 				) : null}
 			</header>
 			{adding ? (
@@ -542,23 +565,26 @@ export function CollectionEditor<T extends { id: string }>({
 						add(rows, create(name.trim(), newRowId(), rows), rows.length);
 					}}
 				>
-					<label htmlFor={nameId} className="text-[13px] font-semibold">
+					<label htmlFor={nameId} className="cms-field-label">
 						{nameLabel}
 					</label>
-					<textarea
-						id={nameId}
-						className={`${controlClass} cms-textarea cms-textarea-single min-h-10 py-[8px] leading-[22px]`}
-						rows={1}
-						required
-						value={name}
-						maxLength={nameLimit}
-						onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
-						onKeyDown={(event) => {
-							if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
-							event.preventDefault();
-							event.currentTarget.form?.requestSubmit();
-						}}
-					/>
+					<InputShell multiline>
+						<textarea
+							{...proseAttributes}
+							id={nameId}
+							className={`${inputClass} cms-textarea cms-textarea-single`}
+							rows={1}
+							required
+							value={name}
+							maxLength={nameLimit}
+							onChange={(event) => setName(toSingleLine(event.currentTarget.value))}
+							onKeyDown={(event) => {
+								if (event.key !== "Enter" || event.nativeEvent.isComposing) return;
+								event.preventDefault();
+								event.currentTarget.form?.requestSubmit();
+							}}
+						/>
+					</InputShell>
 					<button
 						type="submit"
 						disabled={!name.trim() || full}
@@ -1151,7 +1177,7 @@ const CollectionDetails = memo(function CollectionDetails({
 	path: string;
 	id: string;
 	profile: boolean;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	return (
@@ -1177,9 +1203,10 @@ function ProfileSlugField({
 }: {
 	path: string;
 	id: string;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 }) {
 	const [slug, setSlug] = useState(id);
+	const [pending, setPending] = useState(false);
 	const issues = useIssuesAt(path);
 	const existsLive = useDraftSelector(({ published }) =>
 		published.profileLinks.some((link) => link.id === slug),
@@ -1191,33 +1218,43 @@ function ProfileSlugField({
 	return (
 		<form
 			className="grid gap-2"
-			onSubmit={(event) => {
+			onSubmit={async (event) => {
 				event.preventDefault();
-				if (slug !== id && !taken && slug.length <= 80 && PUBLIC_SLUG_PATTERN.test(slug))
-					onRename(slug);
+				if (pending || slug === id || taken || slug.length > 80 || !PUBLIC_SLUG_PATTERN.test(slug))
+					return;
+				setPending(true);
+				try {
+					await onRename(slug);
+				} finally {
+					setPending(false);
+				}
 			}}
 		>
-			<label htmlFor={inputId} className="text-[13px] font-medium">
+			<label htmlFor={inputId} className="cms-field-label">
 				Public link slug
 			</label>
 			<div className="flex flex-wrap items-center gap-2">
-				<span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
-					/links/
-				</span>
-				<input
-					id={inputId}
-					className={`${controlClass} min-h-10 flex-1 font-mono`}
-					value={slug}
-					required
-					maxLength={80}
-					pattern={PUBLIC_SLUG_PATTERN.source}
-					spellCheck={false}
-					autoComplete="off"
-					aria-invalid={taken || issues.length > 0 || undefined}
-					aria-describedby={`${inputId}-hint`}
-					onChange={(event) => setSlug(event.currentTarget.value)}
-				/>
-				<button type="submit" className={editorButton} disabled={slug === id || taken}>
+				<InputShell
+					className="flex-1"
+					prefix="/links/"
+					invalid={taken || issues.length > 0}
+					pending={pending}
+					trailing={<CopyAction text={`/links/${id}`} />}
+				>
+					<input
+						id={inputId}
+						className={`${inputClass} cms-input-mono`}
+						value={slug}
+						required
+						maxLength={80}
+						pattern={PUBLIC_SLUG_PATTERN.source}
+						{...identifierAttributes}
+						aria-invalid={taken || issues.length > 0 || undefined}
+						aria-describedby={`${inputId}-hint`}
+						onChange={(event) => setSlug(event.currentTarget.value)}
+					/>
+				</InputShell>
+				<button type="submit" className={editorButton} disabled={pending || slug === id || taken}>
 					Apply slug
 				</button>
 			</div>

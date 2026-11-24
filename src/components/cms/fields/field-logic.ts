@@ -99,3 +99,18 @@ export function mergeTagBatch(
 
 	return { next, remaining, added, duplicateIndexes, duplicates, message };
 }
+
+export function hrefKind(value: string): "web" | "mail" | "tel" | "empty" | "path" {
+	const href = value.trim().toLowerCase();
+	if (/^https?:\/\//u.test(href)) return "web";
+	if (href.startsWith("mailto:")) return "mail";
+	if (href.startsWith("tel:")) return "tel";
+	return href ? "path" : "empty";
+}
+
+export function splitMatch(item: string, query: string): [string, string, string] {
+	const start = query ? item.toLowerCase().indexOf(query.toLowerCase()) : -1;
+	if (start === -1) return [item, "", ""];
+	const end = start + query.length;
+	return [item.slice(0, start), item.slice(start, end), item.slice(end)];
+}
