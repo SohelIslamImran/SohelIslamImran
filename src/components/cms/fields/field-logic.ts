@@ -107,3 +107,10 @@ export function hrefKind(value: string): "web" | "mail" | "tel" | "empty" | "pat
 	if (href.startsWith("tel:")) return "tel";
 	return href ? "path" : "empty";
 }
+
+export function splitMatch(item: string, query: string): [string, string, string] {
+	const start = query ? item.toLowerCase().indexOf(query.toLowerCase()) : -1;
+	if (start === -1) return [item, "", ""];
+	const end = start + query.length;
+	return [item.slice(0, start), item.slice(start, end), item.slice(end)];
+}

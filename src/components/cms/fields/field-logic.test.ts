@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { removeItem } from "../draft/paths";
-import { hrefKind, tagBackspace, toSingleLine } from "./field-logic";
+import { hrefKind, splitMatch, tagBackspace, toSingleLine } from "./field-logic";
 import {
 	createRemoval,
 	neverSame,
@@ -90,4 +90,14 @@ it.each([
 	["example.com", "path"],
 ])("classifies %j as %s", (href, kind) => {
 	expect(hrefKind(href)).toBe(kind);
+});
+
+it.each([
+	["Europe/London", "lon", ["Europe/", "Lon", "don"]],
+	["Europe/London", "Paris", ["Europe/London", "", ""]],
+	["Europe/London", "Europe", ["", "Europe", "/London"]],
+	["Europe/London", "don", ["Europe/Lon", "don", ""]],
+	["banana", "ana", ["b", "ana", "na"]],
+])("splits %j on %j", (item, query, parts) => {
+	expect(splitMatch(item, query)).toEqual(parts);
 });

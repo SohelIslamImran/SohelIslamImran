@@ -159,3 +159,13 @@ export function PhoneIcon(props: IconProps) {
 		</Icon>
 	);
 }
+
+export function ImageIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<rect x="2.5" y="2.5" width="15" height="15" rx="2" />
+			<circle cx="7" cy="7" r="1" />
+			<path d="m3 14 4-4 3 3 3-4 4 5" />
+		</Icon>
+	);
+}

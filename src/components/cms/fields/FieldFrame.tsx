@@ -359,4 +359,4 @@ export function sentenceCase(message: string): string {
 }
 
 /** Shared control chrome for the CMS density tier. */
-export const controlClass = "cms-control min-w-0 w-full px-3 text-[14px] pointer-coarse:min-h-11";
+export const controlClass = "cms-control min-w-0 w-full px-3";
