@@ -1,7 +1,8 @@
-import { mediaHref } from "../../../lib/media";
+import { useState } from "react";
+import { ownerMediaPreviewSrc } from "../library/owner-media";
 import { cn } from "../../../lib/utils";
 import { asMediaAsset, type RowDiffStatus } from "./diff";
-import { diffWords } from "./word-diff";
+import { diffWords, isWhitespaceChange, whitespaceMarkers } from "./word-diff";
 
 export function StatusGlyph({ status }: { status: RowDiffStatus }) {
 	switch (status) {
@@ -107,11 +108,25 @@ function splitEdges(text: string): [string, string, string] {
 /** Inline word diff. Whitespace around a change stays outside the highlight. */
 function WordDiffText({ before, after }: { before: string; after: string }) {
 	const parts = diffWords(before, after);
+	const whitespaceChanged = isWhitespaceChange(before, after);
 	return (
 		<>
+			{whitespaceChanged ? (
+				<span className="mb-1 block text-[12px] font-medium text-muted-foreground">
+					Whitespace changed
+				</span>
+			) : null}
 			{parts.map((part, index) => {
 				if (part.kind === "same") return <span key={index}>{part.text}</span>;
-				const [lead, core, trail] = splitEdges(part.text);
+				const [lead, core, trail] = whitespaceChanged
+					? [
+							"",
+							<span className="font-mono text-muted-foreground">
+								{whitespaceMarkers(part.text)}
+							</span>,
+							"",
+						]
+					: splitEdges(part.text);
 				return (
 					<span key={index}>
 						{lead}
@@ -137,42 +152,95 @@ function WordDiffText({ before, after }: { before: string; after: string }) {
 }
 
 export function ProseDiff({ before, after }: { before: unknown; after: unknown }) {
+	const left = typeof before === "string" ? before : "";
+	const right = typeof after === "string" ? after : "";
+	const codeLike = [left, right].some((value) => /^\s*(?:```|[[{]\s*\n)/u.test(value));
+	const className =
+		"m-0 min-w-0 rounded-[12px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft";
+	if (codeLike) {
+		return (
+			<pre
+				tabIndex={0}
+				aria-label="Code changes"
+				className={cn(className, "cms-page-focus overflow-x-auto whitespace-pre")}
+			>
+				<WordDiffText before={left} after={right} />
+			</pre>
+		);
+	}
 	return (
-		<p className="m-0 rounded-[12px] border border-line bg-surface-solid px-3.5 py-3 text-[13.5px] leading-[1.68] text-ink-soft whitespace-pre-wrap">
-			<WordDiffText
-				before={typeof before === "string" ? before : ""}
-				after={typeof after === "string" ? after : ""}
-			/>
+		<p className={cn(className, "whitespace-pre-wrap [overflow-wrap:anywhere]")}>
+			<WordDiffText before={left} after={right} />
 		</p>
 	);
 }
 
 function MediaCard({ value, label }: { value: unknown; label: string }) {
 	const asset = asMediaAsset(value);
-	const href = mediaHref(asset);
+	const href = ownerMediaPreviewSrc(asset?.id);
+	const knownNonImage = !!asset?.mimeType && !asset.mimeType.startsWith("image/");
 	return (
 		<div className="flex min-w-0 items-center gap-2.5 rounded-[10px] border border-line bg-surface-solid p-2">
-			{asset && href ? (
-				<img
-					src={href}
-					alt={asset.alt || asset.id}
-					className="size-11 shrink-0 rounded-[7px] border border-line bg-muted object-cover"
-				/>
-			) : (
-				<span
-					aria-hidden="true"
-					className="grid size-11 shrink-0 place-items-center rounded-[7px] border border-dashed border-line-strong font-mono text-[11px] text-muted-foreground"
-				>
-					—
-				</span>
-			)}
+			<MediaPreview
+				key={knownNonImage ? "attachment" : (href ?? "empty")}
+				src={knownNonImage ? null : href}
+				alt={asset?.alt ?? ""}
+				attachment={knownNonImage}
+			/>
+
 			<div className="min-w-0">
 				<p className="m-0 text-[11.5px] font-medium text-muted-foreground">{label}</p>
 				<p className="m-0 truncate text-[12.5px] font-medium text-foreground">
 					{asset ? asset.alt || "Untitled asset" : "None"}
+					{asset?.mimeType === "application/pdf" ? " · PDF" : null}
 				</p>
 			</div>
 		</div>
+	);
+}
+
+function MediaPreview({
+	src,
+	alt,
+	attachment,
+}: {
+	src: string | null;
+	alt: string;
+	attachment: boolean;
+}) {
+	const [failed, setFailed] = useState(false);
+	return src && !failed ? (
+		<img
+			src={src}
+			alt={alt}
+			loading="lazy"
+			decoding="async"
+			onError={() => setFailed(true)}
+			ref={(image) => {
+				if (image?.complete && !image.naturalWidth) setFailed(true);
+			}}
+			className="size-11 shrink-0 rounded-[7px] border border-line bg-muted object-cover"
+		/>
+	) : (
+		<span
+			role={src ? "img" : undefined}
+			aria-label={src ? "Preview unavailable" : undefined}
+			aria-hidden={src ? undefined : true}
+			className="grid size-11 shrink-0 place-items-center rounded-[7px] border border-dashed border-line-strong font-mono text-[11px] text-muted-foreground"
+		>
+			{attachment ? (
+				<svg
+					viewBox="0 0 16 16"
+					className="size-4 fill-none stroke-current stroke-[1.4]"
+					strokeLinecap="round"
+					strokeLinejoin="round"
+				>
+					<path d="M4 2h5l3 3v9H4z M9 2v3h3 M6 8h4 M6 10.5h4" />
+				</svg>
+			) : (
+				"—"
+			)}
+		</span>
 	);
 }
 
@@ -203,6 +271,7 @@ const WORD_DIFF_MIN_LENGTH = 24;
 
 function wantsWordDiff(before: unknown, after: unknown): before is string {
 	if (typeof before !== "string" || typeof after !== "string") return false;
+	if (isWhitespaceChange(before, after)) return true;
 	if (!before || !after) return false;
 	const long = before.length > WORD_DIFF_MIN_LENGTH || after.length > WORD_DIFF_MIN_LENGTH;
 	return long && (/\s/u.test(before) || /\s/u.test(after));
@@ -228,7 +297,7 @@ export function ShortDiff({
 	}
 	// Stacked on narrow screens (no arrow), inline with an arrow from `sm`.
 	return (
-		<div className="grid gap-1.5 text-[13px] sm:flex sm:flex-wrap sm:items-center sm:gap-2">
+		<div className="grid min-w-0 gap-1.5 text-[13px] sm:flex sm:flex-wrap sm:items-center sm:gap-2">
 			<span
 				className={cn(
 					"inline-flex max-w-full items-baseline gap-1.5 justify-self-start rounded-[10px] border border-dashed border-line-strong bg-[color-mix(in_srgb,var(--theme-ink)_3%,transparent)] px-2.5 py-1 text-muted-foreground",
@@ -323,7 +392,11 @@ export function ListDiff({
 						</li>
 					);
 				}
-				if (typeof l === "string" && typeof r === "string" && (l.length >= 60 || r.length >= 60)) {
+				if (
+					typeof l === "string" &&
+					typeof r === "string" &&
+					(l.length >= 60 || r.length >= 60 || isWhitespaceChange(l, r))
+				) {
 					return (
 						<li key={index} className="grid gap-1">
 							<span className="text-[11.5px] font-medium text-muted-foreground">

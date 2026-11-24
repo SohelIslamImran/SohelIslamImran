@@ -8,6 +8,18 @@ export interface WordDiffPart {
 	text: string;
 }
 
+export function isWhitespaceChange(before: string, after: string): boolean {
+	return before !== after && before.replace(/\s/gu, "") === after.replace(/\s/gu, "");
+}
+
+export function whitespaceMarkers(text: string): string {
+	return text.replace(/\r\n|\r|\n|\t| /gu, (char) => {
+		if (char === " ") return "·";
+		if (char === "\t") return "→";
+		return "↵";
+	});
+}
+
 const MAX_LCS_TOKENS = 420;
 
 /** Split text into alternating word/punctuation and whitespace tokens so joining reproduces the exact input. */

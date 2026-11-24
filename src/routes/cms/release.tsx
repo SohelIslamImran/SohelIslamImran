@@ -26,6 +26,7 @@ import {
 import { REDUCED, SPRING_MOVE } from "../../components/cms/motion";
 import { diffPortfolioDocuments } from "../../components/cms/release/diff";
 import { DiffView } from "../../components/cms/release/DiffView";
+import { publishStep } from "../../components/cms/release/publish-steps";
 import { PublishGate, PublishedReceipt } from "../../components/cms/release/PublishGate";
 import { RawJsonTab } from "../../components/cms/release/RawJsonTab";
 import { RELEASE_GATE_ID } from "../../components/cms/shell/CmsShell";
@@ -57,16 +58,21 @@ function ReleaseRoute() {
 	const ahead = useDraftSelector((state) => state.ahead);
 	const issueCount = useDraftSelector((state) => state.issues.all.length);
 	const conflict = useDraftSelector((state) => state.conflict !== null);
-	const busy = useDraftSelector(
-		(state) => state.status === "saving" || state.status === "publishing",
-	);
+	const status = useDraftSelector((state) => state.status);
+	const draftRevision = useDraftSelector((state) => state.draftRevision);
+	const busy = status === "saving" || status === "publishing";
 
 	const [tab, setTab] = useState<"changes" | "json">("changes");
 	const [reviewedDraft, setReviewedDraft] = useState<typeof draft | null>(null);
 	// Held from Confirm until the publish settles, so the gate stays in its busy
 	// state instead of flashing the "up to date" empty state before the receipt.
 	const [publishing, setPublishing] = useState(false);
-	const confirmingPublish = publishing || reviewedDraft === draft;
+	const confirmingPublish = reviewedDraft === draft;
+	const [failedPublish, setFailedPublish] = useState<{
+		draft: typeof draft;
+		revision: number;
+	} | null>(null);
+	const retry = failedPublish?.draft === draft && failedPublish.revision === draftRevision;
 	const [discardReview, setDiscardReview] = useState<{
 		draft: typeof draft;
 		publishedRevision: number;
@@ -84,6 +90,15 @@ function ReleaseRoute() {
 	const showGate = hasChanges || publishing;
 	const gateBusy = busy || publishing;
 	const canPublish = hasChanges && issueCount === 0 && !conflict && !gateBusy;
+	const step = publishStep({
+		status,
+		revision: showGate ? draftRevision : publishedRevision,
+		dirty,
+		ahead,
+		attempting: publishing,
+		unconfirmed: retry && !publishing,
+		published: !showGate && publishedReceipt !== null,
+	});
 
 	// Let the shell's Publish / Review actions switch back from Raw JSON synchronously
 	// before locating and focusing the inline PublishGate.
@@ -110,26 +125,42 @@ function ReleaseRoute() {
 		(target === "receipt" ? receiptRef.current : emptyRef.current)?.focus();
 	});
 
-	const handleConfirmPublish = async () => {
+	const handlePublish = async (review: typeof draft) => {
+		if (!canPublish || store.getState().draft !== review) return;
 		setNotice(null);
-		if (!reviewedDraft || publishing) return;
 		setPublishing(true);
 		setJustDiscarded(false);
+		let submittedRevision: number | undefined;
+		const unsubscribe = store.subscribe(() => {
+			const state = store.getState();
+			if (state.status === "publishing") submittedRevision = state.draftRevision;
+		});
 		let ok = false;
 		try {
-			ok = await store.publish({ reviewedDraft });
+			ok = await store.publish({ reviewedDraft: review });
 		} finally {
+			unsubscribe();
 			setPublishing(false);
 			setReviewedDraft(null);
 		}
+		const current = store.getState();
 		if (ok) {
+			setFailedPublish(null);
 			setTab("changes");
-			focusAfterRender.current = "receipt";
-			setPublishedReceipt({ revision: store.getState().publishedRevision });
-		} else {
+			if (current.draft === review) {
+				focusAfterRender.current = "receipt";
+				setPublishedReceipt({ revision: current.publishedRevision });
+			}
+		} else if (
+			submittedRevision !== undefined &&
+			current.status === "error" &&
+			current.draft === review
+		) {
+			setFailedPublish({ draft: review, revision: submittedRevision });
+		} else if (current.status !== "conflict") {
 			setNotice({
 				tone: "error",
-				text: store.getState().error ?? "Review the draft and try publishing again.",
+				text: current.error ?? "Review the draft and try publishing again.",
 			});
 		}
 	};
@@ -175,7 +206,7 @@ function ReleaseRoute() {
 								>
 									{active ? (
 										<motion.span
-											layoutId="cms-release-tab-pill"
+											layoutId={reduced ? undefined : "cms-release-tab-pill"}
 											aria-hidden="true"
 											transition={reduced ? REDUCED : SPRING_MOVE}
 											className="cms-seg-pill"
@@ -207,6 +238,9 @@ function ReleaseRoute() {
 
 			<Tabs.Panel value="changes" hidden={tab !== "changes"} className="min-w-0 empty:hidden">
 				<div className="grid min-w-0 gap-5">
+					<p role="status" className="sr-only">
+						{step?.text}
+					</p>
 					{showGate ? (
 						<PublishGate
 							totalChanges={diff.totalChanges}
@@ -214,13 +248,17 @@ function ReleaseRoute() {
 							issueCount={issueCount}
 							conflict={conflict}
 							dirty={dirty}
+							step={step}
+							onRetry={retry && !conflict ? () => void handlePublish(draft) : undefined}
 							busy={gateBusy}
 							canPublish={canPublish}
 							confirming={confirmingPublish}
 							host={host}
 							onRequestPublish={() => setReviewedDraft(draft)}
 							onCancel={() => setReviewedDraft(null)}
-							onConfirm={() => void handleConfirmPublish()}
+							onConfirm={() => {
+								if (reviewedDraft) void handlePublish(reviewedDraft);
+							}}
 							onDiscard={() => setDiscardReview({ draft, publishedRevision })}
 							discardDisabled={gateBusy || discarding}
 						/>
@@ -228,6 +266,7 @@ function ReleaseRoute() {
 						<PublishedReceipt
 							ref={receiptRef}
 							revision={publishedReceipt.revision}
+							step={step}
 							publicOrigin={publicOrigin}
 							onDismiss={() => {
 								setTab("changes");
@@ -239,7 +278,7 @@ function ReleaseRoute() {
 
 					{showGate ? (
 						diff.changedSections.length > 0 ? (
-							<DiffView diff={diff} onRevertField={(path) => store.revertAt(path)} />
+							<DiffView diff={diff} showIndex onRevertField={(path) => store.revertAt(path)} />
 						) : null
 					) : publishedReceipt ? null : (
 						<div
