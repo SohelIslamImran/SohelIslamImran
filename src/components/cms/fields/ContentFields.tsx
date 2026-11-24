@@ -1,7 +1,10 @@
 import { useState, type ComponentType, type ReactNode } from "react";
 import type { LinkContent, MetricContent } from "../../../types/content";
 import { CheckboxField, SegmentedField } from "./ChoiceFields";
-import { ClearAction } from "./InputShell";
+import { ExternalArrowIcon } from "../shell/cms-icons";
+import { GlobeIcon, LinkIcon, MailIcon, PhoneIcon } from "./field-icons";
+import { hrefKind } from "./field-logic";
+import { ClearAction, InputAction } from "./InputShell";
 import { focusField } from "./FieldFrame";
 import { RepeaterField } from "./RepeaterField";
 import { NumberField, TextField } from "./TextFields";
@@ -19,6 +22,8 @@ export function HrefField({
 	optional?: boolean;
 	description?: string;
 }) {
+	const href = (useDraftValue<string | undefined>(path) ?? "").trim();
+	const kind = hrefKind(href);
 	return (
 		<TextField
 			path={path}
@@ -27,6 +32,22 @@ export function HrefField({
 			required={!optional}
 			maxLength={2_000}
 			mono
+			inputMode="url"
+			leading={
+				<span className="cms-href-icons" data-kind={kind === "empty" ? "path" : kind}>
+					<GlobeIcon data-icon="web" />
+					<LinkIcon data-icon="path" />
+					<MailIcon data-icon="mail" />
+					<PhoneIcon data-icon="tel" />
+				</span>
+			}
+			trailing={
+				kind === "web" && URL.canParse(href) ? (
+					<InputAction href={href} label="Open link in a new tab">
+						<ExternalArrowIcon />
+					</InputAction>
+				) : undefined
+			}
 			spellCheck={false}
 			description={
 				description ??

@@ -233,6 +233,39 @@
 		height: 16px;
 	}
 
+	.cms-href-icons {
+		display: grid;
+	}
+
+	.cms-href-icons svg {
+		grid-area: 1 / 1;
+		opacity: 0;
+		transition: opacity var(--cms-dur-fast) var(--cms-ease-out);
+	}
+
+	.cms-href-icons[data-kind="web"] [data-icon="web"],
+	.cms-href-icons[data-kind="path"] [data-icon="path"],
+	.cms-href-icons[data-kind="mail"] [data-icon="mail"],
+	.cms-href-icons[data-kind="tel"] [data-icon="tel"] {
+		opacity: 1;
+	}
+
+	.cms-spinner {
+		width: 14px;
+		height: 14px;
+		margin-inline: 7px;
+		border-radius: 50%;
+		border: 1.5px solid var(--cms-field-edge);
+		border-top-color: var(--theme-accent);
+		animation: cms-field-spin 800ms linear infinite;
+	}
+
+	@keyframes cms-field-spin {
+		to {
+			rotate: 1turn;
+		}
+	}
+
 	.cms-input-leading + .cms-input-native {
 		padding-inline-start: 8px;
 	}

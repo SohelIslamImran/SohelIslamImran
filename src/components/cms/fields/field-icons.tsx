@@ -133,3 +133,29 @@ export function MailIcon(props: IconProps) {
 		</Icon>
 	);
 }
+
+export function GlobeIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<circle cx="10" cy="10" r="7.5" />
+			<ellipse cx="10" cy="10" rx="3" ry="7.5" />
+			<path d="M2.5 10h15" />
+		</Icon>
+	);
+}
+
+export function LinkIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<path d="m8 12 4-4m-3-2 2.5-2.5a3.54 3.54 0 0 1 5 5L14 11m-3 3-2.5 2.5a3.54 3.54 0 0 1-5-5L6 9" />
+		</Icon>
+	);
+}
+
+export function PhoneIcon(props: IconProps) {
+	return (
+		<Icon {...props}>
+			<path d="m6.5 2.5 2 4.5-2 2a12 12 0 0 0 4.5 4.5l2-2 4.5 2v2a2 2 0 0 1-2 2 14 14 0 0 1-13-13 2 2 0 0 1 2-2Z" />
+		</Icon>
+	);
+}

@@ -1,3 +1,4 @@
+import { CopyAction } from "../fields/InputShell";
 import { LayoutGroup, motion } from "motion/react";
 import { useId } from "react";
 import { useLiveReducedMotion } from "../shell/use-live-reduced-motion";
@@ -65,11 +66,8 @@ function ProjectSlug({ path }: { path: string }) {
 				mono
 				spellCheck={false}
 				maxLength={160}
-				description={
-					<span className="wrap-anywhere">
-						Public URL <code className="font-mono text-ink-soft">/work/{slug || "…"}</code>
-					</span>
-				}
+				prefix="/work/"
+				trailing={slug ? <CopyAction text={`/work/${slug}`} /> : undefined}
 			/>
 			{liveSlug && liveSlug !== slug ? (
 				<p className="m-0 text-[13px] text-ink-soft">

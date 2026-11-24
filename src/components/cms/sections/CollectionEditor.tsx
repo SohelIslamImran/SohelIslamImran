@@ -29,8 +29,8 @@ import {
 } from "../fields/FieldFrame";
 import { SortableRow, useReorderFeedback } from "../fields/SortableRow";
 import { SearchIcon } from "../shell/cms-icons";
-import { ClearAction, InputShell, inputClass } from "../fields/InputShell";
-import { controlClass, fieldId, focusField } from "../fields";
+import { ClearAction, CopyAction, InputShell, inputClass } from "../fields/InputShell";
+import { fieldId, focusField } from "../fields";
 import {
 	UndoRemoval,
 	UndoRemovalScope,
@@ -436,7 +436,7 @@ export function CollectionEditor<T extends { id: string }>({
 	const rename = useCallback(
 		(id: string) => {
 			store.update(`${shownPath}.id`, id);
-			void select(id, undefined, true).then(() =>
+			return select(id, undefined, true).then(() =>
 				focusAfterNavigation(id, () => focusField(`${shownPath}.id`)),
 			);
 		},
@@ -1170,7 +1170,7 @@ const CollectionDetails = memo(function CollectionDetails({
 	path: string;
 	id: string;
 	profile: boolean;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 	Editor: ComponentType<{ path: string }>;
 }) {
 	return (
@@ -1196,9 +1196,10 @@ function ProfileSlugField({
 }: {
 	path: string;
 	id: string;
-	onRename: (id: string) => void;
+	onRename: (id: string) => Promise<void>;
 }) {
 	const [slug, setSlug] = useState(id);
+	const [pending, setPending] = useState(false);
 	const issues = useIssuesAt(path);
 	const existsLive = useDraftSelector(({ published }) =>
 		published.profileLinks.some((link) => link.id === slug),
@@ -1210,33 +1211,44 @@ function ProfileSlugField({
 	return (
 		<form
 			className="grid gap-2"
-			onSubmit={(event) => {
+			onSubmit={async (event) => {
 				event.preventDefault();
-				if (slug !== id && !taken && slug.length <= 80 && PUBLIC_SLUG_PATTERN.test(slug))
-					onRename(slug);
+				if (pending || slug === id || taken || slug.length > 80 || !PUBLIC_SLUG_PATTERN.test(slug))
+					return;
+				setPending(true);
+				try {
+					await onRename(slug);
+				} finally {
+					setPending(false);
+				}
 			}}
 		>
 			<label htmlFor={inputId} className="text-[13px] font-medium">
 				Public link slug
 			</label>
 			<div className="flex flex-wrap items-center gap-2">
-				<span aria-hidden="true" className="font-mono text-xs text-muted-foreground">
-					/links/
-				</span>
-				<input
-					id={inputId}
-					className={`${controlClass} min-h-10 flex-1 font-mono`}
-					value={slug}
-					required
-					maxLength={80}
-					pattern={PUBLIC_SLUG_PATTERN.source}
-					spellCheck={false}
-					autoComplete="off"
-					aria-invalid={taken || issues.length > 0 || undefined}
-					aria-describedby={`${inputId}-hint`}
-					onChange={(event) => setSlug(event.currentTarget.value)}
-				/>
-				<button type="submit" className={editorButton} disabled={slug === id || taken}>
+				<InputShell
+					className="flex-1"
+					prefix="/links/"
+					invalid={taken || issues.length > 0}
+					pending={pending}
+					trailing={<CopyAction text={`/links/${id}`} />}
+				>
+					<input
+						id={inputId}
+						className={`${inputClass} cms-input-mono`}
+						value={slug}
+						required
+						maxLength={80}
+						pattern={PUBLIC_SLUG_PATTERN.source}
+						spellCheck={false}
+						autoComplete="off"
+						aria-invalid={taken || issues.length > 0 || undefined}
+						aria-describedby={`${inputId}-hint`}
+						onChange={(event) => setSlug(event.currentTarget.value)}
+					/>
+				</InputShell>
+				<button type="submit" className={editorButton} disabled={pending || slug === id || taken}>
 					Apply slug
 				</button>
 			</div>
