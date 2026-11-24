@@ -285,4 +285,193 @@ describe("DraftStore", () => {
 		expect(store.getState().draft.projects[0]?.title).toBe(projects[last]?.title);
 		store.dispose();
 	});
+
+	it("accepts already-published when retrying a publish after a lost acknowledgement", async () => {
+		const publish = vi
+			.fn<DraftApi["publish"]>()
+			.mockRejectedValueOnce(new Error("network dropped"))
+			.mockResolvedValueOnce({
+				ok: true,
+				status: "already-published",
+				revision: 6,
+				publishedAt: "2026-11-02T00:00:00.000Z",
+			});
+		const initial = snapshot();
+		initial.draft.hero.title = "Ready to go live";
+		initial.draftRevision = 6;
+		const store = new DraftStore(initial, mockApi({ publish }), { autosaveDelay: 10_000 });
+		const reviewedDraft = store.getState().draft;
+
+		expect(store.getState().ahead).toBe(true);
+		expect(await store.publish({ reviewedDraft })).toBe(false);
+		expect(store.getState()).toMatchObject({ status: "error", ahead: true, publishedRevision: 5 });
+
+		expect(await store.publish({ reviewedDraft })).toBe(true);
+		expect(publish).toHaveBeenCalledTimes(2);
+		expect(publish).toHaveBeenLastCalledWith({ expectedDraftRevision: 6 });
+		expect(store.getState()).toMatchObject({
+			status: "idle",
+			error: null,
+			ahead: false,
+			publishedRevision: 6,
+			publishedAt: "2026-11-02T00:00:00.000Z",
+		});
+		expect(store.getState().published.hero.title).toBe("Ready to go live");
+		store.dispose();
+	});
+});
+
+describe("DraftStore.importDraft", () => {
+	function editedContent(title: string): PortfolioContent {
+		const next = structuredClone(initialContent);
+		next.hero.title = title;
+		return next;
+	}
+
+	it("adopts the imported snapshot only after the server accepts it", async () => {
+		const pending = deferred<Awaited<ReturnType<DraftApi["save"]>>>();
+		const save = vi.fn<DraftApi["save"]>().mockReturnValue(pending.promise);
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		const reviewedDraft = store.getState().draft;
+		const imported = editedContent("Imported headline");
+
+		const action = store.importDraft(imported, reviewedDraft);
+		await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+		// Working copy stays untouched while the save is in flight.
+		expect(store.getState().draft).toBe(reviewedDraft);
+		expect(store.getState().status).toBe("saving");
+		expect(save).toHaveBeenCalledWith({ content: imported, expectedRevision: 5 });
+
+		pending.resolve({ ok: true, revision: 6, updatedAt: "2026-11-02T00:00:00.000Z" });
+		expect(await action).toEqual({ status: "saved", revision: 6 });
+		expect(store.getState()).toMatchObject({
+			status: "idle",
+			dirty: false,
+			ahead: true,
+			draftRevision: 6,
+			draftUpdatedAt: "2026-11-02T00:00:00.000Z",
+			error: null,
+			conflict: null,
+		});
+		expect(store.getState().draft).toBe(imported);
+		expect(store.getState().saved).toBe(imported);
+		store.dispose();
+	});
+
+	it("returns stale without a network call when the draft changed after review", async () => {
+		const save = vi.fn<DraftApi["save"]>();
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		const reviewedDraft = store.getState().draft;
+		store.update("hero.title", "Local edit after preview");
+
+		expect(await store.importDraft(editedContent("Imported"), reviewedDraft)).toEqual({
+			status: "stale",
+		});
+		expect(save).not.toHaveBeenCalled();
+		expect(store.valueAt("hero.title")).toBe("Local edit after preview");
+		store.dispose();
+	});
+
+	it("returns invalid without a network call when the imported content fails validation", async () => {
+		const save = vi.fn<DraftApi["save"]>();
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		const reviewedDraft = store.getState().draft;
+		const invalid = editedContent("Valid hero");
+		invalid.projects[0]!.title = "";
+
+		expect(await store.importDraft(invalid, reviewedDraft)).toEqual({ status: "invalid" });
+		expect(save).not.toHaveBeenCalled();
+		expect(store.getState().draft).toBe(reviewedDraft);
+		store.dispose();
+	});
+
+	it("leaves the working copy alone and sets conflict when the server holds a newer revision", async () => {
+		const remote = snapshot();
+		remote.draftRevision = 8;
+		remote.draft.hero.title = "Remote headline";
+		const save = vi
+			.fn<DraftApi["save"]>()
+			.mockResolvedValue({ ok: false, kind: "conflict", current: remote });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		store.update("hero.title", "Unsaved local copy");
+		const reviewedDraft = store.getState().draft;
+
+		expect(await store.importDraft(editedContent("Imported"), reviewedDraft)).toEqual({
+			status: "conflict",
+		});
+		expect(store.getState()).toMatchObject({
+			status: "conflict",
+			conflict: remote,
+			dirty: true,
+		});
+		expect(store.getState().draft).toBe(reviewedDraft);
+		expect(store.valueAt("hero.title")).toBe("Unsaved local copy");
+		store.dispose();
+	});
+
+	it("leaves the working copy alone and sets error on a transport failure", async () => {
+		const save = vi.fn<DraftApi["save"]>().mockRejectedValue(new Error("offline"));
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		store.update("hero.title", "Pre-import draft");
+		const reviewedDraft = store.getState().draft;
+
+		const result = await store.importDraft(editedContent("Imported"), reviewedDraft);
+		expect(result).toEqual({
+			status: "failed",
+			message: "The draft could not be saved. Check your connection.",
+			authExpired: false,
+		});
+		expect(store.getState()).toMatchObject({
+			status: "error",
+			error: "The draft could not be saved. Check your connection.",
+			authExpired: false,
+			dirty: true,
+		});
+		expect(store.getState().draft).toBe(reviewedDraft);
+		expect(store.valueAt("hero.title")).toBe("Pre-import draft");
+		store.dispose();
+	});
+
+	it("produces a conflict with the import as the server copy when edits land in flight", async () => {
+		const pending = deferred<Awaited<ReturnType<DraftApi["save"]>>>();
+		const save = vi.fn<DraftApi["save"]>().mockReturnValue(pending.promise);
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		const reviewedDraft = store.getState().draft;
+		const imported = editedContent("Imported copy");
+
+		const action = store.importDraft(imported, reviewedDraft);
+		await vi.waitFor(() => expect(save).toHaveBeenCalledOnce());
+		store.update("hero.title", "Typed while importing");
+		pending.resolve({ ok: true, revision: 6, updatedAt: "2026-11-02T00:00:00.000Z" });
+
+		expect(await action).toEqual({ status: "conflict" });
+		expect(store.valueAt("hero.title")).toBe("Typed while importing");
+		expect(store.getState().status).toBe("conflict");
+		expect(store.getState().conflict).toMatchObject({
+			draft: imported,
+			draftRevision: 6,
+			draftUpdatedAt: "2026-11-02T00:00:00.000Z",
+		});
+		store.dispose();
+	});
+
+	it("returns blocked without a network call while a conflict is already open", async () => {
+		const remote = snapshot();
+		remote.draftRevision = 9;
+		const save = vi
+			.fn<DraftApi["save"]>()
+			.mockResolvedValueOnce({ ok: false, kind: "conflict", current: remote });
+		const store = new DraftStore(snapshot(), mockApi({ save }), { autosaveDelay: 10_000 });
+		store.update("hero.title", "Local conflict");
+		await store.save();
+		expect(store.getState().status).toBe("conflict");
+
+		const reviewedDraft = store.getState().draft;
+		expect(await store.importDraft(editedContent("Imported"), reviewedDraft)).toEqual({
+			status: "blocked",
+		});
+		expect(save).toHaveBeenCalledTimes(1);
+		expect(store.getState().conflict).toBe(remote);
+		store.dispose();
+	});
 });
