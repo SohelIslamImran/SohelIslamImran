@@ -15,12 +15,14 @@ export const Route = createFileRoute("/work")({
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
 		const description =
 			"Products I've worked on, open-source tools I maintain, and smaller experiments.";
-		return pageHead(c, `${name} — Work`, description, "/work", "/images/social-work.png", [
-			{
-				"@context": "https://schema.org",
+		return pageHead(c, {
+			title: `${name} — Work`,
+			crumb: "Work",
+			description,
+			path: "/work",
+			image: "/images/social-work.png",
+			page: {
 				"@type": "CollectionPage",
-				name: `${name} — Work`,
-				description,
 				mainEntity: {
 					"@type": "ItemList",
 					itemListElement: linkableProjects(c.projects).map((project, index) => ({
@@ -31,7 +33,7 @@ export const Route = createFileRoute("/work")({
 					})),
 				},
 			},
-		]);
+		});
 	},
 	component: Work,
 });

@@ -8,7 +8,7 @@ import { GlanceBento } from "../components/home/GlanceBento";
 import { HomeHero } from "../components/home/HomeHero";
 import { PageShell } from "../components/ui/portfolio";
 import { getPublishedContent } from "../server/content";
-import { jsonLd, pageHead } from "../lib/seo";
+import { PERSON_ID, pageHead } from "../lib/seo";
 import { mediaHref } from "../lib/media";
 
 export const Route = createFileRoute("/")({
@@ -20,18 +20,14 @@ export const Route = createFileRoute("/")({
 		const description =
 			loaderData.site.description.trim() ||
 			"Full-stack product engineering, from interface to release.";
-		return {
-			...pageHead(loaderData, `${name} — ${role}`, description, "/", "/images/social-home.png", [
-				{
-					...jsonLd(loaderData, "ProfilePage", `${name} portfolio`, "/"),
-					mainEntity: {
-						"@type": "Person",
-						name,
-						jobTitle: role,
-					},
-				},
-			]),
-		};
+		return pageHead(loaderData, {
+			title: `${name} — ${role}`,
+			description,
+			path: "/",
+			image: "/images/social-home.png",
+			type: "profile",
+			page: { "@type": "ProfilePage", mainEntity: { "@id": PERSON_ID } },
+		});
 	},
 	component: Home,
 });

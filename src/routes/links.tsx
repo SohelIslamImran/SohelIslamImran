@@ -28,13 +28,13 @@ export const Route = createFileRoute("/links")({
 	head: ({ loaderData }) => {
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
-		return pageHead(
-			c,
-			`${name} — Links`,
-			"Where to find me: GitHub, LinkedIn, npm, Stack Overflow, and a direct email.",
-			"/links",
-			"/images/social-links.png",
-		);
+		return pageHead(c, {
+			title: `${name} — Links`,
+			crumb: "Links",
+			description: "Where to find me: GitHub, LinkedIn, npm, Stack Overflow, and a direct email.",
+			path: "/links",
+			image: "/images/social-links.png",
+		});
 	},
 	component: Links,
 });

@@ -15,31 +15,26 @@ export const Route = createFileRoute("/field-notes")({
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
 		const title = travel.title?.trim() || "Field notes";
 		const intro = travel.intro?.trim() || "Public notes from places along the way.";
-		return pageHead(
-			c,
-			`${name} — Field notes`,
-			intro,
-			"/field-notes",
-			"/images/social-field-notes.png",
-			[
-				{
-					"@context": "https://schema.org",
-					"@type": "CollectionPage",
-					name: title,
-					description: intro,
-					mainEntity: {
-						"@type": "ItemList",
-						itemListElement: (travel.entries ?? [])
-							.filter((entry) => entry?.visibility === "public")
-							.map((entry, index) => ({
-								"@type": "ListItem",
-								position: index + 1,
-								name: entry.place?.trim() || "Field note",
-							})),
-					},
+		return pageHead(c, {
+			title: `${name} — Field notes`,
+			crumb: title,
+			description: intro,
+			path: "/field-notes",
+			image: "/images/social-field-notes.png",
+			page: {
+				"@type": "CollectionPage",
+				mainEntity: {
+					"@type": "ItemList",
+					itemListElement: (travel.entries ?? [])
+						.filter((entry) => entry?.visibility === "public")
+						.map((entry, index) => ({
+							"@type": "ListItem",
+							position: index + 1,
+							name: entry.place?.trim() || "Field note",
+						})),
 				},
-			],
-		);
+			},
+		});
 	},
 	component: FieldNotes,
 });

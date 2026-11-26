@@ -1,8 +1,7 @@
 import { Fragment, type ReactNode } from "react";
 import { Link, createFileRoute, notFound, useLocation } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
-import { jsonLd, pageHead } from "../lib/seo";
-import { mediaHref } from "../lib/media";
+import { absolute, jsonLd, mediaSocialImage, pageHead } from "../lib/seo";
 import { cn } from "../lib/utils";
 import { EMPTY_PORTFOLIO_CONTENT, type ProjectContent } from "../types/content";
 import { ProjectExternalLinks, ProjectStatus } from "../components/ProjectCard";
@@ -54,19 +53,31 @@ export const Route = createFileRoute("/work_/$slug")({
 		const description =
 			project.summary.trim() ||
 			`${title}, a ${categoryLabels[project.category].toLowerCase()} by ${name}.`;
-		const image = mediaHref(project.cover) ?? "/images/social-work.png";
+		const cover = mediaSocialImage(project.cover);
+		const image = cover ?? "/images/social-work.png";
 		const repository = project.repository?.trim();
 		const site = project.href?.trim();
-		return pageHead(c, `${title} — ${name}`, description, path, image, [
-			{
-				...jsonLd(c, repository ? "SoftwareSourceCode" : "CreativeWork", title, path),
-				description,
-				genre: categoryLabels[project.category],
-				keywords: nonEmpty(project.tags).join(", ") || undefined,
-				...(repository ? { codeRepository: repository } : {}),
-				...(site && /^https?:\/\//i.test(site) ? { sameAs: [site] } : {}),
-			},
-		]);
+		const year = project.year.trim().match(/^\d{4}/u)?.[0];
+		return pageHead(c, {
+			title: `${title} — ${name}`,
+			crumb: title,
+			description,
+			path,
+			image,
+			parents: [{ name: "Work", path: "/work" }],
+			structuredData: [
+				{
+					...jsonLd(repository ? "SoftwareSourceCode" : "CreativeWork", title, path),
+					description,
+					genre: categoryLabels[project.category],
+					keywords: nonEmpty(project.tags).join(", ") || undefined,
+					...(cover ? { image: absolute(cover.href) } : {}),
+					...(year ? { dateCreated: year } : {}),
+					...(repository ? { codeRepository: repository } : {}),
+					...(site && /^https?:\/\//i.test(site) ? { sameAs: [site] } : {}),
+				},
+			],
+		});
 	},
 	component: ProjectPage,
 });

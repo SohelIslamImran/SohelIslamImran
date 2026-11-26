@@ -1,7 +1,7 @@
 import { useMemo, type CSSProperties } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { getPublishedContent } from "../server/content";
-import { pageHead } from "../lib/seo";
+import { PERSON_ID, pageHead } from "../lib/seo";
 import { mediaHref } from "../lib/media";
 import { EMPTY_PORTFOLIO_CONTENT } from "../types/content";
 import { PortfolioImage } from "../components/PortfolioImage";
@@ -39,27 +39,16 @@ export const Route = createFileRoute("/resume")({
 		const c = loaderData ?? EMPTY_PORTFOLIO_CONTENT;
 		const name = c.identity.name.trim() || "Sohel Islam Imran";
 		const role = c.identity.role.trim() || "Full-stack engineer";
-		const employer = c.experience.find((item) => item.current)?.company.trim() || undefined;
-		return pageHead(
-			c,
-			`${name} — Résumé`,
-			`${role}. Experience, skills, and selected projects, on one printable page.`,
-			"/resume",
-			"/images/social-resume.png",
-			[
-				{
-					"@context": "https://schema.org",
-					"@type": "ProfilePage",
-					name: `${name} résumé`,
-					mainEntity: {
-						"@type": "Person",
-						name,
-						jobTitle: role,
-						...(employer ? { worksFor: { "@type": "Organization", name: employer } } : {}),
-					},
-				},
-			],
-		);
+		return pageHead(c, {
+			title: `${name} — Résumé`,
+			crumb: "Résumé",
+			description: `${role}. Experience, skills, and selected projects, on one printable page.`,
+			path: "/resume",
+			image: "/images/social-resume.png",
+			type: "profile",
+			modifiedTime: c.resume.updatedAt ?? undefined,
+			page: { "@type": "ProfilePage", mainEntity: { "@id": PERSON_ID } },
+		});
 	},
 	component: Resume,
 });
