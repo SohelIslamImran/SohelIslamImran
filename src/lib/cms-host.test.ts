@@ -24,6 +24,8 @@ describe("cms host rewrite", () => {
 			"/draft-media/asset_1234",
 			"/images/me.webp",
 			"/favicon.svg",
+			"/icons/apple-touch-icon.png",
+			"/site.webmanifest",
 			"/robots.txt",
 		]) {
 			expect(toInternalCmsPath(path)).toBe(path);

@@ -20,9 +20,18 @@ export const Route = createFileRoute("/story")({
 		const title = (c.story.title.trim() || "Career story").replace(/\.$/u, "");
 		const description = c.story.intro.trim() || "A public account of the work behind the work.";
 		const writing = c.writing.find((item) => item.href === "/story");
-		return pageHead(c, `${name} — ${title}`, description, "/story", "/images/social-story.png", [
-			articleJsonLd(c, title, description, "/story", writing?.publishedAt),
-		]);
+		const image = "/images/social-story.png";
+		const published = writing?.publishedAt.trim() || undefined;
+		return pageHead(c, {
+			title: `${name} — ${title}`,
+			crumb: title,
+			description,
+			path: "/story",
+			image,
+			type: "article",
+			publishedTime: published,
+			structuredData: [articleJsonLd(title, description, "/story", image, published)],
+		});
 	},
 	component: Story,
 });

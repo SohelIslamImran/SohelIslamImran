@@ -20,6 +20,8 @@ const PASSTHROUGH_PREFIXES = [
 	"/media/",
 	"/draft-media/",
 	"/favicon",
+	"/icons/",
+	"/site.webmanifest",
 	"/robots.txt",
 ] as const;
 

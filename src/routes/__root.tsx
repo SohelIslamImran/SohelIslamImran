@@ -38,12 +38,23 @@ export const Route = createRootRoute({
 			{ charSet: "utf-8" },
 			{ name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
 			{ title: "Sohel Islam Imran" },
+			// Fallbacks for routes without their own head; public pages override them.
+			{
+				name: "description",
+				content:
+					"Sohel Islam Imran, lead full-stack engineer: web and mobile interfaces, APIs, databases and migrations, single sign-on, and permissions.",
+			},
+			{ name: "application-name", content: "Sohel Islam Imran" },
+			{ name: "apple-mobile-web-app-title", content: "Sohel" },
 			{ name: "theme-color", content: themeColors.light },
 			{ name: "color-scheme", content: "light dark" },
 			{ name: "format-detection", content: "telephone=no" },
 		],
 		links: [
+			{ rel: "icon", href: "/favicon.ico", sizes: "32x32" },
 			{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+			{ rel: "apple-touch-icon", href: "/icons/apple-touch-icon.png" },
+			{ rel: "manifest", href: "/site.webmanifest" },
 			{
 				rel: "alternate",
 				type: "application/rss+xml",
