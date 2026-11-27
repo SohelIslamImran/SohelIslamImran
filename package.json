@@ -42,7 +42,7 @@
 		"@vitejs/plugin-react": "6.3.0",
 		"miniflare": "5.20260911.0-alpha",
 		"oxfmt": "0.79.0",
-		"oxlint": "1.94.0",
+		"oxlint": "1.95.0",
 		"shadcn": "^4.23.0",
 		"tailwindcss": "4.3.5",
 		"typescript": "7.0.2",
