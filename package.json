@@ -33,7 +33,7 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "1.70.1",
-		"@cloudflare/workers-types": "5.20261121.1",
+		"@cloudflare/workers-types": "5.20261124.1",
 		"@tailwindcss/vite": "4.3.5",
 		"@tanstack/router-plugin": "1.169.0",
 		"@types/node": "26.6.6",
